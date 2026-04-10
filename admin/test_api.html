@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Test - Theme Loader</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f5f5f5;
+    }
+    .test-section {
+        background: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+        padding: 10px 20px;
+        margin: 5px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    button:hover {
+        background: #0056b3;
+    }
+    pre {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        max-height: 400px;
+    }
+    .success { color: #28a745; }
+    .error { color: #dc3545; }
+</style>
+</head>
+<body>
+<h1>API Connectivity Test</h1>
+
+<div class="test-section">
+    <h2>Test API Endpoints</h2>
+    <button onclick="testEndpoint('/api/themes')">Test /themes</button>
+    <button onclick="testEndpoint('/api/color_settings')">Test /color_settings</button>
+    <button onclick="testEndpoint('/api/font_settings')">Test /font_settings</button>
+    <button onclick="testEndpoint('/api/design_settings')">Test /design_settings</button>
+    <button onclick="testEndpoint('/api/button_styles')">Test /button_styles</button>
+    <button onclick="testEndpoint('/api/card_styles')">Test /card_styles</button>
+    <button onclick="testEndpoint('/api/system_settings')">Test /system_settings</button>
+    <button onclick="testEndpoint('/api/roles')">Test /roles</button>
+    <button onclick="testEndpoint('/api/tenants')">Test /tenants</button>
+    <button onclick="testEndpoint('/api/tenant_users')">Test /tenant_users</button>
+</div>
+
+<div class="test-section">
+    <h2>Results</h2>
+    <div id="results"></div>
+</div>
+
+<div class="test-section">
+    <h2>Console Logs</h2>
+    <pre id="console-logs"></pre>
+</div>
+
+<script>
+const logs = [];
+const resultsDiv = document.getElementById('results');
+
+function log(...args) {
+    logs.push(args.join(' '));
+    document.getElementById('console-logs').textContent = logs.join('\n');
+}
+
+async function testEndpoint(url) {
+    resultsDiv.innerHTML += `<p>Testing: <strong>${url}</strong>...</p>`;
+    log(`Testing endpoint: ${url}`);
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        log(`Status: ${response.status} | OK: ${response.ok}`);
+        log('Response:', JSON.stringify(data));
+
+        resultsDiv.innerHTML += `
+            <div style="margin-left:20px; margin-bottom:15px;">
+                <p class="${response.ok ? 'success' : 'error'}">
+                    Status: ${response.status} ${response.statusText}
+                </p>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            </div>
+        `;
+    } catch (err) {
+        log('Error:', err.message);
+        resultsDiv.innerHTML += `
+            <div style="margin-left:20px; margin-bottom:15px;">
+                <p class="error">Error: ${err.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Auto-log on load
+window.addEventListener('load', () => {
+    log('Page loaded, ready to test APIs');
+    log('Click buttons above to test each endpoint');
+});
+</script>
+</body>
+</html>

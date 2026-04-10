@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Resource Permissions API Tester</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Helvetica,Arial;max-width:900px;margin:20px auto;padding:10px}
+  textarea,input,select,button{font-family:monospace;font-size:14px}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  label{min-width:140px}
+  textarea{width:100%;height:180px}
+  pre{background:#111;color:#efe;padding:10px;overflow:auto;max-height:320px}
+  .ok{color:green}.err{color:#c00}
+</style>
+</head>
+<body>
+<h2>Resource Permissions API Tester</h2>
+<p>تجربة طلبات POST و OPTIONS على نقطة <code>/api/resource_permissions</code> — يتم تعيين Endpoint افتراضياً إلى نفس الأصل (same origin).</p>
+
+<div class="row">
+  <label for="endpoint">Endpoint URL</label>
+  <input id="endpoint" type="text" style="flex:1" />
+</div>
+
+<div class="row">
+  <label for="payload">Payload (JSON)</label>
+  <select id="payloadPreset">
+    <option value="default">Default updates (1 item)</option>
+    <option value="multiple">Multiple items</option>
+    <option value="custom">Load custom below</option>
+  </select>
+</div>
+
+<textarea id="payload"></textarea>
+
+<div class="row">
+  <label for="customHeader">Include custom header?</label>
+  <input id="customHeader" type="checkbox" />
+  <small>اضغط لاضافة رأس مخصص <code>X-Debug-Test: 1</code> (سيجبر preflight)</small>
+</div>
+
+<div class="row">
+  <label></label>
+  <button id="btnPost">Send POST</button>
+  <button id="btnOptions">Send OPTIONS (preflight)</button>
+  <button id="btnClear">Clear Log</button>
+</div>
+
+<h3>النتيجة</h3>
+<div><strong>Status:</strong> <span id="status">-</span></div>
+<div><strong>Response Headers:</strong></div>
+<pre id="respHeaders">-</pre>
+<div><strong>Response Body:</strong></div>
+<pre id="respBody">-</pre>
+<div><strong>Console Log:</strong></div>
+<pre id="log">-- جاهز --</pre>
+
+<script>
+  const endpointEl = document.getElementById('endpoint');
+  const payloadEl = document.getElementById('payload');
+  const preset = document.getElementById('payloadPreset');
+  const customHeader = document.getElementById('customHeader');
+  const statusEl = document.getElementById('status');
+  const respHeadersEl = document.getElementById('respHeaders');
+  const respBodyEl = document.getElementById('respBody');
+  const logEl = document.getElementById('log');
+
+  function appendLog(...args){ logEl.textContent += '\\n' + args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' '); logEl.scrollTop = logEl.scrollHeight; }
+
+  const defaultPayload = { updates: [{ id: 45, resource_type: "users", permission_id: 41, role_id: 6, tenant_id: 1, can_view_all:1, can_view_own:1, can_view_tenant:1, can_create:1, can_edit_all:1, can_edit_own:1, can_delete_all:1, can_delete_own:1 }] };
+  const multiPayload = { updates: [
+    { id: 45, can_view_all:0, can_view_own:1, can_view_tenant:1, can_create:1, can_edit_all:1, can_edit_own:0, can_delete_all:0, can_delete_own:0, role_id:6, tenant_id:1 },
+    { id: 46, can_view_all:1, can_view_own:1, can_view_tenant:0, can_create:0, can_edit_all:0, can_edit_own:1, can_delete_all:0, can_delete_own:0, role_id:6, tenant_id:1 }
+  ]};
+
+  function loadPreset() {
+    if (preset.value === 'default') payloadEl.value = JSON.stringify(defaultPayload, null, 2);
+    else if (preset.value === 'multiple') payloadEl.value = JSON.stringify(multiPayload, null, 2);
+    else if (preset.value === 'custom') payloadEl.value = '';
+  }
+  preset.addEventListener('change', loadPreset);
+  loadPreset();
+
+  function clearResults(){
+    statusEl.textContent = '-';
+    respHeadersEl.textContent = '-';
+    respBodyEl.textContent = '-';
+  }
+  document.getElementById('btnClear').addEventListener('click', () => { logEl.textContent = '-- جاهز --'; clearResults(); });
+
+  async function sendOptions(){
+    clearResults();
+    appendLog('[test] Sending OPTIONS preflight to', endpointEl.value);
+    try {
+      const res = await fetch(endpointEl.value, {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': window.location.origin,
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': customHeader.checked ? 'Content-Type,X-Debug-Test' : 'Content-Type'
+        },
+        credentials: 'include'
+      });
+      statusEl.textContent = res.status + ' ' + res.statusText;
+      const hdrs = {};
+      res.headers.forEach((v,k)=>hdrs[k]=v);
+      respHeadersEl.textContent = JSON.stringify(hdrs, null, 2);
+      const txt = await res.text();
+      respBodyEl.textContent = txt || '(empty)';
+      appendLog('[test] OPTIONS completed', res.status);
+    } catch (err) {
+      appendLog('[test] OPTIONS failed:', err.message || err);
+      statusEl.textContent = 'ERROR';
+      respBodyEl.textContent = String(err);
+    }
+  }
+
+  async function sendPost(){
+    clearResults();
+    appendLog('[test] Sending POST to', endpointEl.value);
+    let payload;
+    try {
+      payload = JSON.parse(payloadEl.value);
+    } catch (err) {
+      appendLog('[test] Invalid JSON payload:', err.message);
+      respBodyEl.textContent = 'Invalid JSON: ' + err.message;
+      return;
+    }
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (customHeader.checked) headers['X-Debug-Test'] = '1'; // force preflight
+      appendLog('[test] Request headers:', headers);
+      appendLog('[test] Request body (first 400 chars):', JSON.stringify(payload).slice(0,400));
+      const res = await fetch(endpointEl.value, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+      statusEl.textContent = res.status + ' ' + res.statusText;
+      const hdrs = {};
+      res.headers.forEach((v,k)=>hdrs[k]=v);
+      respHeadersEl.textContent = JSON.stringify(hdrs, null, 2);
+      const txt = await res.text();
+      try {
+        const j = txt ? JSON.parse(txt) : {};
+        respBodyEl.textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        respBodyEl.textContent = txt || '(empty)';
+      }
+      appendLog('[test] POST completed with status', res.status);
+    } catch (err) {
+      appendLog('[test] POST failed:', err.message || err);
+      statusEl.textContent = 'ERROR';
+      respBodyEl.textContent = String(err);
+    }
+  }
+
+  document.getElementById('btnOptions').addEventListener('click', sendOptions);
+  document.getElementById('btnPost').addEventListener('click', sendPost);
+
+  // set endpoint default to same origin /api/resource_permissions for convenience
+  window.addEventListener('DOMContentLoaded', () => {
+    const origin = window.location.origin.replace(/\/$/, '');
+    endpointEl.value = origin + '/api/resource_permissions';
+    appendLog('[test] Endpoint set to', endpointEl.value);
+  });
+
+  // helper: allow pressing ctrl+enter to send POST
+  payloadEl.addEventListener('keydown', (e)=>{ if (e.ctrlKey && e.key === 'Enter') sendPost(); });
+</script>
+</body>
+</html>
