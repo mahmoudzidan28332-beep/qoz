@@ -1,0 +1,1 @@
+a:2:{s:4:"data";a:8:{s:9:"tenant_id";i:1;s:7:"role_id";i:1;s:9:"joined_at";s:19:"2026-01-23 02:43:55";s:9:"is_active";i:1;s:11:"tenant_name";s:13:"Global Tenant";s:6:"domain";s:13:"default.local";s:13:"owner_user_id";i:7;s:6:"status";s:6:"active";}s:7:"expires";i:1775819791;}
