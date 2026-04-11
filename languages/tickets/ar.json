@@ -1,0 +1,149 @@
+{
+    "direction": "rtl",
+    "tickets": {
+        "title": "تذاكر الدعم",
+        "subtitle": "إدارة طلبات دعم العملاء",
+        "add_new": "تذكرة جديدة",
+        "loading": "جاري تحميل التذاكر...",
+        "retry": "إعادة المحاولة"
+    },
+    "tabs": {
+        "details": "التفاصيل",
+        "messages": "المحادثة",
+        "history": "سجل الحالة"
+    },
+    "form": {
+        "add_title": "تذكرة دعم جديدة",
+        "edit_title": "تعديل التذكرة",
+        "fields": {
+            "subject": {
+                "label": "الموضوع",
+                "placeholder": "أدخل موضوع التذكرة"
+            },
+            "description": {
+                "label": "الوصف",
+                "placeholder": "اشرح المشكلة بالتفصيل"
+            },
+            "category": {
+                "label": "التصنيف",
+                "select": "اختر التصنيف"
+            },
+            "user": {
+                "label": "العميل",
+                "select": "اختر العميل"
+            },
+            "order": {
+                "label": "الطلب المرتبط",
+                "select": "اختر الطلب (اختياري)"
+            },
+            "entity": {
+                "label": "الكيان",
+                "select": "اختر الكيان"
+            },
+            "status": {
+                "label": "الحالة"
+            },
+            "priority": {
+                "label": "الأولوية"
+            },
+            "assigned_to": {
+                "label": "مكلف بـ",
+                "select": "اختر المكلف",
+                "unassigned": "غير مكلف"
+            },
+            "reply": {
+                "label": "إضافة رد",
+                "placeholder": "اكتب ردك هنا..."
+            },
+            "internal_note": "ملاحظة داخلية؟"
+        },
+        "buttons": {
+            "save": "حفظ التذكرة",
+            "cancel": "إلغاء",
+            "delete": "حذف التذكرة",
+            "send_reply": "إرسال الرد"
+        }
+    },
+    "filters": {
+        "search": "بحث",
+        "search_placeholder": "ابحث بالموضوع أو الرقم...",
+        "status": "الحالة",
+        "priority": "الأولوية",
+        "category": "التصنيف",
+        "all_statuses": "كل الحالات",
+        "all_priorities": "كل الأولويات",
+        "all_categories": "كل التصنيفات",
+        "apply": "تطبيق الفلتر",
+        "reset": "إعادة تعيين"
+    },
+    "table": {
+        "headers": {
+            "id": "الرقم",
+            "subject": "الموضوع",
+            "customer": "العميل",
+            "category": "التصنيف",
+            "priority": "الأولوية",
+            "status": "الحالة",
+            "updated": "آخر تحديث",
+            "actions": "الإجراءات"
+        },
+        "guest": "زائر",
+        "empty": {
+            "title": "لا توجد تذاكر",
+            "message": "لا توجد تذاكر دعم تطابق معايير البحث.",
+            "add_first": "إنشاء تذكرة جديدة"
+        },
+        "actions": {
+            "edit": "تعديل",
+            "delete": "حذف",
+            "view": "عرض التفاصيل"
+        }
+    },
+    "status": {
+        "open": "مفتوح",
+        "pending": "قيد الانتظار",
+        "in_progress": "قيد التنفيذ",
+        "awaiting_customer": "في انتظار العميل",
+        "awaiting_vendor": "في انتظار البائع",
+        "resolved": "تم الحل",
+        "closed": "مغلق",
+        "cancelled": "ملغي",
+        "new": "جديد"
+    },
+    "priority": {
+        "low": "منخفض",
+        "normal": "عادي",
+        "high": "مرتفع",
+        "urgent": "عاجل"
+    },
+    "notifications": {
+        "created": "تم إنشاء التذكرة بنجاح",
+        "updated": "تم تحديث التذكرة بنجاح",
+        "deleted": "تم حذف التذكرة بنجاح",
+        "reply_sent": "تم إرسال الرد بنجاح"
+    },
+    "confirm": {
+        "delete": "هل أنت متأكد من حذف هذه التذكرة؟"
+    },
+    "errors": {
+        "load_failed": "فشل تحميل التذاكر",
+        "save_failed": "فشل حفظ التذكرة"
+    },
+    "messages": {
+        "empty": "لا توجد رسائل بعد.",
+        "system": "النظام",
+        "internal_note": "ملاحظة داخلية"
+    },
+    "history": {
+        "empty": "لا يوجد سجل بعد.",
+        "changed_by": "تم التعديل بواسطة",
+        "note": "ملاحظة"
+    },
+    "pagination": {
+        "of": "من"
+    },
+    "actions": {
+        "edit": "تعديل",
+        "delete": "حذف"
+    }
+}

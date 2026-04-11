@@ -1,0 +1,351 @@
+{
+    "notifications": {
+        "title": "Notifications",
+        "subtitle": "Manage system notifications and delivery channels",
+        "loading": "Loading...",
+        "retry": "Retry",
+        "tabs": {
+            "types": "Types",
+            "list": "Notifications",
+            "channels": "Channels",
+            "counters": "Counters",
+            "deliveries": "Deliveries",
+            "devices": "Devices",
+            "bulk_send": "Bulk Send"
+        }
+    },
+    "types": {
+        "title": "Notification Types",
+        "add_new": "Add Type",
+        "empty_title": "No notification types found",
+        "empty_message": "Create your first notification type to categorize notifications.",
+        "add_first": "Add First Type"
+    },
+    "list": {
+        "title": "Notifications",
+        "add_new": "Add Notification",
+        "empty_title": "No notifications found",
+        "empty_message": "No notifications have been sent yet.",
+        "add_first": "Send First Notification"
+    },
+    "channels": {
+        "title": "Notification Channels",
+        "add_new": "Add Channel",
+        "empty_title": "No channels found",
+        "empty_message": "Create notification delivery channels.",
+        "add_first": "Add First Channel"
+    },
+    "counters": {
+        "title": "Notification Counters",
+        "add_new": "Add Counter",
+        "empty_title": "No counters found",
+        "empty_message": "No notification counters exist yet.",
+        "add_first": "Add First Counter"
+    },
+    "deliveries": {
+        "title": "Delivery Log",
+        "add_new": "Add Delivery",
+        "empty_title": "No deliveries found",
+        "empty_message": "No notification deliveries recorded.",
+        "add_first": "Add Delivery Record"
+    },
+    "devices": {
+        "title": "Registered Devices",
+        "add_new": "Add Device",
+        "empty_title": "No devices found",
+        "empty_message": "No devices have been registered for push notifications.",
+        "add_first": "Register Device"
+    },
+    "table": {
+        "headers": {
+            "id": "ID",
+            "code": "Code",
+            "name": "Name",
+            "description": "Description",
+            "status": "Status",
+            "default_template": "Template",
+            "actions": "Actions",
+            "tenant": "Tenant",
+            "sender": "Sender",
+            "entity": "Entity",
+            "title": "Title",
+            "message": "Message",
+            "priority": "Priority",
+            "type": "Type",
+            "sent_at": "Sent At",
+            "expires_at": "Expires At",
+            "created_at": "Created At",
+            "updated_at": "Updated At",
+            "recipient_type": "Recipient Type",
+            "recipient_id": "Recipient ID",
+            "unread_count": "Unread Count",
+            "notification": "Notification",
+            "channel": "Channel",
+            "delivery_status": "Delivery Status",
+            "attempts": "Attempts",
+            "error": "Error",
+            "user_id": "User ID",
+            "fcm_token": "FCM Token",
+            "device_type": "Device Type",
+            "device_name": "Device Name",
+            "last_seen": "Last Seen",
+            "ip": "IP Address",
+            "username": "Username",
+            "email": "Email"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete",
+            "confirm_delete": "Are you sure you want to delete this record?",
+            "increment": "Increment",
+            "reset": "Reset",
+            "send_push": "Send Push Notification"
+        }
+    },
+    "form": {
+        "add_title": "Add Record",
+        "edit_title": "Edit Record",
+        "fields": {
+            "code": {
+                "label": "Code",
+                "placeholder": "Enter code"
+            },
+            "name": {
+                "label": "Name",
+                "placeholder": "Enter name"
+            },
+            "is_active": {
+                "label": "Status",
+                "active": "Active",
+                "inactive": "Inactive"
+            },
+            "description": {
+                "label": "Description",
+                "placeholder": "Enter description"
+            },
+            "default_template": {
+                "label": "Default Template",
+                "placeholder": "Enter default template"
+            },
+            "tenant_id": {
+                "label": "Tenant ID"
+            },
+            "notification_type_id": {
+                "label": "Notification Type"
+            },
+            "priority": {
+                "label": "Priority",
+                "low": "Low",
+                "normal": "Normal",
+                "high": "High",
+                "urgent": "Urgent"
+            },
+            "sender_entity_id": {
+                "label": "Sender Entity ID",
+                "placeholder": "Optional"
+            },
+            "entity_id": {
+                "label": "Entity ID",
+                "placeholder": "Optional"
+            },
+            "expires_at": {
+                "label": "Expires At"
+            },
+            "title": {
+                "label": "Title",
+                "placeholder": "Enter title"
+            },
+            "message": {
+                "label": "Message",
+                "placeholder": "Enter message"
+            },
+            "data": {
+                "label": "Data (JSON)"
+            },
+            "channel_id": {
+                "label": "Channel"
+            },
+            "delivery_status": {
+                "label": "Delivery Status",
+                "pending": "Pending",
+                "sent": "Sent",
+                "failed": "Failed"
+            },
+            "attempts": {
+                "label": "Attempts"
+            },
+            "sent_at": {
+                "label": "Sent At"
+            },
+            "error_message": {
+                "label": "Error Message",
+                "placeholder": "Error message if any"
+            },
+            "recipient_type": {
+                "label": "Recipient Type",
+                "user": "User",
+                "entity": "Entity",
+                "tenant": "Tenant"
+            },
+            "recipient_id": {
+                "label": "Recipient ID",
+                "placeholder": "Enter ID"
+            },
+            "unread_count": {
+                "label": "Unread Count"
+            },
+            "notification_id": {
+                "label": "Notification ID"
+            },
+            "channels": {
+                "label": "Delivery Channels",
+                "database": "Database",
+                "push": "Push (Firebase)",
+                "email": "Email",
+                "sms": "SMS"
+            },
+            "user_id": {
+                "label": "User ID",
+                "placeholder": "Enter user ID"
+            },
+            "fcm_token": {
+                "label": "FCM Token",
+                "placeholder": "Firebase Cloud Messaging token"
+            },
+            "device_type": {
+                "label": "Device Type"
+            },
+            "device_name": {
+                "label": "Device Name",
+                "placeholder": "Enter device name"
+            }
+        },
+        "buttons": {
+            "save": "Save",
+            "saving": "Saving...",
+            "updating": "Updating...",
+            "cancel": "Cancel",
+            "send": "Send Notification",
+            "sending": "Sending..."
+        }
+    },
+    "filters": {
+        "search": "Search",
+        "search_placeholder": "Search...",
+        "status": "Status",
+        "status_options": {
+            "all": "All Status",
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "priority": "Priority",
+        "priority_options": {
+            "all": "All Priorities",
+            "low": "Low",
+            "normal": "Normal",
+            "high": "High",
+            "urgent": "Urgent"
+        },
+        "delivery_status": "Delivery Status",
+        "delivery_status_options": {
+            "all": "All",
+            "pending": "Pending",
+            "sent": "Sent",
+            "failed": "Failed"
+        },
+        "recipient_type": "Recipient Type",
+        "recipient_type_options": {
+            "all": "All",
+            "user": "User",
+            "entity": "Entity",
+            "tenant": "Tenant"
+        },
+        "tenant_id": "Tenant",
+        "tenant_placeholder": "Filter by tenant",
+        "apply": "Apply",
+        "reset": "Reset"
+    },
+    "priority_labels": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+    },
+    "recipient_type_labels": {
+        "user": "User",
+        "entity": "Entity",
+        "tenant": "Tenant"
+    },
+    "delivery_status_labels": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed"
+    },
+    "device_type_labels": {
+        "web": "Web",
+        "android": "Android",
+        "ios": "iOS",
+        "mobile": "Mobile"
+    },
+    "pagination": {
+        "showing": "Showing"
+    },
+    "messages": {
+        "success": {
+            "created": "Record created successfully",
+            "updated": "Record updated successfully",
+            "deleted": "Record deleted successfully",
+            "sent": "Notification sent successfully via selected channels",
+            "push_sent": "Push notification sent successfully"
+        },
+        "error": {
+            "load_failed": "Error Loading Data",
+            "save_failed": "Failed to save record",
+            "delete_failed": "Failed to delete record",
+            "send_failed": "Failed to send notification"
+        }
+    },
+    "send_notification": {
+        "title": "Send Notification",
+        "subtitle": "Send a notification through selected channels",
+        "recipient_type": "Recipient Type",
+        "recipient_id": "Recipient ID",
+        "channels_label": "Select delivery channels",
+        "confirm": "Are you sure you want to send this notification?",
+        "target_devices": "Target Devices",
+        "device_picker_hint": "Select specific devices or leave all unchecked to send to all devices.",
+        "enter_recipient_first": "Enter a Recipient ID first to load devices.",
+        "load_devices": "Load Devices",
+        "loading_devices": "Loading devices...",
+        "no_devices_found": "No devices found for this user.",
+        "no_fcm_token": "No FCM token",
+        "device_inactive": "Inactive",
+        "load_devices_error": "Failed to load devices"
+    },
+    "bulk_send": {
+        "title": "Bulk Send Notification",
+        "select_recipients": "Select Recipients",
+        "search_users_placeholder": "Search by username or email...",
+        "filter_role": "Role",
+        "all_roles": "All Roles",
+        "has_device": "Device Type",
+        "any_device": "Any",
+        "load_users": "Load Users",
+        "select_all": "Select All",
+        "deselect_all": "Deselect All",
+        "selected": "selected",
+        "click_load": "Click \"Load Users\" to browse recipients.",
+        "send_button": "Send to Selected Recipients",
+        "loading_users": "Loading users...",
+        "no_users_found": "No users found with the current filters.",
+        "total_users": "total",
+        "no_recipients_selected": "Please select at least one recipient.",
+        "confirm_send": "Send notification to {count} recipients?",
+        "send_complete": "Sent: {success}/{total}, Failed: {fail}",
+        "send_failed": "Bulk send failed"
+    }
+}

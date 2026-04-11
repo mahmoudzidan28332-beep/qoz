@@ -1,0 +1,149 @@
+{
+    "direction": "ltr",
+    "tickets": {
+        "title": "Support Tickets",
+        "subtitle": "Manage customer support requests",
+        "add_new": "New Ticket",
+        "loading": "Loading tickets...",
+        "retry": "Retry"
+    },
+    "tabs": {
+        "details": "Details",
+        "messages": "Messages",
+        "history": "Status History"
+    },
+    "form": {
+        "add_title": "New Support Ticket",
+        "edit_title": "Edit Ticket",
+        "fields": {
+            "subject": {
+                "label": "Subject",
+                "placeholder": "Enter ticket subject"
+            },
+            "description": {
+                "label": "Description",
+                "placeholder": "Describe the issue in detail"
+            },
+            "category": {
+                "label": "Category",
+                "select": "Select category"
+            },
+            "user": {
+                "label": "Customer",
+                "select": "Select customer"
+            },
+            "order": {
+                "label": "Related Order",
+                "select": "Select order (optional)"
+            },
+            "entity": {
+                "label": "Entity",
+                "select": "Select entity"
+            },
+            "status": {
+                "label": "Status"
+            },
+            "priority": {
+                "label": "Priority"
+            },
+            "assigned_to": {
+                "label": "Assigned To",
+                "select": "Select agent",
+                "unassigned": "Unassigned"
+            },
+            "reply": {
+                "label": "Add Reply",
+                "placeholder": "Type your response here..."
+            },
+            "internal_note": "Internal Note?"
+        },
+        "buttons": {
+            "save": "Save Ticket",
+            "cancel": "Cancel",
+            "delete": "Delete Ticket",
+            "send_reply": "Send Reply"
+        }
+    },
+    "filters": {
+        "search": "Search",
+        "search_placeholder": "Search by subject or #ID...",
+        "status": "Status",
+        "priority": "Priority",
+        "category": "Category",
+        "all_statuses": "All Statuses",
+        "all_priorities": "All Priorities",
+        "all_categories": "All Categories",
+        "apply": "Apply Filters",
+        "reset": "Reset"
+    },
+    "table": {
+        "headers": {
+            "id": "ID",
+            "subject": "Subject",
+            "customer": "Customer",
+            "category": "Category",
+            "priority": "Priority",
+            "status": "Status",
+            "updated": "Last Updated",
+            "actions": "Actions"
+        },
+        "guest": "Guest",
+        "empty": {
+            "title": "No Tickets Found",
+            "message": "There are no support tickets matching your criteria.",
+            "add_first": "Create First Ticket"
+        },
+        "actions": {
+            "edit": "Edit",
+            "delete": "Delete",
+            "view": "View Details"
+        }
+    },
+    "status": {
+        "open": "Open",
+        "pending": "Pending",
+        "in_progress": "In Progress",
+        "awaiting_customer": "Awaiting Customer",
+        "awaiting_vendor": "Awaiting Vendor",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "cancelled": "Cancelled",
+        "new": "New"
+    },
+    "priority": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+    },
+    "notifications": {
+        "created": "Ticket created successfully",
+        "updated": "Ticket updated successfully",
+        "deleted": "Ticket deleted successfully",
+        "reply_sent": "Reply sent successfully"
+    },
+    "confirm": {
+        "delete": "Are you sure you want to delete this ticket?"
+    },
+    "errors": {
+        "load_failed": "Failed to load tickets",
+        "save_failed": "Failed to save ticket"
+    },
+    "messages": {
+        "empty": "No messages yet.",
+        "system": "System",
+        "internal_note": "Internal Note"
+    },
+    "history": {
+        "empty": "No history yet.",
+        "changed_by": "Changed by",
+        "note": "Note"
+    },
+    "pagination": {
+        "of": "of"
+    },
+    "actions": {
+        "edit": "Edit",
+        "delete": "Delete"
+    }
+}

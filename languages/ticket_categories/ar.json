@@ -1,0 +1,87 @@
+{
+    "ticket_categories": {
+        "title": "تصنيفات التذاكر",
+        "subtitle": "إدارة تصنيفات تذاكر الدعم",
+        "add_new": "إضافة تصنيف",
+        "loading": "جاري تحميل التصنيفات...",
+        "retry": "إعادة المحاولة"
+    },
+    "form": {
+        "add_title": "تصنيف جديد",
+        "edit_title": "تعديل التصنيف",
+        "fields": {
+            "name": {
+                "label": "اسم التصنيف",
+                "placeholder": "أدخل اسم التصنيف"
+            },
+            "description": {
+                "label": "الوصف",
+                "placeholder": "وصف اختياري"
+            },
+            "parent": {
+                "label": "التصنيف الأب",
+                "none": "— بدون (مستوى أعلى) —"
+            },
+            "priority_level": {
+                "label": "مستوى الأولوية"
+            },
+            "status": {
+                "label": "الحالة"
+            },
+            "language": {
+                "label": "اللغة",
+                "en": "الإنجليزية",
+                "ar": "العربية"
+            }
+        },
+        "buttons": {
+            "save": "حفظ التصنيف",
+            "cancel": "إلغاء",
+            "delete": "حذف التصنيف"
+        },
+        "translations_heading": "الترجمات"
+    },
+    "filters": {
+        "search": "بحث",
+        "search_placeholder": "ابحث بالاسم...",
+        "status": "الحالة",
+        "all_statuses": "كل الحالات",
+        "active": "نشط",
+        "inactive": "غير نشط",
+        "apply": "تطبيق",
+        "reset": "إعادة تعيين"
+    },
+    "table": {
+        "headers": {
+            "id": "الرقم",
+            "name": "الاسم",
+            "description": "الوصف",
+            "parent": "التصنيف الأب",
+            "priority": "الأولوية",
+            "status": "الحالة",
+            "actions": "الإجراءات"
+        },
+        "empty": {
+            "title": "لا توجد تصنيفات",
+            "message": "لم يتم إنشاء أي تصنيفات بعد.",
+            "add_first": "إنشاء أول تصنيف"
+        },
+        "actions": {
+            "edit": "تعديل",
+            "delete": "حذف"
+        },
+        "active": "نشط",
+        "inactive": "غير نشط"
+    },
+    "messages": {
+        "created": "تم إنشاء التصنيف بنجاح",
+        "updated": "تم تحديث التصنيف بنجاح",
+        "deleted": "تم حذف التصنيف بنجاح",
+        "confirm_delete": "هل أنت متأكد من حذف هذا التصنيف؟",
+        "error": {
+            "load_failed": "فشل تحميل التصنيفات",
+            "save_failed": "فشل حفظ التصنيف",
+            "delete_failed": "فشل حذف التصنيف"
+        }
+    }
+}

@@ -1,0 +1,146 @@
+{
+    "escrow": {
+        "title": "Escrow Transactions",
+        "subtitle": "Manage escrow transactions, disputes and ledger",
+        "add_new": "New Escrow",
+        "loading": "Loading escrow transactions…",
+        "retry": "Retry"
+    },
+    "form": {
+        "add_title": "New Escrow Transaction",
+        "edit_title": "Edit Escrow",
+        "fields": {
+            "escrow_number": {
+                "label": "Escrow Number"
+            },
+            "status": {
+                "label": "Status"
+            },
+            "order_id": {
+                "label": "Order ID"
+            },
+            "amount": {
+                "label": "Amount"
+            },
+            "escrow_fee": {
+                "label": "Escrow Fee"
+            },
+            "currency_code": {
+                "label": "Currency"
+            },
+            "auto_release_days": {
+                "label": "Auto-Release Days"
+            },
+            "buyer_entity_id": {
+                "label": "Buyer Entity ID"
+            },
+            "buyer_entity_type": {
+                "label": "Buyer Entity Type"
+            },
+            "seller_entity_id": {
+                "label": "Seller Entity ID"
+            },
+            "seller_entity_type": {
+                "label": "Seller Entity Type"
+            },
+            "notes": {
+                "label": "Notes",
+                "placeholder": "Additional notes…"
+            }
+        },
+        "buttons": {
+            "save": "Save",
+            "cancel": "Cancel",
+            "delete": "Delete"
+        },
+        "tabs": {
+            "details": "Details",
+            "disputes": "Disputes",
+            "history": "Status History",
+            "ledger": "Ledger"
+        }
+    },
+    "filters": {
+        "search": "Search",
+        "search_placeholder": "Search by escrow number…",
+        "status": "Status",
+        "all_statuses": "All Statuses",
+        "apply": "Apply Filters",
+        "reset": "Reset"
+    },
+    "table": {
+        "headers": {
+            "id": "ID",
+            "escrow_number": "Escrow #",
+            "order_id": "Order",
+            "amount": "Amount",
+            "currency": "Currency",
+            "status": "Status",
+            "created_at": "Created",
+            "actions": "Actions"
+        },
+        "empty": {
+            "title": "No Escrow Transactions Found",
+            "message": "There are no escrow transactions matching your criteria.",
+            "add_first": "Create First Escrow"
+        }
+    },
+    "status": {
+        "pending": "Pending",
+        "funded": "Funded",
+        "in_transit": "In Transit",
+        "delivered": "Delivered",
+        "released": "Released",
+        "disputed": "Disputed",
+        "refunded": "Refunded",
+        "cancelled": "Cancelled"
+    },
+    "disputes": {
+        "headers": {
+            "number": "Dispute #",
+            "type": "Type",
+            "status": "Status",
+            "description": "Description",
+            "created_at": "Created"
+        },
+        "empty": "No disputes for this escrow",
+        "status": {
+            "open": "Open",
+            "under_review": "Under Review",
+            "resolved_buyer": "Resolved (Buyer)",
+            "resolved_seller": "Resolved (Seller)",
+            "resolved_partial": "Resolved (Partial)",
+            "closed": "Closed"
+        }
+    },
+    "history": {
+        "headers": {
+            "status": "Status",
+            "changed_by": "Changed By",
+            "notes": "Notes",
+            "date": "Date"
+        },
+        "empty": "No status history yet"
+    },
+    "ledger": {
+        "headers": {
+            "type": "Type",
+            "amount": "Amount",
+            "currency": "Currency",
+            "entity": "Entity",
+            "notes": "Notes",
+            "created_at": "Date"
+        },
+        "empty": "No ledger entries yet"
+    },
+    "messages": {
+        "created": "Escrow transaction created successfully",
+        "updated": "Escrow transaction updated successfully",
+        "deleted": "Escrow transaction deleted successfully",
+        "confirm_delete": "Are you sure you want to delete this escrow transaction?",
+        "error": {
+            "load_failed": "Failed to load escrow transactions",
+            "save_failed": "Failed to save escrow transaction"
+        }
+    }
+}

@@ -1,0 +1,120 @@
+{
+    "returns": {
+        "title": "Return Requests",
+        "subtitle": "Manage customer return requests",
+        "add_new": "New Return",
+        "loading": "Loading returns...",
+        "retry": "Retry"
+    },
+    "form": {
+        "add_title": "New Return Request",
+        "edit_title": "Edit Return",
+        "fields": {
+            "return_number": {
+                "label": "Return Number"
+            },
+            "order_id": {
+                "label": "Order",
+                "select": "Select order"
+            },
+            "user_id": {
+                "label": "Customer",
+                "select": "Select customer"
+            },
+            "status": {
+                "label": "Status"
+            },
+            "reason": {
+                "label": "Reason",
+                "placeholder": "Reason for return request"
+            },
+            "admin_notes": {
+                "label": "Admin Notes",
+                "placeholder": "Internal notes (not visible to customer)"
+            },
+            "requested_at": {
+                "label": "Requested At"
+            },
+            "processed_at": {
+                "label": "Processed At"
+            }
+        },
+        "buttons": {
+            "save": "Save Return",
+            "cancel": "Cancel",
+            "delete": "Delete Return",
+            "approve": "Approve",
+            "reject": "Reject",
+            "process": "Mark Processing",
+            "complete": "Mark Complete"
+        },
+        "tabs": {
+            "details": "Details",
+            "items": "Items",
+            "history": "Status History"
+        }
+    },
+    "filters": {
+        "search": "Search",
+        "search_placeholder": "Search by return number...",
+        "status": "Status",
+        "all_statuses": "All Statuses",
+        "apply": "Apply Filters",
+        "reset": "Reset"
+    },
+    "table": {
+        "headers": {
+            "id": "ID",
+            "return_number": "Return #",
+            "order": "Order",
+            "customer": "Customer",
+            "status": "Status",
+            "reason": "Reason",
+            "requested_at": "Requested",
+            "actions": "Actions"
+        },
+        "empty": {
+            "title": "No Return Requests Found",
+            "message": "There are no return requests matching your criteria.",
+            "add_first": "Create First Return"
+        }
+    },
+    "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "processing": "Processing",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+    },
+    "items": {
+        "title": "Return Items",
+        "headers": {
+            "product": "Product",
+            "quantity": "Quantity",
+            "reason": "Reason",
+            "refund_amount": "Refund Amount"
+        },
+        "empty": "No items in this return"
+    },
+    "history": {
+        "title": "Status History",
+        "headers": {
+            "status": "Status",
+            "changed_by": "Changed By",
+            "notes": "Notes",
+            "date": "Date"
+        },
+        "empty": "No status history yet"
+    },
+    "messages": {
+        "created": "Return request created successfully",
+        "updated": "Return request updated successfully",
+        "deleted": "Return request deleted successfully",
+        "confirm_delete": "Are you sure you want to delete this return request?",
+        "error": {
+            "load_failed": "Failed to load return requests",
+            "save_failed": "Failed to save return request"
+        }
+    }
+}

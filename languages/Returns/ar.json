@@ -1,0 +1,120 @@
+{
+    "returns": {
+        "title": "طلبات الإرجاع",
+        "subtitle": "إدارة طلبات إرجاع العملاء",
+        "add_new": "طلب إرجاع جديد",
+        "loading": "جاري تحميل طلبات الإرجاع...",
+        "retry": "إعادة المحاولة"
+    },
+    "form": {
+        "add_title": "طلب إرجاع جديد",
+        "edit_title": "تعديل طلب الإرجاع",
+        "fields": {
+            "return_number": {
+                "label": "رقم الإرجاع"
+            },
+            "order_id": {
+                "label": "الطلب",
+                "select": "اختر الطلب"
+            },
+            "user_id": {
+                "label": "العميل",
+                "select": "اختر العميل"
+            },
+            "status": {
+                "label": "الحالة"
+            },
+            "reason": {
+                "label": "السبب",
+                "placeholder": "سبب طلب الإرجاع"
+            },
+            "admin_notes": {
+                "label": "ملاحظات الإدارة",
+                "placeholder": "ملاحظات داخلية (غير مرئية للعميل)"
+            },
+            "requested_at": {
+                "label": "تاريخ الطلب"
+            },
+            "processed_at": {
+                "label": "تاريخ المعالجة"
+            }
+        },
+        "buttons": {
+            "save": "حفظ الإرجاع",
+            "cancel": "إلغاء",
+            "delete": "حذف الإرجاع",
+            "approve": "موافقة",
+            "reject": "رفض",
+            "process": "تعيين كـ: قيد المعالجة",
+            "complete": "تعيين كـ: مكتمل"
+        },
+        "tabs": {
+            "details": "التفاصيل",
+            "items": "المنتجات",
+            "history": "سجل الحالة"
+        }
+    },
+    "filters": {
+        "search": "بحث",
+        "search_placeholder": "البحث برقم الإرجاع...",
+        "status": "الحالة",
+        "all_statuses": "جميع الحالات",
+        "apply": "تطبيق الفلاتر",
+        "reset": "إعادة تعيين"
+    },
+    "table": {
+        "headers": {
+            "id": "الرقم",
+            "return_number": "رقم الإرجاع",
+            "order": "الطلب",
+            "customer": "العميل",
+            "status": "الحالة",
+            "reason": "السبب",
+            "requested_at": "تاريخ الطلب",
+            "actions": "الإجراءات"
+        },
+        "empty": {
+            "title": "لا توجد طلبات إرجاع",
+            "message": "لا توجد طلبات إرجاع تطابق معايير البحث.",
+            "add_first": "إنشاء أول طلب إرجاع"
+        }
+    },
+    "status": {
+        "pending": "قيد الانتظار",
+        "approved": "موافق عليه",
+        "rejected": "مرفوض",
+        "processing": "قيد المعالجة",
+        "completed": "مكتمل",
+        "cancelled": "ملغى"
+    },
+    "items": {
+        "title": "منتجات الإرجاع",
+        "headers": {
+            "product": "المنتج",
+            "quantity": "الكمية",
+            "reason": "السبب",
+            "refund_amount": "مبلغ الاسترداد"
+        },
+        "empty": "لا توجد منتجات في هذا الإرجاع"
+    },
+    "history": {
+        "title": "سجل الحالة",
+        "headers": {
+            "status": "الحالة",
+            "changed_by": "تم التغيير بواسطة",
+            "notes": "ملاحظات",
+            "date": "التاريخ"
+        },
+        "empty": "لا يوجد سجل حالة حتى الآن"
+    },
+    "messages": {
+        "created": "تم إنشاء طلب الإرجاع بنجاح",
+        "updated": "تم تحديث طلب الإرجاع بنجاح",
+        "deleted": "تم حذف طلب الإرجاع بنجاح",
+        "confirm_delete": "هل أنت متأكد من حذف طلب الإرجاع هذا؟",
+        "error": {
+            "load_failed": "فشل تحميل طلبات الإرجاع",
+            "save_failed": "فشل حفظ طلب الإرجاع"
+        }
+    }
+}

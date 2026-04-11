@@ -1,0 +1,146 @@
+{
+    "escrow": {
+        "title": "معاملات الضمان",
+        "subtitle": "إدارة معاملات الضمان والنزاعات وسجل المعاملات",
+        "add_new": "ضمان جديد",
+        "loading": "جاري تحميل معاملات الضمان…",
+        "retry": "إعادة المحاولة"
+    },
+    "form": {
+        "add_title": "معاملة ضمان جديدة",
+        "edit_title": "تعديل الضمان",
+        "fields": {
+            "escrow_number": {
+                "label": "رقم الضمان"
+            },
+            "status": {
+                "label": "الحالة"
+            },
+            "order_id": {
+                "label": "رقم الطلب"
+            },
+            "amount": {
+                "label": "المبلغ"
+            },
+            "escrow_fee": {
+                "label": "رسوم الضمان"
+            },
+            "currency_code": {
+                "label": "العملة"
+            },
+            "auto_release_days": {
+                "label": "أيام الإفراج التلقائي"
+            },
+            "buyer_entity_id": {
+                "label": "معرّف المشتري"
+            },
+            "buyer_entity_type": {
+                "label": "نوع كيان المشتري"
+            },
+            "seller_entity_id": {
+                "label": "معرّف البائع"
+            },
+            "seller_entity_type": {
+                "label": "نوع كيان البائع"
+            },
+            "notes": {
+                "label": "ملاحظات",
+                "placeholder": "ملاحظات إضافية…"
+            }
+        },
+        "buttons": {
+            "save": "حفظ",
+            "cancel": "إلغاء",
+            "delete": "حذف"
+        },
+        "tabs": {
+            "details": "التفاصيل",
+            "disputes": "النزاعات",
+            "history": "سجل الحالات",
+            "ledger": "سجل المعاملات"
+        }
+    },
+    "filters": {
+        "search": "بحث",
+        "search_placeholder": "البحث برقم الضمان…",
+        "status": "الحالة",
+        "all_statuses": "جميع الحالات",
+        "apply": "تطبيق الفلاتر",
+        "reset": "إعادة تعيين"
+    },
+    "table": {
+        "headers": {
+            "id": "المعرّف",
+            "escrow_number": "رقم الضمان",
+            "order_id": "الطلب",
+            "amount": "المبلغ",
+            "currency": "العملة",
+            "status": "الحالة",
+            "created_at": "تاريخ الإنشاء",
+            "actions": "الإجراءات"
+        },
+        "empty": {
+            "title": "لا توجد معاملات ضمان",
+            "message": "لا توجد معاملات ضمان تطابق معايير البحث.",
+            "add_first": "إنشاء أول ضمان"
+        }
+    },
+    "status": {
+        "pending": "قيد الانتظار",
+        "funded": "ممول",
+        "in_transit": "قيد الشحن",
+        "delivered": "تم التسليم",
+        "released": "تم الإفراج",
+        "disputed": "متنازع عليه",
+        "refunded": "مُسترد",
+        "cancelled": "ملغى"
+    },
+    "disputes": {
+        "headers": {
+            "number": "رقم النزاع",
+            "type": "النوع",
+            "status": "الحالة",
+            "description": "الوصف",
+            "created_at": "تاريخ الإنشاء"
+        },
+        "empty": "لا توجد نزاعات لهذا الضمان",
+        "status": {
+            "open": "مفتوح",
+            "under_review": "قيد المراجعة",
+            "resolved_buyer": "محسوم لصالح المشتري",
+            "resolved_seller": "محسوم لصالح البائع",
+            "resolved_partial": "محسوم جزئياً",
+            "closed": "مغلق"
+        }
+    },
+    "history": {
+        "headers": {
+            "status": "الحالة",
+            "changed_by": "تم التغيير بواسطة",
+            "notes": "ملاحظات",
+            "date": "التاريخ"
+        },
+        "empty": "لا يوجد سجل للحالات بعد"
+    },
+    "ledger": {
+        "headers": {
+            "type": "النوع",
+            "amount": "المبلغ",
+            "currency": "العملة",
+            "entity": "الكيان",
+            "notes": "ملاحظات",
+            "created_at": "التاريخ"
+        },
+        "empty": "لا توجد إدخالات في السجل بعد"
+    },
+    "messages": {
+        "created": "تم إنشاء معاملة الضمان بنجاح",
+        "updated": "تم تحديث معاملة الضمان بنجاح",
+        "deleted": "تم حذف معاملة الضمان بنجاح",
+        "confirm_delete": "هل أنت متأكد من حذف معاملة الضمان هذه؟",
+        "error": {
+            "load_failed": "فشل تحميل معاملات الضمان",
+            "save_failed": "فشل حفظ معاملة الضمان"
+        }
+    }
+}
