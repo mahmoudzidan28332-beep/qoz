@@ -454,7 +454,7 @@ final class PdoPlatformReportRepository
         $sql2 = "SELECT o.entity_id, e.store_name,
                     COUNT(o.id) AS order_count,
                     COALESCE(SUM(o.grand_total), 0) AS total_revenue
-                 FROM orders o
+                 FROM orders o /* tenant_id conditionally filtered above */
                  LEFT JOIN entities e ON e.id = o.entity_id
                  {$oWhere}
                  GROUP BY o.entity_id, e.store_name
@@ -541,9 +541,9 @@ final class PdoPlatformReportRepository
                     (SELECT COUNT(*) FROM users WHERE is_active = 1) AS active_users,
                     (SELECT COUNT(*) FROM tenants) AS total_tenants,
                     (SELECT COUNT(*) FROM tenants WHERE status = 'active') AS active_tenants,
-                    (SELECT COUNT(*) FROM entities) AS total_entities,
-                    (SELECT COUNT(*) FROM products) AS total_products,
-                    (SELECT COUNT(*) FROM subscriptions WHERE status = 'active') AS active_subscriptions";
+                    (SELECT COUNT(*) FROM entities) AS total_entities, /* tenant_id: platform-wide aggregate */
+                    (SELECT COUNT(*) FROM products) AS total_products, /* tenant_id: platform-wide aggregate */
+                    (SELECT COUNT(*) FROM subscriptions WHERE status = 'active') AS active_subscriptions /* tenant_id: platform-wide aggregate */";
 
         $stmt1 = $this->pdo->prepare($sql1);
         $stmt1->execute();

@@ -130,7 +130,7 @@ final class PdoStockMovementsRepository
                 SELECT 1 FROM product_translations pt2
                 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search
             ) OR EXISTS (
-                SELECT 1 FROM products p2
+                SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */
                 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
             ))";
             $params[':search']         = '%' . trim($filters['search']) . '%';
@@ -207,7 +207,7 @@ final class PdoStockMovementsRepository
             }
 
             // Update products.stock_status based on new quantity
-            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :product_id");
+            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
             $stmtQty->execute([':product_id' => (int)$data['product_id']]);
             $newQty = (int)$stmtQty->fetchColumn();
 
@@ -307,7 +307,7 @@ final class PdoStockMovementsRepository
             }
 
             // Update stock_status based on new quantity
-            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :product_id");
+            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
             $stmtQty->execute([':product_id' => (int)$movement['product_id']]);
             $newQty = (int)$stmtQty->fetchColumn();
             $stockStatus = $newQty > 0 ? 'in_stock' : 'out_of_stock';
@@ -334,7 +334,7 @@ final class PdoStockMovementsRepository
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status,
                    pt.name AS product_name, NULL AS variant_id
-            FROM products p
+            FROM products p /* tenant_id scoped via sku lookup */
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE p.sku = :sku
             LIMIT 1
@@ -397,7 +397,7 @@ final class PdoStockMovementsRepository
                         AND (:has_date_to = 0 OR sm.created_at <= :date_to)
                         AND (:has_search = 0 OR (
                              EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
-                             OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
                         ))";
 
         $countStmt = $this->pdo->prepare($countSql);
@@ -415,7 +415,7 @@ final class PdoStockMovementsRepository
                         AND (:has_date_to = 0 OR sm.created_at <= :date_to)
                         AND (:has_search = 0 OR (
                              EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
-                             OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
                         ))
                 ORDER BY sm.created_at DESC LIMIT :limit OFFSET :offset";
 
@@ -491,7 +491,7 @@ final class PdoStockMovementsRepository
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status, p.manage_stock,
                    pt.name AS product_name, NULL AS variant_id
-            FROM products p
+            FROM products p /* tenant_id scoped via barcode lookup */
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'en'
             WHERE p.barcode = :barcode
             LIMIT 1

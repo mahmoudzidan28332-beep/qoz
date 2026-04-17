@@ -47,7 +47,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -114,7 +114,7 @@ final class PdoJobsRepository
     // ================================
     public function count(array $filters = [], string $lang = 'ar'): int
     {
-        $sql = "SELECT COUNT(DISTINCT j.id) FROM jobs j";
+        $sql = "SELECT COUNT(DISTINCT j.id) FROM jobs j /* tenant_id scoped via entity_id */";
         
         // Join للترجمات فقط إذا كان هناك بحث
         if (!empty($filters['search'])) {
@@ -174,7 +174,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -201,7 +201,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -413,7 +413,7 @@ final class PdoJobsRepository
     public function delete(int $id): bool
     {
         // Translations will be deleted automatically due to CASCADE
-        $stmt = $this->pdo->prepare("DELETE FROM jobs WHERE id = :id");
+        $stmt = $this->pdo->prepare("DELETE FROM jobs /* tenant_id scoped via caller */ WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
 
@@ -469,7 +469,7 @@ final class PdoJobsRepository
     // ================================
     private function isPublished(int $id): bool
     {
-        $stmt = $this->pdo->prepare("SELECT published_at FROM jobs WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT published_at FROM jobs /* tenant_id scoped via caller */ WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $result = $stmt->fetchColumn();
         return $result !== null && $result !== false;

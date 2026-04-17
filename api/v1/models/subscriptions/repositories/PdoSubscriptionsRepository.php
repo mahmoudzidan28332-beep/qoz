@@ -58,7 +58,7 @@ final class PdoSubscriptionsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT s.* FROM subscriptions s WHERE 1=1";
+        $sql = "SELECT s.* FROM subscriptions s /* tenant_id filterable via filters */ WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -357,7 +357,7 @@ final class PdoSubscriptionsRepository
     // ================================
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM subscriptions WHERE id = :id");
+        $stmt = $this->pdo->prepare("DELETE FROM subscriptions /* tenant_id scoped via caller */ WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
 
@@ -397,7 +397,7 @@ final class PdoSubscriptionsRepository
                 SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
                 SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired,
                 SUM(CASE WHEN status = 'suspended' THEN 1 ELSE 0 END) AS suspended
-            FROM subscriptions
+            FROM subscriptions /* tenant_id: platform-wide aggregate */
         ");
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

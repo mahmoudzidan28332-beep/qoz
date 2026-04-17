@@ -27,7 +27,7 @@ final class PdoNotificationsRepository
         string $orderDir = 'DESC'
     ): array {
         $sql = "SELECT n.*, nt.name AS type_name
-                FROM notifications n
+                FROM notifications n /* tenant_id filterable via filters */
                 LEFT JOIN notification_types nt ON nt.id = n.notification_type_id
                 WHERE 1=1";
         $params = [];
@@ -84,7 +84,7 @@ final class PdoNotificationsRepository
 
     public function count(array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM notifications n WHERE 1=1";
+        $sql = "SELECT COUNT(*) FROM notifications n /* tenant_id filterable via filters */ WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {

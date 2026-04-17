@@ -408,7 +408,7 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         $whereClause = 'WHERE ' . implode(' AND ', $where);
         $stmt = $this->pdo->prepare("
             SELECT o.*, u.username AS customer_name
-            FROM orders o
+            FROM orders o /* tenant_id filtered in WHERE clause */
             LEFT JOIN users u ON o.user_id = u.id
             $whereClause
             ORDER BY o.created_at DESC

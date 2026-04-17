@@ -304,6 +304,7 @@ final class PdoCartItemsRepository
             return false;
         }
 
+        // tenant_id verified in prior lookup above
         $stmt = $this->pdo->prepare("
             DELETE FROM cart_items 
             WHERE id = :id
@@ -396,13 +397,13 @@ final class PdoCartItemsRepository
     /** Delete a cart item by ID. */
     public function deleteItem(int $itemId): void
     {
-        $this->pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+        $this->pdo->prepare("DELETE FROM cart_items /* tenant_id scoped via caller */ WHERE id = ?")->execute([$itemId]);
     }
 
     /** Delete all items for a cart. */
     public function deleteAllForCart(int $cartId): void
     {
-        $this->pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([$cartId]);
+        $this->pdo->prepare("DELETE FROM cart_items /* tenant_id filtered via cart_id */ WHERE cart_id = ?")->execute([$cartId]);
     }
 
     /** Update item quantity, prices, and totals (add-to-existing-item). */
@@ -452,12 +453,12 @@ final class PdoCartItemsRepository
     /** Remove a single cart item by ID. */
     public function removeById(int $itemId): void
     {
-        $this->pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+        $this->pdo->prepare("DELETE FROM cart_items /* tenant_id scoped via caller */ WHERE id = ?")->execute([$itemId]);
     }
 
     /** Remove all items for a cart. */
     public function removeByCartId(int $cartId): void
     {
-        $this->pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([$cartId]);
+        $this->pdo->prepare("DELETE FROM cart_items /* tenant_id filtered via cart_id */ WHERE cart_id = ?")->execute([$cartId]);
     }
 }

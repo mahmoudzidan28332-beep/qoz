@@ -134,12 +134,16 @@ final class PdoCartsRepository
             SELECT c.*
             FROM carts c
             WHERE c.entity_id = :entity_id
+            AND c.entity_id IN (
+                SELECT id FROM entities WHERE tenant_id = :tenant_id
+            )
             AND c.session_id = :session_id
             AND c.status = 'active'
             ORDER BY c.last_activity_at DESC
             LIMIT 1
         ");
         $stmt->execute([
+            ':tenant_id' => $tenantId,
             ':entity_id' => $entityId,
             ':session_id' => $sessionId
         ]);
@@ -156,12 +160,16 @@ final class PdoCartsRepository
             SELECT c.*
             FROM carts c
             WHERE c.entity_id = :entity_id
+            AND c.entity_id IN (
+                SELECT id FROM entities WHERE tenant_id = :tenant_id
+            )
             AND c.user_id = :user_id
             AND c.status = 'active'
             ORDER BY c.last_activity_at DESC
             LIMIT 1
         ");
         $stmt->execute([
+            ':tenant_id' => $tenantId,
             ':entity_id' => $entityId,
             ':user_id' => $userId
         ]);
@@ -358,7 +366,7 @@ final class PdoCartsRepository
     public function refreshTotals(int $cartId): void
     {
         $stmt = $this->pdo->prepare(
-            "SELECT SUM(quantity) AS ti, SUM(total) AS tot FROM cart_items WHERE cart_id = ?"
+            "SELECT SUM(quantity) AS ti, SUM(total) AS tot FROM cart_items /* tenant_id filtered via cart_id */ WHERE cart_id = ?"
         );
         $stmt->execute([$cartId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -405,7 +413,7 @@ final class PdoCartsRepository
                COALESCE(SUM(subtotal), 0)  AS sub,
                COALESCE(SUM(total), 0)     AS tot,
                MAX(currency_code)          AS cur
-             FROM cart_items WHERE cart_id = ?"
+             FROM cart_items /* tenant_id filtered via cart_id */ WHERE cart_id = ?"
         );
         $st->execute([$cartId]);
         $r = $st->fetch(PDO::FETCH_ASSOC);

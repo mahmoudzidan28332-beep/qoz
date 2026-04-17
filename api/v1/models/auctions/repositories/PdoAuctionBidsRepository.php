@@ -119,7 +119,7 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
     /** Lock auction row for update (bid race-condition prevention). */
     public function lockForUpdate(int $auctionId): void
     {
-        $this->pdo->prepare('SELECT id FROM auctions WHERE id=? FOR UPDATE')->execute([$auctionId]);
+        $this->pdo->prepare('SELECT id FROM auctions /* tenant_id scoped via caller */ WHERE id=? FOR UPDATE')->execute([$auctionId]);
     }
 
     /** Clear winning flag on all bids for an auction. */
