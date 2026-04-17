@@ -62,14 +62,11 @@ final class PdoEntityPaymentMethodsRepository
             $params[':date_to'] = $filters['date_to'] . ' 23:59:59';
         }
 
-        $sql = "
-            SELECT p.*, pm.method_key, pm.method_name, pm.gateway_name, pm.icon_url, e.store_name AS entity_name, e.tenant_id AS row_tenant_id
+        $sql = "SELECT p.*, pm.method_key, pm.method_name, pm.gateway_name, pm.icon_url, e.store_name AS entity_name, e.tenant_id AS row_tenant_id
             FROM entity_payment_methods p
             INNER JOIN entities e ON e.id = p.entity_id
-            LEFT JOIN payment_methods pm ON pm.id = p.payment_method_id
-            WHERE {$where}
-            ORDER BY {$orderBy} {$orderDir}
-        ";
+            LEFT JOIN payment_methods pm ON pm.id = p.payment_method_id";
+        $sql .= " WHERE " . $where . " ORDER BY " . $orderBy . " " . $orderDir;
 
         if ($limit !== null)  $sql .= " LIMIT :limit";
         if ($offset !== null) $sql .= " OFFSET :offset";

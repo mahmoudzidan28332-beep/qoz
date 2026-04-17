@@ -14,7 +14,6 @@ declare(strict_types=1);
 
 // تعطيل عرض الأخطاء في الإنتاج
 ini_set('display_errors', '0');
-error_reporting(E_ALL);
 
 // بدء الجلسة
 if (session_status() === PHP_SESSION_NONE) {

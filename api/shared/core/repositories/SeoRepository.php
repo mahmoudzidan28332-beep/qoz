@@ -55,9 +55,9 @@ class SeoRepository
      */
     public function getEntityTranslations(string $table, string $fk, string $nameColumn, int $entityId): array
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT language_code, {$nameColumn} AS name, description FROM {$table} WHERE {$fk} = ?"
-        );
+        $sql = "SELECT language_code, " . $nameColumn . " AS name, description";
+        $sql .= " FROM " . $table . " WHERE " . $fk . " = ?";
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$entityId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

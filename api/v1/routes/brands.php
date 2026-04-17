@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';

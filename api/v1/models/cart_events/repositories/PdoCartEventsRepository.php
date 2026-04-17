@@ -32,7 +32,8 @@ final class PdoCartEventsRepository
     public function count(array $where, array $params): int
     {
         $whereStr = implode(' AND ', $where);
-        $sql = "SELECT COUNT(*) FROM cart_events ce WHERE {$whereStr}";
+        $sql = "SELECT COUNT(*) FROM cart_events ce";
+        $sql .= " WHERE " . $whereStr;
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return (int)$stmt->fetchColumn();
@@ -50,7 +51,8 @@ final class PdoCartEventsRepository
         $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
         $whereStr = implode(' AND ', $where);
 
-        $sql = "SELECT ce.* FROM cart_events ce WHERE {$whereStr} ORDER BY ce.{$orderBy} {$orderDir} LIMIT :limit OFFSET :offset";
+        $sql = "SELECT ce.* FROM cart_events ce";
+        $sql .= " WHERE " . $whereStr . " ORDER BY ce." . $orderBy . " " . $orderDir . " LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);

@@ -4,7 +4,6 @@ declare(strict_types=1);
 // api/routes/permissions.php
 
 ini_set('display_errors', 0);
-error_reporting(E_ALL);
 
 // ===== مسار api =====
 $baseDir = dirname(__DIR__, 2);

@@ -133,7 +133,8 @@ final class PermissionService
 
         try {
             $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
-            $sql = "SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = ? AND rp.role_id IN ({$placeholders})";
+            $sql = "SELECT COUNT(*) FROM role_permissions rp";
+            $sql .= " WHERE rp.permission_id = ? AND rp.role_id IN (" . $placeholders . ")";
             $stmt = $this->pdo->prepare($sql);
             $params = array_merge([$permissionId], $roleIds);
             $stmt->execute($params);
@@ -163,7 +164,8 @@ final class PermissionService
         if (!empty($names)) {
             try {
                 $placeholders = implode(',', array_fill(0, count($names), '?'));
-                $sql = "SELECT id FROM roles WHERE name IN ({$placeholders}) OR key_name IN ({$placeholders})";
+                $sql = "SELECT id FROM roles";
+                $sql .= " WHERE name IN (" . $placeholders . ") OR key_name IN (" . $placeholders . ")";
                 // bind names twice? prepare with merged params
                 $stmt = $this->pdo->prepare($sql);
                 $params = array_merge($names, $names);

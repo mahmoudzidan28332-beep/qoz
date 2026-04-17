@@ -165,7 +165,9 @@ try {
             $selectValCols = [];
             foreach (['id','attribute_id','value','slug','color_code','image_url','sort_order','is_active'] as $c) if (in_array($c,$valCols)) $selectValCols[] = "`{$c}`";
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $stmt = $conn->prepare("SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values WHERE attribute_id IN ({$placeholders}) ORDER BY sort_order ASC, id ASC");
+            $sql = "SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values";
+            $sql .= " WHERE attribute_id IN (" . $placeholders . ") ORDER BY sort_order ASC, id ASC";
+            $stmt = $conn->prepare($sql);
             $types = str_repeat('i', count($ids));
             $stmt->bind_param($types, ...$ids);
             $stmt->execute();
