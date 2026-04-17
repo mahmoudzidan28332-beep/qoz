@@ -3,18 +3,30 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../repositories/PdoUsersRepository.php';
 require_once __DIR__ . '/../validators/UsersValidator.php';
+require_once __DIR__ . '/../repositories/PdoUserPhoneVerificationsRepository.php';
+require_once __DIR__ . '/../repositories/PdoUserAuthProvidersRepository.php';
+require_once __DIR__ . '/../repositories/PdoAuthRbacRepository.php';
 
 final class UsersService
 {
     private PdoUsersRepository $repo;
     private UsersValidator $validator;
+    private ?PdoUserPhoneVerificationsRepository $phoneVerifRepo;
+    private ?PdoUserAuthProvidersRepository $authProvRepo;
+    private ?PdoAuthRbacRepository $rbacRepo;
 
     public function __construct(
         PdoUsersRepository $repo,
-        UsersValidator $validator
+        UsersValidator $validator,
+        ?PdoUserPhoneVerificationsRepository $phoneVerifRepo = null,
+        ?PdoUserAuthProvidersRepository $authProvRepo = null,
+        ?PdoAuthRbacRepository $rbacRepo = null
     ) {
         $this->repo = $repo;
         $this->validator = $validator;
+        $this->phoneVerifRepo = $phoneVerifRepo;
+        $this->authProvRepo = $authProvRepo;
+        $this->rbacRepo = $rbacRepo;
     }
 
     public function list(?int $limit = null, ?int $offset = null, array $filters = []): array
@@ -82,5 +94,156 @@ final class UsersService
         if (!$this->repo->delete($id, $userId)) {
             throw new RuntimeException('Failed to delete user');
         }
+    }
+
+    // ── User auth methods ────────────────────────────────────────────────
+
+    public function findForLogin(string $usernameOrEmail): ?array
+    {
+        return $this->repo->findForLogin($usernameOrEmail);
+    }
+
+    public function findBasicById(int $id): ?array
+    {
+        return $this->repo->findBasicById($id);
+    }
+
+    public function activateUser(int $id): int
+    {
+        return $this->repo->activateUser($id);
+    }
+
+    public function activateUserWithTimestamp(int $id): int
+    {
+        return $this->repo->activateUserWithTimestamp($id);
+    }
+
+    public function reactivateUser(int $id): void
+    {
+        $this->repo->reactivateUser($id);
+    }
+
+    public function existsByUsernameOrEmail(string $username, string $email): bool
+    {
+        return $this->repo->existsByUsernameOrEmail($username, $email);
+    }
+
+    public function createForRegistration(string $username, string $email, string $passwordHash, ?string $phone, string $lang): int
+    {
+        return $this->repo->createForRegistration($username, $email, $passwordHash, $phone, $lang);
+    }
+
+    public function findByUsernameExact(string $username): ?array
+    {
+        return $this->repo->findByUsernameExact($username);
+    }
+
+    public function createOAuthUser(string $username, string $email, string $lang): int
+    {
+        return $this->repo->createOAuthUser($username, $email, $lang);
+    }
+
+    public function findIdByEmail(string $email): ?int
+    {
+        return $this->repo->findIdByEmail($email);
+    }
+
+    public function findWithTenantInfo(int $id): ?array
+    {
+        return $this->repo->findWithTenantInfo($id);
+    }
+
+    public function findInactiveUserPhone(int $id): ?array
+    {
+        return $this->repo->findInactiveUserPhone($id);
+    }
+
+    public function findProfileById(int $id): ?array
+    {
+        return $this->repo->findProfileById($id);
+    }
+
+    // ── Phone verification methods ───────────────────────────────────────
+
+    public function findPendingVerification(string $tokenHash): ?array
+    {
+        return $this->phoneVerifRepo->findPendingByTokenHash($tokenHash);
+    }
+
+    public function findUsedTokenUserStatus(string $tokenHash): ?array
+    {
+        return $this->phoneVerifRepo->findUsedTokenUserStatus($tokenHash);
+    }
+
+    public function markVerificationUsed(int $id): void
+    {
+        $this->phoneVerifRepo->markUsed($id);
+    }
+
+    public function countRecentVerificationsByIp(string $ip): int
+    {
+        return $this->phoneVerifRepo->countRecentByIp($ip);
+    }
+
+    public function countRecentVerificationsByUserId(int $userId): int
+    {
+        return $this->phoneVerifRepo->countRecentByUserId($userId);
+    }
+
+    public function createPhoneVerification(int $userId, string $tokenHash, string $deviceHash, string $sessionId, string $userAgent, string $ip, string $expiresAt): int
+    {
+        return $this->phoneVerifRepo->create($userId, $tokenHash, $deviceHash, $sessionId, $userAgent, $ip, $expiresAt);
+    }
+
+    public function updateVerificationSessionId(int $id, string $sessionId): void
+    {
+        $this->phoneVerifRepo->updateSessionId($id, $sessionId);
+    }
+
+    // ── Auth provider methods ────────────────────────────────────────────
+
+    public function findUserIdByProvider(string $provider, string $providerUserId): ?int
+    {
+        return $this->authProvRepo->findUserIdByProvider($provider, $providerUserId);
+    }
+
+    public function linkAuthProvider(int $userId, string $provider, string $providerUserId, string $providerExtra): void
+    {
+        $this->authProvRepo->linkProvider($userId, $provider, $providerUserId, $providerExtra);
+    }
+
+    public function findProviderExtra(string $provider, string $providerUserId): ?string
+    {
+        return $this->authProvRepo->findProviderExtra($provider, $providerUserId);
+    }
+
+    // ── RBAC methods ─────────────────────────────────────────────────────
+
+    public function loadRbac(int $userId, ?int $roleId = null): array
+    {
+        $perms = [];
+        $roles = [];
+        try {
+            if ($this->rbacRepo->tableExists('user_roles')) {
+                $roles = array_merge($roles, $this->rbacRepo->getRoleKeysByUserId($userId));
+            } elseif ($roleId) {
+                $r = $this->rbacRepo->getRoleKeyById($roleId);
+                if ($r) $roles[] = $r;
+            }
+            if ($this->rbacRepo->tableExists('user_permissions')) {
+                $perms = array_merge($perms, $this->rbacRepo->getPermissionKeysByUserId($userId));
+            }
+            if ($roleId) {
+                $perms = array_merge($perms, $this->rbacRepo->getPermissionKeysByRoleId($roleId));
+            } elseif (!empty($roles)) {
+                $perms = array_merge($perms, $this->rbacRepo->getPermissionKeysByRoleKeys($roles));
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) Logger::error('RBAC: ' . $e->getMessage());
+        }
+        return [
+            'permissions' => array_values(array_unique($perms)),
+            'roles'       => array_values(array_unique($roles)),
+        ];
     }
 }

@@ -47,10 +47,20 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-require_once dirname(__DIR__) . '/models/users_account/repositories/PdoUserPhoneVerificationsRepository.php';
-require_once dirname(__DIR__) . '/models/users_account/repositories/PdoUsersRepository.php';
-$phoneVerifRepo = new PdoUserPhoneVerificationsRepository($pdo);
-$usersRepo = new PdoUsersRepository($pdo);
+$_vpModelsPath = dirname(__DIR__) . '/models/users_account';
+require_once $_vpModelsPath . '/repositories/PdoUsersRepository.php';
+require_once $_vpModelsPath . '/repositories/PdoUserPhoneVerificationsRepository.php';
+require_once $_vpModelsPath . '/services/UsersService.php';
+require_once $_vpModelsPath . '/controllers/UsersController.php';
+require_once $_vpModelsPath . '/validators/UsersValidator.php';
+
+$controller = new UsersController(
+    new UsersService(
+        new PdoUsersRepository($pdo),
+        new UsersValidator(),
+        new PdoUserPhoneVerificationsRepository($pdo)
+    )
+);
 
 // ---- Read token ----
 $rawToken    = '';
@@ -125,11 +135,11 @@ $deviceHash = ($rawDevice !== '') ? hash('sha256', $rawDevice) : '';
 
 try {
     // Look up pending verification record
-    $row = $phoneVerifRepo->findPendingByTokenHash($tokenHash);
+    $row = $controller->findPendingVerification($tokenHash);
 
     if (!$row) {
         // Token not found or already used — check if the user is already active
-        $usedRow = $phoneVerifRepo->findUsedTokenUserStatus($tokenHash);
+        $usedRow = $controller->findUsedTokenUserStatus($tokenHash);
         if ($usedRow && (int)$usedRow['is_active'] === 1) {
             // Account is already active — treat as success
             if ($isJsonReq) {
@@ -189,7 +199,7 @@ try {
     // Doing this first ensures that if the SELECT fails (e.g. unexpected schema
     // difference) the activation UPDATE has not yet run, so the account stays
     // inactive and the token stays unused — no partial state is left behind.
-    $userData = $usersRepo->findBasicById($userId);
+    $userData = $controller->findBasicById($userId);
 
     if (!$userData) {
         _vpError('لم يُعثر على الحساب المرتبط بهذا الرابط.', 404, $isJsonReq);
@@ -199,11 +209,11 @@ try {
     // ---- Activate the user ----
     // Omit updated_at from the SET clause — it may be absent on some installs;
     // if the column has ON UPDATE CURRENT_TIMESTAMP MySQL will update it anyway.
-    $usersRepo->activateUser($userId);
+    $controller->activateUser($userId);
     // rowCount() == 0 means account was already active; token is still marked used below.
 
     // Mark token as used (one-time)
-    $phoneVerifRepo->markUsed($row['id']);
+    $controller->markVerificationUsed($row['id']);
 
     // Build user object for session and response
     $user = [

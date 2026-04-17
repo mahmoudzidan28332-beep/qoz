@@ -15,6 +15,9 @@ require_once $_authModelsPath . '/users_account/repositories/PdoUserAuthProvider
 require_once $_authModelsPath . '/users_account/repositories/PdoUserPhoneVerificationsRepository.php';
 require_once $_authModelsPath . '/users_account/repositories/PdoAuthRbacRepository.php';
 require_once $_authModelsPath . '/notification/repositories/PdoUserDevicesRepository.php';
+require_once $_authModelsPath . '/users_account/validators/UsersValidator.php';
+require_once $_authModelsPath . '/users_account/services/UsersService.php';
+require_once $_authModelsPath . '/users_account/controllers/UsersController.php';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SESSION BOOTSTRAP
@@ -105,27 +108,9 @@ function _flush_response(): void
 // ══════════════════════════════════════════════════════════════════════════════
 //  RBAC
 // ══════════════════════════════════════════════════════════════════════════════
-function _load_rbac(PDO $pdo, int $userId, ?int $roleId = null): array
+function _load_rbac(UsersController $controller, int $userId, ?int $roleId = null): array
 {
-    $rbacRepo = new PdoAuthRbacRepository($pdo);
-    $perms = []; $roles = [];
-    try {
-        if ($rbacRepo->tableExists('user_roles')) {
-            $roles = array_merge($roles, $rbacRepo->getRoleKeysByUserId($userId));
-        } elseif ($roleId) {
-            $r = $rbacRepo->getRoleKeyById($roleId);
-            if ($r) $roles[] = $r;
-        }
-        if ($rbacRepo->tableExists('user_permissions')) {
-            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByUserId($userId));
-        }
-        if ($roleId) {
-            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByRoleId($roleId));
-        } elseif (!empty($roles)) {
-            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByRoleKeys($roles));
-        }
-    } catch (Throwable $e) { if (class_exists('Logger')) Logger::error('RBAC: '.$e->getMessage()); }
-    return ['permissions'=>array_values(array_unique($perms)), 'roles'=>array_values(array_unique($roles))];
+    return $controller->loadRbac($userId, $roleId);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -147,27 +132,27 @@ function _detect_device(string $ua): array
  * After login: link an anonymous device row to the real user_id.
  * Priority: cookie token → UA match → create new row.
  */
-function _link_device_on_login(PDO $pdo, int $userId): void
+function _link_device_on_login(PDO $dbConn, int $userId): void
 {
     try {
-        $devRepo = new PdoUserDevicesRepository($pdo);
+        $devices = new PdoUserDevicesRepository($dbConn);
         $ua        = _ua();
         $ip        = _ip();
         $anonToken = $_COOKIE['qz_dvt'] ?? null;
 
         if ($anonToken && strlen($anonToken) === 64) {
-            if ($devRepo->linkByAnonymousToken($userId, $ip, $anonToken) > 0) return;
+            if ($devices->linkByAnonymousToken($userId, $ip, $anonToken) > 0) return;
         }
 
-        $row = $devRepo->findActiveByUserAgent($ua, $userId);
+        $row = $devices->findActiveByUserAgent($ua, $userId);
         if ($row) {
-            $devRepo->linkUserToDevice($userId, $ip, $row['id']);
+            $devices->linkUserToDevice($userId, $ip, $row['id']);
             return;
         }
 
         [$type, $name] = _detect_device($ua);
         $newAnon = bin2hex(random_bytes(32));
-        $devRepo->createForLogin($userId, $newAnon, $type, $name, $ua, $ip);
+        $devices->createForLogin($userId, $newAnon, $type, $name, $ua, $ip);
         _set_device_cookie($newAnon);
     } catch (Throwable $e) {
         if (class_exists('Logger')) Logger::error('Device link: '.$e->getMessage());
@@ -177,17 +162,14 @@ function _link_device_on_login(PDO $pdo, int $userId): void
 // ══════════════════════════════════════════════════════════════════════════════
 //  OAUTH PROVIDER UPSERT  (Google / Facebook / Apple share this)
 // ══════════════════════════════════════════════════════════════════════════════
-function _provider_login(PDO $pdo, string $provider, string $sub, string $email, string $name, array $extra): array
+function _provider_login(PDO $dbConn, UsersController $controller, string $provider, string $sub, string $email, string $name, array $extra): array
 {
-    $authProvRepo = new PdoUserAuthProvidersRepository($pdo);
-    $usersRepo = new PdoUsersRepository($pdo);
-
     // 1. Already linked?
-    $userId = $authProvRepo->findUserIdByProvider($provider, $sub);
+    $userId = $controller->findUserIdByProvider($provider, $sub);
 
     if (!$userId) {
         // Existing user with same email?
-        $existingId = $usersRepo->findIdByEmail($email);
+        $existingId = $controller->findIdByEmail($email);
 
         if ($existingId) {
             $userId = $existingId;
@@ -197,27 +179,27 @@ function _provider_login(PDO $pdo, string $provider, string $sub, string $email,
             if (strlen($base) < 3) $base = 'user';
             $username = substr($base, 0, 45); $c = 1;
             while (true) {
-                $chk = $usersRepo->findByUsernameExact($username);
+                $chk = $controller->findByUsernameExact($username);
                 if (!$chk) break;
                 $username = substr($base, 0, 40) . $c++;
             }
-            $userId = $usersRepo->createOAuthUser($username, $email, 'en');
+            $userId = $controller->createOAuthUser($username, $email, 'en');
         }
 
         // Link provider — INSERT IGNORE handles race conditions
-        $authProvRepo->linkProvider($userId, $provider, $sub, json_encode($extra));
+        $controller->linkAuthProvider($userId, $provider, $sub, json_encode($extra));
     }
 
     // Load full record
-    $uRow = $usersRepo->findWithTenantInfo($userId);
+    $uRow = $controller->findWithTenantInfo($userId);
     if (!$uRow) throw new RuntimeException("User not found after {$provider} upsert (id={$userId})");
 
     // Re-activate if needed
     if (!(bool)$uRow['is_active']) {
-        $usersRepo->reactivateUser($userId);
+        $controller->reactivateUser($userId);
     }
 
-    $rbac = _load_rbac($pdo, $userId, isset($uRow['role_id']) ? (int)$uRow['role_id'] : null);
+    $rbac = _load_rbac($controller, $userId, isset($uRow['role_id']) ? (int)$uRow['role_id'] : null);
     session_regenerate_id(true);
 
     $user = [
@@ -244,7 +226,7 @@ function _provider_login(PDO $pdo, string $provider, string $sub, string $email,
           $_SESSION['pending_otp_expires'], $_SESSION['pending_otp_attempts'],
           $_SESSION['pending_verify_link']);
     $GLOBALS['ADMIN_USER'] = $user;
-    _link_device_on_login($pdo, $userId);
+    _link_device_on_login($dbConn, $userId);
     return $user;
 }
 
@@ -253,6 +235,16 @@ function _provider_login(PDO $pdo, string $provider, string $sub, string $email,
 // ══════════════════════════════════════════════════════════════════════════════
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) { _no_cache(); ResponseFormatter::serverError('Database unavailable'); exit; }
+
+$controller = new UsersController(
+    new UsersService(
+        new PdoUsersRepository($pdo),
+        new UsersValidator(),
+        new PdoUserPhoneVerificationsRepository($pdo),
+        new PdoUserAuthProvidersRepository($pdo),
+        new PdoAuthRbacRepository($pdo)
+    )
+);
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ROUTING
@@ -340,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         try {
-            _provider_login($pdo, 'google', $sub, $email, $name, [
+            _provider_login($pdo, $controller, 'google', $sub, $email, $name, [
                 'email_verified'=>(bool)($ui['verified_email'] ?? false),'name'=>$name,'picture'=>$ui['picture'] ?? null,
             ]);
             header('Location: '.$appUrl.'/frontend/public/index.php');
@@ -393,23 +385,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = _current_user()['id'] ?? null;
 
         try {
-            $devRepo = new PdoUserDevicesRepository($pdo);
+            $devices = new PdoUserDevicesRepository($pdo);
             $existingId = null;
             if ($anonToken && strlen($anonToken) === 64) {
-                $row = $devRepo->findByAnonymousToken($anonToken);
+                $row = $devices->findByAnonymousToken($anonToken);
                 if ($row) $existingId = (int)$row['id'];
             }
             if (!$existingId && $userId) {
-                $row2 = $devRepo->findActiveByUserIdAndAgent($userId, $ua);
+                $row2 = $devices->findActiveByUserIdAndAgent($userId, $ua);
                 if ($row2) $existingId = (int)$row2['id'];
             }
 
             if ($existingId) {
-                $devRepo->updateDeviceRegistration($userId, $fcmToken, $dType, $dName, $ip, $existingId);
+                $devices->updateDeviceRegistration($userId, $fcmToken, $dType, $dName, $ip, $existingId);
                 $deviceId = $existingId;
             } else {
                 $anonToken = bin2hex(random_bytes(32));
-                $deviceId = $devRepo->createDeviceRegistration($userId, $anonToken, $fcmToken, $dType, $dName, $ua, $ip);
+                $deviceId = $devices->createDeviceRegistration($userId, $anonToken, $fcmToken, $dType, $dName, $ua, $ip);
                 _set_device_cookie($anonToken);
             }
 
@@ -435,29 +427,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ua     = _ua();
 
         try {
-            $devRepo = new PdoUserDevicesRepository($pdo);
+            $devices = new PdoUserDevicesRepository($pdo);
             // Remove stale binding on other users
             if ($userId) {
-                $devRepo->clearStaleFcmToken($fcmToken, $userId);
+                $devices->clearStaleFcmToken($fcmToken, $userId);
             }
 
             $targetId = null;
             if ($deviceId) { $targetId = $deviceId; }
             elseif ($anonToken && strlen($anonToken) === 64) {
-                $row = $devRepo->findByAnonymousToken($anonToken);
+                $row = $devices->findByAnonymousToken($anonToken);
                 if ($row) $targetId = (int)$row['id'];
             } elseif ($userId) {
-                $row = $devRepo->findLatestActiveByUserIdAndAgent($userId, $ua);
+                $row = $devices->findLatestActiveByUserIdAndAgent($userId, $ua);
                 if ($row) $targetId = (int)$row['id'];
             }
 
             if (!$targetId) {
                 [$dType, $dName] = _detect_device($ua);
                 $newAnon = bin2hex(random_bytes(32));
-                $targetId = $devRepo->createDeviceRegistration($userId, $newAnon, $fcmToken, $dType, $dName, $ua, _ip());
+                $targetId = $devices->createDeviceRegistration($userId, $newAnon, $fcmToken, $dType, $dName, $ua, _ip());
                 $anonToken = $newAnon; _set_device_cookie($newAnon);
             } else {
-                $devRepo->updateFcmToken($fcmToken, $userId, $targetId);
+                $devices->updateFcmToken($fcmToken, $userId, $targetId);
             }
 
             ResponseFormatter::success(['ok'=>true,'device_id'=>$targetId,'anonymous_token'=>$anonToken]);
@@ -490,31 +482,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errors) { ResponseFormatter::error('Validation failed', 422, $errors); exit; }
 
         try {
-            $usersRepo = new PdoUsersRepository($pdo);
-            $phoneVerifRepo = new PdoUserPhoneVerificationsRepository($pdo);
-
             $clientIp = _ip();
             if ($clientIp !== '') {
-                if ($phoneVerifRepo->countRecentByIp($clientIp) >= 5) {
+                if ($controller->countRecentVerificationsByIp($clientIp) >= 5) {
                     ResponseFormatter::error('Too many registration attempts. Please try again later.', 429); exit;
                 }
             }
 
-            if ($usersRepo->existsByUsernameOrEmail($regUser, $regEmail)) {
+            if ($controller->existsByUsernameOrEmail($regUser, $regEmail)) {
                 ResponseFormatter::error('Username or email already exists', 409); exit;
             }
 
-            $newId = $usersRepo->createForRegistration($regUser, $regEmail, password_hash($regPass, PASSWORD_DEFAULT), $regPhone ?: null, $regLang);
+            $newId = $controller->createForRegistration($regUser, $regEmail, password_hash($regPass, PASSWORD_DEFAULT), $regPhone ?: null, $regLang);
 
             $rawToken  = bin2hex(random_bytes(32)); $rawDevice = bin2hex(random_bytes(16));
             $expiresAt = date('Y-m-d H:i:s', time()+86400);
 
-            $vRowId = $phoneVerifRepo->create($newId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), $clientIp, $expiresAt);
+            $vRowId = $controller->createPhoneVerification($newId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), $clientIp, $expiresAt);
             _set_device_cookie($rawDevice);
 
             $activationLink = _app_url().'/frontend/verify_phone.php?t='.urlencode($rawToken);
             session_regenerate_id(true);
-            if ($vRowId > 0) $phoneVerifRepo->updateSessionId($vRowId, session_id());
+            if ($vRowId > 0) $controller->updateVerificationSessionId($vRowId, session_id());
             $_SESSION['pending_user_id'] = $newId;
             unset($_SESSION['user_id'],$_SESSION['user'],$_SESSION['pending_otp'],$_SESSION['pending_verify_link']);
 
@@ -553,18 +542,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$pendingId) { ResponseFormatter::error('No pending registration found.', 400); exit; }
 
         try {
-            $usersRepo = new PdoUsersRepository($pdo);
-            $phoneVerifRepo = new PdoUserPhoneVerificationsRepository($pdo);
-
-            $uData = $usersRepo->findInactiveUserPhone((int)$pendingId);
+            $uData = $controller->findInactiveUserPhone((int)$pendingId);
             if (!$uData || empty($uData['phone'])) { ResponseFormatter::error('User not found or already activated.', 400); exit; }
 
-            if ($phoneVerifRepo->countRecentByUserId((int)$pendingId) > 0) {
+            if ($controller->countRecentVerificationsByUserId((int)$pendingId) > 0) {
                 ResponseFormatter::error('Please wait 60 seconds before requesting another SMS.', 429); exit;
             }
 
             $rawToken = bin2hex(random_bytes(32)); $rawDevice = bin2hex(random_bytes(16));
-            $phoneVerifRepo->create((int)$pendingId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), _ip(), date('Y-m-d H:i:s', time()+86400));
+            $controller->createPhoneVerification((int)$pendingId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), _ip(), date('Y-m-d H:i:s', time()+86400));
             _set_device_cookie($rawDevice);
 
             $activationLink = _app_url().'/frontend/verify_phone.php?t='.urlencode($rawToken);
@@ -612,11 +598,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $usersRepo = new PdoUsersRepository($pdo);
-            $affected = $usersRepo->activateUserWithTimestamp($sessUid);
+            $affected = $controller->activateUserWithTimestamp($sessUid);
             if ($affected === 0) { ResponseFormatter::error('Account already active or not found.', 409); exit; }
 
-            $ud = $usersRepo->findProfileById($sessUid);
+            $ud = $controller->findProfileById($sessUid);
 
             unset($_SESSION['pending_otp'],$_SESSION['pending_user_id'],$_SESSION['pending_otp_expires'],$_SESSION['pending_otp_attempts']);
             session_regenerate_id(true);
@@ -660,7 +645,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($email === '') { ResponseFormatter::error('Google account email missing or invalid', 422); exit; }
 
         try {
-            $user = _provider_login($pdo, 'google', $sub, $email, $name,
+            $user = _provider_login($pdo, $controller, 'google', $sub, $email, $name,
                 ['email_verified'=>(bool)($ti['email_verified'] ?? false),'name'=>$name,'picture'=>$ti['picture'] ?? null]);
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
@@ -697,7 +682,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $user = _provider_login($pdo, 'facebook', $sub, $email, $name,
+            $user = _provider_login($pdo, $controller, 'facebook', $sub, $email, $name,
                 ['email_verified'=>true,'name'=>$name,'picture'=>$me['picture']['data']['url'] ?? null]);
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
@@ -737,8 +722,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Apple only sends email on FIRST sign-in — look up from previous login
         if ($email === '') {
-            $authProvRepo = new PdoUserAuthProvidersRepository($pdo);
-            $prevExtra = $authProvRepo->findProviderExtra('apple', $sub);
+            $prevExtra = $controller->findProviderExtra('apple', $sub);
             if ($prevExtra) { $pe = json_decode($prevExtra, true); $email = $pe['email'] ?? ''; }
         }
 
@@ -749,7 +733,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = $appleUserName ?: trim(explode('@', $email)[0]);
 
         try {
-            $user = _provider_login($pdo, 'apple', $sub, $email, $name,
+            $user = _provider_login($pdo, $controller, 'apple', $sub, $email, $name,
                 ['email_verified'=>true,'name'=>$name,'email'=>$email]);
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
@@ -768,8 +752,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($username === '' || $password === '') { ResponseFormatter::error('Missing credentials', 400); exit; }
 
     try {
-        $usersRepo = new PdoUsersRepository($pdo);
-        $row = $usersRepo->findForLogin($username);
+        $row = $controller->findForLogin($username);
 
         if (!$row || !@password_verify($password, (string)($row['password_hash'] ?? ''))) {
             ResponseFormatter::error('Invalid credentials', 401); exit;
@@ -779,7 +762,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         session_regenerate_id(true);
-        $rbac = _load_rbac($pdo, (int)$row['id'], isset($row['role_id']) ? (int)$row['role_id'] : null);
+        $rbac = _load_rbac($controller, (int)$row['id'], isset($row['role_id']) ? (int)$row['role_id'] : null);
 
         $user = [
             'id'                 => (int)$row['id'],
