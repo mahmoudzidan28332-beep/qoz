@@ -217,11 +217,8 @@ final class PdoTenantsRepository
     public function bulkUpdateStatus(array $ids, string $status, ?int $userId = null): int
     {
         $placeholders = str_repeat('?,', count($ids) - 1) . '?';
-        $stmt = $this->pdo->prepare("
-            UPDATE tenants
-            SET status = ?, updated_at = NOW()
-            WHERE id IN ({$placeholders})
-        ");
+        $sql = sprintf('UPDATE tenants SET status = ?, updated_at = NOW() WHERE id IN (%s)', $placeholders);
+        $stmt = $this->pdo->prepare($sql);
         
         $params = array_merge([$status], $ids);
         $stmt->execute($params);
