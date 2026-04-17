@@ -21,9 +21,16 @@ final class PdoContactMessagesRepository
     {
         $stmt = $this->pdo->prepare(
             "INSERT INTO contact_messages (tenant_id, user_id, name, email, subject, message)
-             VALUES (?, ?, ?, ?, ?, ?)"
+             VALUES (:tenant_id, :user_id, :name, :email, :subject, :message)"
         );
-        $stmt->execute([$tenantId, $userId, $name, $email, $subject, $message]);
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':user_id'   => $userId,
+            ':name'      => $name,
+            ':email'     => $email,
+            ':subject'   => $subject,
+            ':message'   => $message,
+        ]);
 
         return (int)$this->pdo->lastInsertId();
     }
