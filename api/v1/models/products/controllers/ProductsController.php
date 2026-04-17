@@ -88,4 +88,26 @@ final class ProductsController
     {
         return $this->service->delete($tenantId, $id);
     }
+
+    /**
+     * Get subscription product limit for a tenant
+     *
+     * @param int $tenantId
+     * @return array|null
+     */
+    public function getSubscriptionProductLimit(int $tenantId): ?array
+    {
+        return $this->service->getSubscriptionProductLimit($tenantId);
+    }
+
+    /**
+     * Count products by tenant
+     *
+     * @param int $tenantId
+     * @return int
+     */
+    public function countByTenant(int $tenantId): int
+    {
+        return $this->service->countByTenant($tenantId);
+    }
 }

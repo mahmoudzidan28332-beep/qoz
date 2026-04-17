@@ -221,6 +221,11 @@ final class CategoriesController
     /* ============================================================
      * VALIDATE SLUG
      * ============================================================ */
+    public function findIdBySlug(?int $tenantId, string $slug): ?int
+    {
+        return $this->service->findIdBySlug($tenantId, $slug);
+    }
+
     public function validateSlug(?int $tenantId, array $data): array
     {
         $slug      = trim($data['slug'] ?? '');

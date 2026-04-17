@@ -287,6 +287,11 @@ final class CategoriesService
     /* ============================================================
      * VALIDATION HELPERS
      * ============================================================ */
+    public function findIdBySlug(?int $tenantId, string $slug): ?int
+    {
+        return $this->repo->findIdBySlug($tenantId, $slug);
+    }
+
     public function validateSlug(?int $tenantId, string $slug, ?int $excludeId = null): bool
     {
         return !$this->repo->slugExists($tenantId, $slug, $excludeId);

@@ -106,9 +106,9 @@ try {
         case 'POST':
             // Check subscription product limit before creating
             try {
-                $activePlan = $repo->getSubscriptionProductLimit($tenantId);
+                $activePlan = $controller->getSubscriptionProductLimit($tenantId);
                 if ($activePlan && (int)$activePlan['max_products'] > 0) {
-                    $currentCount = $repo->countByTenant($tenantId);
+                    $currentCount = $controller->countByTenant($tenantId);
                     if ($currentCount >= (int)$activePlan['max_products']) {
                         ResponseFormatter::error(
                             'Product limit reached (' . $currentCount . '/' . $activePlan['max_products'] . '). Upgrade your plan to add more products.',

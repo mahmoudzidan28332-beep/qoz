@@ -107,7 +107,7 @@ try {
         if (isset($_GET['slug'])) {
             $data = ['slug' => $_GET['slug']];
             // البحث عن الفئة باستخدام slug
-            $categoryId = $repo->findIdBySlug($tenantId, $_GET['slug']);
+            $categoryId = $controller->findIdBySlug($tenantId, $_GET['slug']);
             if ($categoryId) {
                 $id = $categoryId;
             }

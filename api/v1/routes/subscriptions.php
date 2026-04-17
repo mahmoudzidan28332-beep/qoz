@@ -90,9 +90,9 @@ try {
                 $planId = (int)$data['plan_id'];
                 $tid = (int)$data['tenant_id'];
                 // Fetch plan details
-                $plan = $repo->findActivePlan($planId);
+                $plan = $controller->findActivePlan($planId);
                 if (!$plan) { ResponseFormatter::error('Plan not found or inactive', 404); break; }
-                $result = $repo->upgrade($tid, $planId, $plan);
+                $result = $controller->upgrade($tid, $planId, $plan);
                 AuditLogger::log('subscription_upgraded', 'subscription', $result['id']);
                 ResponseFormatter::success(['id' => $result['id'], 'invoice_id' => $result['invoice_id'] ?? 0], 'Subscription upgraded', 200);
                 break;
@@ -101,13 +101,13 @@ try {
             // Check active subscription for tenant (product limit endpoint)
             if (isset($_GET['check_limit']) && !empty($data['tenant_id'])) {
                 $tid = (int)$data['tenant_id'];
-                $active = $repo->hasActiveSubscription($tid);
+                $active = $controller->hasActiveSubscription($tid);
                 if (!$active) {
                     ResponseFormatter::success(['allowed' => false, 'reason' => 'no_subscription', 'current' => 0, 'max' => 0]);
                     break;
                 }
                 $maxProducts = (int)($active['max_products'] ?? 0);
-                $currentCount = $repo->getTenantProductCount($tid);
+                $currentCount = $controller->getTenantProductCount($tid);
                 $allowed = $maxProducts === 0 || $currentCount < $maxProducts; // 0 = unlimited
                 ResponseFormatter::success([
                     'allowed' => $allowed,

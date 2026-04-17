@@ -51,4 +51,14 @@ final class ProductsService
     {
         return $this->repo->delete($tenantId, $id);
     }
+
+    public function getSubscriptionProductLimit(int $tenantId): ?array
+    {
+        return $this->repo->getSubscriptionProductLimit($tenantId);
+    }
+
+    public function countByTenant(int $tenantId): int
+    {
+        return $this->repo->countByTenant($tenantId);
+    }
 }
