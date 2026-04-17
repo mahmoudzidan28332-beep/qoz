@@ -282,8 +282,13 @@ class OrderService
                     $pid = (int)$it['product_id'];
                     $qty = max(0, (int)$it['quantity']);
                     if ($qty <= 0) continue;
-                    // best-effort restore
-                    @$this->db->query("UPDATE products SET stock_quantity = stock_quantity + {$qty} WHERE id = {$pid}");
+                    // best-effort restore — use prepared statement to avoid SQL injection
+                    $restoreStmt = @$this->db->prepare("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?");
+                    if ($restoreStmt) {
+                        $restoreStmt->bind_param('ii', $qty, $pid);
+                        @$restoreStmt->execute();
+                        $restoreStmt->close();
+                    }
                 }
             }
             return ['success' => false, 'message' => $e->getMessage()];

@@ -580,19 +580,25 @@ class ShippingService
             }
 
             if ($shipmentId) {
-                // update status/meta
-                $status = $this->db->real_escape_string($payload['status'] ?? 'updated');
-                $meta = $this->db->real_escape_string(json_encode($payload));
-                $this->db->query("UPDATE shipments SET status = '{$status}', meta = '{$meta}', updated_at = NOW() WHERE id = {$shipmentId}");
+                // update status/meta — use prepared statement
+                $status = $payload['status'] ?? 'updated';
+                $meta = json_encode($payload);
+                $updStmt = $this->db->prepare("UPDATE shipments SET status = ?, meta = ?, updated_at = NOW() WHERE id = ?");
+                $updStmt->bind_param('ssi', $status, $meta, $shipmentId);
+                $updStmt->execute();
+                $updStmt->close();
             } else {
-                // create simple shipment record
+                // create simple shipment record — use prepared statement
                 $orderNumber = $payload['order_number'] ?? null;
-                $tracking = $this->db->real_escape_string($payload['tracking_number'] ?? null);
-                $extId = $this->db->real_escape_string($payload['shipment_id'] ?? null);
-                $status = $this->db->real_escape_string($payload['status'] ?? 'created');
-                $meta = $this->db->real_escape_string(json_encode($payload));
-                $this->db->query("INSERT INTO shipments (external_shipment_id, tracking_number, carrier, order_number, status, meta, created_at) VALUES ('{$extId}', '{$tracking}', '{$carrier}', '{$orderNumber}', '{$status}', '{$meta}', NOW())");
+                $tracking = $payload['tracking_number'] ?? null;
+                $extId = $payload['shipment_id'] ?? null;
+                $status = $payload['status'] ?? 'created';
+                $meta = json_encode($payload);
+                $insStmt = $this->db->prepare("INSERT INTO shipments (external_shipment_id, tracking_number, carrier, order_number, status, meta, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                $insStmt->bind_param('ssssss', $extId, $tracking, $carrier, $orderNumber, $status, $meta);
+                $insStmt->execute();
                 $shipmentId = $this->db->insert_id;
+                $insStmt->close();
             }
 
             // optionally notify user about status change (placeholder)

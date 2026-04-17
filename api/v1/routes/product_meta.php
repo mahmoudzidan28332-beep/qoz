@@ -160,11 +160,12 @@ try {
         while ($r = $res->fetch_assoc()) { $r['values'] = []; $attrs[$r['id']] = $r; }
 
         if (!empty($attrs) && table_exists($conn, 'product_attribute_values')) {
-            $ids = implode(',', array_keys($attrs));
+            $ids = array_map('intval', array_keys($attrs));
+            $idPlaceholders = implode(',', $ids);
             $valCols = get_columns($conn, 'product_attribute_values');
             $selectValCols = [];
             foreach (['id','attribute_id','value','slug','color_code','image_url','sort_order','is_active'] as $c) if (in_array($c,$valCols)) $selectValCols[] = "`{$c}`";
-            $rv = $conn->query("SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values WHERE attribute_id IN ({$ids}) ORDER BY sort_order ASC, id ASC");
+            $rv = $conn->query("SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values WHERE attribute_id IN ({$idPlaceholders}) ORDER BY sort_order ASC, id ASC");
             while ($v = $rv->fetch_assoc()) {
                 if (isset($attrs[$v['attribute_id']])) $attrs[$v['attribute_id']]['values'][] = $v;
             }
