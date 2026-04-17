@@ -8,10 +8,10 @@ declare(strict_types=1);
  */
 
 if ($first === 'recent') {
-    $sub = $segments[1] ?? '';
+    $sub = isset($segments[1]) ? trim($segments[1]) : '';
 
     if ($sub === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $recentPid = (int)($_POST['product_id'] ?? 0);
+        $recentPid = intval($_POST['product_id'] ?? 0);
         if (!$recentPid) { ResponseFormatter::error('product_id required', 422); exit; }
         $recentUid = $userId ?? null;
         $recentSid = session_id() ?: null;

@@ -8,9 +8,9 @@ declare(strict_types=1);
  */
 
 if ($first === 'compare') {
-    $cmpUserId = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
-    if (!$cmpUserId) { ResponseFormatter::error('Login required', 401); exit; }
-    $cmpSub = $segments[1] ?? '';
+    $cmpUserId = intval($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
+    if (empty($cmpUserId)) { ResponseFormatter::error('Login required', 401); exit; }
+    $cmpSub = isset($segments[1]) ? trim($segments[1]) : '';
 
     // Helper: get or create the user's active comparison row
     $cmpRepo = new PdoProductComparisonsRepository($pdo);

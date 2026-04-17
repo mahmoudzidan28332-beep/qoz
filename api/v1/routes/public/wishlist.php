@@ -8,11 +8,11 @@ declare(strict_types=1);
  */
 
 if ($first === 'wishlist') {
-    $wishUserId = (int)($_SESSION['user_id'] ?? $_SESSION['user']['id'] ?? 0);
-    if (!$wishUserId) { ResponseFormatter::error('Login required', 401); exit; }
+    $wishUserId = intval($_SESSION['user_id'] ?? $_SESSION['user']['id'] ?? 0);
+    if (empty($wishUserId)) { ResponseFormatter::error('Login required', 401); exit; }
     if (!$pdo) { ResponseFormatter::error('Database unavailable', 503); exit; }
 
-    $wishSub = $segments[1] ?? '';
+    $wishSub = isset($segments[1]) ? trim($segments[1]) : '';
 
     // Instantiate repository
     require_once dirname(__DIR__, 2) . '/models/wishlists/repositories/PdoWishlistsRepository.php';
