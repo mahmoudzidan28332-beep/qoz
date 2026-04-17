@@ -12,24 +12,20 @@ if ($first === 'compare') {
     if (!$cmpUserId) { ResponseFormatter::error('Login required', 401); exit; }
     $cmpSub = $segments[1] ?? '';
 
-    // Helper: get or create the user's active comparison row
-    $getCmpId = function () use ($pdo, $pdoOne, $cmpUserId): int {
-        $row = $pdoOne('SELECT id FROM product_comparisons WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [$cmpUserId]);
-        if ($row) return (int)$row['id'];
-        $pdo->prepare('INSERT INTO product_comparisons (user_id, created_at) VALUES (?, NOW())')->execute([$cmpUserId]);
-        return (int)$pdo->lastInsertId();
-    };
+    require_once dirname(__DIR__, 2) . '/models/products/repositories/PdoProductComparisonsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/products/repositories/PdoProductComparisonItemsRepository.php';
+    $cmpRepo     = new PdoProductComparisonsRepository($pdo);
+    $cmpItemRepo = new PdoProductComparisonItemsRepository($pdo);
 
     if ($cmpSub === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $cmpPid = (int)($_POST['product_id'] ?? 0);
         if (!$cmpPid) { ResponseFormatter::error('product_id required', 422); exit; }
         try {
-            $cmpId = $getCmpId();
+            $cmpId = $cmpRepo->getOrCreateForUser($cmpUserId);
             // Max 4 products in comparison
             $cmpCount = (int)($pdoOne('SELECT COUNT(*) AS c FROM product_comparison_items WHERE comparison_id = ?', [$cmpId])['c'] ?? 0);
             if ($cmpCount >= 4) { ResponseFormatter::error('Max 4 products in comparison', 400); exit; }
-            $pdo->prepare('INSERT IGNORE INTO product_comparison_items (comparison_id, product_id, added_at) VALUES (?, ?, NOW())')
-                ->execute([$cmpId, $cmpPid]);
+            $cmpItemRepo->addItem($cmpId, $cmpPid);
             ResponseFormatter::success(['ok' => true, 'comparison_id' => $cmpId]);
         } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
         exit;
@@ -38,10 +34,9 @@ if ($first === 'compare') {
     if ($cmpSub === 'remove' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $cmpPid = (int)($_POST['product_id'] ?? 0);
         try {
-            $row = $pdoOne('SELECT id FROM product_comparisons WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [$cmpUserId]);
-            if ($row) {
-                $pdo->prepare('DELETE FROM product_comparison_items WHERE comparison_id = ? AND product_id = ?')
-                    ->execute([(int)$row['id'], $cmpPid]);
+            $cmpId = $cmpRepo->findLatestForUser($cmpUserId);
+            if ($cmpId !== null) {
+                $cmpItemRepo->removeItem($cmpId, $cmpPid);
             }
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
@@ -50,9 +45,9 @@ if ($first === 'compare') {
 
     if ($cmpSub === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
-            $row = $pdoOne('SELECT id FROM product_comparisons WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [$cmpUserId]);
-            if ($row) {
-                $pdo->prepare('DELETE FROM product_comparison_items WHERE comparison_id = ?')->execute([(int)$row['id']]);
+            $cmpId = $cmpRepo->findLatestForUser($cmpUserId);
+            if ($cmpId !== null) {
+                $cmpItemRepo->clearItems($cmpId);
             }
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }

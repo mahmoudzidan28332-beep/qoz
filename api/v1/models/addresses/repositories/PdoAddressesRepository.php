@@ -261,6 +261,39 @@ final class PdoAddressesRepository
     }
 
     // ================================
+    // DELETE BY ID (simple, no owner check - caller must verify ownership)
+    // ================================
+    public function deleteById(int $id): bool
+    {
+        return $this->pdo
+            ->prepare("DELETE FROM addresses WHERE id = ?")
+            ->execute([$id]);
+    }
+
+    // ================================
+    // RESET PRIMARY (set is_primary = 0 for all addresses of a user)
+    // ================================
+    public function resetPrimary(int $ownerId): bool
+    {
+        return $this->pdo
+            ->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')
+            ->execute([$ownerId]);
+    }
+
+    // ================================
+    // CREATE ADDRESS (simplified public route version)
+    // ================================
+    public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO addresses (owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
+             VALUES ("user", ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $st->execute([$ownerId, $addressLine1, $addressLine2, $cityId, $countryId, $postalCode, $isPrimary]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    // ================================
     // DELETE
     // ================================
     public function delete(int $id): bool

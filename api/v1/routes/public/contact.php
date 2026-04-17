@@ -31,6 +31,9 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+require_once dirname(__DIR__, 2) . '/models/contact_messages/repositories/PdoContactMessagesRepository.php';
+$contactRepo = new PdoContactMessagesRepository($pdo);
+
 $ctUserId   = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
 $ctTenantId = (int)($tenantId ?? $_SESSION['pub_tenant_id'] ?? 1) ?: 1;
 
@@ -73,13 +76,7 @@ if ($ctMethod === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO contact_messages (tenant_id, user_id, name, email, subject, message)
-             VALUES (?, ?, ?, ?, ?, ?)"
-        );
-        $stmt->execute([$ctTenantId, $ctUserId, $name, $email, $subject, $message]);
-
-        $msgId = (int)$pdo->lastInsertId();
+        $msgId = $contactRepo->createMessage($ctTenantId, $ctUserId, $name, $email, $subject, $message);
 
         ResponseFormatter::success([
             'id'      => $msgId,

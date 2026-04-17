@@ -170,6 +170,19 @@ final class PdoProductQuestionsRepository
     }
 
     /**
+     * Create a question from the public route (pending review).
+     */
+    public function createPublicQuestion(int $productId, $userId, string $question): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO product_questions (product_id, user_id, question, is_approved, created_at, updated_at)
+             VALUES (?, ?, ?, 0, NOW(), NOW())'
+        );
+        $st->execute([$productId, $userId, $question]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
      * تحديث سؤال
      */
     public function update(int $tenantId, array $data): bool

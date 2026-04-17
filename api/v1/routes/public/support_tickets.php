@@ -34,6 +34,10 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+require_once dirname(__DIR__, 2) . '/models/tickets/Contracts/SupportTicketsRepositoryInterface.php';
+require_once dirname(__DIR__, 2) . '/models/tickets/repositories/PdoSupportTicketsRepository.php';
+$ticketRepo = new PdoSupportTicketsRepository($pdo);
+
 $stUserId   = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
 $stTenantId = (int)($tenantId ?? $_SESSION['pub_tenant_id'] ?? 1) ?: 1;
 
@@ -186,13 +190,7 @@ if ($stMethod === 'POST' && $stSub === '') {
     }
 
     try {
-        $pdo->prepare(
-            "INSERT INTO support_tickets
-               (tenant_id, user_id, category_id, subject, description, status, priority, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'open', ?, NOW(), NOW())"
-        )->execute([$stTenantId, $stUserId, $categoryId, $subject, $description, $priority]);
-
-        $newId = (int)$pdo->lastInsertId();
+        $newId = $ticketRepo->createPublic($stTenantId, $stUserId, $categoryId, $subject, $description, $priority);
         ResponseFormatter::success(['id' => $newId, 'success' => true], 'Ticket submitted successfully', 201);
     } catch (Throwable $ex) {
         ResponseFormatter::error('Failed to create ticket', 500);

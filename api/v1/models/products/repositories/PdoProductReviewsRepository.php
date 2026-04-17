@@ -93,4 +93,17 @@ final class PdoProductReviewsRepository
         $stmt = $this->pdo->prepare("DELETE FROM product_reviews WHERE id = :id");
         return $stmt->execute([':id'=>$id]);
     }
+
+    /**
+     * Create a review from the public route (pending approval).
+     */
+    public function createPublicReview(int $productId, $userId, int $rating, ?string $title, ?string $comment): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO product_reviews (product_id, user_id, rating, title, comment, is_approved, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())'
+        );
+        $st->execute([$productId, $userId, $rating, $title, $comment]);
+        return (int)$this->pdo->lastInsertId();
+    }
 }

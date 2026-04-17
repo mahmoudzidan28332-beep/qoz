@@ -453,6 +453,35 @@ final class PdoJobApplicationsRepository
     }
 
     // ================================
+    // Create from public route (simplified)
+    // ================================
+    public function createPublic(array $data): int
+    {
+        $st = $this->pdo->prepare(
+            "INSERT INTO job_applications
+               (job_id, user_id, full_name, email, phone,
+                cover_letter, portfolio_url, linkedin_url, cv_file_url,
+                status, ip_address)
+             VALUES (?, ?, ?, ?, ?,
+                     ?, ?, ?, ?,
+                     'submitted', ?)"
+        );
+        $st->execute([
+            $data['job_id'],
+            $data['user_id'],
+            $data['full_name'],
+            $data['email'],
+            $data['phone'],
+            $data['cover_letter'],
+            $data['portfolio_url'],
+            $data['linkedin_url'],
+            $data['cv_file_url'],
+            $data['ip_address'] ?? null,
+        ]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    // ================================
     // Delete
     // ================================
     public function delete(int $id): bool

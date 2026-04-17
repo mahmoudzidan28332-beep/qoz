@@ -145,6 +145,49 @@ final class PdoAdStatRepository
     }
 
     // ════════════════════════════════════════════════════════════
+    // RECORD IMPRESSION (full upsert with tracking data)
+    // ════════════════════════════════════════════════════════════
+
+    public function recordImpression(int $adId, ?int $userId, ?string $sessionId, ?string $ipAddress, ?string $userAgent, int $views, int $clicks, string $eventType): void
+    {
+        $ins = $this->pdo->prepare(
+            "INSERT INTO ad_stats
+                 (ad_id, user_id, session_id, ip_address, user_agent,
+                  date, created_at, views, clicks, event_type)
+             VALUES
+                 (?, ?, ?, ?, ?, CURDATE(), NOW(), ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 views  = views  + VALUES(views),
+                 clicks = clicks + VALUES(clicks)"
+        );
+        $ins->execute([
+            $adId,
+            $userId,
+            $sessionId,
+            $ipAddress,
+            $userAgent,
+            $views,
+            $clicks,
+            $eventType,
+        ]);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // INCREMENT STAT (minimal fallback upsert)
+    // ════════════════════════════════════════════════════════════
+
+    public function incrementStat(int $adId, int $views, int $clicks): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO ad_stats (ad_id, date, views, clicks)
+             VALUES (?, CURDATE(), ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 views  = views  + VALUES(views),
+                 clicks = clicks + VALUES(clicks)"
+        )->execute([$adId, $views, $clicks]);
+    }
+
+    // ════════════════════════════════════════════════════════════
     // AGGREGATIONS (for reports)
     // ════════════════════════════════════════════════════════════
 

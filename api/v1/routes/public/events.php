@@ -75,6 +75,9 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+require_once dirname(__DIR__, 2) . '/models/core_events/repositories/PdoCoreEventRepository.php';
+$coreEventRepo = new PdoCoreEventRepository($pdo);
+
 // ── Session — identical pattern to ads.php  [FIX-1] ──────────────────────────
 if (session_status() === PHP_SESSION_NONE) {
     @session_start([
@@ -111,21 +114,15 @@ $userAgent = isset($_SERVER['HTTP_USER_AGENT'])
 
 // ── Insert ────────────────────────────────────────────────────────────────────
 try {
-    $stmt = $pdo->prepare(
-        'INSERT INTO core_events
-             (entity_type, entity_id, user_id, session_id,
-              event_type, value, ip_address, user_agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    );
-    $stmt->execute([
-        $entityType,
-        $entityId,
-        $userId,
-        $sessId,
-        $eventType,
-        $value,
-        $ip,
-        $userAgent,
+    $coreEventRepo->create([
+        'entity_type' => $entityType,
+        'entity_id'   => $entityId,
+        'user_id'     => $userId,
+        'session_id'  => $sessId,
+        'event_type'  => $eventType,
+        'value'       => $value,
+        'ip_address'  => $ip,
+        'user_agent'  => $userAgent,
     ]);
     ResponseFormatter::success(['ok' => true]);
 } catch (Throwable) {

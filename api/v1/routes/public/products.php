@@ -18,28 +18,24 @@ if ($first === 'products') {
             if (!$subUserId) { ResponseFormatter::error('Login required', 401); exit; }
             if (!$pdo) { ResponseFormatter::error('DB unavailable', 503); exit; }
             if ($subAction === 'reviews') {
+                require_once dirname(__DIR__, 2) . '/models/products/repositories/PdoProductReviewsRepository.php';
+                $reviewRepo = new PdoProductReviewsRepository($pdo);
                 $rating  = (int)($_POST['rating'] ?? 0);
                 $title   = trim($_POST['title'] ?? '');
                 $comment = trim($_POST['comment'] ?? '');
                 if ($rating < 1 || $rating > 5) { ResponseFormatter::error('Rating must be 1-5', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_reviews (product_id, user_id, rating, title, comment, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $rating, $title ?: null, $comment ?: null]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Review submitted pending approval', 201);
+                    $newId = $reviewRepo->createPublicReview($subPid, $subUserId, $rating, $title ?: null, $comment ?: null);
+                    ResponseFormatter::success(['ok' => true, 'id' => $newId], 'Review submitted pending approval', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             } else {
+                require_once dirname(__DIR__, 2) . '/models/products/repositories/PdoProductQuestionsRepository.php';
+                $questionRepo = new PdoProductQuestionsRepository($pdo);
                 $question = trim($_POST['question'] ?? '');
                 if (strlen($question) < 5) { ResponseFormatter::error('Question too short', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_questions (product_id, user_id, question, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $question]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Question submitted pending review', 201);
+                    $newId = $questionRepo->createPublicQuestion($subPid, $subUserId, $question);
+                    ResponseFormatter::success(['ok' => true, 'id' => $newId], 'Question submitted pending review', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             }
             exit;

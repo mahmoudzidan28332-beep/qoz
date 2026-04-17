@@ -20,4 +20,6 @@ interface SupportTicketsRepositoryInterface
     public function save(int $tenantId, array $data): int;
 
     public function delete(int $tenantId, int $id): bool;
+
+    public function createPublic(int $tenantId, int $userId, ?int $categoryId, string $subject, string $description, string $priority): int;
 }
