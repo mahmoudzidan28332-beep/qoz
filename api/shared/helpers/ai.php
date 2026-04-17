@@ -2,6 +2,8 @@
 // htdocs/api/helpers/ai.php
 // AI Integration for recommendations, analytics, chatbot
 
+require_once __DIR__ . '/../core/repositories/AiRepository.php';
+
 class AIHelper {
     private static ?PDO $pdo = null;
     private static string $openaiKey = '';
@@ -18,31 +20,16 @@ class AIHelper {
     public static function getProductRecommendations($userId, $limit = 5) {
         if (!self::$pdo) return [];
         
-        $stmt = self::$pdo->prepare("
-            SELECT p.id, p.name, COUNT(uv.product_id) as views
-            FROM user_views uv
-            JOIN products p ON uv.product_id = p.id
-            WHERE uv.user_id = ?
-            GROUP BY p.id
-            ORDER BY views DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$userId, $limit]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $repo = new AiRepository(self::$pdo);
+        return $repo->getTopViewedProducts($userId, $limit);
     }
     
     // تحليل المبيعات باستخدام AI (مثال بسيط)
     public static function analyzeSalesTrend() {
         if (!self::$pdo) return [];
         
-        $stmt = self::$pdo->query("
-            SELECT DATE(created_at) as date, COUNT(*) as sales
-            FROM orders
-            WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        ");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $repo = new AiRepository(self::$pdo);
+        return $repo->getDailySalesLast30Days();
     }
     
     // Chatbot بسيط باستخدام OpenAI

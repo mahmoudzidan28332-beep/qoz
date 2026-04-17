@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../core/repositories/AuditRepository.php';
+
 class AuditLogger {
     private static ?PDO $pdo = null;
 
@@ -15,17 +17,17 @@ class AuditLogger {
             $userId = $_SESSION['user_id'] ?? null;
             $ip = $_SERVER['REMOTE_ADDR'] ?? null;
             $ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : null;
-            $stmt = self::$pdo->prepare("INSERT INTO audit_logs (tenant_id, entity_type, entity_id, user_id, action, ip_address, user_agent, payload) VALUES (:tenant_id, :entity_type, :entity_id, :user_id, :action, :ip, :ua, :payload)");
-            $stmt->execute([
-                ':tenant_id' => $tenantId,
-                ':entity_type' => $entityType,
-                ':entity_id' => $entityId,
-                ':user_id' => $userId,
-                ':action' => $action,
-                ':ip' => $ip,
-                ':ua' => $ua,
-                ':payload' => $payload ? json_encode($payload, JSON_UNESCAPED_UNICODE) : null
-            ]);
+            $repo = new AuditRepository(self::$pdo);
+            $repo->insertAuditLog(
+                $tenantId,
+                $entityType,
+                $entityId,
+                $userId,
+                $action,
+                $ip,
+                $ua,
+                $payload ? json_encode($payload, JSON_UNESCAPED_UNICODE) : null
+            );
         } catch (\Throwable $e) {
             // silently fail - audit should never break main operations
         }

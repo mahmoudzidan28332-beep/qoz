@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../core/repositories/NotificationRepository.php';
 // htdocs/api/shared/helpers/notification.php
 // ملف دوال الإشعارات - معدّل حسب هيكل قاعدة البيانات الفعلي
 // يدعم: Database, Email, SMS, Push (Firebase FCM)
@@ -190,27 +191,11 @@ class Notification
     ): ?int {
         $dataJson = !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : null;
 
-        $stmt = self::$pdo->prepare("
-            INSERT INTO notifications
-                (tenant_id, sender_entity_id, entity_id, title, message, data,
-                 notification_type_id, priority, expires_at, sent_at)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
-
-        $stmt->execute([
-            $tenantId,
-            $senderEntityId,
-            $entityId,
-            $title,
-            $message,
-            $dataJson,
-            $typeId,
-            $priority,
-            $expiresAt,
-        ]);
-
-        return (int) self::$pdo->lastInsertId() ?: null;
+        $repo = new NotificationRepository(self::$pdo);
+        return $repo->insertNotification(
+            $tenantId, $senderEntityId, $entityId, $title, $message,
+            $dataJson, $typeId, $priority, $expiresAt
+        );
     }
 
     // -------------------------------------------------------
@@ -224,15 +209,8 @@ class Notification
     ): array {
         try {
             // upsert في notification_counters
-            $stmt = self::$pdo->prepare("
-                INSERT INTO notification_counters
-                    (tenant_id, recipient_type, recipient_id, unread_count)
-                VALUES
-                    (?, ?, ?, 1)
-                ON DUPLICATE KEY UPDATE
-                    unread_count = unread_count + 1
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->upsertNotificationCounter($tenantId, $recipientType, $recipientId);
 
             self::logNotification('database', $recipientId, 'counter_updated');
             return ['success' => true];
@@ -407,8 +385,8 @@ class Notification
         // تنظيف tokens غير صالحة
         foreach ($invalidTokens as $badToken) {
             try {
-                $stmt = self::$pdo->prepare("UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?");
-                $stmt->execute([$badToken]);
+                $repo = new NotificationRepository(self::$pdo);
+                $repo->deactivateDeviceByToken($badToken);
             } catch (PDOException $e) {
                 self::logError('cleanInvalidToken: ' . $e->getMessage());
             }
@@ -606,25 +584,11 @@ class Notification
 
         try {
             // إذا تم تحديد أجهزة معينة، جلب tokens لتلك الأجهزة فقط
+            $repo = new NotificationRepository(self::$pdo);
             if (!empty($deviceIds)) {
-                $deviceIds = array_slice($deviceIds, 0, 100); // حد أقصى 100 جهاز
-                $placeholders = implode(',', array_fill(0, count($deviceIds), '?'));
-                $stmt = self::$pdo->prepare("
-                    SELECT fcm_token FROM user_devices
-                    WHERE user_id = ? AND is_active = 1 AND fcm_token IS NOT NULL
-                      AND id IN ({$placeholders})
-                ");
-                $params = array_merge([$userId], array_map('intval', $deviceIds));
-                $stmt->execute($params);
-                return $stmt->fetchAll(PDO::FETCH_COLUMN);
+                return $repo->getFcmTokensForDevices($userId, $deviceIds);
             }
-
-            $stmt = self::$pdo->prepare("
-                SELECT fcm_token FROM user_devices
-                WHERE user_id = ? AND is_active = 1 AND fcm_token IS NOT NULL
-            ");
-            $stmt->execute([$userId]);
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return $repo->getFcmTokensForUser($userId);
         } catch (PDOException $e) {
             self::logError('getFcmTokens: ' . $e->getMessage());
             return [];
@@ -645,10 +609,8 @@ class Notification
                 $invalidToken = $tokens[$index] ?? null;
                 if ($invalidToken) {
                     try {
-                        $stmt = self::$pdo->prepare("
-                            UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?
-                        ");
-                        $stmt->execute([$invalidToken]);
+                        $repo = new NotificationRepository(self::$pdo);
+                        $repo->deactivateDeviceByToken($invalidToken);
                     } catch (PDOException $e) {
                         self::logError('cleanInvalidTokens: ' . $e->getMessage());
                     }
@@ -666,14 +628,8 @@ class Notification
         if (!$channelId) return null;
 
         try {
-            $stmt = self::$pdo->prepare("
-                INSERT INTO notification_deliveries
-                    (notification_id, channel_id, delivery_status, attempts, created_at)
-                VALUES
-                    (?, ?, 'pending', 0, NOW())
-            ");
-            $stmt->execute([$notificationId, $channelId]);
-            return (int) self::$pdo->lastInsertId();
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->insertDelivery($notificationId, $channelId);
         } catch (PDOException $e) {
             self::logError('insertDelivery: ' . $e->getMessage());
             return null;
@@ -685,15 +641,8 @@ class Notification
         if (!$deliveryId) return;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE notification_deliveries
-                SET delivery_status = ?,
-                    attempts        = attempts + 1,
-                    sent_at         = IF(? = 'sent', NOW(), sent_at),
-                    error_message   = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$status, $status, $errorMessage, $deliveryId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->updateDeliveryStatus($deliveryId, $status, $errorMessage);
         } catch (PDOException $e) {
             self::logError('updateDeliveryStatus: ' . $e->getMessage());
         }
@@ -710,12 +659,9 @@ class Notification
         }
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id FROM notification_channels WHERE code = ? AND is_active = 1 LIMIT 1
-            ");
-            $stmt->execute([$code]);
-            $id = $stmt->fetchColumn();
-            self::$channelsCache[$code] = $id ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            $id = $repo->resolveChannelId($code);
+            self::$channelsCache[$code] = $id;
             return self::$channelsCache[$code];
         } catch (PDOException $e) {
             return null;
@@ -729,12 +675,9 @@ class Notification
         }
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id FROM notification_types WHERE code = ? AND is_active = 1 LIMIT 1
-            ");
-            $stmt->execute([$code]);
-            $id = $stmt->fetchColumn();
-            self::$typesCache[$code] = $id ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            $id = $repo->resolveTypeId($code);
+            self::$typesCache[$code] = $id;
             return self::$typesCache[$code];
         } catch (PDOException $e) {
             return null;
@@ -750,11 +693,8 @@ class Notification
         if (!self::$pdo) return null;
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id, username, email, phone FROM users WHERE id = ? LIMIT 1
-            ");
-            $stmt->execute([$userId]);
-            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUserData($userId);
         } catch (PDOException $e) {
             return null;
         }
@@ -776,27 +716,8 @@ class Notification
         if (!self::$pdo) return [];
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT
-                    n.id,
-                    n.title,
-                    n.message,
-                    n.data,
-                    n.priority,
-                    n.sent_at,
-                    n.expires_at,
-                    nt.code  AS type_code,
-                    nt.name  AS type_name
-                FROM notifications n
-                LEFT JOIN notification_types nt ON nt.id = n.notification_type_id
-                WHERE n.entity_id  = ?
-                  AND n.tenant_id  = ?
-                  AND (n.expires_at IS NULL OR n.expires_at > NOW())
-                ORDER BY n.sent_at DESC
-                LIMIT ? OFFSET ?
-            ");
-            $stmt->execute([$recipientId, $tenantId, $limit, $offset]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUserNotifications($recipientId, $tenantId, $limit, $offset);
         } catch (PDOException $e) {
             self::logError('getUserNotifications: ' . $e->getMessage());
             return [];
@@ -814,15 +735,8 @@ class Notification
         if (!self::$pdo) return 0;
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT unread_count FROM notification_counters
-                WHERE tenant_id      = ?
-                  AND recipient_type = ?
-                  AND recipient_id   = ?
-                LIMIT 1
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
-            return (int) ($stmt->fetchColumn() ?? 0);
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUnreadCount($recipientId, $recipientType, $tenantId);
         } catch (PDOException $e) {
             return 0;
         }
@@ -839,14 +753,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE notification_counters
-                SET unread_count = 0
-                WHERE tenant_id      = ?
-                  AND recipient_type = ?
-                  AND recipient_id   = ?
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->resetUnreadCount($recipientId, $recipientType, $tenantId);
             return true;
         } catch (PDOException $e) {
             self::logError('markAllRead: ' . $e->getMessage());
@@ -872,22 +780,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                INSERT INTO user_devices
-                    (user_id, fcm_token, device_type, device_name, user_agent, ip,
-                     is_active, last_seen_at, created_at)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE
-                    user_id      = VALUES(user_id),
-                    device_type  = VALUES(device_type),
-                    device_name  = VALUES(device_name),
-                    user_agent   = VALUES(user_agent),
-                    ip           = VALUES(ip),
-                    is_active    = 1,
-                    last_seen_at = NOW()
-            ");
-            $stmt->execute([$userId, $fcmToken, $deviceType, $deviceName, $userAgent, $ip]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->registerDeviceToken($userId, $fcmToken, $deviceType, $deviceName, $userAgent, $ip);
             return true;
         } catch (PDOException $e) {
             self::logError('registerDeviceToken: ' . $e->getMessage());
@@ -903,10 +797,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?
-            ");
-            $stmt->execute([$fcmToken]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->deregisterDeviceToken($fcmToken);
             return true;
         } catch (PDOException $e) {
             self::logError('deregisterDeviceToken: ' . $e->getMessage());

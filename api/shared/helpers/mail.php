@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../core/repositories/MailRepository.php';
 // htdocs/api/helpers/mail.php
 // ملف دوال إرسال البريد الإلكتروني (Email Helper)
 // يدعم SMTP والقوالب، مع تخزين السجلات في DB عبر PDO
@@ -340,9 +341,8 @@ class Mail {
         if (!self::$pdo) return false;
         
         try {
-            $stmt = self::$pdo->prepare("INSERT INTO email_logs (recipient, subject, body, status, language, sent_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$to, $subject, $body, $status, $lang]);
-            return true;
+            $repo = new MailRepository(self::$pdo);
+            return $repo->insertEmailLog($to, $subject, $body, $status, $lang);
         } catch (PDOException $e) {
             self::logError('Failed to save email log: ' . $e->getMessage());
             return false;

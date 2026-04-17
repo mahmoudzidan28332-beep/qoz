@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../core/repositories/JwtRepository.php';
 // htdocs/api/helpers/jwt.php
 // ملف دوال JWT (JSON Web Token)
 // للمصادقة والتحقق من المستخدمين
@@ -524,9 +525,8 @@ class JWT {
             return false; // أو throw error
         }
         
-        $stmt = $pdo->prepare("SELECT id FROM tokens_blacklist WHERE jti = ?");
-        $stmt->execute([$jti]);
-        return $stmt->rowCount() > 0;
+        $repo = new JwtRepository($pdo);
+        return $repo->isJtiBlacklisted($jti);
     }
     
     /**
@@ -544,14 +544,14 @@ class JWT {
             return false;
         }
         
-        $stmt = $pdo->prepare("INSERT INTO tokens_blacklist (jti, user_id, type, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)");
-        return $stmt->execute([
+        $repo = new JwtRepository($pdo);
+        return $repo->insertJtiBlacklist(
             $jti,
             $userId,
             $type,
             $_SERVER['REMOTE_ADDR'] ?? null,
             $_SERVER['HTTP_USER_AGENT'] ?? null
-        ]);
+        );
     }
     
     /**
@@ -606,9 +606,8 @@ class JWT {
         $userId = $payload['user_id'];
         
         // جلب بيانات المستخدم من قاعدة البيانات مع الـ role
-        $stmt = $pdo->prepare("SELECT u.id, u.email, u.username, r.key_name as user_type, u.is_active FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = ? AND u.is_active = 1");
-        $stmt->execute([$userId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $repo = new JwtRepository($pdo);
+        $result = $repo->findActiveUserWithRole($userId);
         
         if (!$result) {
             self::logError('User not found or inactive for refresh token');
@@ -636,16 +635,8 @@ class JWT {
      * @return bool
      */
     public static function hasPermission($userId, $permissionKey, $pdo) {
-        $stmt = $pdo->prepare("
-            SELECT p.id 
-            FROM permissions p
-            JOIN role_permissions rp ON p.id = rp.permission_id
-            JOIN roles r ON rp.role_id = r.id
-            JOIN users u ON u.role_id = r.id
-            WHERE u.id = ? AND p.key_name = ? AND u.is_active = 1
-        ");
-        $stmt->execute([$userId, $permissionKey]);
-        return $stmt->rowCount() > 0;
+        $repo = new JwtRepository($pdo);
+        return $repo->userHasPermission($userId, $permissionKey);
     }
     
     /**
@@ -658,14 +649,14 @@ class JWT {
      */
     public static function saveUserSession($userId, $token, $pdo) {
         $expiresAt = date('Y-m-d H:i:s', time() + JWT_EXPIRY);
-        $stmt = $pdo->prepare("INSERT INTO user_sessions (user_id, token, user_agent, ip, expires_at) VALUES (?, ?, ?, ?, ?)");
-        return $stmt->execute([
+        $repo = new JwtRepository($pdo);
+        return $repo->insertUserSession(
             $userId,
             $token,
             $_SERVER['HTTP_USER_AGENT'] ?? null,
             $_SERVER['REMOTE_ADDR'] ?? null,
             $expiresAt
-        ]);
+        );
     }
     
     /**
@@ -676,8 +667,8 @@ class JWT {
      * @return bool
      */
     public static function revokeUserSession($token, $pdo) {
-        $stmt = $pdo->prepare("UPDATE user_sessions SET revoked = 1 WHERE token = ?");
-        return $stmt->execute([$token]);
+        $repo = new JwtRepository($pdo);
+        return $repo->revokeUserSession($token);
     }
 }
 

@@ -1,6 +1,8 @@
 <?php
 // helpers/SettingsHelper.php
 
+require_once __DIR__ . '/../core/repositories/SettingsRepository.php';
+
 class SettingsHelper {
     private static $cache = [];
     
@@ -9,9 +11,8 @@ class SettingsHelper {
             return self::$cache[$key];
         }
         
-        $stmt = $pdo->prepare("SELECT value FROM system_settings WHERE `key` = ?");
-        $stmt->execute([$key]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $repo = new SettingsRepository($pdo);
+        $row = $repo->getSettingByKey($key);
         
         $value = $row ? json_decode($row['value'], true) : null;
         self::$cache[$key] = $value;
@@ -21,8 +22,8 @@ class SettingsHelper {
     
     public static function set($key, $value, $pdo) {
         $jsonValue = json_encode($value);
-        $stmt = $pdo->prepare("INSERT INTO system_settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?");
-        $stmt->execute([$key, $jsonValue, $jsonValue]);
+        $repo = new SettingsRepository($pdo);
+        $repo->upsertSetting($key, $jsonValue);
         
         self::$cache[$key] = $value;
     }

@@ -2,6 +2,8 @@
 // helpers/db_utils.php
 // وظائف مساعدة لـ PDO: ربط معاملات ديناميكية وتنفيذ استعلامات آمنة
 
+require_once __DIR__ . '/../core/repositories/DbUtilsService.php';
+
 /**
  * ربط معاملات ديناميكية إلى PDOStatement
  * @param PDOStatement $stmt
@@ -45,23 +47,7 @@ function pdo_bind_params(PDOStatement $stmt, array $params): void {
  * @throws RuntimeException
  */
 function pdo_execute_query(PDO $pdo, string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC) {
-    try {
-        $stmt = $pdo->prepare($query);
-        if (!$stmt) {
-            throw new RuntimeException('Prepare failed: ' . implode(' ', $pdo->errorInfo()));
-        }
-        
-        pdo_bind_params($stmt, $params);
-        
-        if (!$stmt->execute()) {
-            throw new RuntimeException('Execute failed: ' . implode(' ', $stmt->errorInfo()));
-        }
-        
-        $stmt->setFetchMode($fetchMode);
-        return $stmt;
-    } catch (PDOException $e) {
-        throw new RuntimeException('PDO Query Error: ' . $e->getMessage());
-    }
+    return DbUtilsService::executeQuery($pdo, $query, $params, $fetchMode);
 }
 
 /**

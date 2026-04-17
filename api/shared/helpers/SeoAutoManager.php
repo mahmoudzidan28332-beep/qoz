@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../core/repositories/SeoRepository.php';
+
 /**
  * SeoAutoManager - Auto-populate seo_meta + seo_meta_translations
  *
@@ -46,25 +48,8 @@ class SeoAutoManager
             'description' => mb_substr($description, 0, 300),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $sql = "INSERT INTO seo_meta
-                    (tenant_id, entity_type, entity_id, canonical_url, robots, schema_markup)
-                VALUES
-                    (:tenant_id, :entity_type, :entity_id, :canonical_url, :robots, :schema_markup)
-                ON DUPLICATE KEY UPDATE
-                    canonical_url  = VALUES(canonical_url),
-                    robots         = VALUES(robots),
-                    schema_markup  = VALUES(schema_markup),
-                    updated_at     = NOW()";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':tenant_id'      => $tenantId,
-            ':entity_type'    => $entityType,
-            ':entity_id'      => $entityId,
-            ':canonical_url'  => $canonical,
-            ':robots'         => $robots,
-            ':schema_markup'  => $schema,
-        ]);
+        $repo = new SeoRepository($pdo);
+        $repo->upsertSeoMeta($tenantId, $entityType, $entityId, $canonical, $robots, $schema);
 
         // If language_code is provided, auto-create translation too
         $langCode = $data['language_code'] ?? null;
@@ -105,13 +90,8 @@ class SeoAutoManager
             return;
         }
 
-        $stmt = $pdo->prepare(
-            "SELECT language_code, {$config['name']} AS name, description
-             FROM {$config['table']}
-             WHERE {$config['fk']} = ?"
-        );
-        $stmt->execute([$entityId]);
-        $translations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $repo = new SeoRepository($pdo);
+        $translations = $repo->getEntityTranslations($config['table'], $config['fk'], $config['name'], $entityId);
 
         foreach ($translations as $tr) {
             self::syncTranslation($pdo, $entityType, $entityId, $tr['language_code'], [
@@ -165,50 +145,33 @@ class SeoAutoManager
     public static function delete(PDO $pdo, string $entityType, int $entityId): void
     {
         $seoMetaId = self::getSeoMetaId($pdo, $entityType, $entityId);
+        $repo = new SeoRepository($pdo);
         if ($seoMetaId) {
-            $pdo->prepare("DELETE FROM seo_meta_translations WHERE seo_meta_id = ?")
-                ->execute([$seoMetaId]);
+            $repo->deleteSeoMetaTranslations($seoMetaId);
         }
-        $pdo->prepare("DELETE FROM seo_meta WHERE entity_type = ? AND entity_id = ?")
-            ->execute([$entityType, $entityId]);
+        $repo->deleteSeoMeta($entityType, $entityId);
     }
 
     // ─── Private helpers ───────────────────────────────────
 
     private static function getSeoMetaId(PDO $pdo, string $entityType, int $entityId): ?int
     {
-        $stmt = $pdo->prepare(
-            "SELECT id FROM seo_meta WHERE entity_type = ? AND entity_id = ? LIMIT 1"
-        );
-        $stmt->execute([$entityType, $entityId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ? (int)$row['id'] : null;
+        $repo = new SeoRepository($pdo);
+        return $repo->findSeoMetaId($entityType, $entityId);
     }
 
     private static function upsertTranslation(PDO $pdo, int $seoMetaId, string $langCode, array $fields): void
     {
-        $sql = "INSERT INTO seo_meta_translations
-                    (seo_meta_id, language_code, meta_title, meta_description, meta_keywords, og_title, og_description)
-                VALUES
-                    (:seo_meta_id, :language_code, :meta_title, :meta_description, :meta_keywords, :og_title, :og_description)
-                ON DUPLICATE KEY UPDATE
-                    meta_title       = VALUES(meta_title),
-                    meta_description = VALUES(meta_description),
-                    meta_keywords    = VALUES(meta_keywords),
-                    og_title         = VALUES(og_title),
-                    og_description   = VALUES(og_description),
-                    updated_at       = NOW()";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':seo_meta_id'      => $seoMetaId,
-            ':language_code'    => $langCode,
-            ':meta_title'       => $fields['meta_title'],
-            ':meta_description' => $fields['meta_description'],
-            ':meta_keywords'    => $fields['meta_keywords'],
-            ':og_title'         => $fields['og_title'],
-            ':og_description'   => $fields['og_description'],
-        ]);
+        $repo = new SeoRepository($pdo);
+        $repo->upsertSeoMetaTranslation(
+            $seoMetaId,
+            $langCode,
+            $fields['meta_title'],
+            $fields['meta_description'],
+            $fields['meta_keywords'],
+            $fields['og_title'],
+            $fields['og_description']
+        );
     }
 
     private static function generateKeywords(string $name, string $description): string
