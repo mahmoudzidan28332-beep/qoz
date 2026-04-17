@@ -61,4 +61,24 @@ final class StockMovementsService
     {
         return $this->movements->lookupByBarcode($barcode);
     }
+
+    public function lookupBySku(string $sku, string $lang): ?array
+    {
+        return $this->movements->lookupBySku($sku, $lang);
+    }
+
+    public function findWithProductName(int $id): ?array
+    {
+        return $this->movements->findWithProductName($id);
+    }
+
+    public function listPaginated(array $filters, int $limit, int $offset): array
+    {
+        return $this->movements->listPaginated($filters, $limit, $offset);
+    }
+
+    public function updateMovement(int $id, array $data, array $oldMovement): void
+    {
+        $this->movements->updateMovement($id, $data, $oldMovement);
+    }
 }

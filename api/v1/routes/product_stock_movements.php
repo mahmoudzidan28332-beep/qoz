@@ -38,26 +38,26 @@ if (!isset($GLOBALS['ADMIN_DB']) || !$GLOBALS['ADMIN_DB'] instanceof PDO) {
 }
 
 try {
-    $pdo    = $GLOBALS['ADMIN_DB'];
-    $method = $_SERVER['REQUEST_METHOD'];
+    $pdo        = $GLOBALS['ADMIN_DB'];
+    $service    = new StockMovementsService($pdo);
+    $controller = new StockMovementsController($service);
+    $method     = $_SERVER['REQUEST_METHOD'];
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $repo = new PdoStockMovementsRepository($pdo);
                 $filters = [];
                 if (isset($_GET['product_id'])) $filters['product_id'] = $_GET['product_id'];
                 if (isset($_GET['type'])) $filters['type'] = $_GET['type'];
                 if (isset($_GET['date_from'])) $filters['date_from'] = $_GET['date_from'];
                 if (isset($_GET['date_to'])) $filters['date_to'] = $_GET['date_to'];
-                $stats = $repo->stats($filters);
+                $stats = $controller->movementStats($filters);
                 ResponseFormatter::success($stats);
                 break;
             }
 
             if (isset($_GET['barcode']) && $_GET['barcode'] !== '') {
-                $repo = new PdoStockMovementsRepository($pdo);
-                $row = $repo->lookupByBarcode(trim($_GET['barcode']));
+                $row = $controller->lookupByBarcode(trim($_GET['barcode']));
                 if (!$row) {
                     ResponseFormatter::error('Barcode not found', 404);
                     break;
@@ -69,8 +69,7 @@ try {
             if (isset($_GET['sku']) && $_GET['sku'] !== '') {
                 $sku = trim($_GET['sku']);
                 $lang = $_GET['lang'] ?? ($_SESSION['user']['preferred_language'] ?? 'ar');
-                $repo = new PdoStockMovementsRepository($pdo);
-                $row = $repo->lookupBySku($sku, $lang);
+                $row = $controller->lookupBySku($sku, $lang);
                 if (!$row) {
                     ResponseFormatter::error('SKU not found', 404);
                     break;
@@ -80,13 +79,11 @@ try {
             }
 
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
-                $repo = new PdoStockMovementsRepository($pdo);
-                $item = $repo->findWithProductName((int)$_GET['id']);
+                $item = $controller->findWithProductName((int)$_GET['id']);
                 if (!$item) { ResponseFormatter::error('Stock movement not found', 404); break; }
                 ResponseFormatter::success($item);
             } elseif (isset($_GET['product_id']) && (int)$_GET['product_id'] > 0) {
-                $repo = new PdoStockMovementsRepository($pdo);
-                $items = $repo->getByProduct((int)$_GET['product_id']);
+                $items = $controller->getByProduct((int)$_GET['product_id']);
                 ResponseFormatter::success($items);
             } else {
                 $filters = [];
@@ -98,8 +95,7 @@ try {
                 $limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
-                $repo = new PdoStockMovementsRepository($pdo);
-                $result = $repo->listPaginated($filters, $limit, $offset);
+                $result = $controller->listPaginated($filters, $limit, $offset);
 
                 ResponseFormatter::success($result);
             }
@@ -114,8 +110,7 @@ try {
                 break;
             }
 
-            $repo = new PdoStockMovementsRepository($pdo);
-            $id = $repo->create($data);
+            $id = $controller->createMovement($data);
             ResponseFormatter::success(['id' => $id], 'Stock movement created', 201);
             break;
 
@@ -130,13 +125,10 @@ try {
                 break;
             }
 
-            // Get old record to reverse stock
-            $repo = new PdoStockMovementsRepository($pdo);
-            $old = $repo->find($id);
+            $old = $controller->getMovement($id);
             if (!$old) { ResponseFormatter::error('Movement not found', 404); break; }
 
-            // Reverse old stock change, update record, apply new stock change
-            $repo->updateMovement($id, $data, $old);
+            $controller->updateMovement($id, $data, $old);
 
             ResponseFormatter::success(['id' => $id], 'Stock movement updated');
             break;
@@ -144,8 +136,7 @@ try {
         case 'DELETE':
             $id = (int)($_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
-            $repo = new PdoStockMovementsRepository($pdo);
-            $repo->delete($id);
+            $controller->deleteMovement($id);
             ResponseFormatter::success(null, 'Stock movement deleted');
             break;
 
