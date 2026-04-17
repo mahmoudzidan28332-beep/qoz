@@ -35,9 +35,8 @@ final class PdoCartItemsRepository
             SELECT ci.*
             FROM cart_items ci
             INNER JOIN carts c ON ci.cart_id = c.id
-            WHERE c.entity_id IN (
-                SELECT id FROM entities WHERE tenant_id = :tenant_id
-            )
+            INNER JOIN entities ent ON c.entity_id = ent.id AND ent.tenant_id = :tenant_id
+            WHERE 1=1
         ";
         $params = [':tenant_id' => $tenantId];
 
@@ -85,9 +84,8 @@ final class PdoCartItemsRepository
             SELECT COUNT(*) 
             FROM cart_items ci
             INNER JOIN carts c ON ci.cart_id = c.id
-            WHERE c.entity_id IN (
-                SELECT id FROM entities WHERE tenant_id = :tenant_id
-            )
+            INNER JOIN entities ent ON c.entity_id = ent.id AND ent.tenant_id = :tenant_id
+            WHERE 1=1
         ";
         $params = [':tenant_id' => $tenantId];
 
@@ -117,9 +115,8 @@ final class PdoCartItemsRepository
             SELECT ci.*
             FROM cart_items ci
             INNER JOIN carts c ON ci.cart_id = c.id
-            WHERE c.entity_id IN (
-                SELECT id FROM entities WHERE tenant_id = :tenant_id
-            )
+            INNER JOIN entities ent ON c.entity_id = ent.id AND ent.tenant_id = :tenant_id
+            WHERE 1=1
             AND ci.id = :id
             LIMIT 1
         ");
@@ -137,9 +134,8 @@ final class PdoCartItemsRepository
             SELECT ci.*
             FROM cart_items ci
             INNER JOIN carts c ON ci.cart_id = c.id
-            WHERE c.entity_id IN (
-                SELECT id FROM entities WHERE tenant_id = :tenant_id
-            )
+            INNER JOIN entities ent ON c.entity_id = ent.id AND ent.tenant_id = :tenant_id
+            WHERE 1=1
             AND ci.cart_id = :cart_id
             ORDER BY ci.added_at ASC
         ");
@@ -210,8 +206,8 @@ final class PdoCartItemsRepository
                 SELECT ci.id 
                 FROM cart_items ci
                 INNER JOIN carts c ON ci.cart_id = c.id
-                WHERE ci.id = :id 
-                AND c.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)
+                INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id
+                WHERE ci.id = :id
             ");
             $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
             if (!$checkStmt->fetch()) {
@@ -257,7 +253,7 @@ final class PdoCartItemsRepository
             SELECT c.id 
             FROM carts c
             WHERE c.id = :cart_id 
-            AND c.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)
+            AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)
         ");
         $checkStmt->execute([':cart_id' => $params[':cart_id'], ':tenant_id' => $tenantId]);
         if (!$checkStmt->fetch()) {
@@ -298,8 +294,8 @@ final class PdoCartItemsRepository
             SELECT ci.cart_id
             FROM cart_items ci
             INNER JOIN carts c ON ci.cart_id = c.id
-            WHERE ci.id = :id 
-            AND c.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)
+            INNER JOIN entities ent4 ON c.entity_id = ent4.id AND ent4.tenant_id = :tenant_id
+            WHERE ci.id = :id
         ");
         $getCartStmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
         $cartId = $getCartStmt->fetchColumn();
@@ -353,7 +349,7 @@ final class PdoCartItemsRepository
                 c.last_activity_at = CURRENT_TIMESTAMP,
                 c.updated_at = CURRENT_TIMESTAMP
             WHERE c.id = :cart_id5
-            AND c.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)
+            AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)
         ");
         
         $stmt->execute([

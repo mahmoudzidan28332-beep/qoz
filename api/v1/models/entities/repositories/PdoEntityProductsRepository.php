@@ -161,14 +161,8 @@ final class PdoEntityProductsRepository
                   AND pp.entity_id  = ep.entity_id
                   AND pp.variant_id IS NULL
                   AND pp.is_active  = 1
-                  AND pp.id = (
-                      SELECT MIN(id) FROM product_pricing
-                      WHERE product_id = ep.product_id
-                        AND entity_id  = ep.entity_id
-                        AND variant_id IS NULL
-                        AND is_active  = 1
-                  )
             WHERE ep.id = :id
+            ORDER BY pp.id ASC
             LIMIT 1
         ");
         $stmt->execute([':id' => $id]);
@@ -203,7 +197,7 @@ final class PdoEntityProductsRepository
     /**
      * Get all products for an entity (with pricing — one row per product, no duplicates)
      *
-     * FIX: استخدام subquery لجلب أحدث سعر نشط بدلاً من JOIN مباشر
+     * FIX: split into separate queries to avoid correlated subqueries
      *      يمنع تكرار الصفوف إذا كان المنتج عنده أكثر من سعر نشط
      *
      * @param int    $entityId
@@ -211,17 +205,28 @@ final class PdoEntityProductsRepository
      */
     public function getEntityProducts(int $entityId, string $lang = 'ar'): array
     {
+        // Step 1: Get min pricing IDs for this entity's products
+        $minStmt = $this->pdo->prepare("
+            SELECT product_id, entity_id, MIN(id) AS min_id
+            FROM product_pricing
+            WHERE entity_id = :eid AND variant_id IS NULL AND is_active = 1
+            GROUP BY product_id, entity_id
+        ");
+        $minStmt->execute([':eid' => $entityId]);
+        $minRows = $minStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build a map of product_id => min pricing id
+        $minMap = [];
+        foreach ($minRows as $r) {
+            $minMap[(int)$r['product_id']] = (int)$r['min_id'];
+        }
+
+        // Step 2: Get entity products with basic joins (no subquery in ON)
         $stmt = $this->pdo->prepare("
             SELECT
                 ep.*,
                 COALESCE(pt_lang.name, pt_ar.name, pt_en.name, CONCAT('Product #', ep.product_id)) AS product_name,
-                p.sku AS product_sku,
-                pp.id            AS pricing_id,
-                pp.price,
-                pp.compare_at_price,
-                pp.cost_price,
-                pp.currency_code,
-                pp.tax_rate
+                p.sku AS product_sku
             FROM entity_products ep
             LEFT JOIN products p
                    ON p.id = ep.product_id
@@ -231,21 +236,53 @@ final class PdoEntityProductsRepository
                    ON pt_ar.product_id   = p.id AND pt_ar.language_code   = 'ar'
             LEFT JOIN product_translations pt_en
                    ON pt_en.product_id   = p.id AND pt_en.language_code   = 'en'
-            -- جلب سجل التسعير الوحيد (أصغر id نشط) لكل منتج في هذا الكيان
-            LEFT JOIN product_pricing pp
-                   ON pp.id = (
-                       SELECT MIN(pp2.id)
-                       FROM product_pricing pp2
-                       WHERE pp2.product_id = ep.product_id
-                         AND pp2.entity_id  = ep.entity_id
-                         AND pp2.variant_id IS NULL
-                         AND pp2.is_active  = 1
-                   )
             WHERE ep.entity_id = :entity_id
             ORDER BY ep.is_featured DESC, ep.id DESC
         ");
         $stmt->execute([':entity_id' => $entityId, ':lang' => $lang]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Step 3: Fetch pricing rows in bulk if any
+        if (!empty($minMap)) {
+            $pricingIds = array_values($minMap);
+            $placeholders = implode(',', array_fill(0, count($pricingIds), '?'));
+            $ppStmt = $this->pdo->prepare("
+                SELECT id AS pricing_id, product_id, price, compare_at_price,
+                       cost_price, currency_code, tax_rate
+                FROM product_pricing WHERE id IN ($placeholders)
+            ");
+            $ppStmt->execute($pricingIds);
+            $ppRows = $ppStmt->fetchAll(PDO::FETCH_ASSOC);
+            $ppMap = [];
+            foreach ($ppRows as $pp) {
+                $ppMap[(int)$pp['product_id']] = $pp;
+            }
+        } else {
+            $ppMap = [];
+        }
+
+        // Step 4: Merge pricing into results
+        foreach ($rows as &$row) {
+            $pid = (int)$row['product_id'];
+            if (isset($ppMap[$pid])) {
+                $row['pricing_id']       = $ppMap[$pid]['pricing_id'];
+                $row['price']            = $ppMap[$pid]['price'];
+                $row['compare_at_price'] = $ppMap[$pid]['compare_at_price'];
+                $row['cost_price']       = $ppMap[$pid]['cost_price'];
+                $row['currency_code']    = $ppMap[$pid]['currency_code'];
+                $row['tax_rate']         = $ppMap[$pid]['tax_rate'];
+            } else {
+                $row['pricing_id']       = null;
+                $row['price']            = null;
+                $row['compare_at_price'] = null;
+                $row['cost_price']       = null;
+                $row['currency_code']    = null;
+                $row['tax_rate']         = null;
+            }
+        }
+        unset($row);
+
+        return $rows;
     }
 
     /**

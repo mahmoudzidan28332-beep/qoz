@@ -57,14 +57,13 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
                 ON c.id = ct.category_id AND ct.language_code = :lang
             LEFT JOIN categories p
                 ON c.parent_id = p.id
+            LEFT JOIN image_types it_cat
+                ON it_cat.name = 'category'
             LEFT JOIN images i
                 ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
+               AND i.image_type_id = it_cat.id
                AND i.is_main = 1
         ";
-
         $params = [':lang' => $lang];
 
         // ── Tenant JOIN ──────────────────────────────────────────
@@ -573,11 +572,11 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             FROM categories c
             LEFT JOIN category_translations ct
                 ON c.id = ct.category_id AND ct.language_code = :lang
+            LEFT JOIN image_types it_cat_a
+                ON it_cat_a.name = 'category'
             LEFT JOIN images i
                 ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
+               AND i.image_type_id = it_cat_a.id
                AND i.is_main = 1
             WHERE c.is_active = 1
         ";
@@ -607,11 +606,11 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             FROM categories c
             LEFT JOIN category_translations ct
                 ON c.id = ct.category_id AND ct.language_code = :lang
+            LEFT JOIN image_types it_cat_f
+                ON it_cat_f.name = 'category'
             LEFT JOIN images i
                 ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
+               AND i.image_type_id = it_cat_f.id
                AND i.is_main = 1
             WHERE c.is_active = 1 AND c.is_featured = 1
         ";
