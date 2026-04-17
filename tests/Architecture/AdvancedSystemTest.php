@@ -2816,33 +2816,41 @@ function resolveFormat(): string
     return strtolower(trim($_GET['format'] ?? 'html'));
 }
 
-// ─── Run ──────────────────────────────────────────────────────────────────────
+// ─── Run (only when invoked directly, not when require'd) ────────────────────
 
-$projectRoot = resolveProjectRoot();
-$format      = resolveFormat();
+if (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'] ?? '')) {
+    $projectRoot = resolveProjectRoot();
+    $format      = resolveFormat();
 
-$runner = AdvancedSystemTestRunner::createDefault($projectRoot);
-$report = $runner->run();
+    $runner = AdvancedSystemTestRunner::createDefault($projectRoot);
+    $report = $runner->run();
 
-switch ($format) {
-    case 'json':
-        header('Content-Type: application/json; charset=UTF-8');
-        echo ReportFormatter::json($report);
-        break;
+    switch ($format) {
+        case 'json':
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=UTF-8');
+            }
+            echo ReportFormatter::json($report);
+            break;
 
-    case 'md':
-    case 'markdown':
-        header('Content-Type: text/markdown; charset=UTF-8');
-        echo ReportFormatter::markdown($report);
-        break;
+        case 'md':
+        case 'markdown':
+            if (!headers_sent()) {
+                header('Content-Type: text/markdown; charset=UTF-8');
+            }
+            echo ReportFormatter::markdown($report);
+            break;
 
-    case 'html':
-        header('Content-Type: text/html; charset=UTF-8');
-        echo ReportFormatter::html($report);
-        break;
+        case 'html':
+            if (!headers_sent()) {
+                header('Content-Type: text/html; charset=UTF-8');
+            }
+            echo ReportFormatter::html($report);
+            break;
 
-    case 'cli':
-    default:
-        echo ReportFormatter::cli($report);
-        break;
+        case 'cli':
+        default:
+            echo ReportFormatter::cli($report);
+            break;
+    }
 }
