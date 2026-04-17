@@ -378,48 +378,50 @@ final class PdoStockMovementsRepository
     // ================================
     public function listPaginated(array $filters, int $limit, int $offset): array
     {
-        $where = [];
-        $params = [];
-        if (isset($filters['type']) && $filters['type'] !== '') {
-            $where[]        = 'sm.type = :type';
-            $params[':type'] = $filters['type'];
-        }
-        if (isset($filters['date_from']) && $filters['date_from'] !== '') {
-            $where[]             = 'sm.created_at >= :date_from';
-            $params[':date_from'] = $filters['date_from'];
-        }
-        if (isset($filters['date_to']) && $filters['date_to'] !== '') {
-            $where[]           = 'sm.created_at <= :date_to';
-            $params[':date_to'] = $filters['date_to'] . ' 23:59:59';
-        }
-        if (isset($filters['search']) && $filters['search'] !== '') {
-            $where[] = '(EXISTS (
-                SELECT 1 FROM product_translations pt2
-                WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search
-            ) OR EXISTS (
-                SELECT 1 FROM products p2
-                WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
-            ))';
-            $params[':search']         = '%' . $filters['search'] . '%';
-            $params[':search_sku']     = '%' . $filters['search'] . '%';
-            $params[':search_barcode'] = '%' . $filters['search'] . '%';
-        }
+        $params = [
+            ':type' => $filters['type'] ?? '',
+            ':has_type' => (isset($filters['type']) && $filters['type'] !== '') ? 1 : 0,
+            ':date_from' => $filters['date_from'] ?? '',
+            ':has_date_from' => (isset($filters['date_from']) && $filters['date_from'] !== '') ? 1 : 0,
+            ':date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? $filters['date_to'] . ' 23:59:59' : '',
+            ':has_date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? 1 : 0,
+            ':search' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_sku' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_barcode' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':has_search' => (isset($filters['search']) && $filters['search'] !== '') ? 1 : 0,
+        ];
 
-        $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+        $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm
+                      WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))";
 
-        $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm" . $whereSql;
         $countStmt = $this->pdo->prepare($countSql);
-        $countStmt->execute($params);
+        foreach ($params as $k => $v) {
+            $countStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $countStmt->execute();
         $total = (int)$countStmt->fetchColumn();
 
         $sql = "SELECT sm.*, pt.name AS product_name
                 FROM product_stock_movements sm
-                LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'"
-                . $whereSql . ' ORDER BY sm.created_at DESC LIMIT :limit OFFSET :offset';
+                LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
+                WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))
+                ORDER BY sm.created_at DESC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) {
-            $stmt->bindValue($k, $v);
+            $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
