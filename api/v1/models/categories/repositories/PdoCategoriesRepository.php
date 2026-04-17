@@ -648,6 +648,28 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         return $result ? (int) $result['id'] : null;
     }
 
+    public function bulkUpdateStatus(?int $tenantId, array $ids, bool $isActive, ?int $userId = null): int
+    {
+        if (empty($ids)) {
+            return 0;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        if ($tenantId === null) {
+            $params = array_merge([$isActive ? 1 : 0], $ids);
+            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE id IN ($placeholders)";
+        } else {
+            $params = array_merge([$isActive ? 1 : 0, $tenantId], $ids);
+            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE tenant_id = ? AND id IN ($placeholders)";
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->rowCount();
+    }
+
     public function slugExists(?int $tenantId, string $slug, ?int $excludeId = null): bool
     {
         if ($tenantId === null) {
