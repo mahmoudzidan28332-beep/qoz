@@ -23,59 +23,18 @@ if ($first === 'discounts') {
         exit;
     }
 
+    $discountsRepo = new PdoDiscountsRepository($pdo);
+
     // Optional filters
     $entityId   = isset($_GET['entity_id']) && (int)$_GET['entity_id'] > 0 ? (int)$_GET['entity_id'] : null;
     $dType      = trim($_GET['type'] ?? '');
     $activeOnly = ($_GET['active_only'] ?? '1') !== '0'; // default: only active+currently-valid
-
-    // Build WHERE
-    $where  = [];
-    $params = [];
-
-    // Tenant scoping: discounts apply if they belong to a merchant in this tenant
-    // or if they are scoped to a category/product in this tenant.
-    if ($tenantId) {
-        $where[]  = "(d.entity_id IN (SELECT id FROM entities WHERE tenant_id = ?) 
-                     OR EXISTS (SELECT 1 FROM discount_scopes ds_t 
-                                LEFT JOIN categories c_t ON ds_t.scope_type = 'category' AND c_t.id = ds_t.scope_id
-                                LEFT JOIN products p_t ON ds_t.scope_type = 'product' AND p_t.id = ds_t.scope_id
-                                WHERE ds_t.discount_id = d.id 
-                                  AND (c_t.tenant_id = ? OR p_t.tenant_id = ?)))";
-        $params[] = $tenantId;
-        $params[] = $tenantId;
-        $params[] = $tenantId;
-    }
-
-    // Per-merchant filter
-    if ($entityId) {
-        $where[]  = 'd.entity_id = ?';
-        $params[] = $entityId;
-    }
-
-    if ($activeOnly) {
-        $where[]  = "d.status = 'active'";
-        $where[]  = '(d.starts_at IS NULL OR d.starts_at <= NOW())';
-        $where[]  = '(d.ends_at IS NULL OR d.ends_at >= NOW())';
-    }
-
-    // expires_today=1 filter from homepage
-    if (($_GET['expires_today'] ?? '0') === '1') {
-        $where[] = 'd.ends_at IS NOT NULL AND d.ends_at >= NOW() AND d.ends_at <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
-    }
-
-    if ($dType !== '') {
-        $where[]  = 'd.type = ?';
-        $params[] = $dType;
-    }
-
-    $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $expiresToday = ($_GET['expires_today'] ?? '0') === '1';
 
     // Count total
     $total = 0;
     try {
-        $cStmt = $pdo->prepare("SELECT COUNT(*) FROM discounts d $whereSQL");
-        $cStmt->execute($params);
-        $total = (int)$cStmt->fetchColumn();
+        $total = $discountsRepo->publicCount($tenantId, $entityId, $dType, $activeOnly, $expiresToday);
     } catch (Throwable $e) {
         error_log('[public/discounts] count error: ' . $e->getMessage());
     }
@@ -88,25 +47,7 @@ if ($first === 'discounts') {
     // Main query — ordered by updated_at DESC (newest discount activity first)
     $rows = [];
     try {
-        $stmt = $pdo->prepare(
-            "SELECT d.id, d.entity_id, d.code, d.type, d.auto_apply, d.priority,
-                    d.is_stackable, d.currency_code, d.status,
-                    d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
-                    d.starts_at, d.ends_at, d.created_at, d.updated_at,
-                    COALESCE(dt.name, d.code, d.type) AS title,
-                    dt.description, dt.terms_conditions, dt.marketing_badge,
-                    e.id   AS merchant_id,
-                    COALESCE(et.name, e.slug) AS merchant_name
-             FROM discounts d
-             LEFT JOIN discount_translations dt ON dt.discount_id = d.id AND dt.language_code = ?
-             LEFT JOIN entities e ON e.id = d.entity_id
-             LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = ?
-             $whereSQL
-             ORDER BY d.updated_at DESC, d.id DESC
-             LIMIT $perPage OFFSET $off"
-        );
-        $stmt->execute(array_merge([$lang, $lang], $params));
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $discountsRepo->publicList($tenantId, $entityId, $dType, $activeOnly, $expiresToday, $lang, $perPage, $off);
     } catch (Throwable $e) {
         error_log('[public/discounts] fetch error: ' . $e->getMessage());
     }
@@ -114,40 +55,17 @@ if ($first === 'discounts') {
     // Enrich rows with primary action (discount value & type from discount_actions)
     if (!empty($rows)) {
         $ids = array_column($rows, 'id');
-        $phs = implode(',', array_fill(0, count($ids), '?'));
         
         try {
             // 1. Actions logic
-            $aStmt = $pdo->prepare(
-                "SELECT discount_id, action_type, action_value
-                 FROM discount_actions
-                 WHERE discount_id IN ($phs)
-                 ORDER BY id ASC"
-            );
-            $aStmt->execute($ids);
             $actions = [];
-            foreach ($aStmt->fetchAll(PDO::FETCH_ASSOC) as $a) {
+            foreach ($discountsRepo->getActionsForIds($ids) as $a) {
                 if (!isset($actions[$a['discount_id']])) $actions[$a['discount_id']] = $a;
             }
 
             // 2. Scopes logic (resolve names for "Applies to" label)
-            $sStmt = $pdo->prepare(
-                "SELECT ds.discount_id, ds.scope_type, 
-                        COALESCE(pt.name, p.slug) as product_name,
-                        COALESCE(ct.name, c.slug) as category_name,
-                        COALESCE(et.name, e.slug) as entity_name
-                 FROM discount_scopes ds
-                 LEFT JOIN products p ON ds.scope_type = 'product' AND p.id = ds.scope_id
-                 LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = ?
-                 LEFT JOIN categories c ON ds.scope_type = 'category' AND c.id = ds.scope_id
-                 LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.language_code = ?
-                 LEFT JOIN entities e ON ds.scope_type = 'entity' AND e.id = ds.scope_id
-                 LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = ?
-                 WHERE ds.discount_id IN ($phs)"
-            );
-            $sStmt->execute(array_merge([$lang, $lang, $lang], $ids));
             $scopeMap = [];
-            foreach ($sStmt->fetchAll(PDO::FETCH_ASSOC) as $s) {
+            foreach ($discountsRepo->getScopesForIds($ids, $lang) as $s) {
                 $did = $s['discount_id'];
                 $txt = match($s['scope_type']) {
                     'product'  => $s['product_name'],

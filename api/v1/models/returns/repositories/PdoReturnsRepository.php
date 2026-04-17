@@ -161,6 +161,16 @@ final class PdoReturnsRepository implements ReturnsRepositoryInterface
         return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
     }
 
+    public function createPublicReturn(int $tenantId, int $userId, int $orderId, string $returnNumber, string $reason): int
+    {
+        $this->pdo->prepare(
+            "INSERT INTO returns
+               (tenant_id, user_id, order_id, return_number, reason, status, requested_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'pending', NOW(), NOW(), NOW())"
+        )->execute([$tenantId, $userId, $orderId, $returnNumber, $reason]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
     private function buildParams(int $tenantId, array $data, bool $isUpdate): array
     {
         $params = [

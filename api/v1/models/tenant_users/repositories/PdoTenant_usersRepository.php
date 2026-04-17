@@ -20,6 +20,14 @@ final class PdoTenant_usersRepository
         $this->pdo = $pdo;
     }
 
+    public function addUserToTenant(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            'INSERT INTO tenant_users (tenant_id, user_id, role_id, is_active, joined_at)
+             VALUES (?, ?, 1, 1, NOW())'
+        )->execute([$tenantId, $userId]);
+    }
+
     /**
      * Get all tenant users with pagination and filters
      *

@@ -256,6 +256,16 @@ final class PdoTenantsRepository
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function createTenantPublic(string $name, ?string $domain, int $ownerUserId): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO tenants (name, domain, owner_user_id, status, created_at)
+             VALUES (?, ?, ?, "suspended", NOW())'
+        );
+        $st->execute([$name, $domain, $ownerUserId]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
     /**
      * Log actions to entity_logs table
      */

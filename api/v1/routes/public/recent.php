@@ -15,20 +15,14 @@ if ($first === 'recent') {
         if (!$recentPid) { ResponseFormatter::error('product_id required', 422); exit; }
         $recentUid = $userId ?? null;
         $recentSid = session_id() ?: null;
+        $recentRepo = new PdoRecentlyViewedRepository($pdo);
         try {
             // upsert: update viewed_at if already exists, otherwise insert
-            $pdo->prepare(
-                'INSERT INTO recently_viewed_products (user_id, session_id, product_id, viewed_at)
-                 VALUES (?, ?, ?, NOW())
-                 ON DUPLICATE KEY UPDATE viewed_at = NOW()'
-            )->execute([$recentUid, $recentSid, $recentPid]);
+            $recentRepo->upsert($recentUid, $recentSid, $recentPid);
         } catch (Throwable $_) {
             // table may not have unique constraint — try insert ignore
             try {
-                $pdo->prepare(
-                    'INSERT IGNORE INTO recently_viewed_products (user_id, session_id, product_id, viewed_at)
-                     VALUES (?, ?, ?, NOW())'
-                )->execute([$recentUid, $recentSid, $recentPid]);
+                $recentRepo->insertIgnore($recentUid, $recentSid, $recentPid);
             } catch (Throwable $__) { /* non-fatal */ }
         }
         ResponseFormatter::success(['ok' => true]);

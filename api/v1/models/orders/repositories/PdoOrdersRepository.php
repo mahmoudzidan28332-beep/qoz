@@ -248,6 +248,42 @@ final class PdoOrdersRepository
         return $stmt->execute([':id' => $id]);
     }
 
+    public function checkOrderNumber(string $orderNumber): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM orders WHERE order_number = ? LIMIT 1');
+        $stmt->execute([$orderNumber]);
+        return (bool)$stmt->fetch();
+    }
+
+    public function createPublicOrder(
+        int $tenantId,
+        int $entityId,
+        string $orderNumber,
+        int $userId,
+        float $subtotal,
+        float $grandTotal,
+        string $currencyCode,
+        string $notes,
+        ?string $ipAddress
+    ): int {
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO orders
+               (tenant_id, entity_id, order_number, user_id, status, payment_status,
+                subtotal, tax_amount, shipping_cost, discount_amount, total_amount, grand_total,
+                currency_code, customer_notes, ip_address)
+             VALUES (?, ?, ?, ?, 'pending', 'pending',
+                     ?, 0, 0, 0, ?, ?,
+                     ?, ?, ?)"
+        );
+        $stmt->execute([
+            $tenantId, $entityId, $orderNumber, $userId,
+            $subtotal, $grandTotal, $grandTotal,
+            $currencyCode, $notes,
+            $ipAddress,
+        ]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
     private function generateOrderNumber(int $tenantId): string
     {
         $prefix = 'ORD';

@@ -254,4 +254,29 @@ final class PdoEntitiesRepository
             ->prepare("DELETE FROM entities WHERE tenant_id = :t AND id = :i")
             ->execute([':t'=>$tenantId,':i'=>$id]);
     }
+
+    public function createPublic(
+        int $tenantId,
+        int $userId,
+        string $storeName,
+        string $slug,
+        string $vendorType,
+        string $storeType,
+        string $phone,
+        string $email,
+        ?string $websiteUrl
+    ): int {
+        $st = $this->pdo->prepare(
+            'INSERT INTO entities
+                (parent_id, tenant_id, user_id, store_name, slug, vendor_type, store_type,
+                 phone, email, website_url, status, is_verified, joined_at, created_at, updated_at)
+             VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", 0, NOW(), NOW(), NOW())'
+        );
+        $st->execute([
+            $tenantId, $userId, $storeName, $slug,
+            $vendorType, $storeType, $phone, $email,
+            $websiteUrl,
+        ]);
+        return (int)$this->pdo->lastInsertId();
+    }
 }

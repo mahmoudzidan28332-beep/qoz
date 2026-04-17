@@ -147,6 +147,15 @@ final class PdoReturnItemsRepository implements ReturnItemsRepositoryInterface
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 
+    public function createReturnItem(int $returnId, int $orderItemId, int $quantity, int $tenantId): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO return_items
+               (return_id, order_item_id, quantity, tenant_id, created_at)
+             VALUES (?, ?, ?, ?, NOW())"
+        )->execute([$returnId, $orderItemId, $quantity, $tenantId]);
+    }
+
     private function validateReturnOwnership(int $tenantId, int $returnId): bool
     {
         $stmt = $this->pdo->prepare("SELECT 1 FROM returns WHERE id = :id AND tenant_id = :tenant_id");

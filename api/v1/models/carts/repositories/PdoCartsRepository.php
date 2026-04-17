@@ -294,6 +294,14 @@ final class PdoCartsRepository
         return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
     }
 
+    public function convertToOrderById(int $cartId, int $orderId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE carts SET status = 'converted', converted_to_order_id = ?, updated_at = NOW()
+               WHERE id = ?"
+        )->execute([$orderId, $cartId]);
+    }
+
     // ================================
     // Convert to order
     // ================================
