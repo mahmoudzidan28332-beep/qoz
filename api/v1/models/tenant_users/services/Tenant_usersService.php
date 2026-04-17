@@ -294,4 +294,20 @@ final class Tenant_usersService
     {
         return $this->repo->getUserEntityId($userId, $tenantId);
     }
+
+    /**
+     * Get all tenants a user belongs to (with role info)
+     */
+    public function getTenantsByUserId(int $userId): array
+    {
+        return $this->repo->getTenantsByUserId($userId);
+    }
+
+    /**
+     * Get permission key_names for a role within a tenant
+     */
+    public function getPermissionsByRoleAndTenant(int $roleId, int $tenantId): array
+    {
+        return $this->repo->getPermissionsByRoleAndTenant($roleId, $tenantId);
+    }
 }

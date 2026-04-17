@@ -12,10 +12,17 @@ if (!$pdo instanceof PDO || !$user) {
 }
 
 require_once dirname(__DIR__) . '/models/tenant_users/repositories/PdoTenant_usersRepository.php';
-$tenantUsersRepo = new PdoTenant_usersRepository($pdo);
+require_once dirname(__DIR__) . '/models/tenant_users/validators/Tenant_usersValidator.php';
+require_once dirname(__DIR__) . '/models/tenant_users/services/Tenant_usersService.php';
+require_once dirname(__DIR__) . '/models/tenant_users/controllers/Tenant_usersController.php';
+
+$tenantUsersRepo       = new PdoTenant_usersRepository($pdo);
+$tenantUsersValidator  = new Tenant_usersValidator();
+$tenantUsersService    = new Tenant_usersService($tenantUsersRepo, $tenantUsersValidator);
+$tenantUsersController = new Tenant_usersController($tenantUsersService);
 
 // جلب جميع tenants التي ينتمي إليها المستخدم
-$tenantsData = $tenantUsersRepo->getTenantsByUserId($user['id']);
+$tenantsData = $tenantUsersController->getTenantsByUserId($user['id']);
 
 // جلب الصلاحيات لكل دور ضمن الـ tenants
 $rolesPermissions = [];
@@ -23,7 +30,7 @@ foreach ($tenantsData as $td) {
     $roleId = $td['role_id'];
     $tenantId = $td['tenant_id'];
     if ($roleId) {
-        $perms = $tenantUsersRepo->getPermissionsByRoleAndTenant($roleId, $tenantId);
+        $perms = $tenantUsersController->getPermissionsByRoleAndTenant($roleId, $tenantId);
         $rolesPermissions[$tenantId] = $perms;
     }
 }

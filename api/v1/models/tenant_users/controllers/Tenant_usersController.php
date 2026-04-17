@@ -160,4 +160,27 @@ final class Tenant_usersController
     {
         return $this->service->getUserEntityId($userId, $tenantId);
     }
+
+    /**
+     * Get all tenants a user belongs to (with role info)
+     *
+     * @param int $userId
+     * @return array
+     */
+    public function getTenantsByUserId(int $userId): array
+    {
+        return $this->service->getTenantsByUserId($userId);
+    }
+
+    /**
+     * Get permission key_names for a role within a tenant
+     *
+     * @param int $roleId
+     * @param int $tenantId
+     * @return array
+     */
+    public function getPermissionsByRoleAndTenant(int $roleId, int $tenantId): array
+    {
+        return $this->service->getPermissionsByRoleAndTenant($roleId, $tenantId);
+    }
 }
