@@ -347,4 +347,99 @@ final class PdoUserDevicesRepository
         $this->pdo->prepare('UPDATE user_devices SET fcm_token=?, user_id=COALESCE(?,user_id), last_seen_at=NOW(), updated_at=CURRENT_TIMESTAMP WHERE id=?')
             ->execute([$fcmToken, $userId, $deviceId]);
     }
+
+    // =========================================================================
+    // Public-route helpers
+    // =========================================================================
+
+    /** List devices for a user (public route). */
+    public function listByUserId(int $userId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT id, device_type, device_name, ip, last_seen_at, is_active
+            FROM user_devices
+            WHERE user_id = ?
+            ORDER BY last_seen_at DESC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Find existing device by anonymous_token or fcm_token. */
+    public function findByTokens(?string $anonToken, ?string $fcmToken): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM user_devices
+            WHERE (anonymous_token = :anon AND :anon IS NOT NULL)
+               OR (fcm_token = :fcm AND :fcm IS NOT NULL)
+            LIMIT 1
+        ");
+        $stmt->execute([
+            ':anon' => $anonToken,
+            ':fcm'  => $fcmToken
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /** Update device fields for public registration. */
+    public function updatePublicRegistration(?int $userId, ?string $anonToken, ?string $fcmToken, string $deviceType, string $deviceName, string $ip, int $deviceId): void
+    {
+        $this->pdo->prepare("
+            UPDATE user_devices SET
+                user_id       = COALESCE(:uid, user_id),
+                anonymous_token = COALESCE(:anon, anonymous_token),
+                fcm_token     = COALESCE(:fcm, fcm_token),
+                device_type   = :type,
+                device_name   = :name,
+                ip            = :ip,
+                last_seen_at  = NOW(),
+                is_active     = 1,
+                updated_at    = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ")->execute([
+            ':uid'  => $userId,
+            ':anon' => $anonToken,
+            ':fcm'  => $fcmToken,
+            ':type' => $deviceType,
+            ':name' => $deviceName,
+            ':ip'   => $ip,
+            ':id'   => $deviceId
+        ]);
+    }
+
+    /** Insert a new device for public registration. Returns the new ID. */
+    public function insertPublicRegistration(?int $userId, ?string $anonToken, ?string $fcmToken, string $deviceType, string $deviceName, string $userAgent, string $ip): int
+    {
+        $this->pdo->prepare("
+            INSERT INTO user_devices (
+                user_id, anonymous_token, fcm_token,
+                device_type, device_name, user_agent,
+                ip, last_seen_at, is_active, created_at
+            ) VALUES (
+                :uid, :anon, :fcm,
+                :type, :name, :ua,
+                :ip, NOW(), 1, CURRENT_TIMESTAMP
+            )
+        ")->execute([
+            ':uid'  => $userId,
+            ':anon' => $anonToken,
+            ':fcm'  => $fcmToken,
+            ':type' => $deviceType,
+            ':name' => $deviceName,
+            ':ua'   => $userAgent,
+            ':ip'   => $ip
+        ]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Deactivate device by FCM token (public DELETE). */
+    public function deactivateByFcmToken(string $fcmToken): void
+    {
+        $this->pdo->prepare("
+            UPDATE user_devices
+            SET is_active = 0
+            WHERE fcm_token = ?
+        ")->execute([$fcmToken]);
+    }
 }

@@ -111,4 +111,125 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
         $stmt = $this->pdo->prepare("DELETE FROM " . self::TABLE . " WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
+
+    // =========================================================================
+    // Public-route helpers
+    // =========================================================================
+
+    /** Lock auction row for update (bid race-condition prevention). */
+    public function lockForUpdate(int $auctionId): void
+    {
+        $this->pdo->prepare('SELECT id FROM auctions WHERE id=? FOR UPDATE')->execute([$auctionId]);
+    }
+
+    /** Clear winning flag on all bids for an auction. */
+    public function clearWinningBids(int $auctionId): void
+    {
+        $this->pdo->prepare('UPDATE auction_bids SET is_winning=0 WHERE auction_id=? AND is_winning=1')->execute([$auctionId]);
+    }
+
+    /** Insert a manual bid and return the new bid ID. */
+    public function insertManualBid(int $auctionId, int $userId, float $amount, ?string $ip): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO auction_bids (auction_id, user_id, bid_amount, bid_type, is_winning, ip_address, created_at) VALUES (?,?,?,?,1,?,NOW())'
+        );
+        $stmt->execute([$auctionId, $userId, $amount, 'manual', $ip]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Update auction price, bid counts and winner after a bid. */
+    public function updateAuctionAfterBid(int $auctionId, float $price, int $winnerUserId, int $winnerBidId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE auctions SET current_price=?, total_bids=total_bids+1,
+             total_bidders=(SELECT COUNT(DISTINCT user_id) FROM auction_bids WHERE auction_id=?),
+             winner_user_id=?, winner_bid_id=? WHERE id=?'
+        )->execute([$price, $auctionId, $winnerUserId, $winnerBidId, $auctionId]);
+    }
+
+    /** Insert a buy-now bid and return the new bid ID. */
+    public function insertBuyNowBid(int $auctionId, int $userId, float $amount): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO auction_bids (auction_id, user_id, bid_amount, bid_type, is_winning, created_at) VALUES (?,?,?,?,1,NOW())'
+        );
+        $stmt->execute([$auctionId, $userId, $amount, 'buy_now']);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Mark auction as sold after buy-now. */
+    public function markAsSold(int $auctionId, float $price, int $winnerUserId, int $winnerBidId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE auctions SET status='sold', current_price=?, winner_user_id=?, winner_bid_id=?, winning_amount=?, ended_at=NOW() WHERE id=?"
+        )->execute([$price, $winnerUserId, $winnerBidId, $price, $auctionId]);
+    }
+
+    /** Insert auction order and return the new order ID. */
+    public function insertAuctionOrder(int $tenantId, int $entityId, string $orderNum, int $userId, int $auctionId, float $amount, ?string $ip): int
+    {
+        $this->pdo->prepare(
+            "INSERT INTO orders (tenant_id, entity_id, order_number, user_id, cart_id, auction_id,
+                order_type, status, payment_status, subtotal, total_amount, grand_total,
+                currency_code, ip_address)
+             VALUES (?,?,?,?,NULL,?,'online','pending','pending',?,?,?,'SAR',?)"
+        )->execute([
+            $tenantId, $entityId, $orderNum, $userId, $auctionId,
+            $amount, $amount, $amount, $ip,
+        ]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Insert order item for an auction product. */
+    public function insertAuctionOrderItem(int $tenantId, int $orderId, int $entityId, int $productId, string $name, string $sku, float $price): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO order_items (tenant_id, order_id, entity_id, product_id, product_name, sku, quantity, unit_price, subtotal, total)
+             VALUES (?,?,?,?,?,?,1,?,?,?)"
+        )->execute([$tenantId, $orderId, $entityId, $productId, $name, $sku, $price, $price, $price]);
+    }
+
+    /** Insert payment record for an auction purchase. */
+    public function insertAuctionPayment(int $entityId, string $paymentNum, int $orderId, int $userId, float $amount, ?string $ip): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO payments (entity_id, payment_number, order_id, user_id, payment_method,
+                amount, currency_code, status, payment_type, ip_address, created_at, updated_at)
+             VALUES (?,?,?,?,'buy_now',?,'SAR','pending','order',?,NOW(),NOW())"
+        )->execute([$entityId, $paymentNum, $orderId, $userId, $amount, $ip]);
+    }
+
+    /** Cancel an order (for expire flow). */
+    public function cancelOrder(int $orderId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE orders SET status='cancelled', cancellation_reason='Payment deadline expired', cancelled_at=NOW() WHERE id=?"
+        )->execute([$orderId]);
+    }
+
+    /** Update auction winner and winning amount. */
+    public function updateWinner(int $auctionId, ?int $winnerUserId, ?float $winningAmount): void
+    {
+        $this->pdo->prepare(
+            "UPDATE auctions SET winner_user_id=?, winning_amount=? WHERE id=?"
+        )->execute([$winnerUserId, $winningAmount, $auctionId]);
+    }
+
+    /** Insert a new expire-transfer order and return its ID. */
+    public function insertExpireOrder(int $tenantId, int $entityId, string $orderNum, int $userId, float $amount, ?string $ip): int
+    {
+        $this->pdo->prepare(
+            "INSERT INTO orders (tenant_id, entity_id, order_number, user_id, auction_id, order_type, status, payment_status, subtotal, total_amount, grand_total, currency_code, ip_address) VALUES (?,?,?,?,NULL,'online','pending','pending',?,?,?,'SAR',?)"
+        )->execute([$tenantId, $entityId, $orderNum, $userId, $amount, $amount, $amount, $ip]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Mark auction as ended with no winner. */
+    public function markEndedNoWinner(int $auctionId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE auctions SET winner_user_id=NULL, winning_amount=NULL, status='ended' WHERE id=?"
+        )->execute([$auctionId]);
+    }
 }

@@ -193,4 +193,143 @@ final class PdoNotificationsRepository
         $stmt = $this->pdo->prepare("DELETE FROM notifications WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
+
+    // =========================================================================
+    // Public-route helpers (notification_types, notification_recipients)
+    // =========================================================================
+
+    /** Return all active notification types. */
+    public function getActiveTypes(): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, code, name, description FROM notification_types WHERE is_active = 1 ORDER BY id ASC'
+        );
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /** Count unread notifications from notification_recipients directly. */
+    public function countUnreadForUser(int $userId, int $tenantId): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM notification_recipients nr
+               JOIN notifications n ON n.id = nr.notification_id
+              WHERE nr.recipient_type = 'user'
+                AND nr.recipient_id   = ?
+                AND nr.is_read        = 0
+                AND n.tenant_id       = ?
+                AND (n.expires_at IS NULL OR n.expires_at > NOW())"
+        );
+        $stmt->execute([$userId, $tenantId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * List notifications for a user with dynamic filters.
+     * Returns ['total' => int, 'items' => array].
+     */
+    public function listForUser(
+        int $userId,
+        int $tenantId,
+        int $limit,
+        int $offset,
+        ?string $typeCode = null,
+        ?string $priority = null,
+        bool $unreadOnly = false
+    ): array {
+        $where  = [
+            "nr.recipient_type = 'user'",
+            'nr.recipient_id   = ?',
+            'n.tenant_id       = ?',
+            '(n.expires_at IS NULL OR n.expires_at > NOW())',
+        ];
+        $params = [$userId, $tenantId];
+
+        if ($typeCode !== null && $typeCode !== '') {
+            $where[]  = 'nt.code = ?';
+            $params[] = $typeCode;
+        }
+        $allowedPriorities = ['low', 'normal', 'high', 'urgent'];
+        if ($priority !== null && in_array($priority, $allowedPriorities, true)) {
+            $where[]  = 'n.priority = ?';
+            $params[] = $priority;
+        }
+        if ($unreadOnly) {
+            $where[] = 'nr.is_read = 0';
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $cSt = $this->pdo->prepare(
+            "SELECT COUNT(*)
+               FROM notification_recipients nr
+               JOIN notifications n          ON n.id  = nr.notification_id
+          LEFT JOIN notification_types nt    ON nt.id = n.notification_type_id
+              WHERE $whereClause"
+        );
+        $cSt->execute($params);
+        $total = (int)$cSt->fetchColumn();
+
+        $itemParams = $params;
+        $itemParams[] = $limit;
+        $itemParams[] = $offset;
+
+        $qSt = $this->pdo->prepare(
+            "SELECT n.id, n.title, n.message, n.sent_at, n.priority, n.data,
+                    n.entity_id, n.sender_entity_id,
+                    nr.is_read, nr.read_at,
+                    nt.id   AS type_id,
+                    nt.code AS type_code,
+                    nt.name AS type_name
+               FROM notification_recipients nr
+               JOIN notifications n          ON n.id  = nr.notification_id
+          LEFT JOIN notification_types nt    ON nt.id = n.notification_type_id
+              WHERE $whereClause
+           ORDER BY n.sent_at DESC
+              LIMIT ? OFFSET ?"
+        );
+        $qSt->execute($itemParams);
+        $items = $qSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return ['total' => $total, 'items' => $items];
+    }
+
+    /**
+     * Mark specific notification IDs as read for a user.
+     * Returns the number of affected rows.
+     */
+    public function markReadByIds(array $ids, int $userId): int
+    {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "UPDATE notification_recipients
+                SET is_read = 1, read_at = NOW()
+              WHERE notification_id IN ($placeholders)
+                AND recipient_type = 'user'
+                AND recipient_id   = ?
+                AND is_read        = 0"
+        );
+        $stmt->execute(array_merge($ids, [$userId]));
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Mark ALL unread notifications as read for a user within a tenant.
+     * Returns the number of affected rows.
+     */
+    public function markAllReadForUser(int $userId, int $tenantId): int
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE notification_recipients nr
+               JOIN notifications n ON n.id = nr.notification_id
+                SET nr.is_read = 1, nr.read_at = NOW()
+              WHERE nr.recipient_type = 'user'
+                AND nr.recipient_id   = ?
+                AND nr.is_read        = 0
+                AND n.tenant_id       = ?
+                AND (n.expires_at IS NULL OR n.expires_at > NOW())"
+        );
+        $stmt->execute([$userId, $tenantId]);
+        return $stmt->rowCount();
+    }
 }

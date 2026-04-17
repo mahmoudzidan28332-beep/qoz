@@ -48,19 +48,25 @@ $notifUserId = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
 // Fall back to the session-cached value (set by public_context.php) or default to 1.
 $notifTenantId = (int)($tenantId ?? $_SESSION['pub_tenant_id'] ?? 1) ?: 1;
 
+// Instantiate repositories
+$notifRepo = null;
+$counterRepo = null;
+if ($pdo instanceof PDO) {
+    require_once dirname(__DIR__, 2) . '/models/notification/repositories/PdoNotificationsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/notification_counters/repositories/PdoNotificationCounterRepository.php';
+    $notifRepo   = new PdoNotificationsRepository($pdo);
+    $counterRepo = new PdoNotificationCounterRepository($pdo);
+}
+
 /* ------------------------------------------------------------------
  * GET /api/public/notifications/types
  * Returns all active notification types (id, code, name, description).
  * Public — no login required.
  * ------------------------------------------------------------------ */
 if ($notifMethod === 'GET' && $notifSub === 'types') {
-    if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
+    if (!$notifRepo) { ResponseFormatter::error('DB unavailable', 503); exit; }
     try {
-        $st = $pdo->prepare(
-            'SELECT id, code, name, description FROM notification_types WHERE is_active = 1 ORDER BY id ASC'
-        );
-        $st->execute();
-        $types = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $types = $notifRepo->getActiveTypes();
         ResponseFormatter::success(['types' => $types, 'total' => count($types)]);
     } catch (Throwable $e) {
         error_log('[public/notifications] types error: ' . $e->getMessage());
@@ -79,32 +85,14 @@ if ($notifMethod === 'GET' && $notifSub === 'types') {
  * ------------------------------------------------------------------ */
 if ($notifMethod === 'GET' && $notifSub === 'unread-count') {
     if (!$notifUserId) { ResponseFormatter::error('Login required', 401); exit; }
-    if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
+    if (!$notifRepo || !$counterRepo) { ResponseFormatter::error('DB unavailable', 503); exit; }
     try {
         // Prefer the pre-aggregated counter row
-        $cntSt = $pdo->prepare(
-            "SELECT unread_count FROM notification_counters
-              WHERE tenant_id = ? AND recipient_type = 'user' AND recipient_id = ?
-              LIMIT 1"
-        );
-        $cntSt->execute([$notifTenantId, $notifUserId]);
-        $row = $cntSt->fetch(PDO::FETCH_ASSOC);
+        $count = $counterRepo->getUnreadCount($notifTenantId, 'user', $notifUserId);
 
-        if ($row !== false) {
-            $count = (int)$row['unread_count'];
-        } else {
+        if ($count === 0) {
             // Fallback: count directly from notification_recipients
-            $fbSt = $pdo->prepare(
-                "SELECT COUNT(*) FROM notification_recipients nr
-                   JOIN notifications n ON n.id = nr.notification_id
-                  WHERE nr.recipient_type = 'user'
-                    AND nr.recipient_id   = ?
-                    AND nr.is_read        = 0
-                    AND n.tenant_id       = ?
-                    AND (n.expires_at IS NULL OR n.expires_at > NOW())"
-            );
-            $fbSt->execute([$notifUserId, $notifTenantId]);
-            $count = (int)$fbSt->fetchColumn();
+            $count = $notifRepo->countUnreadForUser($notifUserId, $notifTenantId);
         }
         ResponseFormatter::success(['unread_count' => $count]);
     } catch (Throwable $e) {
@@ -130,69 +118,25 @@ if ($notifMethod === 'GET' && $notifSub === 'unread-count') {
  * ------------------------------------------------------------------ */
 if ($notifMethod === 'GET' && $notifSub === '') {
     if (!$notifUserId) { ResponseFormatter::error('Login required', 401); exit; }
-    if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
+    if (!$notifRepo) { ResponseFormatter::error('DB unavailable', 503); exit; }
 
     $nLimit  = min(100, max(1, (int)($_GET['limit'] ?? $per)));
     $nPage   = max(1, (int)($_GET['page'] ?? $page));
     $nOffset = ($nPage - 1) * $nLimit;
 
-    $where  = [
-        "nr.recipient_type = 'user'",
-        'nr.recipient_id   = ?',
-        'n.tenant_id       = ?',
-        '(n.expires_at IS NULL OR n.expires_at > NOW())',
-    ];
-    $params = [$notifUserId, $notifTenantId];
-
-    if (!empty($_GET['type_code'])) {
-        $where[]  = 'nt.code = ?';
-        $params[] = (string)$_GET['type_code'];
-    }
-    $allowedPriorities = ['low', 'normal', 'high', 'urgent'];
-    if (!empty($_GET['priority']) && in_array($_GET['priority'], $allowedPriorities, true)) {
-        $where[]  = 'n.priority = ?';
-        $params[] = $_GET['priority'];
-    }
-    if (!empty($_GET['unread'])) {
-        $where[] = 'nr.is_read = 0';
-    }
-
-    $whereClause = implode(' AND ', $where);
-
     try {
-        // Total count
-        $cSt = $pdo->prepare(
-            "SELECT COUNT(*)
-               FROM notification_recipients nr
-               JOIN notifications n          ON n.id  = nr.notification_id
-          LEFT JOIN notification_types nt    ON nt.id = n.notification_type_id
-              WHERE $whereClause"
+        $result = $notifRepo->listForUser(
+            $notifUserId,
+            $notifTenantId,
+            $nLimit,
+            $nOffset,
+            !empty($_GET['type_code']) ? (string)$_GET['type_code'] : null,
+            !empty($_GET['priority']) ? $_GET['priority'] : null,
+            !empty($_GET['unread'])
         );
-        $cSt->execute($params);
-        $total = (int)$cSt->fetchColumn();
 
-        // Items — use only positional ? placeholders to avoid SQLSTATE HY093 when
-        // mixing positional and named parameters in MySQL PDO.
-        $itemParams = $params;
-        $itemParams[] = $nLimit;
-        $itemParams[] = $nOffset;
-
-        $qSt = $pdo->prepare(
-            "SELECT n.id, n.title, n.message, n.sent_at, n.priority, n.data,
-                    n.entity_id, n.sender_entity_id,
-                    nr.is_read, nr.read_at,
-                    nt.id   AS type_id,
-                    nt.code AS type_code,
-                    nt.name AS type_name
-               FROM notification_recipients nr
-               JOIN notifications n          ON n.id  = nr.notification_id
-          LEFT JOIN notification_types nt    ON nt.id = n.notification_type_id
-              WHERE $whereClause
-           ORDER BY n.sent_at DESC
-              LIMIT ? OFFSET ?"
-        );
-        $qSt->execute($itemParams);
-        $items = $qSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $total = $result['total'];
+        $items = $result['items'];
 
         // Cast is_read to bool for clean JSON
         foreach ($items as &$item) {
@@ -226,7 +170,7 @@ if ($notifMethod === 'GET' && $notifSub === '') {
  * ------------------------------------------------------------------ */
 if ($notifMethod === 'POST' && $notifSub === 'mark-read') {
     if (!$notifUserId) { ResponseFormatter::error('Login required', 401); exit; }
-    if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
+    if (!$notifRepo || !$counterRepo) { ResponseFormatter::error('DB unavailable', 503); exit; }
 
     $raw  = file_get_contents('php://input');
     $body = $raw !== false && $raw !== '' ? (json_decode($raw, true) ?? []) : [];
@@ -235,35 +179,12 @@ if ($notifMethod === 'POST' && $notifSub === 'mark-read') {
     if (empty($ids)) { ResponseFormatter::error('ids array is required', 422); exit; }
 
     try {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $upSt = $pdo->prepare(
-            "UPDATE notification_recipients
-                SET is_read = 1, read_at = NOW()
-              WHERE notification_id IN ($placeholders)
-                AND recipient_type = 'user'
-                AND recipient_id   = ?
-                AND is_read        = 0"
-        );
-        $upSt->execute(array_merge($ids, [$notifUserId]));
-        $affected = $upSt->rowCount();
+        $affected = $notifRepo->markReadByIds($ids, $notifUserId);
 
         // Recalculate unread_count from source to ensure consistency (non-fatal)
         if ($affected > 0) {
             try {
-                $pdo->prepare(
-                    "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
-                     VALUES (?, 'user', ?,
-                         (SELECT COUNT(*) FROM notification_recipients nr2
-                            JOIN notifications n2 ON n2.id = nr2.notification_id
-                           WHERE nr2.recipient_type = 'user'
-                             AND nr2.recipient_id   = ?
-                             AND nr2.is_read        = 0
-                             AND n2.tenant_id       = ?
-                             AND (n2.expires_at IS NULL OR n2.expires_at > NOW()))
-                     )
-                     ON DUPLICATE KEY UPDATE
-                         unread_count = VALUES(unread_count)"
-                )->execute([$notifTenantId, $notifUserId, $notifUserId, $notifTenantId]);
+                $counterRepo->recalculate($notifTenantId, $notifUserId);
             } catch (Throwable) {}
         }
 
@@ -284,29 +205,14 @@ if ($notifMethod === 'POST' && $notifSub === 'mark-read') {
  * ------------------------------------------------------------------ */
 if ($notifMethod === 'POST' && $notifSub === 'mark-all-read') {
     if (!$notifUserId) { ResponseFormatter::error('Login required', 401); exit; }
-    if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
+    if (!$notifRepo || !$counterRepo) { ResponseFormatter::error('DB unavailable', 503); exit; }
 
     try {
-        $upSt = $pdo->prepare(
-            "UPDATE notification_recipients nr
-               JOIN notifications n ON n.id = nr.notification_id
-                SET nr.is_read = 1, nr.read_at = NOW()
-              WHERE nr.recipient_type = 'user'
-                AND nr.recipient_id   = ?
-                AND nr.is_read        = 0
-                AND n.tenant_id       = ?
-                AND (n.expires_at IS NULL OR n.expires_at > NOW())"
-        );
-        $upSt->execute([$notifUserId, $notifTenantId]);
-        $affected = $upSt->rowCount();
+        $affected = $notifRepo->markAllReadForUser($notifUserId, $notifTenantId);
 
         // Recalculate counter from source to ensure consistency (non-fatal)
         try {
-            $pdo->prepare(
-                "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
-                 VALUES (?, 'user', ?, 0)
-                 ON DUPLICATE KEY UPDATE unread_count = 0"
-            )->execute([$notifTenantId, $notifUserId]);
+            $counterRepo->resetToZero($notifTenantId, $notifUserId);
         } catch (Throwable) {}
 
         ResponseFormatter::success(['affected' => $affected]);

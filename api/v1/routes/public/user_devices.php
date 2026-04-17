@@ -31,6 +31,9 @@ $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 512);
 $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
 require_once dirname(__DIR__, 3) . '/shared/helpers/device_detector.php';
+require_once dirname(__DIR__, 2) . '/models/notification/repositories/PdoUserDevicesRepository.php';
+
+$devicesRepo = new PdoUserDevicesRepository($pdo);
 
 // ==============================
 // MAIN
@@ -47,16 +50,8 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("
-            SELECT id, device_type, device_name, ip, last_seen_at, is_active
-            FROM user_devices
-            WHERE user_id = ?
-            ORDER BY last_seen_at DESC
-        ");
-        $stmt->execute([$userId]);
-
         ResponseFormatter::success([
-            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            'items' => $devicesRepo->listByUserId($userId)
         ]);
         exit;
     }
@@ -83,47 +78,14 @@ try {
         // ======================
         // Find existing device
         // ======================
-        $stmt = $pdo->prepare("
-            SELECT * FROM user_devices
-            WHERE (anonymous_token = :anon AND :anon IS NOT NULL)
-               OR (fcm_token = :fcm AND :fcm IS NOT NULL)
-            LIMIT 1
-        ");
-        $stmt->execute([
-            ':anon' => $anonToken,
-            ':fcm'  => $fcmToken
-        ]);
-
-        $device = $stmt->fetch(PDO::FETCH_ASSOC);
+        $device = $devicesRepo->findByTokens($anonToken, $fcmToken);
 
         // ======================
         // UPDATE
         // ======================
         if ($device) {
 
-            $stmt = $pdo->prepare("
-                UPDATE user_devices SET
-                    user_id       = COALESCE(:uid, user_id),
-                    anonymous_token = COALESCE(:anon, anonymous_token),
-                    fcm_token     = COALESCE(:fcm, fcm_token),
-                    device_type   = :type,
-                    device_name   = :name,
-                    ip            = :ip,
-                    last_seen_at  = NOW(),
-                    is_active     = 1,
-                    updated_at    = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-
-            $stmt->execute([
-                ':uid'  => $userId,
-                ':anon' => $anonToken,
-                ':fcm'  => $fcmToken,
-                ':type' => $deviceType,
-                ':name' => $deviceName,
-                ':ip'   => $ip,
-                ':id'   => $device['id']
-            ]);
+            $devicesRepo->updatePublicRegistration($userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ip, (int)$device['id']);
 
             ResponseFormatter::success([
                 'id' => (int)$device['id'],
@@ -135,30 +97,10 @@ try {
         // ======================
         // INSERT
         // ======================
-        $stmt = $pdo->prepare("
-            INSERT INTO user_devices (
-                user_id, anonymous_token, fcm_token,
-                device_type, device_name, user_agent,
-                ip, last_seen_at, is_active, created_at
-            ) VALUES (
-                :uid, :anon, :fcm,
-                :type, :name, :ua,
-                :ip, NOW(), 1, CURRENT_TIMESTAMP
-            )
-        ");
-
-        $stmt->execute([
-            ':uid'  => $userId,
-            ':anon' => $anonToken,
-            ':fcm'  => $fcmToken,
-            ':type' => $deviceType,
-            ':name' => $deviceName,
-            ':ua'   => $ua,
-            ':ip'   => $ip
-        ]);
+        $newId = $devicesRepo->insertPublicRegistration($userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ua, $ip);
 
         ResponseFormatter::success([
-            'id' => (int)$pdo->lastInsertId(),
+            'id' => $newId,
             'created' => true
         ], 'Device registered', 201);
 
@@ -178,12 +120,7 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("
-            UPDATE user_devices
-            SET is_active = 0
-            WHERE fcm_token = ?
-        ");
-        $stmt->execute([$fcmToken]);
+        $devicesRepo->deactivateByFcmToken($fcmToken);
 
         ResponseFormatter::success(['deleted' => true]);
         exit;

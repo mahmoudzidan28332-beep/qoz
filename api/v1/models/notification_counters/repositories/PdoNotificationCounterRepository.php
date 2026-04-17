@@ -194,4 +194,37 @@ final class PdoNotificationCounterRepository implements NotificationCounterRepos
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Recalculate unread_count from notification_recipients and upsert.
+     */
+    public function recalculate(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
+             VALUES (?, 'user', ?,
+                 (SELECT COUNT(*) FROM notification_recipients nr2
+                    JOIN notifications n2 ON n2.id = nr2.notification_id
+                   WHERE nr2.recipient_type = 'user'
+                     AND nr2.recipient_id   = ?
+                     AND nr2.is_read        = 0
+                     AND n2.tenant_id       = ?
+                     AND (n2.expires_at IS NULL OR n2.expires_at > NOW()))
+             )
+             ON DUPLICATE KEY UPDATE
+                 unread_count = VALUES(unread_count)"
+        )->execute([$tenantId, $userId, $userId, $tenantId]);
+    }
+
+    /**
+     * Reset unread counter to zero via upsert.
+     */
+    public function resetToZero(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
+             VALUES (?, 'user', ?, 0)
+             ON DUPLICATE KEY UPDATE unread_count = 0"
+        )->execute([$tenantId, $userId]);
+    }
 }

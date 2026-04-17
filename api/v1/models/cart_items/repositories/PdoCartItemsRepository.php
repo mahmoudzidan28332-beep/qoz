@@ -365,4 +365,47 @@ final class PdoCartItemsRepository
             ':tenant_id' => $tenantId
         ]);
     }
+
+    // =========================================================================
+    // Public-route helpers
+    // =========================================================================
+
+    /** Update quantity/totals for a cart item. */
+    public function updateQuantity(int $itemId, int $qty, float $unitPrice, ?float $salePrice, float $subtotal, float $total): void
+    {
+        $this->pdo->prepare(
+            "UPDATE cart_items SET quantity = ?, unit_price = ?, sale_price = ?, subtotal = ?, total = ?, updated_at = NOW() WHERE id = ?"
+        )->execute([$qty, $unitPrice, $salePrice, $subtotal, $total, $itemId]);
+    }
+
+    /** Insert a new cart item. */
+    public function insert(int $cartId, int $productId, int $entityId, string $name, string $sku, int $qty, float $unitPrice, ?float $salePrice, float $subtotal, float $total): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO cart_items
+               (cart_id, product_id, entity_id, product_name, sku, quantity,
+                unit_price, sale_price, subtotal, total, currency_code)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SAR')"
+        )->execute([$cartId, $productId, $entityId, $name, $sku, $qty, $unitPrice, $salePrice, $subtotal, $total]);
+    }
+
+    /** Update quantity and totals for an existing item (simpler than full save). */
+    public function updateItemQtyTotals(int $itemId, int $qty, float $subtotal, float $total): void
+    {
+        $this->pdo->prepare(
+            "UPDATE cart_items SET quantity = ?, subtotal = ?, total = ?, updated_at = NOW() WHERE id = ?"
+        )->execute([$qty, $subtotal, $total, $itemId]);
+    }
+
+    /** Delete a cart item by ID. */
+    public function deleteItem(int $itemId): void
+    {
+        $this->pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+    }
+
+    /** Delete all items for a cart. */
+    public function deleteAllForCart(int $cartId): void
+    {
+        $this->pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([$cartId]);
+    }
 }

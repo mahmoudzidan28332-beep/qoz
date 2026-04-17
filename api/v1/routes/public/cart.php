@@ -21,6 +21,12 @@ if ($first === 'cart') {
 
     $cartTenantId = $tenantId ?? (int)($_SESSION['pub_tenant_id'] ?? 1);
 
+    // Instantiate repositories
+    require_once dirname(__DIR__, 2) . '/models/carts/repositories/PdoCartsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/cart_items/repositories/PdoCartItemsRepository.php';
+    $cartsRepo     = new PdoCartsRepository($pdo);
+    $cartItemsRepo = new PdoCartItemsRepository($pdo);
+
     $findFallbackEntityId = function () use ($pdoOne, $cartTenantId): int {
         $row = $pdoOne(
             "SELECT id
@@ -67,35 +73,15 @@ if ($first === 'cart') {
     };
 
     // Helper: get or create the user's active cart for a single entity
-    $getOrCreateCart = function (int $entityId) use ($pdo, $cartUserId): int {
-        $st = $pdo->prepare(
-            "SELECT id
-               FROM carts
-              WHERE user_id = ?
-                AND entity_id = ?
-                AND status = 'active'
-              ORDER BY id DESC
-              LIMIT 1"
-        );
-        $st->execute([$cartUserId, $entityId]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
+    $getOrCreateCart = function (int $entityId) use ($cartsRepo, $cartUserId): int {
+        $row = $cartsRepo->findActiveForUser($cartUserId, $entityId);
         if ($row) return (int)$row['id'];
-
-        $ins = $pdo->prepare(
-            "INSERT INTO carts (entity_id, user_id, session_id, status, ip_address)
-             VALUES (?, ?, ?, 'active', ?)"
-        );
-        $ins->execute([$entityId, $cartUserId, session_id() ?: null, $_SERVER['REMOTE_ADDR'] ?? null]);
-        return (int)$pdo->lastInsertId();
+        return $cartsRepo->createActive($entityId, $cartUserId, session_id() ?: null, $_SERVER['REMOTE_ADDR'] ?? null);
     };
 
     // Helper: refresh cart totals after any item change
-    $refreshCartTotals = function (int $cid) use ($pdo): void {
-        $st = $pdo->prepare("SELECT SUM(quantity) AS ti, SUM(total) AS tot FROM cart_items WHERE cart_id = ?");
-        $st->execute([$cid]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        $pdo->prepare("UPDATE carts SET total_items = ?, subtotal = ?, total_amount = ?, last_activity_at = NOW() WHERE id = ?")
-            ->execute([(int)($row['ti'] ?? 0), (float)($row['tot'] ?? 0), (float)($row['tot'] ?? 0), $cid]);
+    $refreshCartTotals = function (int $cid) use ($cartsRepo): void {
+        $cartsRepo->refreshTotals($cid);
     };
 
     // ── GET /api/public/cart ─────────────────────────────
@@ -160,16 +146,10 @@ if ($first === 'cart') {
             if ($existing) {
                 $newQty = (int)$existing['quantity'] + $qty;
                 $sub    = round($finalPrice * $newQty, 2);
-                $pdo->prepare("UPDATE cart_items SET quantity = ?, unit_price = ?, sale_price = ?, subtotal = ?, total = ?, updated_at = NOW() WHERE id = ?")
-                    ->execute([$newQty, $price, $sale, $sub, $sub, (int)$existing['id']]);
+                $cartItemsRepo->updateQuantity((int)$existing['id'], $newQty, $price, $sale, $sub, $sub);
             } else {
                 $sub = round($finalPrice * $qty, 2);
-                $pdo->prepare(
-                    "INSERT INTO cart_items
-                       (cart_id, product_id, entity_id, product_name, sku, quantity,
-                        unit_price, sale_price, subtotal, total, currency_code)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SAR')"
-                )->execute([$cid, $pId, $eid, $pName, $pSku, $qty, $price, $sale, $sub, $sub]);
+                $cartItemsRepo->insert($cid, $pId, $eid, $pName, $pSku, $qty, $price, $sale, $sub, $sub);
             }
             $refreshCartTotals($cid);
             ResponseFormatter::success(['ok' => true, 'cart_id' => $cid], 'Item added', 201);
@@ -196,8 +176,7 @@ if ($first === 'cart') {
             );
             if (!$item) { ResponseFormatter::notFound('Item not found'); exit; }
             $sub = round((float)$item['unit_price'] * $qty, 2);
-            $pdo->prepare("UPDATE cart_items SET quantity = ?, subtotal = ?, total = ?, updated_at = NOW() WHERE id = ?")
-                ->execute([$qty, $sub, $sub, $itemId]);
+            $cartItemsRepo->updateItemQtyTotals($itemId, $qty, $sub, $sub);
             $refreshCartTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $ex) {
@@ -221,7 +200,7 @@ if ($first === 'cart') {
                 [$itemId, $cartUserId]
             );
             if (!$item) { ResponseFormatter::notFound('Item not found'); exit; }
-            $pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+            $cartItemsRepo->deleteItem($itemId);
             $refreshCartTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $ex) {
@@ -245,9 +224,8 @@ if ($first === 'cart') {
                 [$cartUserId, $activeEntityId]
             );
             if ($cRow) {
-                $pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([(int)$cRow['id']]);
-                $pdo->prepare("UPDATE carts SET total_items = 0, subtotal = 0, total_amount = 0, last_activity_at = NOW() WHERE id = ?")
-                    ->execute([(int)$cRow['id']]);
+                $cartItemsRepo->deleteAllForCart((int)$cRow['id']);
+                $cartsRepo->clearTotals((int)$cRow['id']);
             }
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $ex) {

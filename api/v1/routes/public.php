@@ -66,40 +66,19 @@ $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
             : null;
 
 // ====================== PDO Helpers ======================
-$pdoList = function (string $sql, array $params = []) use ($pdo): array {
-    if (!$pdo instanceof PDO) return [];
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        error_log('[Public API PDO List] ' . $e->getMessage());
-        return [];
-    }
+require_once dirname(__DIR__, 2) . '/shared/core/PdoQueryHelper.php';
+$_pdoHelper = ($pdo instanceof PDO) ? new PdoQueryHelper($pdo) : null;
+
+$pdoList = function (string $sql, array $params = []) use ($_pdoHelper): array {
+    return $_pdoHelper ? $_pdoHelper->list($sql, $params) : [];
 };
 
-$pdoOne = function (string $sql, array $params = []) use ($pdo): ?array {
-    if (!$pdo instanceof PDO) return null;
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    } catch (Throwable $e) {
-        error_log('[Public API PDO One] ' . $e->getMessage());
-        return null;
-    }
+$pdoOne = function (string $sql, array $params = []) use ($_pdoHelper): ?array {
+    return $_pdoHelper ? $_pdoHelper->one($sql, $params) : null;
 };
 
-$pdoCount = function (string $sql, array $params = []) use ($pdo): int {
-    if (!$pdo instanceof PDO) return 0;
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        error_log('[Public API PDO Count] ' . $e->getMessage());
-        return 0;
-    }
+$pdoCount = function (string $sql, array $params = []) use ($_pdoHelper): int {
+    return $_pdoHelper ? $_pdoHelper->count($sql, $params) : 0;
 };
 
 // ====================== Special Routes ======================

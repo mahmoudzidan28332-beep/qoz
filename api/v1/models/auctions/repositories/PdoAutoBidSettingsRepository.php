@@ -126,4 +126,12 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
         $stmt = $this->pdo->prepare("DELETE FROM " . self::TABLE . " WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
+
+    /** Upsert auto-bid settings (ON DUPLICATE KEY UPDATE). */
+    public function upsert(int $auctionId, int $userId, float $maxBid): void
+    {
+        $this->pdo->prepare(
+            'INSERT INTO auto_bid_settings (auction_id, user_id, max_bid_amount, is_active, created_at, updated_at) VALUES (?,?,?,1,NOW(),NOW()) ON DUPLICATE KEY UPDATE max_bid_amount=VALUES(max_bid_amount), is_active=1, updated_at=NOW()'
+        )->execute([$auctionId, $userId, $maxBid]);
+    }
 }

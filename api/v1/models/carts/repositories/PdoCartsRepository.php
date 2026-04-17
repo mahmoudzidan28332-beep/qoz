@@ -321,4 +321,57 @@ final class PdoCartsRepository
             ':order_id' => $orderId
         ]);
     }
+
+    // =========================================================================
+    // Public-route helpers
+    // =========================================================================
+
+    /** Find active cart for a user + entity. */
+    public function findActiveForUser(int $userId, int $entityId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT id
+               FROM carts
+              WHERE user_id = ?
+                AND entity_id = ?
+                AND status = 'active'
+              ORDER BY id DESC
+              LIMIT 1"
+        );
+        $stmt->execute([$userId, $entityId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /** Create a new active cart and return its ID. */
+    public function createActive(int $entityId, int $userId, ?string $sessionId, ?string $ipAddress): int
+    {
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO carts (entity_id, user_id, session_id, status, ip_address)
+             VALUES (?, ?, ?, 'active', ?)"
+        );
+        $stmt->execute([$entityId, $userId, $sessionId, $ipAddress]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Refresh cart totals from cart_items. */
+    public function refreshTotals(int $cartId): void
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT SUM(quantity) AS ti, SUM(total) AS tot FROM cart_items WHERE cart_id = ?"
+        );
+        $stmt->execute([$cartId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->pdo->prepare(
+            "UPDATE carts SET total_items = ?, subtotal = ?, total_amount = ?, last_activity_at = NOW() WHERE id = ?"
+        )->execute([(int)($row['ti'] ?? 0), (float)($row['tot'] ?? 0), (float)($row['tot'] ?? 0), $cartId]);
+    }
+
+    /** Clear cart: zero out totals. */
+    public function clearTotals(int $cartId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE carts SET total_items = 0, subtotal = 0, total_amount = 0, last_activity_at = NOW() WHERE id = ?"
+        )->execute([$cartId]);
+    }
 }
