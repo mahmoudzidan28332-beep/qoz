@@ -179,7 +179,7 @@ try {
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break category creation
+            error_log('[categories] SEO sync on create failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($created, 'Category created successfully', 201);
@@ -204,7 +204,7 @@ try {
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break category update
+            error_log('[categories] SEO sync on update failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($updated, 'Category updated successfully', 200);
@@ -232,7 +232,7 @@ try {
         try {
             SeoAutoManager::delete($pdo, 'category', $id);
         } catch (\Throwable $e) {
-            // SEO delete failure should not break category deletion
+            error_log('[categories] SEO delete failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success(['deleted' => true], 'Category deleted successfully', 200);
@@ -251,7 +251,7 @@ try {
                 SeoAutoManager::delete($pdo, 'category', (int)$delId);
             }
         } catch (\Throwable $e) {
-            // SEO delete failure should not break category deletion
+            error_log('[categories] SEO delete on bulk delete failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success(['deleted' => true], 'Category deleted successfully', 200);

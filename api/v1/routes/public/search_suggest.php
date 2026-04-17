@@ -33,7 +33,7 @@ try {
         $currentUserId = (int)$sessUser['id'];
     }
 } catch (Throwable $e) {
-    // Session unavailable — treat as guest
+    error_log('[search_suggest] session initialization failed: ' . $e->getMessage());
 }
 
 // entity_id from request (e.g. when user is browsing an entity page)
@@ -70,7 +70,7 @@ $trackQuery = function (string $query, ?int $entityIdOverride = null) use ($sear
             $searchLogsRepo->trackQuery($query, $tenantId ?: null, $currentUserId, $eid, $lang);
         }
     } catch (Throwable $e) {
-        // Table may not exist yet or columns not migrated — ignore
+        error_log('[search_suggest] track query failed: ' . $e->getMessage());
     }
 };
 
@@ -84,7 +84,7 @@ if (!empty($_GET['popular'])) {
             $popular = $searchLogsRepo->popular($lang, $tenantId);
         }
     } catch (Throwable $e) {
-        // search_logs may not exist yet
+        error_log('[search_suggest] popular queries lookup failed: ' . $e->getMessage());
     }
     ResponseFormatter::success(['popular' => array_map(fn($row) => (string)$row['query'], $popular)]);
     exit;

@@ -275,7 +275,7 @@ class OrderService
 
         } catch (Throwable $e) {
             // rollback and try to restore stock if reserved
-            try { $this->db->rollback(); } catch (Throwable $_) {}
+            try { $this->db->rollback(); } catch (Throwable $_) { error_log('[OrderService] rollback failed: ' . $_->getMessage()); }
             // if reserveStock was true we attempted subtracting stock for some products; attempt to restore
             if ($reserveStock && !empty($items)) {
                 foreach ($items as $it) {

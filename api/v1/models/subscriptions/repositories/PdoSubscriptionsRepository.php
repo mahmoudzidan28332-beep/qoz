@@ -214,7 +214,7 @@ final class PdoSubscriptionsRepository
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
         } catch (\Throwable $e) {
-            // Invoice creation failure shouldn't break subscription creation
+            error_log('[PdoSubscriptionsRepository] invoice creation failed: ' . $e->getMessage());
         }
 
         return ['id' => $id, 'invoice_id' => $invoiceId];
@@ -287,7 +287,7 @@ final class PdoSubscriptionsRepository
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
         } catch (\Throwable $e) {
-            // Silent
+            error_log('[PdoSubscriptionsRepository] upgrade invoice creation failed: ' . $e->getMessage());
         }
 
         return ['id' => $newId, 'invoice_id' => $invoiceId ?? 0];

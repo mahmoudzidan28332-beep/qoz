@@ -281,7 +281,7 @@ if ($retMethod === 'POST' && $retSub === '') {
                 try {
                     $returnItemsRepo->createReturnItem($returnId, $oiId, $qty, $retTenantId);
                 } catch (Throwable $riEx) {
-                    // Continue — items table may not exist in all installations
+                    error_log('[returns] insert return item failed: ' . $riEx->getMessage());
                 }
             }
         }
@@ -294,7 +294,7 @@ if ($retMethod === 'POST' && $retSub === '') {
             'success'       => true,
         ], 'Return request submitted successfully', 201);
     } catch (Throwable $ex) {
-        try { $pdo->rollBack(); } catch (Throwable $rb) {}
+        try { $pdo->rollBack(); } catch (Throwable $rb) { error_log('[returns] rollback failed: ' . $rb->getMessage()); }
         ResponseFormatter::error('Failed to create return request', 500);
     }
     exit;

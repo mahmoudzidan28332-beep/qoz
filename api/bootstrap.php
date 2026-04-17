@@ -694,7 +694,7 @@ register_shutdown_function(function() use ($container) {
                 'tenant_id' => $metrics['tenant_id']
             ]);
         } catch (Throwable $e) {
-            // Ignore monitoring errors
+            error_log('[Bootstrap] monitoring metrics failed: ' . $e->getMessage());
         }
     }
 });

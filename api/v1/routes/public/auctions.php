@@ -224,14 +224,18 @@ if ($first === 'auctions') {
             if ($aProductId && $bnOrderId) {
                 try {
                     $bidsRepo->insertAuctionOrderItem($aTenantId, $bnOrderId, $aEntityId, $aProductId, $prdName, $prdSku, $aBuyPrice);
-                } catch (Throwable) {}
+                } catch (Throwable $e) {
+                    error_log('[auctions] insert order item failed: ' . $e->getMessage());
+                }
             }
             $pdo->commit();
             // Insert payment record (non-fatal)
             try {
                 $bnPmNum = 'PAY-AUC-' . $auctionId . '-' . time();
                 $bidsRepo->insertAuctionPayment($aEntityId, $bnPmNum, $bnOrderId, $auctionUserId, $aBuyPrice, $_SERVER['REMOTE_ADDR'] ?? null);
-            } catch (Throwable) {}
+            } catch (Throwable $e) {
+                error_log('[auctions] insert payment record failed: ' . $e->getMessage());
+            }
             ResponseFormatter::success(['ok' => true, 'bid_id' => $bnId, 'amount' => $aBuyPrice, 'order_id' => $bnOrderId, 'order_number' => $bnOrderNum], 'Purchased!');
         } catch (Throwable $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();

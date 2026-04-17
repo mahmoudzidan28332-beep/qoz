@@ -32,7 +32,7 @@ final class PdoSearchSuggestRepository
             $rows = $st->fetchAll(PDO::FETCH_ASSOC);
             if ($rows) return $rows;
         } catch (Throwable $e) {
-            // Fulltext index may not exist — fall through to LIKE
+            error_log('[PdoSearchSuggestRepository] fulltext search failed: ' . $e->getMessage());
         }
         try {
             $st = $this->pdo->prepare($likeSql);

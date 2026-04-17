@@ -29,7 +29,7 @@ class AuditLogger {
                 $payload ? json_encode($payload, JSON_UNESCAPED_UNICODE) : null
             );
         } catch (\Throwable $e) {
-            // silently fail - audit should never break main operations
+            error_log('[AuditLogger] audit log failed: ' . $e->getMessage());
         }
     }
 }

@@ -177,10 +177,9 @@ if ($notifMethod === 'POST' && $notifSub === 'mark-read') {
             try {
                 $counterRepo = new PdoNotificationCountersRepository($pdo);
                 $counterRepo->recalculateForUser($notifTenantId, $notifUserId);
-            } catch (Throwable) {}
-        }
-
-        ResponseFormatter::success(['marked' => $ids, 'affected' => $affected]);
+            } catch (Throwable $e) {
+                error_log('[notifications] recalculate counter failed: ' . $e->getMessage());
+            }
     } catch (Throwable $e) {
         error_log('[public/notifications] mark-read error: ' . $e->getMessage());
         ResponseFormatter::error('Failed to mark notifications as read', 500);
@@ -206,7 +205,9 @@ if ($notifMethod === 'POST' && $notifSub === 'mark-all-read') {
         try {
             $counterRepo = new PdoNotificationCountersRepository($pdo);
             $counterRepo->resetForUser($notifTenantId, $notifUserId);
-        } catch (Throwable) {}
+        } catch (Throwable $e) {
+            error_log('[notifications] reset counter failed: ' . $e->getMessage());
+        }
 
         ResponseFormatter::success(['affected' => $affected]);
     } catch (Throwable $e) {

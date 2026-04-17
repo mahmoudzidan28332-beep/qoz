@@ -164,7 +164,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$newId);
             } catch (\Throwable $e) {
-                // SEO sync failure should not break entity creation
+                error_log('[entities] SEO sync on create failed: ' . $e->getMessage());
             }
 
             ResponseFormatter::success(
@@ -201,7 +201,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$updatedId);
             } catch (\Throwable $e) {
-                // SEO sync failure should not break entity update
+                error_log('[entities] SEO sync on update failed: ' . $e->getMessage());
             }
 
             ResponseFormatter::success(
@@ -228,7 +228,7 @@ try {
             try {
                 SeoAutoManager::delete($pdo, 'entity', (int)$data['id']);
             } catch (\Throwable $e) {
-                // SEO delete failure should not break entity deletion
+                error_log('[entities] SEO delete failed: ' . $e->getMessage());
             }
 
             ResponseFormatter::success(
