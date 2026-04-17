@@ -42,10 +42,11 @@ if ($first === 'products') {
 
     $id = $_GET['id'] ?? (isset($segments[1]) && ctype_digit((string)$segments[1]) ? (int)$segments[1] : null);
     if (!$id && !empty($_GET['slug'])) {
-        $slugParams = [$_GET['slug']];
-        $slugCond = ' AND is_active = 1';
-        if ($tenantId) { $slugCond .= ' AND tenant_id = ?'; $slugParams[] = $tenantId; }
-        $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ?' . $slugCond . ' LIMIT 1', $slugParams);
+        if ($tenantId) {
+            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 AND tenant_id = ? LIMIT 1', [$_GET['slug'], $tenantId]);
+        } else {
+            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 LIMIT 1', [$_GET['slug']]);
+        }
         if ($slugRow) $id = (int)$slugRow['id'];
     }
 
