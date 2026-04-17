@@ -1,0 +1,3578 @@
+🏗️ Architecture & Performance Report
+Generated: 2026-04-17 12:17:33
+
+Score
+60
+Grade
+C
+Fair
+Tests Run
+23
+Critical
+0
+Warnings
+322
+Info
+568
+⚠️ WARNING (322)
+322
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/addresses.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/admin.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/attribute_types.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auctions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auction_activity_log.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auction_bids.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auction_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auction_watchers.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auth.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/auto_bid_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/bad_words.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/banners.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/brands.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/button_styles.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/card_styles.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/carts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/cart_events.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/cart_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/categories-tenants.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/categories.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/category_attributes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/role_permissions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/verify_phone.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/user_devices.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/notifications.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_products.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_product_variants.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/store_pages.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/platform_report.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/core_events.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_stats.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/addresses.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/ads.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/auctions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/cart.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/compare.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/contact.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/discounts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/entity.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/entity_context.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/events.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/job_applications.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/notifications.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/orders.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/products.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/recent.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/register.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/returns.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/search_suggest.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/support_tickets.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/user_devices.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/public/wishlist.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/cities.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/color_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/commission_credit_notes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/commission_invoices.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/commission_invoice_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/commission_payments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/commission_transactions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/countries.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/country_taxes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/currencies.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/delivery_orders.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/delivery_providers.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/delivery_tracking.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/delivery_zones.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/design_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/discounts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/driver_locations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entities.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entities_attributes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entities_attribute_values.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entities_working_hours.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_bank_accounts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_financial_balances.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_payment_methods.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/entity_types.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_payments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_transactions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/flash_sales.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/flash_sales_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/flash_sale_products.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/font_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/homepage_sections.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/image-types.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/images.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/jobs.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_alerts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_applications.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_application_answers.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_application_questions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_categories.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_interviews.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/job_skills.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/languages.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/notification_channels.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/notification_counters.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/notification_deliveries.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/notification_types.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/orders.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/order_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/order_reviews.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/order_status_history.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/payments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/permissions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/pos_sessions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/products.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_attributes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_attribute_assignments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_attribute_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_attribute_values.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_attribute_value_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_bundle-items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_bundles.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_categories.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_comparisons.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_comparison_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_physical_attributes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_pricing.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_questions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_relations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_reviews.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_stock_alerts.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_stock_movements.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_types.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_variants.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/product_variant_attributes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/provider_zones.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/queues.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/roles.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/seo_meta.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/subscriptions.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/subscription_invoices.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/subscription_payments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/subscription_plans.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/subscription_plan_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/system_settings.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/tenants.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/tenant_users.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/themes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/timezones.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/units.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/users_account.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/returns.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/return_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/return_status_history.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ticket_categories.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/support_tickets.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ticket_messages.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ticket_status_history.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/users.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_disputes.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_dispute_evidence.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_ledger.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/escrow_status_history.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_campaigns.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_payments.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_translations.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_placement_items.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ads.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/audit_logs.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/ad_placements.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Layer Flow]
+Route file directly instantiates a Repository
+📁 api/v1/routes/tenant_domains.php
+💡 Routes should call Controllers/Services, not Repositories directly.
+[Performance]
+Subquery detected inside a JOIN ON clause — potential per-row evaluation
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Rewrite using a derived table (subquery in FROM) or a pre-computed JOIN.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/tenants/repositories/PdoTenantsRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'entities' may lack tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Ensure all queries on 'entities' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'entities' may lack tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Ensure all queries on 'entities' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'entities' may lack tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Ensure all queries on 'entities' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'products' may lack tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Ensure all queries on 'products' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'cart_items' may lack tenant_id filter
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Ensure all queries on 'cart_items' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'cart_items' may lack tenant_id filter
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Ensure all queries on 'cart_items' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'cart_items' may lack tenant_id filter
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Ensure all queries on 'cart_items' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'jobs' may lack tenant_id filter
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Ensure all queries on 'jobs' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'subscriptions' may lack tenant_id filter
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php
+💡 Ensure all queries on 'subscriptions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'auctions' may lack tenant_id filter
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php
+💡 Ensure all queries on 'auctions' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'notifications' may lack tenant_id filter
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Ensure all queries on 'notifications' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'notifications' may lack tenant_id filter
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Ensure all queries on 'notifications' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'notifications' may lack tenant_id filter
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Ensure all queries on 'notifications' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'notifications' may lack tenant_id filter
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Ensure all queries on 'notifications' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'categories' may lack tenant_id filter
+📁 api/v1/models/categories/repositories/PdoTenantCategoriesRepository.php
+💡 Ensure all queries on 'categories' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'categories' may lack tenant_id filter
+📁 api/v1/models/categories/repositories/PdoTenantCategoriesRepository.php
+💡 Ensure all queries on 'categories' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'orders' may lack tenant_id filter
+📁 api/shared/core/repositories/AiRepository.php
+💡 Ensure all queries on 'orders' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/shared/core/repositories/AuthRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Query on 'users' may lack tenant_id filter
+📁 api/shared/core/repositories/JwtRepository.php
+💡 Ensure all queries on 'users' include a tenant_id condition to prevent data leakage.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/attribute_types.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/button_styles.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/public/compare.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/public/recent.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/public/wishlist.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/color_settings.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/currencies.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/design_settings.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/font_settings.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/product_attributes.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/product_attribute_values.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/system_settings.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/themes.php
+💡 Always validate and sanitize user input before processing.
+[Input Validation]
+Route reads user input but no validation/sanitization detected
+📁 api/v1/routes/units.php
+💡 Always validate and sanitize user input before processing.
+[Large Class]
+Class file has 527 lines of code (threshold: 500)
+📁 api/bootstrap.php
+💡 Consider splitting this class into smaller, focused classes.
+[Large Class]
+Class file has 724 lines of code (threshold: 500)
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php
+💡 Consider splitting this class into smaller, focused classes.
+[Large Class]
+Class file has 641 lines of code (threshold: 500)
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php
+💡 Consider splitting this class into smaller, focused classes.
+[Large Class]
+Class file has 734 lines of code (threshold: 500)
+📁 api/shared/helpers/notification.php
+💡 Consider splitting this class into smaller, focused classes.
+[Large Class]
+Class file has 744 lines of code (threshold: 500)
+📁 api/shared/helpers/security.php
+💡 Consider splitting this class into smaller, focused classes.
+[Large Method]
+Method 'save()' has ~55 lines (threshold: 50)
+📁 api/v1/models/font_settings/repositories/PdoFontSettingsRepository.php:80
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~80 lines (threshold: 50)
+📁 api/v1/models/homepage_sections/repositories/PdoHomepageSectionsRepository.php:90
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~72 lines (threshold: 50)
+📁 api/v1/models/homepage_sections/validators/HomepageSectionsValidator.php:8
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'all()' has ~84 lines (threshold: 50)
+📁 api/v1/models/tenant_users/repositories/PdoTenant_usersRepository.php:45
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'count()' has ~57 lines (threshold: 50)
+📁 api/v1/models/tenant_users/repositories/PdoTenant_usersRepository.php:155
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~58 lines (threshold: 50)
+📁 api/v1/models/tenant_users/repositories/PdoTenant_usersRepository.php:345
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'create()' has ~72 lines (threshold: 50)
+📁 api/v1/models/tenant_users/services/Tenant_usersService.php:37
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~52 lines (threshold: 50)
+📁 api/v1/models/themes/repositories/PdoThemesRepository.php:93
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~55 lines (threshold: 50)
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php:110
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~65 lines (threshold: 50)
+📁 api/v1/models/banners/repositories/PdoBannersRepository.php:105
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~57 lines (threshold: 50)
+📁 api/v1/models/banners/validators/BannersValidator.php:14
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~73 lines (threshold: 50)
+📁 api/v1/models/button_styles/repositories/PdoButtonStylesRepository.php:80
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~66 lines (threshold: 50)
+📁 api/v1/models/button_styles/validators/ButtonStylesValidator.php:8
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~76 lines (threshold: 50)
+📁 api/v1/models/card_styles/repositories/PdoCardStylesRepository.php:83
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~55 lines (threshold: 50)
+📁 api/v1/models/card_styles/validators/CardStylesValidator.php:26
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'list()' has ~85 lines (threshold: 50)
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php:19
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~56 lines (threshold: 50)
+📁 api/v1/models/country_taxes/repositories/PdoCountryTaxesRepository.php:75
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'upsertByUnique()' has ~88 lines (threshold: 50)
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php:108
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~82 lines (threshold: 50)
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:130
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'upload()' has ~103 lines (threshold: 50)
+📁 api/v1/models/images/services/ImagesService.php:64
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'calculateDimensions()' has ~51 lines (threshold: 50)
+📁 api/v1/models/images/services/ImagesService.php:513
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~57 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php:100
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'saveForProduct()' has ~56 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php:171
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'saveForVariant()' has ~56 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php:236
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~76 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProductsRepository.php:179
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~59 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProductPricingRepository.php:122
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~61 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProductBundlesRepository.php:168
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'update()' has ~52 lines (threshold: 50)
+📁 api/v1/models/products/repositories/PdoProductRelationsRepository.php:165
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~84 lines (threshold: 50)
+📁 api/v1/models/entities/repositories/PdoEntitiesRepository.php:139
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~60 lines (threshold: 50)
+📁 api/v1/models/entities/repositories/PdoEntityBankAccountsRepository.php:172
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'getEntityProducts()' has ~71 lines (threshold: 50)
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php:206
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'create()' has ~58 lines (threshold: 50)
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php:162
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'create()' has ~54 lines (threshold: 50)
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php:159
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'upgrade()' has ~59 lines (threshold: 50)
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php:226
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'recalculate()' has ~69 lines (threshold: 50)
+📁 api/v1/models/commissions/repositories/PdoEntityFinancialBalancesRepository.php:171
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~83 lines (threshold: 50)
+📁 api/v1/models/orders/repositories/PdoOrdersRepository.php:135
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~104 lines (threshold: 50)
+📁 api/v1/models/cart_items/repositories/PdoCartItemsRepository.php:157
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~59 lines (threshold: 50)
+📁 api/v1/models/cart_items/validators/CartItemsValidator.php:10
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~86 lines (threshold: 50)
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php:183
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~55 lines (threshold: 50)
+📁 api/v1/models/carts/validators/CartsValidator.php:10
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~106 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php:251
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'all()' has ~51 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobCategoriesRepository.php:18
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'count()' has ~56 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php:142
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~67 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php:325
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~51 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php:170
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'count()' has ~51 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php:137
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~55 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php:283
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~54 lines (threshold: 50)
+📁 api/v1/models/jobs/repositories/PdoJobAlertsRepository.php:164
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~127 lines (threshold: 50)
+📁 api/v1/models/jobs/validators/JobsValidator.php:21
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~114 lines (threshold: 50)
+📁 api/v1/models/jobs/validators/JobApplicationsValidator.php:15
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~85 lines (threshold: 50)
+📁 api/v1/models/jobs/validators/JobInterviewsValidator.php:18
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~67 lines (threshold: 50)
+📁 api/v1/models/jobs/validators/JobAlertsValidator.php:17
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'list()' has ~60 lines (threshold: 50)
+📁 api/v1/models/ad_stats/repositories/PdoAdStatRepository.php:25
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'aggregateAdsPerformance()' has ~56 lines (threshold: 50)
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php:312
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'handleRequest()' has ~74 lines (threshold: 50)
+📁 api/v1/models/queues/controllers/QueuesController.php:13
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~61 lines (threshold: 50)
+📁 api/v1/models/auctions/repositories/PdoAuctionsRepository.php:130
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~52 lines (threshold: 50)
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php:130
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~53 lines (threshold: 50)
+📁 api/v1/models/pos_sessions/validators/PosSessionsValidator.php:8
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'createOrder()' has ~147 lines (threshold: 50)
+📁 api/v1/models/pos_sessions/repositories/PdoPosSessionsRepository.php:219
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~100 lines (threshold: 50)
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php:191
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'countAll()' has ~63 lines (threshold: 50)
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php:484
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~68 lines (threshold: 50)
+📁 api/v1/models/categories/validators/CategoriesValidator.php:6
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~73 lines (threshold: 50)
+📁 api/v1/models/tickets/repositories/PdoTicketCategoriesRepository.php:133
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~52 lines (threshold: 50)
+📁 api/v1/models/tickets/repositories/PdoSupportTicketsRepository.php:126
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~60 lines (threshold: 50)
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputesRepository.php:93
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'save()' has ~72 lines (threshold: 50)
+📁 api/v1/models/escrow/repositories/PdoEscrowTransactionsRepository.php:147
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validate()' has ~55 lines (threshold: 50)
+📁 api/v1/models/ads/validators/AdPlacementsValidator.php:8
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'getConnection()' has ~54 lines (threshold: 50)
+📁 api/shared/core/DatabaseConnection.php:8
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'loadTranslations()' has ~60 lines (threshold: 50)
+📁 api/shared/helpers/i18n.php:162
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'applyLayout()' has ~94 lines (threshold: 50)
+📁 api/shared/helpers/mail.php:460
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'getFcmAccessToken()' has ~68 lines (threshold: 50)
+📁 api/shared/helpers/notification.php:482
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'validatePasswordStrength()' has ~63 lines (threshold: 50)
+📁 api/shared/helpers/security.php:135
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'sendWithUnifonicCURL()' has ~59 lines (threshold: 50)
+📁 api/shared/helpers/sms.php:116
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'uploadImage()' has ~75 lines (threshold: 50)
+📁 api/shared/helpers/upload.php:47
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'fetchResourcePermissionsFromDb()' has ~51 lines (threshold: 50)
+📁 api/shared/helpers/RBAC.php:284
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'generateCss()' has ~182 lines (threshold: 50)
+📁 api/shared/ui/AdminUiThemeLoader.php:296
+💡 Break this method into smaller, single-responsibility methods.
+[Large Method]
+Method 'getResourcePermissions()' has ~67 lines (threshold: 50)
+📁 api/shared/services/PermissionService.php:187
+💡 Break this method into smaller, single-responsibility methods.
+[God Class]
+Class has 21 public methods — potential God class
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+[God Class]
+Class has 21 public methods — potential God class
+📁 api/v1/models/jobs/controllers/JobApplicationsController.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+[God Class]
+Class has 22 public methods — potential God class
+📁 api/v1/models/jobs/services/JobsService.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+[God Class]
+Class has 22 public methods — potential God class
+📁 api/v1/models/jobs/services/JobApplicationsService.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+[God Class]
+Class has 27 public methods — potential God class
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+[God Class]
+Class has 28 public methods — potential God class
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Split responsibilities into separate classes following the Single Responsibility Principle.
+ℹ️ INFO (568)
+568
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/currencies/repositories/PdoCurrenciesRepository.php:15
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/currencies/repositories/PdoCurrenciesRepository.php:67
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/design_settings/repositories/PdoDesignSettingsRepository.php:46
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/design_settings/repositories/PdoDesignSettingsRepository.php:69
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/font_settings/repositories/PdoFontSettingsRepository.php:46
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/font_settings/repositories/PdoFontSettingsRepository.php:69
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/homepage_sections/repositories/PdoHomepageSectionsRepository.php:79
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php:74
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php:82
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/system_settings/repositories/PdoSystemSettingsRepository.php:41
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/system_settings/repositories/PdoSystemSettingsRepository.php:55
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/tenant_users/repositories/PdoTenant_usersRepository.php:278
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/themes/repositories/PdoThemesRepository.php:40
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/themes/repositories/PdoThemesRepository.php:54
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/themes/repositories/PdoThemesRepository.php:68
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/themes/repositories/PdoThemesRepository.php:82
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/attribute_types/repositories/PdoAttributeTypesRepository.php:37
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/attribute_types/repositories/PdoAttributeTypesRepository.php:51
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/banners/repositories/PdoBannersRepository.php:93
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/brands/repositories/PdoBrandsRepository.php:182
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/brands/repositories/PdoBrandsRepository.php:198
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/button_styles/repositories/PdoButtonStylesRepository.php:46
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/button_styles/repositories/PdoButtonStylesRepository.php:69
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/card_styles/repositories/PdoCardStylesRepository.php:49
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/card_styles/repositories/PdoCardStylesRepository.php:72
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/color_settings/repositories/PdoColorSettingsRepository.php:46
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/color_settings/repositories/PdoColorSettingsRepository.php:69
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php:27
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php:76
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php:239
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php:271
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/cart_events/repositories/PdoCartEventsRepository.php:20
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:18
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:25
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:32
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:123
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/images/repositories/PdoImagesRepository.php:301
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php:48
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php:102
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php:114
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_categoriesRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_categoriesRepository.php:106
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php:37
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php:120
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php:133
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProductStockAlertsRepository.php:15
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProductStockAlertsRepository.php:49
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProductReviewsRepository.php:13
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/products/repositories/PdoProductReviewsRepository.php:57
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/entities/repositories/PdoEntityTypesRepository.php:31
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/entities/repositories/PdoEntityTypesRepository.php:83
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/entities/repositories/PdoEntitiesWorkingHoursRepository.php:132
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php:339
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/entities/repositories/PdoEntityTranslationsRepository.php:16
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php:112
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php:183
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/seo_meta/repositories/PdoSeoMetaRepository.php:20
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/seo_meta/repositories/PdoSeoMetaRepository.php:201
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/seo_meta/repositories/PdoSeoMetaRepository.php:230
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php:65
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php:107
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountActionsRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountConditionsRepository.php:32
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountExclusionsRepository.php:22
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountRedemptionsRepository.php:21
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountScopesRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountTranslationsRepository.php:22
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountTranslationsRepository.php:34
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/discounts/repositories/PdoDiscountsRepository.php:136
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php:33
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php:76
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php:132
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php:324
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlansRepository.php:132
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlanTranslationsRepository.php:21
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlanTranslationsRepository.php:31
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlanTranslationsRepository.php:42
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionInvoicesRepository.php:165
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoEscrowTransactionsRepository.php:142
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoEscrowPaymentsRepository.php:113
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPaymentsRepository.php:129
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionTransactionsRepository.php:144
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoicesRepository.php:144
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionCreditNotesRepository.php:135
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionPaymentsRepository.php:143
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoiceItemsRepository.php:119
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoiceItemsRepository.php:131
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php:146
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php:145
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/store_pages/repositories/PdoStorePagesRepository.php:224
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/store_pages/repositories/PdoStorePagesRepository.php:241
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php:43
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php:855
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/platform_report/repositories/PdoPlatformReportRepository.php:878
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php:46
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php:102
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionActivityLogRepository.php:28
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionActivityLogRepository.php:78
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php:23
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php:83
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionTranslationsRepository.php:17
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionTranslationsRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionWatchersRepository.php:17
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAuctionWatchersRepository.php:26
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php:23
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php:73
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php:82
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php:65
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php:73
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification_counters/repositories/PdoNotificationCounterRepository.php:69
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php:68
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php:76
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php:28
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php:99
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php:107
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php:23
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php:88
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php:96
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:33
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:101
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:112
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:123
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:208
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php:372
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/pos_sessions/repositories/PdoPosSessionsRepository.php:233
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php:162
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php:167
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/tickets/repositories/PdoTicketCategoriesRepository.php:126
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputeEvidenceRepository.php:24
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputeEvidenceRepository.php:74
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputesRepository.php:24
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputesRepository.php:86
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowLedgerRepository.php:24
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowLedgerRepository.php:74
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowStatusHistoryRepository.php:24
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/escrow/repositories/PdoEscrowStatusHistoryRepository.php:74
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/ads/repositories/PdoAdPlacementsRepository.php:24
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/ads/repositories/PdoAdPlacementsRepository.php:87
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/v1/models/core_events/repositories/PdoCoreEventRepository.php:92
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/AuthRepository.php:15
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/RbacRepository.php:73
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/RbacRepository.php:83
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/RbacRepository.php:93
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/RbacRepository.php:103
+💡 Explicitly list only the columns you need.
+[Performance]
+SELECT * usage — may fetch unnecessary columns
+📁 api/shared/core/repositories/UploadRepository.php:43
+💡 Explicitly list only the columns you need.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/currencies/repositories/PdoCurrenciesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tenant_users/repositories/PdoTenant_usersRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tenants/repositories/PdoTenantsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/brands/repositories/PdoBrandsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/permissions/repositories/PdoPermissionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/permissions/repositories/PdoRolePermissionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/permissions/repositories/PdoRolesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/cart_events/repositories/PdoCartEventsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tenant_domains/repositories/PdoTenantDomainsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProduct_categoriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductTranslationsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductPricingRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductBundlesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductStockAlertsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductReviewsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductRelationsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductComparisonsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/products/repositories/PdoProductQuestionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/product_variants/repositories/PdoProductVariantsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/product_variants/repositories/PdoProductVariantAttributesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntitiesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntityTypesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntitiesWorkingHoursRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntitySettingsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntityBankAccountsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntityPaymentMethodsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/seo_meta/repositories/PdoSeoMetaRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/discounts/repositories/PdoDiscountRedemptionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/discounts/repositories/PdoDiscountsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlansRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionInvoicesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoEscrowTransactionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoEscrowPaymentsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPaymentsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoCommissionTransactionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoicesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoCommissionCreditNotesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoEntityFinancialBalancesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoCommissionPaymentsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoiceItemsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/orders/repositories/PdoOrdersRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/payments/repositories/PdoPaymentsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/cart_items/repositories/PdoCartItemsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/order_items/repositories/PdoOrderItemsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/order_reviews/repositories/PdoOrderReviewsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/order_status_history/repositories/PdoOrderStatusHistoryRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobCategoriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ad_stats/repositories/PdoAdStatRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/auctions/repositories/PdoAuctionActivityLogRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/auctions/repositories/PdoAuctionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoDeliveryOrderRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoDeliveryProviderRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoDeliveryTrackingRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoDeliveryZoneRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoDriverLocationRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/delivery_zones/repositories/PdoProviderZoneRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification_counters/repositories/PdoNotificationCounterRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification_recipients/repositories/PdoNotificationRecipientRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notifications1/repositories/PdoNotificationRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoNotificationCountersRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoNotificationDeliveriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/pos_sessions/repositories/PdoPosSessionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/categories/repositories/PdoTenantCategoriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/returns/repositories/PdoReturnsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/returns/repositories/PdoReturnItemsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/returns/repositories/PdoReturnStatusHistoryRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tickets/repositories/PdoTicketCategoriesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tickets/repositories/PdoSupportTicketsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tickets/repositories/PdoTicketMessagesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/tickets/repositories/PdoTicketStatusHistoryRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputeEvidenceRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/escrow/repositories/PdoEscrowDisputesRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/escrow/repositories/PdoEscrowLedgerRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/escrow/repositories/PdoEscrowStatusHistoryRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/escrow/repositories/PdoEscrowTransactionsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdCampaignsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdPaymentsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdPlacementItemsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdTranslationsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/ads/repositories/PdoAdPlacementsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/audit_logs/repositories/PdoAuditLogsRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Deep Pagination]
+Dynamic OFFSET without visible upper-bound safeguard
+📁 api/v1/models/core_events/repositories/PdoCoreEventRepository.php
+💡 Consider capping OFFSET or switching to cursor-based pagination.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/currencies/repositories/PdoCurrenciesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/currencies/repositories/PdoCurrenciesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/homepage_sections/Contracts/HomepageSectionsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/languages/repositories/PdoLanguagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/product_attribute_assignments/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/product_attribute_assignments/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByProduct()' may lack tenant scoping
+📁 api/v1/models/product_attribute_assignments/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/product_attribute_value_translations/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/product_attribute_value_translations/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByAttributeValueAndLanguage()' may lack tenant scoping
+📁 api/v1/models/product_attribute_value_translations/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/product_attribute_values/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/product_attribute_values/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findById()' may lack tenant scoping
+📁 api/v1/models/product_attribute_values/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBySlug()' may lack tenant scoping
+📁 api/v1/models/product_attribute_values/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/tenants/repositories/PdoTenantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/tenants/repositories/PdoTenantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/tenants/Contracts/TenantsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/tenants/Contracts/TenantsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByDomain()' may lack tenant scoping
+📁 api/v1/models/tenants/Contracts/TenantsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActive()' may lack tenant scoping
+📁 api/v1/models/tenants/Contracts/TenantsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStats()' may lack tenant scoping
+📁 api/v1/models/tenants/Contracts/TenantsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/timezones/repositories/PdoTimezonesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getById()' may lack tenant scoping
+📁 api/v1/models/timezones/repositories/PdoTimezonesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByTimezone()' may lack tenant scoping
+📁 api/v1/models/timezones/repositories/PdoTimezonesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getRoleKeysByUserId()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoAuthRbacRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getRoleKeyById()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoAuthRbacRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getPermissionKeysByUserId()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoAuthRbacRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getPermissionKeysByRoleId()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoAuthRbacRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getPermissionKeysByRoleKeys()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoAuthRbacRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findUserIdByProvider()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUserAuthProvidersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findProviderExtra()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUserAuthProvidersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findPendingByTokenHash()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUserPhoneVerificationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findUsedTokenUserStatus()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUserPhoneVerificationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUsername()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByEmail()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBasicById()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUsernameExact()' may lack tenant scoping
+📁 api/v1/models/users_account/repositories/PdoUsersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/attribute_types/repositories/PdoAttributeTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/attribute_types/repositories/PdoAttributeTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findById()' may lack tenant scoping
+📁 api/v1/models/attribute_types/repositories/PdoAttributeTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getById()' may lack tenant scoping
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByIdentifier()' may lack tenant scoping
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByIdentifierExists()' may lack tenant scoping
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/countries/repositories/PdoCountriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/country_taxes/repositories/PdoCountryTaxesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/country_taxes/repositories/PdoCountryTaxesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCountryAndClass()' may lack tenant scoping
+📁 api/v1/models/country_taxes/repositories/PdoCountryTaxesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findWithTranslation()' may lack tenant scoping
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'get()' may lack tenant scoping
+📁 api/v1/models/permissions/repositories/PdoResourcePermissionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/cart_events/repositories/PdoCartEventsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/cart_events/repositories/PdoCartEventsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getImageProcessingSettings()' may lack tenant scoping
+📁 api/v1/models/images/repositories/PdoImagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/images/repositories/PdoImageTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/images/repositories/PdoImageTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/images/repositories/PdoImageTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_typesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_categoriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_categoriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findById()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBySlug()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByAttributeAndLanguage()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByProduct()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeAssignmentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByAttributeValueAndLanguage()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValueTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findById()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBySlug()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByProduct()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByVariant()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProduct_physical_attributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductStockAlertsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductReviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/products/repositories/PdoProductReviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/product_variants/repositories/PdoProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesWorkingHoursRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesWorkingHoursRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitySettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitySettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBySlug()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getLanguages()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByEntityAndAttribute()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getEntityValues()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getAttributeValues()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntitiesAttributeValuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByEntity()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByEntityAndProduct()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getEntityProducts()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByEntityAndVariant()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getEntityVariants()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getEntityProductVariants()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getAllActiveWords()' may lack tenant scoping
+📁 api/v1/models/bad_words/repositories/PdoBadWordsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/seo_meta/repositories/PdoSeoMetaRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getProducts()' may lack tenant scoping
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/discounts/repositories/PdoDiscountTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/discounts/repositories/PdoDiscountsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/discounts/repositories/PdoDiscountsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findWithProductName()' may lack tenant scoping
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByProduct()' may lack tenant scoping
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActivePlan()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlansRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlansRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlanTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByPlanAndLang()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPlanTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionInvoicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoEscrowTransactionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoEscrowPaymentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoEscrowPaymentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/subscriptions/repositories/PdoSubscriptionPaymentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionTransactionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionCreditNotesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoEntityFinancialBalancesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionPaymentsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoiceItemsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/commissions/repositories/PdoCommissionInvoiceItemsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActiveForUser()' may lack tenant scoping
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getOrCreateActiveCart()' may lack tenant scoping
+📁 api/v1/models/carts/repositories/PdoCartsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findBySlug()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobCategoryTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getAllForCategory()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobCategoryTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getAvailableLanguages()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobCategoryTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getMissingLanguages()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobCategoryTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByJob()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByUser()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByJob()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getQuestionTypes()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationQuestionsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByApplication()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByApplicationAndQuestion()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByQuestion()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getQuestionStatistics()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobApplicationAnswersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByApplication()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getInterviewTypes()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatuses()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobInterviewsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobAlertsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobAlertsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getDueAlerts()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobAlertsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStatistics()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobAlertsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getByJob()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getProficiencyLevels()' may lack tenant scoping
+📁 api/v1/models/jobs/repositories/PdoJobSkillsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTranslations()' may lack tenant scoping
+📁 api/v1/models/units/repositories/PdoUnitsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findSection()' may lack tenant scoping
+📁 api/v1/models/store_pages/repositories/PdoStorePagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getSectionTranslations()' may lack tenant scoping
+📁 api/v1/models/store_pages/repositories/PdoStorePagesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getStats()' may lack tenant scoping
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getQueueNames()' may lack tenant scoping
+📁 api/v1/models/queues/repositories/PdoQueuesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionActivityLogRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionActivityLogRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionBidsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionBidsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionTranslationsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionTranslationsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionWatchersRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AuctionWatchersRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AutoBidSettingsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AutoBidSettingsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUser()' may lack tenant scoping
+📁 api/v1/models/auctions/Contracts/AutoBidSettingsRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionActivityLogRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionActivityLogRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionBidsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionTranslationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionWatchersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAuctionWatchersRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUser()' may lack tenant scoping
+📁 api/v1/models/auctions/repositories/PdoAutoBidSettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_channels/Contracts/NotificationChannelRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_channels/Contracts/NotificationChannelRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification_channels/Contracts/NotificationChannelRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification_channels/repositories/PdoNotificationChannelRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_types/Contracts/NotificationTypeRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_types/Contracts/NotificationTypeRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification_types/Contracts/NotificationTypeRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification_types/repositories/PdoNotificationTypeRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_recipients/Contracts/NotificationRecipientRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_recipients/Contracts/NotificationRecipientRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification_recipients/repositories/PdoNotificationRecipientRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification_recipients/repositories/PdoNotificationRecipientRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationTypesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByCode()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoNotificationChannelsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'all()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByToken()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUserId()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByUserAndAgent()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActiveByUserAgent()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByAnonymousToken()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActiveByUserIdAndAgent()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findLatestActiveByUserIdAndAgent()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findByTokens()' may lack tenant scoping
+📁 api/v1/models/notification/repositories/PdoUserDevicesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getPdo()' may lack tenant scoping
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getDescendantIds()' may lack tenant scoping
+📁 api/v1/models/categories/repositories/PdoTenantCategoriesRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getPdo()' may lack tenant scoping
+📁 api/v1/models/categories/Contracts/CategoriesRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'find()' may lack tenant scoping
+📁 api/v1/models/categories/Contracts/TenantCategoriesRepositoryInterface.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'list()' may lack tenant scoping
+📁 api/v1/models/core_events/repositories/PdoCoreEventRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findById()' may lack tenant scoping
+📁 api/v1/models/core_events/repositories/PdoCoreEventRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getTopViewedProducts()' may lack tenant scoping
+📁 api/shared/core/repositories/AiRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getDailySalesLast30Days()' may lack tenant scoping
+📁 api/shared/core/repositories/AiRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findUserByUsername()' may lack tenant scoping
+📁 api/shared/core/repositories/AuthRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getCertificateRequestData()' may lack tenant scoping
+📁 api/shared/core/repositories/CertificateRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getActiveLanguageCodes()' may lack tenant scoping
+📁 api/shared/core/repositories/I18nRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findActiveUserWithRole()' may lack tenant scoping
+📁 api/shared/core/repositories/JwtRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getFcmTokensForDevices()' may lack tenant scoping
+📁 api/shared/core/repositories/NotificationRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getFcmTokensForUser()' may lack tenant scoping
+📁 api/shared/core/repositories/NotificationRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findSeoMetaId()' may lack tenant scoping
+📁 api/shared/core/repositories/SeoRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getEntityTranslations()' may lack tenant scoping
+📁 api/shared/core/repositories/SeoRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'getSettingByKey()' may lack tenant scoping
+📁 api/shared/core/repositories/SettingsRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[Multi-Tenant]
+Repository method 'findFileById()' may lack tenant scoping
+📁 api/shared/core/repositories/UploadRepository.php
+💡 Consider adding a $tenantId parameter or ensure tenant filtering is applied.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/account.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/attribute_types.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/categories-tenants.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/category_attributes.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/cities.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/countries.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/country_taxes.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/currencies.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/entity_types.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/image-types.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_attributes.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_attribute_assignments.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_attribute_translations.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_attribute_values.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_attribute_value_translations.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_categories.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_physical_attributes.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_reviews.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_stock_alerts.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/product_types.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/system_settings.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/themes.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/timezones.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/units.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/user.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/users_account.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/users.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[RBAC]
+Route handles write operations but no visible auth/permission check
+📁 api/v1/routes/tenant_domains.php
+💡 Ensure all write endpoints are protected by authentication and authorization.
+[File Size]
+Large file (55.4 KB) — may slow down include/autoload
+📁 api/tests/security_comprehensive_test.php
+💡 Consider splitting into smaller, lazy-loaded modules.
+[Runtime Summary]
+Simulation complete: 1000 requests in 0.03s (avg 0.03 ms/req)
