@@ -446,11 +446,7 @@ final class PdoTenant_usersRepository
         if (empty($ids)) return 0;
 
         $placeholders = rtrim(str_repeat('?,', count($ids)), ',');
-        $sql = "
-            UPDATE tenant_users
-            SET is_active = ?, updated_at = NOW()
-            WHERE tenant_id = ? AND id IN ({$placeholders})
-        ";
+        $sql = sprintf('UPDATE tenant_users SET is_active = ?, updated_at = NOW() WHERE tenant_id = ? AND id IN (%s)', $placeholders);
         $stmt = $this->pdo->prepare($sql);
         $params = array_merge([(int)$isActive, $tenantId], array_values($ids));
         $stmt->execute($params);
