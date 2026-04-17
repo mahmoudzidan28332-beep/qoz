@@ -11,18 +11,11 @@ if (!$pdo instanceof PDO || !$user) {
     exit;
 }
 
+require_once dirname(__DIR__) . '/models/tenant_users/repositories/PdoTenant_usersRepository.php';
+$tenantUsersRepo = new PdoTenant_usersRepository($pdo);
+
 // جلب جميع tenants التي ينتمي إليها المستخدم
-$stmt = $pdo->prepare("
-    SELECT tu.tenant_id, tu.role_id, tu.is_active AS tenant_user_active,
-           t.name AS tenant_name, t.domain AS tenant_domain,
-           r.key_name AS role_key, r.display_name AS role_name
-    FROM tenant_users tu
-    JOIN tenants t ON tu.tenant_id = t.id
-    LEFT JOIN roles r ON tu.role_id = r.id
-    WHERE tu.user_id = :uid
-");
-$stmt->execute([':uid' => $user['id']]);
-$tenantsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$tenantsData = $tenantUsersRepo->getTenantsByUserId($user['id']);
 
 // جلب الصلاحيات لكل دور ضمن الـ tenants
 $rolesPermissions = [];
@@ -30,14 +23,7 @@ foreach ($tenantsData as $td) {
     $roleId = $td['role_id'];
     $tenantId = $td['tenant_id'];
     if ($roleId) {
-        $permStmt = $pdo->prepare("
-            SELECT p.key_name
-            FROM role_permissions rp
-            JOIN permissions p ON rp.permission_id = p.id
-            WHERE rp.role_id = :role_id AND rp.tenant_id = :tenant_id
-        ");
-        $permStmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
-        $perms = $permStmt->fetchAll(PDO::FETCH_COLUMN);
+        $perms = $tenantUsersRepo->getPermissionsByRoleAndTenant($roleId, $tenantId);
         $rolesPermissions[$tenantId] = $perms;
     }
 }

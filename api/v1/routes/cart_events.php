@@ -7,6 +7,8 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
+require_once dirname(__DIR__) . '/models/cart_events/repositories/PdoCartEventsRepository.php';
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
@@ -14,6 +16,8 @@ if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
+
+$cartEventsRepo = new PdoCartEventsRepository($pdo);
 
 // ================================
 // Tenant & Auth check
@@ -58,9 +62,7 @@ try {
         case 'GET':
             // Get single event by ID
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $stmt = $pdo->prepare("SELECT * FROM cart_events WHERE id = :id");
-                $stmt->execute([':id' => (int)$_GET['id']]);
-                $item = $stmt->fetch(PDO::FETCH_ASSOC);
+                $item = $cartEventsRepo->find((int)$_GET['id']);
                 ResponseFormatter::success($item ?: null);
                 break;
             }
@@ -86,24 +88,11 @@ try {
                 $params[':entity_id'] = (int)$_GET['entity_id'];
             }
 
-            $whereStr = implode(' AND ', $where);
-
             // Count
-            $countSql = "SELECT COUNT(*) FROM cart_events ce WHERE {$whereStr}";
-            $countStmt = $pdo->prepare($countSql);
-            $countStmt->execute($params);
-            $total = (int)$countStmt->fetchColumn();
+            $total = $cartEventsRepo->count($where, $params);
 
             // Fetch
-            $sql = "SELECT ce.* FROM cart_events ce WHERE {$whereStr} ORDER BY ce.{$orderBy} {$orderDir} LIMIT :limit OFFSET :offset";
-            $stmt = $pdo->prepare($sql);
-            foreach ($params as $k => $v) {
-                $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $items = $cartEventsRepo->list($where, $params, $orderBy, $orderDir, $limit, $offset);
 
             ResponseFormatter::success([
                 'items' => $items,
@@ -139,22 +128,17 @@ try {
                 ? (int)$data['entity_id']
                 : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : (int)($tenantId ?? 1));
 
-            $stmt = $pdo->prepare("
-                INSERT INTO cart_events (entity_id, cart_id, event_type, actor_type, actor_id, related_item_id, old_value, new_value, note)
-                VALUES (:entity_id, :cart_id, :event_type, :actor_type, :actor_id, :related_item_id, :old_value, :new_value, :note)
-            ");
-            $stmt->execute([
-                ':entity_id'       => $entityId,
-                ':cart_id'         => (int)$data['cart_id'],
-                ':event_type'      => $data['event_type'],
-                ':actor_type'      => $actorType,
-                ':actor_id'        => isset($data['actor_id']) && is_numeric($data['actor_id']) ? (int)$data['actor_id'] : null,
-                ':related_item_id' => isset($data['related_item_id']) && is_numeric($data['related_item_id']) ? (int)$data['related_item_id'] : null,
-                ':old_value'       => $data['old_value'] ?? null,
-                ':new_value'       => $data['new_value'] ?? null,
-                ':note'            => isset($data['note']) ? substr($data['note'], 0, 255) : null
+            $newId = $cartEventsRepo->create([
+                'entity_id'       => $entityId,
+                'cart_id'         => (int)$data['cart_id'],
+                'event_type'      => $data['event_type'],
+                'actor_type'      => $actorType,
+                'actor_id'        => isset($data['actor_id']) && is_numeric($data['actor_id']) ? (int)$data['actor_id'] : null,
+                'related_item_id' => isset($data['related_item_id']) && is_numeric($data['related_item_id']) ? (int)$data['related_item_id'] : null,
+                'old_value'       => $data['old_value'] ?? null,
+                'new_value'       => $data['new_value'] ?? null,
+                'note'            => isset($data['note']) ? substr($data['note'], 0, 255) : null,
             ]);
-            $newId = (int)$pdo->lastInsertId();
             ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
             break;
 
@@ -163,8 +147,7 @@ try {
                 ResponseFormatter::error('Missing event ID for deletion', 400);
                 exit;
             }
-            $stmt = $pdo->prepare("DELETE FROM cart_events WHERE id = :id");
-            $deleted = $stmt->execute([':id' => (int)$data['id']]);
+            $deleted = $cartEventsRepo->deleteById((int)$data['id']);
             ResponseFormatter::success(['deleted' => $deleted], 'Deleted successfully');
             break;
 

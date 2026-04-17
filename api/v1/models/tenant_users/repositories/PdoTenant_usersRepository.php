@@ -460,6 +460,39 @@ final class PdoTenant_usersRepository
     }
 
     /**
+     * Get all tenants a user belongs to, with role info.
+     */
+    public function getTenantsByUserId(int $userId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT tu.tenant_id, tu.role_id, tu.is_active AS tenant_user_active,
+                   t.name AS tenant_name, t.domain AS tenant_domain,
+                   r.key_name AS role_key, r.display_name AS role_name
+            FROM tenant_users tu
+            JOIN tenants t ON tu.tenant_id = t.id
+            LEFT JOIN roles r ON tu.role_id = r.id
+            WHERE tu.user_id = :uid
+        ");
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get permission key_names for a role within a tenant.
+     */
+    public function getPermissionsByRoleAndTenant(int $roleId, int $tenantId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.key_name
+            FROM role_permissions rp
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE rp.role_id = :role_id AND rp.tenant_id = :tenant_id
+        ");
+        $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    /**
      * Log actions to entity_logs table (best-effort)
      */
     private function logAction(int $tenantId, int $userId, string $action, int $entityId, ?array $oldData, ?array $newData): void

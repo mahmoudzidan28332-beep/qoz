@@ -9,6 +9,13 @@ declare(strict_types=1);
  *        register_device | update_fcm
  */
 
+$_authModelsPath = dirname(__DIR__) . '/models';
+require_once $_authModelsPath . '/users_account/repositories/PdoUsersRepository.php';
+require_once $_authModelsPath . '/users_account/repositories/PdoUserAuthProvidersRepository.php';
+require_once $_authModelsPath . '/users_account/repositories/PdoUserPhoneVerificationsRepository.php';
+require_once $_authModelsPath . '/users_account/repositories/PdoAuthRbacRepository.php';
+require_once $_authModelsPath . '/notification/repositories/PdoUserDevicesRepository.php';
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  SESSION BOOTSTRAP
 // ══════════════════════════════════════════════════════════════════════════════
@@ -100,30 +107,22 @@ function _flush_response(): void
 // ══════════════════════════════════════════════════════════════════════════════
 function _load_rbac(PDO $pdo, int $userId, ?int $roleId = null): array
 {
+    $rbacRepo = new PdoAuthRbacRepository($pdo);
     $perms = []; $roles = [];
     try {
-        $st = $pdo->query("SHOW TABLES LIKE 'user_roles'");
-        if ($st && $st->rowCount()) {
-            $q = $pdo->prepare("SELECT r.key_name FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=?");
-            $q->execute([$userId]);
-            $roles = array_merge($roles, $q->fetchAll(PDO::FETCH_COLUMN, 0));
+        if ($rbacRepo->tableExists('user_roles')) {
+            $roles = array_merge($roles, $rbacRepo->getRoleKeysByUserId($userId));
         } elseif ($roleId) {
-            $q = $pdo->prepare("SELECT key_name FROM roles WHERE id=? LIMIT 1");
-            $q->execute([$roleId]); $r = $q->fetchColumn(); if ($r) $roles[] = $r;
+            $r = $rbacRepo->getRoleKeyById($roleId);
+            if ($r) $roles[] = $r;
         }
-        $st2 = $pdo->query("SHOW TABLES LIKE 'user_permissions'");
-        if ($st2 && $st2->rowCount()) {
-            $q2 = $pdo->prepare("SELECT p.key_name FROM permissions p JOIN user_permissions up ON up.permission_id=p.id WHERE up.user_id=?");
-            $q2->execute([$userId]);
-            $perms = array_merge($perms, $q2->fetchAll(PDO::FETCH_COLUMN, 0));
+        if ($rbacRepo->tableExists('user_permissions')) {
+            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByUserId($userId));
         }
         if ($roleId) {
-            $q3 = $pdo->prepare("SELECT p.key_name FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id WHERE rp.role_id=?");
-            $q3->execute([$roleId]); $perms = array_merge($perms, $q3->fetchAll(PDO::FETCH_COLUMN, 0));
+            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByRoleId($roleId));
         } elseif (!empty($roles)) {
-            $in = implode(',', array_fill(0, count($roles), '?'));
-            $q4 = $pdo->prepare("SELECT DISTINCT p.key_name FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id JOIN roles r ON r.id=rp.role_id WHERE r.key_name IN ($in)");
-            $q4->execute($roles); $perms = array_merge($perms, $q4->fetchAll(PDO::FETCH_COLUMN, 0));
+            $perms = array_merge($perms, $rbacRepo->getPermissionKeysByRoleKeys($roles));
         }
     } catch (Throwable $e) { if (class_exists('Logger')) Logger::error('RBAC: '.$e->getMessage()); }
     return ['permissions'=>array_values(array_unique($perms)), 'roles'=>array_values(array_unique($roles))];
@@ -151,38 +150,24 @@ function _detect_device(string $ua): array
 function _link_device_on_login(PDO $pdo, int $userId): void
 {
     try {
+        $devRepo = new PdoUserDevicesRepository($pdo);
         $ua        = _ua();
         $ip        = _ip();
         $anonToken = $_COOKIE['qz_dvt'] ?? null;
 
         if ($anonToken && strlen($anonToken) === 64) {
-            $upd = $pdo->prepare(
-                'UPDATE user_devices SET user_id=?,ip=?,last_seen_at=NOW(),updated_at=CURRENT_TIMESTAMP
-                  WHERE anonymous_token=? AND (user_id IS NULL OR user_id=?) AND is_active=1'
-            );
-            $upd->execute([$userId, $ip, $anonToken, $userId]);
-            if ($upd->rowCount() > 0) return;
+            if ($devRepo->linkByAnonymousToken($userId, $ip, $anonToken) > 0) return;
         }
 
-        $sel = $pdo->prepare(
-            'SELECT id FROM user_devices WHERE user_agent=? AND is_active=1
-              AND (user_id IS NULL OR user_id=?) ORDER BY last_seen_at DESC LIMIT 1'
-        );
-        $sel->execute([$ua, $userId]);
-        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        $row = $devRepo->findActiveByUserAgent($ua, $userId);
         if ($row) {
-            $pdo->prepare(
-                'UPDATE user_devices SET user_id=?,ip=?,last_seen_at=NOW(),updated_at=CURRENT_TIMESTAMP WHERE id=?'
-            )->execute([$userId, $ip, $row['id']]);
+            $devRepo->linkUserToDevice($userId, $ip, $row['id']);
             return;
         }
 
         [$type, $name] = _detect_device($ua);
         $newAnon = bin2hex(random_bytes(32));
-        $pdo->prepare(
-            'INSERT INTO user_devices (user_id,anonymous_token,device_type,device_name,user_agent,ip,last_seen_at,is_active,created_at)
-             VALUES (?,?,?,?,?,?,NOW(),1,CURRENT_TIMESTAMP)'
-        )->execute([$userId, $newAnon, $type, $name, $ua, $ip]);
+        $devRepo->createForLogin($userId, $newAnon, $type, $name, $ua, $ip);
         _set_device_cookie($newAnon);
     } catch (Throwable $e) {
         if (class_exists('Logger')) Logger::error('Device link: '.$e->getMessage());
@@ -194,55 +179,42 @@ function _link_device_on_login(PDO $pdo, int $userId): void
 // ══════════════════════════════════════════════════════════════════════════════
 function _provider_login(PDO $pdo, string $provider, string $sub, string $email, string $name, array $extra): array
 {
+    $authProvRepo = new PdoUserAuthProvidersRepository($pdo);
+    $usersRepo = new PdoUsersRepository($pdo);
+
     // 1. Already linked?
-    $st = $pdo->prepare('SELECT user_id FROM user_auth_providers WHERE provider=? AND provider_user_id=? LIMIT 1');
-    $st->execute([$provider, $sub]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
+    $userId = $authProvRepo->findUserIdByProvider($provider, $sub);
 
-    if ($row) {
-        $userId = (int)$row['user_id'];
-    } else {
+    if (!$userId) {
         // Existing user with same email?
-        $st2 = $pdo->prepare('SELECT id FROM users WHERE email=? LIMIT 1');
-        $st2->execute([$email]);
-        $ex = $st2->fetch(PDO::FETCH_ASSOC);
+        $existingId = $usersRepo->findIdByEmail($email);
 
-        if ($ex) {
-            $userId = (int)$ex['id'];
+        if ($existingId) {
+            $userId = $existingId;
         } else {
             // Create new user
             $base = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $name) ?: 'user');
             if (strlen($base) < 3) $base = 'user';
             $username = substr($base, 0, 45); $c = 1;
             while (true) {
-                $chk = $pdo->prepare('SELECT id FROM users WHERE username=? LIMIT 1');
-                $chk->execute([$username]);
-                if (!$chk->fetch()) break;
+                $chk = $usersRepo->findByUsernameExact($username);
+                if (!$chk) break;
                 $username = substr($base, 0, 40) . $c++;
             }
-            $pdo->prepare('INSERT INTO users (username,email,is_active,preferred_language,created_at) VALUES (?,?,1,?,NOW())')
-                ->execute([$username, $email, 'en']);
-            $userId = (int)$pdo->lastInsertId();
+            $userId = $usersRepo->createOAuthUser($username, $email, 'en');
         }
 
         // Link provider — INSERT IGNORE handles race conditions
-        $pdo->prepare('INSERT IGNORE INTO user_auth_providers (user_id,provider,provider_user_id,provider_extra) VALUES (?,?,?,?)')
-            ->execute([$userId, $provider, $sub, json_encode($extra)]);
+        $authProvRepo->linkProvider($userId, $provider, $sub, json_encode($extra));
     }
 
     // Load full record
-    $ul = $pdo->prepare(
-        'SELECT u.id,u.username,u.email,u.phone,u.preferred_language,u.is_active,tu.role_id,tu.tenant_id
-         FROM users u LEFT JOIN tenant_users tu ON tu.user_id=u.id AND tu.is_active=1
-         WHERE u.id=? ORDER BY tu.joined_at DESC LIMIT 1'
-    );
-    $ul->execute([$userId]);
-    $uRow = $ul->fetch(PDO::FETCH_ASSOC);
+    $uRow = $usersRepo->findWithTenantInfo($userId);
     if (!$uRow) throw new RuntimeException("User not found after {$provider} upsert (id={$userId})");
 
     // Re-activate if needed
     if (!(bool)$uRow['is_active']) {
-        $pdo->prepare('UPDATE users SET is_active=1,updated_at=NOW() WHERE id=?')->execute([$userId]);
+        $usersRepo->reactivateUser($userId);
     }
 
     $rbac = _load_rbac($pdo, $userId, isset($uRow['role_id']) ? (int)$uRow['role_id'] : null);
@@ -421,32 +393,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = _current_user()['id'] ?? null;
 
         try {
+            $devRepo = new PdoUserDevicesRepository($pdo);
             $existingId = null;
             if ($anonToken && strlen($anonToken) === 64) {
-                $r = $pdo->prepare('SELECT id FROM user_devices WHERE anonymous_token=? LIMIT 1');
-                $r->execute([$anonToken]);
-                $row = $r->fetch(PDO::FETCH_ASSOC); if ($row) $existingId = (int)$row['id'];
+                $row = $devRepo->findByAnonymousToken($anonToken);
+                if ($row) $existingId = (int)$row['id'];
             }
             if (!$existingId && $userId) {
-                $r2 = $pdo->prepare('SELECT id FROM user_devices WHERE user_id=? AND user_agent=? AND is_active=1 LIMIT 1');
-                $r2->execute([$userId, $ua]);
-                $row2 = $r2->fetch(PDO::FETCH_ASSOC); if ($row2) $existingId = (int)$row2['id'];
+                $row2 = $devRepo->findActiveByUserIdAndAgent($userId, $ua);
+                if ($row2) $existingId = (int)$row2['id'];
             }
 
             if ($existingId) {
-                $pdo->prepare(
-                    'UPDATE user_devices SET user_id=COALESCE(?,user_id),fcm_token=COALESCE(?,fcm_token),
-                        device_type=?,device_name=COALESCE(?,device_name),ip=?,
-                        last_seen_at=NOW(),updated_at=CURRENT_TIMESTAMP WHERE id=?'
-                )->execute([$userId,$fcmToken,$dType,$dName,$ip,$existingId]);
+                $devRepo->updateDeviceRegistration($userId, $fcmToken, $dType, $dName, $ip, $existingId);
                 $deviceId = $existingId;
             } else {
                 $anonToken = bin2hex(random_bytes(32));
-                $pdo->prepare(
-                    'INSERT INTO user_devices (user_id,anonymous_token,fcm_token,device_type,device_name,user_agent,ip,last_seen_at,is_active,created_at)
-                     VALUES (?,?,?,?,?,?,?,NOW(),1,CURRENT_TIMESTAMP)'
-                )->execute([$userId,$anonToken,$fcmToken,$dType,$dName,$ua,$ip]);
-                $deviceId = (int)$pdo->lastInsertId();
+                $deviceId = $devRepo->createDeviceRegistration($userId, $anonToken, $fcmToken, $dType, $dName, $ua, $ip);
                 _set_device_cookie($anonToken);
             }
 
@@ -472,33 +435,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ua     = _ua();
 
         try {
+            $devRepo = new PdoUserDevicesRepository($pdo);
             // Remove stale binding on other users
             if ($userId) {
-                $pdo->prepare('UPDATE user_devices SET fcm_token=NULL,updated_at=CURRENT_TIMESTAMP WHERE fcm_token=? AND user_id!=?')
-                    ->execute([$fcmToken,$userId]);
+                $devRepo->clearStaleFcmToken($fcmToken, $userId);
             }
 
             $targetId = null;
             if ($deviceId) { $targetId = $deviceId; }
             elseif ($anonToken && strlen($anonToken) === 64) {
-                $r = $pdo->prepare('SELECT id FROM user_devices WHERE anonymous_token=? LIMIT 1');
-                $r->execute([$anonToken]); $row = $r->fetch(PDO::FETCH_ASSOC); if ($row) $targetId = (int)$row['id'];
+                $row = $devRepo->findByAnonymousToken($anonToken);
+                if ($row) $targetId = (int)$row['id'];
             } elseif ($userId) {
-                $r = $pdo->prepare('SELECT id FROM user_devices WHERE user_id=? AND user_agent=? AND is_active=1 ORDER BY last_seen_at DESC LIMIT 1');
-                $r->execute([$userId,$ua]); $row = $r->fetch(PDO::FETCH_ASSOC); if ($row) $targetId = (int)$row['id'];
+                $row = $devRepo->findLatestActiveByUserIdAndAgent($userId, $ua);
+                if ($row) $targetId = (int)$row['id'];
             }
 
             if (!$targetId) {
                 [$dType, $dName] = _detect_device($ua);
                 $newAnon = bin2hex(random_bytes(32));
-                $pdo->prepare(
-                    'INSERT INTO user_devices (user_id,anonymous_token,fcm_token,device_type,device_name,user_agent,ip,last_seen_at,is_active,created_at)
-                     VALUES (?,?,?,?,?,?,?,NOW(),1,CURRENT_TIMESTAMP)'
-                )->execute([$userId,$newAnon,$fcmToken,$dType,$dName,$ua,_ip()]);
-                $targetId = (int)$pdo->lastInsertId(); $anonToken = $newAnon; _set_device_cookie($newAnon);
+                $targetId = $devRepo->createDeviceRegistration($userId, $newAnon, $fcmToken, $dType, $dName, $ua, _ip());
+                $anonToken = $newAnon; _set_device_cookie($newAnon);
             } else {
-                $pdo->prepare('UPDATE user_devices SET fcm_token=?,user_id=COALESCE(?,user_id),last_seen_at=NOW(),updated_at=CURRENT_TIMESTAMP WHERE id=?')
-                    ->execute([$fcmToken,$userId,$targetId]);
+                $devRepo->updateFcmToken($fcmToken, $userId, $targetId);
             }
 
             ResponseFormatter::success(['ok'=>true,'device_id'=>$targetId,'anonymous_token'=>$anonToken]);
@@ -531,34 +490,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errors) { ResponseFormatter::error('Validation failed', 422, $errors); exit; }
 
         try {
+            $usersRepo = new PdoUsersRepository($pdo);
+            $phoneVerifRepo = new PdoUserPhoneVerificationsRepository($pdo);
+
             $clientIp = _ip();
             if ($clientIp !== '') {
-                $rt = $pdo->prepare('SELECT COUNT(DISTINCT user_id) FROM user_phone_verifications WHERE ip=? AND created_at>=DATE_SUB(NOW(),INTERVAL 1 HOUR)');
-                $rt->execute([$clientIp]);
-                if ((int)$rt->fetchColumn() >= 5) { ResponseFormatter::error('Too many registration attempts. Please try again later.', 429); exit; }
+                if ($phoneVerifRepo->countRecentByIp($clientIp) >= 5) {
+                    ResponseFormatter::error('Too many registration attempts. Please try again later.', 429); exit;
+                }
             }
 
-            $chk = $pdo->prepare('SELECT id FROM users WHERE username=? OR email=? LIMIT 1');
-            $chk->execute([$regUser,$regEmail]);
-            if ($chk->fetch()) { ResponseFormatter::error('Username or email already exists', 409); exit; }
+            if ($usersRepo->existsByUsernameOrEmail($regUser, $regEmail)) {
+                ResponseFormatter::error('Username or email already exists', 409); exit;
+            }
 
-            $pdo->prepare('INSERT INTO users (username,email,password_hash,phone,preferred_language,is_active,created_at) VALUES (?,?,?,?,?,0,NOW())')
-                ->execute([$regUser,$regEmail,password_hash($regPass,PASSWORD_DEFAULT),$regPhone ?: null,$regLang]);
-            $newId = (int)$pdo->lastInsertId();
+            $newId = $usersRepo->createForRegistration($regUser, $regEmail, password_hash($regPass, PASSWORD_DEFAULT), $regPhone ?: null, $regLang);
 
             $rawToken  = bin2hex(random_bytes(32)); $rawDevice = bin2hex(random_bytes(16));
             $expiresAt = date('Y-m-d H:i:s', time()+86400);
 
-            $insV = $pdo->prepare(
-                'INSERT INTO user_phone_verifications (user_id,token_hash,device_hash,session_id,user_agent,ip,expires_at) VALUES (?,?,?,?,?,?,?)'
-            );
-            $insV->execute([$newId,hash('sha256',$rawToken),hash('sha256',$rawDevice),session_id(),_ua(),$clientIp,$expiresAt]);
-            $vRowId = (int)$pdo->lastInsertId();
+            $vRowId = $phoneVerifRepo->create($newId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), $clientIp, $expiresAt);
             _set_device_cookie($rawDevice);
 
             $activationLink = _app_url().'/frontend/verify_phone.php?t='.urlencode($rawToken);
             session_regenerate_id(true);
-            if ($vRowId > 0) $pdo->prepare('UPDATE user_phone_verifications SET session_id=? WHERE id=?')->execute([session_id(),$vRowId]);
+            if ($vRowId > 0) $phoneVerifRepo->updateSessionId($vRowId, session_id());
             $_SESSION['pending_user_id'] = $newId;
             unset($_SESSION['user_id'],$_SESSION['user'],$_SESSION['pending_otp'],$_SESSION['pending_verify_link']);
 
@@ -597,17 +553,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$pendingId) { ResponseFormatter::error('No pending registration found.', 400); exit; }
 
         try {
-            $ur = $pdo->prepare('SELECT phone,preferred_language FROM users WHERE id=? AND is_active=0 LIMIT 1');
-            $ur->execute([(int)$pendingId]); $uData = $ur->fetch(PDO::FETCH_ASSOC);
+            $usersRepo = new PdoUsersRepository($pdo);
+            $phoneVerifRepo = new PdoUserPhoneVerificationsRepository($pdo);
+
+            $uData = $usersRepo->findInactiveUserPhone((int)$pendingId);
             if (!$uData || empty($uData['phone'])) { ResponseFormatter::error('User not found or already activated.', 400); exit; }
 
-            $rc = $pdo->prepare('SELECT COUNT(*) FROM user_phone_verifications WHERE user_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 60 SECOND)');
-            $rc->execute([(int)$pendingId]);
-            if ((int)$rc->fetchColumn() > 0) { ResponseFormatter::error('Please wait 60 seconds before requesting another SMS.', 429); exit; }
+            if ($phoneVerifRepo->countRecentByUserId((int)$pendingId) > 0) {
+                ResponseFormatter::error('Please wait 60 seconds before requesting another SMS.', 429); exit;
+            }
 
             $rawToken = bin2hex(random_bytes(32)); $rawDevice = bin2hex(random_bytes(16));
-            $pdo->prepare('INSERT INTO user_phone_verifications (user_id,token_hash,device_hash,session_id,user_agent,ip,expires_at) VALUES (?,?,?,?,?,?,?)')
-                ->execute([(int)$pendingId,hash('sha256',$rawToken),hash('sha256',$rawDevice),session_id(),_ua(),_ip(),date('Y-m-d H:i:s',time()+86400)]);
+            $phoneVerifRepo->create((int)$pendingId, hash('sha256', $rawToken), hash('sha256', $rawDevice), session_id(), _ua(), _ip(), date('Y-m-d H:i:s', time()+86400));
             _set_device_cookie($rawDevice);
 
             $activationLink = _app_url().'/frontend/verify_phone.php?t='.urlencode($rawToken);
@@ -655,12 +612,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $upd = $pdo->prepare('UPDATE users SET is_active=1,updated_at=NOW() WHERE id=? AND is_active=0');
-            $upd->execute([$sessUid]);
-            if ($upd->rowCount() === 0) { ResponseFormatter::error('Account already active or not found.', 409); exit; }
+            $usersRepo = new PdoUsersRepository($pdo);
+            $affected = $usersRepo->activateUserWithTimestamp($sessUid);
+            if ($affected === 0) { ResponseFormatter::error('Account already active or not found.', 409); exit; }
 
-            $rs = $pdo->prepare('SELECT id,username,email,phone,preferred_language FROM users WHERE id=?');
-            $rs->execute([$sessUid]); $ud = $rs->fetch(PDO::FETCH_ASSOC);
+            $ud = $usersRepo->findProfileById($sessUid);
 
             unset($_SESSION['pending_otp'],$_SESSION['pending_user_id'],$_SESSION['pending_otp_expires'],$_SESSION['pending_otp_attempts']);
             session_regenerate_id(true);
@@ -781,9 +737,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Apple only sends email on FIRST sign-in — look up from previous login
         if ($email === '') {
-            $prev = $pdo->prepare("SELECT provider_extra FROM user_auth_providers WHERE provider='apple' AND provider_user_id=? LIMIT 1");
-            $prev->execute([$sub]); $prevRow = $prev->fetch(PDO::FETCH_ASSOC);
-            if ($prevRow) { $pe = json_decode($prevRow['provider_extra'] ?? '{}', true); $email = $pe['email'] ?? ''; }
+            $authProvRepo = new PdoUserAuthProvidersRepository($pdo);
+            $prevExtra = $authProvRepo->findProviderExtra('apple', $sub);
+            if ($prevExtra) { $pe = json_decode($prevExtra, true); $email = $pe['email'] ?? ''; }
         }
 
         if ($email === '') {
@@ -812,12 +768,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($username === '' || $password === '') { ResponseFormatter::error('Missing credentials', 400); exit; }
 
     try {
-        $stmt = $pdo->prepare(
-            'SELECT u.id,u.username,u.email,u.password_hash,u.phone,u.preferred_language,u.is_active,tu.role_id,tu.tenant_id
-             FROM users u LEFT JOIN tenant_users tu ON tu.user_id=u.id AND tu.is_active=1
-             WHERE (u.username=? OR u.email=?) ORDER BY tu.joined_at DESC LIMIT 1'
-        );
-        $stmt->execute([$username,$username]); $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $usersRepo = new PdoUsersRepository($pdo);
+        $row = $usersRepo->findForLogin($username);
 
         if (!$row || !@password_verify($password, (string)($row['password_hash'] ?? ''))) {
             ResponseFormatter::error('Invalid credentials', 401); exit;

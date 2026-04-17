@@ -191,6 +191,15 @@ final class PdoUserDevicesRepository
     }
 
     /**
+     * Deactivate a device by FCM token scoped to a user.
+     */
+    public function deactivateByFcmTokenAndUser(string $fcmToken, int $userId): bool
+    {
+        $stmt = $this->pdo->prepare("UPDATE user_devices SET is_active = 0 WHERE fcm_token = ? AND user_id = ?");
+        return $stmt->execute([$fcmToken, $userId]);
+    }
+
+    /**
      * Find device by user_id and user_agent (for deduplication without FCM token)
      */
     public function findByUserAndAgent(int $userId, string $userAgent): ?array
@@ -210,5 +219,132 @@ final class PdoUserDevicesRepository
     {
         $stmt = $this->pdo->prepare("UPDATE user_devices SET last_seen_at = NOW() WHERE id = :id");
         return $stmt->execute([':id' => $id]);
+    }
+
+    // ── Auth-context device methods ──────────────────────────────────────
+
+    /**
+     * Link anonymous device to user by anonymous_token.
+     * Returns number of affected rows.
+     */
+    public function linkByAnonymousToken(int $userId, string $ip, string $anonToken): int
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE user_devices SET user_id=?, ip=?, last_seen_at=NOW(), updated_at=CURRENT_TIMESTAMP
+             WHERE anonymous_token=? AND (user_id IS NULL OR user_id=?) AND is_active=1'
+        );
+        $stmt->execute([$userId, $ip, $anonToken, $userId]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Find active device by user_agent for user linking.
+     */
+    public function findActiveByUserAgent(string $ua, int $userId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id FROM user_devices WHERE user_agent=? AND is_active=1
+             AND (user_id IS NULL OR user_id=?) ORDER BY last_seen_at DESC LIMIT 1'
+        );
+        $stmt->execute([$ua, $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Update user_id and ip for an existing device row.
+     */
+    public function linkUserToDevice(int $userId, string $ip, int $deviceId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE user_devices SET user_id=?, ip=?, last_seen_at=NOW(), updated_at=CURRENT_TIMESTAMP WHERE id=?'
+        )->execute([$userId, $ip, $deviceId]);
+    }
+
+    /**
+     * Insert a new device for login linking. Returns the new ID.
+     */
+    public function createForLogin(int $userId, string $anonToken, string $type, string $name, string $ua, string $ip): int
+    {
+        $this->pdo->prepare(
+            'INSERT INTO user_devices (user_id, anonymous_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at)
+             VALUES (?,?,?,?,?,?,NOW(),1,CURRENT_TIMESTAMP)'
+        )->execute([$userId, $anonToken, $type, $name, $ua, $ip]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Find device by anonymous_token.
+     */
+    public function findByAnonymousToken(string $anonToken): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM user_devices WHERE anonymous_token=? LIMIT 1');
+        $stmt->execute([$anonToken]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Find active device by user_id and user_agent.
+     */
+    public function findActiveByUserIdAndAgent(int $userId, string $ua): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM user_devices WHERE user_id=? AND user_agent=? AND is_active=1 LIMIT 1');
+        $stmt->execute([$userId, $ua]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Update existing device with optional fields.
+     */
+    public function updateDeviceRegistration(?int $userId, ?string $fcmToken, string $deviceType, ?string $deviceName, string $ip, int $deviceId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE user_devices SET user_id=COALESCE(?,user_id), fcm_token=COALESCE(?,fcm_token),
+                device_type=?, device_name=COALESCE(?,device_name), ip=?,
+                last_seen_at=NOW(), updated_at=CURRENT_TIMESTAMP WHERE id=?'
+        )->execute([$userId, $fcmToken, $deviceType, $deviceName, $ip, $deviceId]);
+    }
+
+    /**
+     * Insert a new device for registration. Returns the new ID.
+     */
+    public function createDeviceRegistration(?int $userId, string $anonToken, ?string $fcmToken, string $type, ?string $name, string $ua, string $ip): int
+    {
+        $this->pdo->prepare(
+            'INSERT INTO user_devices (user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at)
+             VALUES (?,?,?,?,?,?,?,NOW(),1,CURRENT_TIMESTAMP)'
+        )->execute([$userId, $anonToken, $fcmToken, $type, $name, $ua, $ip]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Clear stale FCM token binding on other users.
+     */
+    public function clearStaleFcmToken(string $fcmToken, int $excludeUserId): void
+    {
+        $this->pdo->prepare('UPDATE user_devices SET fcm_token=NULL, updated_at=CURRENT_TIMESTAMP WHERE fcm_token=? AND user_id!=?')
+            ->execute([$fcmToken, $excludeUserId]);
+    }
+
+    /**
+     * Find active device by user_id and user_agent ordered by last_seen.
+     */
+    public function findLatestActiveByUserIdAndAgent(int $userId, string $ua): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM user_devices WHERE user_id=? AND user_agent=? AND is_active=1 ORDER BY last_seen_at DESC LIMIT 1');
+        $stmt->execute([$userId, $ua]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Update FCM token and optionally user_id for a device.
+     */
+    public function updateFcmToken(string $fcmToken, ?int $userId, int $deviceId): void
+    {
+        $this->pdo->prepare('UPDATE user_devices SET fcm_token=?, user_id=COALESCE(?,user_id), last_seen_at=NOW(), updated_at=CURRENT_TIMESTAMP WHERE id=?')
+            ->execute([$fcmToken, $userId, $deviceId]);
     }
 }

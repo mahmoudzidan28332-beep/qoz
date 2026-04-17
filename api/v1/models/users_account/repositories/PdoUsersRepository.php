@@ -186,6 +186,155 @@ final class PdoUsersRepository
         return $result;
     }
 
+    /**
+     * Find user for login by username or email, with tenant role info.
+     */
+    public function findForLogin(string $usernameOrEmail): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT u.id, u.username, u.email, u.password_hash, u.phone, u.preferred_language, u.is_active, tu.role_id, tu.tenant_id
+             FROM users u LEFT JOIN tenant_users tu ON tu.user_id = u.id AND tu.is_active = 1
+             WHERE (u.username = ? OR u.email = ?) ORDER BY tu.joined_at DESC LIMIT 1'
+        );
+        $stmt->execute([$usernameOrEmail, $usernameOrEmail]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Find user by ID with basic profile fields.
+     */
+    public function findBasicById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, username, email, phone, preferred_language, is_active FROM users WHERE id = ?'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Activate user (set is_active = 1) only if currently inactive.
+     * Returns number of affected rows.
+     */
+    public function activateUser(int $id): int
+    {
+        $stmt = $this->pdo->prepare('UPDATE users SET is_active = 1 WHERE id = ? AND is_active = 0');
+        $stmt->execute([$id]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Activate user and set updated_at.
+     * Returns number of affected rows.
+     */
+    public function activateUserWithTimestamp(int $id): int
+    {
+        $stmt = $this->pdo->prepare('UPDATE users SET is_active = 1, updated_at = NOW() WHERE id = ? AND is_active = 0');
+        $stmt->execute([$id]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Re-activate user (force is_active = 1 with updated_at).
+     */
+    public function reactivateUser(int $id): void
+    {
+        $this->pdo->prepare('UPDATE users SET is_active = 1, updated_at = NOW() WHERE id = ?')->execute([$id]);
+    }
+
+    /**
+     * Find user by username.
+     */
+    public function findByUsernameExact(string $username): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+        $stmt->execute([$username]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Check if username or email already exists.
+     */
+    public function existsByUsernameOrEmail(string $username, string $email): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1');
+        $stmt->execute([$username, $email]);
+        return (bool)$stmt->fetch();
+    }
+
+    /**
+     * Create a new user for registration (inactive by default). Returns new user ID.
+     */
+    public function createForRegistration(string $username, string $email, string $passwordHash, ?string $phone, string $lang): int
+    {
+        $this->pdo->prepare(
+            'INSERT INTO users (username, email, password_hash, phone, preferred_language, is_active, created_at) VALUES (?,?,?,?,?,0,NOW())'
+        )->execute([$username, $email, $passwordHash, $phone, $lang]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Create user via OAuth (active by default). Returns new user ID.
+     */
+    public function createOAuthUser(string $username, string $email, string $lang): int
+    {
+        $this->pdo->prepare(
+            'INSERT INTO users (username, email, is_active, preferred_language, created_at) VALUES (?,?,1,?,NOW())'
+        )->execute([$username, $email, $lang]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Find user by email.
+     */
+    public function findIdByEmail(string $email): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+        $stmt->execute([$email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (int)$row['id'] : null;
+    }
+
+    /**
+     * Load full user record with tenant info for OAuth login.
+     */
+    public function findWithTenantInfo(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT u.id, u.username, u.email, u.phone, u.preferred_language, u.is_active, tu.role_id, tu.tenant_id
+             FROM users u LEFT JOIN tenant_users tu ON tu.user_id = u.id AND tu.is_active = 1
+             WHERE u.id = ? ORDER BY tu.joined_at DESC LIMIT 1'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Find inactive user's phone and language by ID.
+     */
+    public function findInactiveUserPhone(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT phone, preferred_language FROM users WHERE id = ? AND is_active = 0 LIMIT 1');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Find user profile fields for OTP verification.
+     */
+    public function findProfileById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, username, email, phone, preferred_language FROM users WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
     private function logAction(int $userId, string $action, int $entityId, ?array $oldData, ?array $newData): void
     {
         $changes = null;
