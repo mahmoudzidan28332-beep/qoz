@@ -67,9 +67,9 @@ try {
             if (isset($_GET['section_id']) && isset($_GET['translations'])) {
                 $sectionId = (int)$_GET['section_id'];
                 // Look up page_id from the section itself
-                $sectionRow = $repo->findSectionByIdOnly($sectionId);
+                $sectionRow = $controller->findSectionByIdOnly($sectionId);
                 if ($sectionRow) {
-                    $fullSection = $repo->findSection((int)$sectionRow['page_id'], $sectionId, 'en', true);
+                    $fullSection = $controller->findSection((int)$sectionRow['page_id'], $sectionId, 'en', true);
                     if ($fullSection) {
                         // Parse settings JSON if needed
                         if (isset($fullSection['settings']) && is_string($fullSection['settings'])) {

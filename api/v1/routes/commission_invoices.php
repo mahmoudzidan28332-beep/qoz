@@ -107,7 +107,7 @@ try {
             // Cascade delete: remove related payments, credit notes, and invoice items first
             try {
                 $pdo->beginTransaction();
-                $repo->deleteRelatedRecords($id);
+                $controller->deleteRelatedRecords($id);
                 $controller->delete($id);
                 $pdo->commit();
             } catch (Throwable $e) {

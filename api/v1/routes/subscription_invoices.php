@@ -72,7 +72,7 @@ try {
                 if (isset($_GET['offset']))          $filters['offset'] = $_GET['offset'];
 
                 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-                    $rows = $repo->all(10000, 0, $filters);
+                    $rows = $controller->all(10000, 0, $filters);
                     header('Content-Type: text/csv; charset=utf-8');
                     header('Content-Disposition: attachment; filename="invoices_' . date('Y-m-d') . '.csv"');
                     $out = fopen('php://output', 'w');

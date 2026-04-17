@@ -142,4 +142,18 @@ final class StorePagesService
     {
         return $this->repo->getSectionTranslations($sectionId);
     }
+
+    // =========================================================
+    // Direct lookups (nullable returns for route-level checks)
+    // =========================================================
+
+    public function findSectionByIdOnly(int $sectionId): ?array
+    {
+        return $this->repo->findSectionByIdOnly($sectionId);
+    }
+
+    public function findSection(int $pageId, int $sectionId, string $lang = 'en', bool $allTranslations = false): ?array
+    {
+        return $this->repo->findSection($pageId, $sectionId, $lang, $allTranslations);
+    }
 }

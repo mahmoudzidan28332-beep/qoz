@@ -15,4 +15,5 @@ class CommissionInvoicesService {
     public function delete(int $id): bool { return $this->repo->delete($id); }
     public function stats(?int $tenantId = null, ?int $entityId = null): array { return $this->repo->stats($tenantId, $entityId); }
     public function generateInvoiceNumber(): string { return $this->repo->generateInvoiceNumber(); }
+    public function deleteRelatedRecords(int $invoiceId): void { $this->repo->deleteRelatedRecords($invoiceId); }
 }

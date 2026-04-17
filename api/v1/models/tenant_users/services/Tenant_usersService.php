@@ -286,4 +286,12 @@ final class Tenant_usersService
             'inactive_users' => $this->repo->count($tenantId, ['is_active' => 0])
         ];
     }
+
+    /**
+     * Get entity ID for a user within a tenant
+     */
+    public function getUserEntityId(int $userId, int $tenantId): ?int
+    {
+        return $this->repo->getUserEntityId($userId, $tenantId);
+    }
 }

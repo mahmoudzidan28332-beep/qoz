@@ -68,10 +68,6 @@ if (function_exists('admin_user')) {
         $canViewOwn = can_view_own('tenant_users');
     }
     
-    // Get user's entity_id from tenant_users table
-    if ($currentUserId > 0 && !$isSuperAdmin && !$canViewAll) {
-        $currentEntityId = getUserEntityId($repo, $currentUserId, $tenantId);
-    }
 }
 
 // Instantiate dependencies
@@ -79,6 +75,11 @@ $repo = new PdoTenant_usersRepository($pdo);
 $validator = new Tenant_usersValidator();
 $service = new Tenant_usersService($repo, $validator);
 $controller = new Tenant_usersController($service);
+
+// Get user's entity_id (must be after controller instantiation)
+if ($currentUserId > 0 && !$isSuperAdmin && !$canViewAll) {
+    $currentEntityId = getUserEntityId($controller, $currentUserId, $tenantId);
+}
 
 /**
  * Try to extract numeric id from ?id= or path (/api/tenant_users/123)
@@ -123,16 +124,16 @@ function getActingUserId(): ?int
 }
 
 /**
- * Get current user's entity ID from repository
+ * Get current user's entity ID from controller
  * 
- * @param PdoTenant_usersRepository $repo Repository instance
+ * @param Tenant_usersController $controller Controller instance
  * @param int $userId User ID
  * @param int $tenantId Tenant ID
  * @return int|null Entity ID or null if not found
  */
-function getUserEntityId($repo, int $userId, int $tenantId): ?int
+function getUserEntityId($controller, int $userId, int $tenantId): ?int
 {
-    return $repo->getUserEntityId($userId, $tenantId);
+    return $controller->getUserEntityId($userId, $tenantId);
 }
 
 try {

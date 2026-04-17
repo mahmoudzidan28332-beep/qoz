@@ -148,4 +148,16 @@ final class Tenant_usersController
     {
         return $this->service->getStats($tenantId);
     }
+
+    /**
+     * Get entity ID for a user within a tenant
+     *
+     * @param int $userId
+     * @param int $tenantId
+     * @return int|null
+     */
+    public function getUserEntityId(int $userId, int $tenantId): ?int
+    {
+        return $this->service->getUserEntityId($userId, $tenantId);
+    }
 }

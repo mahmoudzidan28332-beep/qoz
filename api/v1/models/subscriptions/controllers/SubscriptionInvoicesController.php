@@ -8,6 +8,7 @@ class SubscriptionInvoicesController {
         $this->service = $service;
     }
 
+    public function all(int $limit = 25, int $offset = 0, array $filters = []): array { return $this->service->all($limit, $offset, $filters); }
     public function list(array $filters = []): array { return $this->service->list($filters); }
     public function find(int $id): ?array { return $this->service->find($id); }
     public function create(array $data): int { return $this->service->create($data); }
