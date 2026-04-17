@@ -258,28 +258,7 @@ final class CategoriesService
         bool $isActive,
         ?int $userId = null
     ): int {
-        if (empty($ids)) {
-            return 0;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $pdo = $this->repo->getPdo();
-
-        if ($tenantId === null) {
-            // Super admin: update across all tenants
-            $params = array_merge([$isActive ? 1 : 0], $ids);
-            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW()
-                    WHERE id IN ($placeholders)";
-        } else {
-            $params = array_merge([$isActive ? 1 : 0, $tenantId], $ids);
-            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW()
-                    WHERE tenant_id = ? AND id IN ($placeholders)";
-        }
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->rowCount();
+        return $this->repo->bulkUpdateStatus($tenantId, $ids, $isActive, $userId);
     }
 
     public function bulkDelete(
