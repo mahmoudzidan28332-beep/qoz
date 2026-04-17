@@ -1,5 +1,5 @@
 🏗️ Architecture & Performance Report
-v3.0 — Generated: 2026-04-17 14:57:07 — Total analysis time: 0.1 ms
+v3.0 — Generated: 2026-04-17 15:11:59 — Total analysis time: 0.1 ms
 
 Score
 100
@@ -15,7 +15,7 @@ Warnings
 Info
 1
 Module	Time (ms)	Tests	Findings
-Architecture Validation	0	7	0
+Architecture Validation	0.1	7	0
 Performance Validation	0	6	0
 Multi-Tenant Safety	0	2	0
 Security Validation	0	5	0
@@ -30,61 +30,31 @@ No route files found — skipping simulation.
 
 Warning: Cannot modify header information - headers already sent by (output started at /home/hcsfcsto/public_html/tests/Architecture/AdvancedSystemTest.php:2841) in /home/hcsfcsto/public_html/tests/run_full_system_test.php on line 162
 🏗️ Architecture & Performance Report
-v3.0 — Generated: 2026-04-17 14:57:07 — Total analysis time: 124.3 ms
+v3.0 — Generated: 2026-04-17 15:11:59 — Total analysis time: 107.1 ms
 
 Score
-78
+90
 Grade
-B
-Good
+A
+Excellent
 Tests Run
 37
 Critical
 0
 Warnings
-6
+0
 Info
 22
 Module	Time (ms)	Tests	Findings
-Architecture Validation	86.2	7	22
+Architecture Validation	80.9	7	21
 Performance Validation	0	6	0
 Multi-Tenant Safety	0	2	0
-Security Validation	26	5	5
+Security Validation	17.7	5	0
 Type Safety	0	4	0
 Configuration Safety	0	4	0
 Exception Handling	0	3	0
 Code Quality	0	4	0
-Runtime Simulation	12.1	2	1
-[Layer Flow]
-Module: Architecture Validation
-Route bypasses Controller/Service and calls Repository method directly
-📁 api/v1/routes/subscription_invoices.php
-💡 Route must delegate through Controller → Service → Repository.
-[Input Validation]
-Module: Security Validation
-Route reads user input without visible sanitization/validation
-📁 api/v1/routes/attributes.php
-💡 Always validate and sanitize user-supplied data before processing.
-[Input Validation]
-Module: Security Validation
-Route reads user input without visible sanitization/validation
-📁 api/v1/routes/mobile.php
-💡 Always validate and sanitize user-supplied data before processing.
-[Input Validation]
-Module: Security Validation
-Route reads user input without visible sanitization/validation
-📁 api/v1/routes/public/compare.php
-💡 Always validate and sanitize user-supplied data before processing.
-[Input Validation]
-Module: Security Validation
-Route reads user input without visible sanitization/validation
-📁 api/v1/routes/public/recent.php
-💡 Always validate and sanitize user-supplied data before processing.
-[Input Validation]
-Module: Security Validation
-Route reads user input without visible sanitization/validation
-📁 api/v1/routes/public/wishlist.php
-💡 Always validate and sanitize user-supplied data before processing.
+Runtime Simulation	8.4	2	1
 [Layer Flow]
 Module: Architecture Validation
 Public sub-route uses Repository without Service layer
@@ -192,4 +162,4 @@ Public sub-route uses Repository without Service layer
 💡 For complex logic, introduce a Service layer between route and Repository.
 [Runtime Summary]
 Module: Runtime Simulation
-Simulation: 1000 requests in 0.01s (avg 0.0101 ms/req, 202 route files)
+Simulation: 1000 requests in 0.007s (avg 0.0069 ms/req, 202 route files)
