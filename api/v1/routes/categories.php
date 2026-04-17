@@ -38,6 +38,9 @@ $repo = new PdoCategoriesRepository($pdo);
 $validator = new CategoriesValidator();
 $service = new CategoriesService($repo, $validator);
 $controller = new CategoriesController($service);
+// Pass acting user ID from session to controller
+$_catUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+$controller->setActingUserId($_catUserId);
 
 // دالة لتحديد الحد الأقصى
 function clampLimit(int $val, int $max = 1000): int {
@@ -222,11 +225,6 @@ try {
     if ($method === 'DELETE' && preg_match('#/categories/(\d+)#', $uri, $matches)) {
         $id = (int) $matches[1];
         $data = ['id' => $id];
-        
-        // إضافة user_id إذا كان موجوداً في الجلسة
-        if (isset($_SESSION['user_id'])) {
-            $data['user_id'] = $_SESSION['user_id'];
-        }
         
         $controller->delete($tenantId, $data);
 

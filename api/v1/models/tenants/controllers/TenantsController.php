@@ -55,7 +55,7 @@ final class TenantsController
      */
     public function create(array $data, ?int $actingUserId = null): array
     {
-        $userId = $actingUserId ?? (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = $actingUserId;
         return $this->service->create($data, $userId);
     }
 
@@ -64,7 +64,7 @@ final class TenantsController
      */
     public function update(array $data, int $id, ?int $actingUserId = null): array
     {
-        $userId = $actingUserId ?? (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = $actingUserId;
         return $this->service->update($data, $id, $userId);
     }
 
@@ -77,8 +77,7 @@ final class TenantsController
             throw new InvalidArgumentException('ID is required');
         }
 
-        $userId = isset($data['user_id']) ? (int)$data['user_id']
-                : (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = isset($data['user_id']) ? (int)$data['user_id'] : null;
         $this->service->delete((int)$data['id'], $userId);
     }
 
@@ -91,7 +90,7 @@ final class TenantsController
             throw new InvalidArgumentException('IDs array is required');
         }
 
-        $userId = $actingUserId ?? (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = $actingUserId;
         return $this->service->bulkUpdateStatus(
             $data['ids'],
             $data['status'],
@@ -107,7 +106,7 @@ final class TenantsController
         if (empty($data['ids']) || !is_array($data['ids'])) {
             throw new InvalidArgumentException('IDs array is required');
         }
-        $userId = $actingUserId ?? (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = $actingUserId;
         return $this->service->bulkUpdateStatus($data['ids'], 'active', $userId);
     }
 
@@ -119,7 +118,7 @@ final class TenantsController
         if (empty($data['ids']) || !is_array($data['ids'])) {
             throw new InvalidArgumentException('IDs array is required');
         }
-        $userId = $actingUserId ?? (isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null);
+        $userId = $actingUserId;
         return $this->service->bulkUpdateStatus($data['ids'], 'suspended', $userId);
     }
 

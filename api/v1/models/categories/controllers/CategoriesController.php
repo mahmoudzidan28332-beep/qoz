@@ -246,10 +246,17 @@ final class CategoriesController
     /**
      * يحل userId من SESSION أولاً ثم من البيانات المُمرَّرة كـ fallback.
      */
+    private ?int $actingUserId = null;
+
+    public function setActingUserId(?int $userId): void
+    {
+        $this->actingUserId = $userId;
+    }
+
     private function resolveUserId(array $data = []): ?int
     {
-        if (!empty($_SESSION['user_id'])) {
-            return (int) $_SESSION['user_id'];
+        if ($this->actingUserId !== null) {
+            return $this->actingUserId;
         }
         if (!empty($data['user_id']) && is_numeric($data['user_id'])) {
             return (int) $data['user_id'];
