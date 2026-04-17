@@ -16,31 +16,20 @@ if ($first === 'ui') {
         $uiThemeRow = $pdoOne('SELECT id FROM themes WHERE tenant_id = ? AND is_default = 1 LIMIT 1', [$tid]);
     }
     $uiThemeId  = $uiThemeRow ? (int)$uiThemeRow['id'] : null;
-    $uiTidCond  = $uiThemeId ? ' AND (theme_id = ? OR theme_id IS NULL)' : '';
-    $uiP = static function(array $base) use ($uiThemeId): array {
-        return $uiThemeId ? array_merge($base, [$uiThemeId]) : $base;
-    };
 
-    $colors  = $pdoList(
-        'SELECT setting_key AS `key`, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1' . $uiTidCond . ' ORDER BY sort_order, id',
-        $uiP([$tid])
-    );
-    $fonts   = $pdoList(
-        'SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1' . $uiTidCond . ' ORDER BY sort_order',
-        $uiP([$tid])
-    );
-    $designs = $pdoList(
-        'SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1' . $uiTidCond . ' ORDER BY sort_order',
-        $uiP([$tid])
-    );
-    $buttons = $pdoList(
-        'SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1' . $uiTidCond . ' ORDER BY button_type',
-        $uiP([$tid])
-    );
-    $cards = $pdoList(
-        'SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1' . $uiTidCond . ' ORDER BY card_type',
-        $uiP([$tid])
-    );
+    if ($uiThemeId) {
+        $colors = $pdoList('SELECT setting_key AS `key`, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order, id', [$tid, $uiThemeId]);
+        $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order', [$tid, $uiThemeId]);
+        $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order', [$tid, $uiThemeId]);
+        $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY button_type', [$tid, $uiThemeId]);
+        $cards = $pdoList('SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY card_type', [$tid, $uiThemeId]);
+    } else {
+        $colors = $pdoList('SELECT setting_key AS `key`, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order, id', [$tid]);
+        $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
+        $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
+        $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY button_type', [$tid]);
+        $cards = $pdoList('SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY card_type', [$tid]);
+    }
 
     // Generate CSS string — mirrors AdminUiThemeLoader::generateCss() exactly.
     // Sanitize values: strip {}, ; and backticks to prevent CSS injection.
