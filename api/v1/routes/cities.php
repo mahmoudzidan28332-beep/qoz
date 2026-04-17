@@ -93,7 +93,7 @@ try {
             // path identifier given?
             if (!empty($segments[0])) {
                 $identifier = urldecode($segments[0]);
-                $item = $repo->findWithTranslation($identifier, $lang);
+                $item = $controller->findWithTranslation($identifier, $lang);
                 if (!$item) {
                     ResponseFormatter::error('City not found', 404);
                     return;

@@ -87,7 +87,7 @@ try {
                 if (ctype_digit($seg)) {
                     // numeric id
                     $id = (int)$seg;
-                    $item = $repo->getById($id);
+                    $item = $controller->show($id);
                     if (!$item) {
                         ResponseFormatter::error('Timezone not found', 404);
                         return;
@@ -97,7 +97,7 @@ try {
                 } else {
                     // treat as timezone string
                     $tz = $seg;
-                    $item = $repo->getByTimezone($tz);
+                    $item = $controller->getByTimezone($tz);
                     if (!$item) {
                         ResponseFormatter::error('Timezone not found', 404);
                         return;
@@ -110,7 +110,7 @@ try {
             // Otherwise check query params ?id= or ?timezone=
             if (!empty($_GET['id'])) {
                 $id = (int)$_GET['id'];
-                $item = $repo->getById($id);
+                $item = $controller->show($id);
                 if (!$item) {
                     ResponseFormatter::error('Timezone not found', 404);
                     return;
@@ -121,7 +121,7 @@ try {
 
             if (!empty($_GET['timezone'])) {
                 $tz = $_GET['timezone'];
-                $item = $repo->getByTimezone($tz);
+                $item = $controller->getByTimezone($tz);
                 if (!$item) {
                     ResponseFormatter::error('Timezone not found', 404);
                     return;

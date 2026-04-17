@@ -31,6 +31,11 @@ final class CitiesController
         return $this->service->get($id, $lang, $allTranslations);
     }
 
+    public function findWithTranslation(string $identifier, ?string $lang = null): ?array
+    {
+        return $this->service->findWithTranslation($identifier, $lang);
+    }
+
     public function create(array $data): array
     {
         return $this->service->save($data);

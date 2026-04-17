@@ -21,6 +21,28 @@ final class TimezonesController
     }
 
     /**
+     * Get a single timezone by id
+     *
+     * @param int $id
+     * @return array|null
+     */
+    public function show(int $id): ?array
+    {
+        return $this->service->getById($id);
+    }
+
+    /**
+     * Get a single timezone by timezone string
+     *
+     * @param string $tz
+     * @return array|null
+     */
+    public function getByTimezone(string $tz): ?array
+    {
+        return $this->service->getByTimezone($tz);
+    }
+
+    /**
      * Store a new timezone
      *
      * @param array $data

@@ -84,7 +84,7 @@ try {
             // path identifier given?
             if (!empty($segments[0])) {
                 $identifier = urldecode($segments[0]);
-                $item = $repo->getByIdentifier($identifier, $lang);
+                $item = $controller->getByIdentifier($identifier, $lang);
                 if (!$item) {
                     ResponseFormatter::error('Country not found', 404);
                     return;

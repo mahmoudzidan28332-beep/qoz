@@ -87,6 +87,28 @@ final class TimezonesService
     }
 
     /**
+     * Get timezone by id
+     *
+     * @param int $id
+     * @return array|null
+     */
+    public function getById(int $id): ?array
+    {
+        return $this->repo->getById($id);
+    }
+
+    /**
+     * Get timezone by timezone string
+     *
+     * @param string $tz
+     * @return array|null
+     */
+    public function getByTimezone(string $tz): ?array
+    {
+        return $this->repo->getByTimezone($tz);
+    }
+
+    /**
      * Delete timezone
      *
      * @param int $id
