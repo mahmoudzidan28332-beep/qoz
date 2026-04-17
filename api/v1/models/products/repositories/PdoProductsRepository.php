@@ -57,12 +57,11 @@ final class PdoProductsRepository
             FROM products p
             LEFT JOIN product_translations pt
                 ON p.id = pt.product_id AND pt.language_code = :lang
+            LEFT JOIN image_types it ON it.name = 'product'
             LEFT JOIN images i
                 ON i.owner_id = p.id
                AND i.is_main = 1
-               AND i.image_type_id = (
-                   SELECT id FROM image_types WHERE name = 'product' LIMIT 1
-               )
+               AND i.image_type_id = it.id
             LEFT JOIN product_pricing pp
                 ON pp.product_id = p.id
                AND pp.variant_id IS NULL
@@ -151,12 +150,11 @@ final class PdoProductsRepository
             FROM products p
             LEFT JOIN product_translations pt
                 ON p.id = pt.product_id AND pt.language_code = :lang
+            LEFT JOIN image_types it ON it.name = 'product'
             LEFT JOIN images i
                 ON i.owner_id = p.id
                AND i.is_main = 1
-               AND i.image_type_id = (
-                   SELECT id FROM image_types WHERE name = 'product' LIMIT 1
-               )
+               AND i.image_type_id = it.id
             WHERE p.tenant_id = :tenant_id AND p.id = :id
             LIMIT 1
         ");
