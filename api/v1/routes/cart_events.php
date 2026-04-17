@@ -8,6 +8,8 @@ require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
 require_once dirname(__DIR__) . '/models/cart_events/repositories/PdoCartEventsRepository.php';
+require_once dirname(__DIR__) . '/models/cart_events/services/CartEventsService.php';
+require_once dirname(__DIR__) . '/models/cart_events/controllers/CartEventsController.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -18,6 +20,8 @@ if (!$pdo instanceof PDO) {
 }
 
 $cartEventsRepo = new PdoCartEventsRepository($pdo);
+$cartEventsService = new CartEventsService($cartEventsRepo);
+$controller = new CartEventsController($cartEventsService);
 
 // ================================
 // Tenant & Auth check
@@ -62,7 +66,7 @@ try {
         case 'GET':
             // Get single event by ID
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $cartEventsRepo->find((int)$_GET['id']);
+                $item = $controller->find((int)$_GET['id']);
                 ResponseFormatter::success($item ?: null);
                 break;
             }
@@ -89,10 +93,10 @@ try {
             }
 
             // Count
-            $total = $cartEventsRepo->count($where, $params);
+            $total = $controller->count($where, $params);
 
             // Fetch
-            $items = $cartEventsRepo->list($where, $params, $orderBy, $orderDir, $limit, $offset);
+            $items = $controller->list($where, $params, $orderBy, $orderDir, $limit, $offset);
 
             ResponseFormatter::success([
                 'items' => $items,
@@ -128,7 +132,7 @@ try {
                 ? (int)$data['entity_id']
                 : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : (int)($tenantId ?? 1));
 
-            $newId = $cartEventsRepo->create([
+            $newId = $controller->create([
                 'entity_id'       => $entityId,
                 'cart_id'         => (int)$data['cart_id'],
                 'event_type'      => $data['event_type'],
@@ -147,7 +151,7 @@ try {
                 ResponseFormatter::error('Missing event ID for deletion', 400);
                 exit;
             }
-            $deleted = $cartEventsRepo->deleteById((int)$data['id']);
+            $deleted = $controller->deleteById((int)$data['id']);
             ResponseFormatter::success(['deleted' => $deleted], 'Deleted successfully');
             break;
 
