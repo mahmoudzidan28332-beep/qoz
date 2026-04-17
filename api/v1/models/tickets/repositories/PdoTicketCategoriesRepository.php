@@ -184,22 +184,26 @@ final class PdoTicketCategoriesRepository implements TicketCategoriesRepositoryI
                 ];
             }
 
-            foreach ($translationsToSave as $trans) {
+            $insertVals = [];
+            $insertParams = [];
+            foreach ($translationsToSave as $i => $trans) {
                 if (empty($trans['name'])) continue;
                 
-                $transStmt = $this->pdo->prepare("
-                    INSERT INTO " . self::TABLE_TRANS . " (category_id, language_code, name, description)
-                    VALUES (:cat_id, :lang, :name, :desc)
-                    ON DUPLICATE KEY UPDATE 
-                        name = VALUES(name), 
-                        description = VALUES(description)
-                ");
-                $transStmt->execute([
-                    ':cat_id' => $categoryId,
-                    ':lang'   => $trans['language_code'],
-                    ':name'   => $trans['name'],
-                    ':desc'   => $trans['description'] ?? null
-                ]);
+                $insertVals[] = "(:cat_id_{$i}, :lang_{$i}, :name_{$i}, :desc_{$i})";
+                $insertParams[":cat_id_{$i}"] = $categoryId;
+                $insertParams[":lang_{$i}"]   = $trans['language_code'];
+                $insertParams[":name_{$i}"]   = $trans['name'];
+                $insertParams[":desc_{$i}"]   = $trans['description'] ?? null;
+            }
+
+            if (!empty($insertVals)) {
+                $sql = "INSERT INTO " . self::TABLE_TRANS . " (category_id, language_code, name, description) 
+                        VALUES " . implode(", ", $insertVals) . " 
+                        ON DUPLICATE KEY UPDATE 
+                            name = VALUES(name), 
+                            description = VALUES(description)";
+                $transStmt = $this->pdo->prepare($sql);
+                $transStmt->execute($insertParams);
             }
 
             $this->pdo->commit();
