@@ -317,6 +317,17 @@ final class PdoSubscriptionsRepository
     }
 
     // ================================
+    // Find active plan by ID (for upgrade flow)
+    // ================================
+    public function findActivePlan(int $planId): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plans WHERE id = :id AND is_active = 1 LIMIT 1");
+        $stmt->execute([':id' => $planId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    // ================================
     // Update
     // ================================
     public function update(int $id, array $data): bool

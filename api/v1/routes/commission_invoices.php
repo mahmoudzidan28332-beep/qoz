@@ -107,9 +107,7 @@ try {
             // Cascade delete: remove related payments, credit notes, and invoice items first
             try {
                 $pdo->beginTransaction();
-                $pdo->prepare('DELETE FROM commission_payments WHERE commission_invoice_id = :id')->execute(['id' => $id]);
-                $pdo->prepare('DELETE FROM commission_credit_notes WHERE invoice_id = :id')->execute(['id' => $id]);
-                $pdo->prepare('DELETE FROM commission_invoice_items WHERE invoice_id = :id')->execute(['id' => $id]);
+                $repo->deleteRelatedRecords($id);
                 $controller->delete($id);
                 $pdo->commit();
             } catch (Throwable $e) {

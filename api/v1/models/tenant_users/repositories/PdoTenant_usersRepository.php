@@ -526,4 +526,22 @@ final class PdoTenant_usersRepository
             error_log('[PdoTenant_usersRepository::logAction] ' . $e->getMessage());
         }
     }
+
+    // ================================
+    // Get user's entity_id for permission scoping
+    // ================================
+    public function getUserEntityId(int $userId, int $tenantId): ?int
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT entity_id FROM tenant_users WHERE user_id = ? AND tenant_id = ? LIMIT 1");
+            $stmt->execute([$userId, $tenantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && isset($row['entity_id'])) {
+                return (int)$row['entity_id'];
+            }
+        } catch (PDOException $e) {
+            error_log('[PdoTenant_usersRepository::getUserEntityId] ' . $e->getMessage());
+        }
+        return null;
+    }
 }

@@ -70,7 +70,7 @@ if (function_exists('admin_user')) {
     
     // Get user's entity_id from tenant_users table
     if ($currentUserId > 0 && !$isSuperAdmin && !$canViewAll) {
-        $currentEntityId = getUserEntityId($pdo, $currentUserId, $tenantId);
+        $currentEntityId = getUserEntityId($repo, $currentUserId, $tenantId);
     }
 }
 
@@ -123,32 +123,16 @@ function getActingUserId(): ?int
 }
 
 /**
- * Get current user's entity ID from database
+ * Get current user's entity ID from repository
  * 
- * @param PDO $pdo Database connection
+ * @param PdoTenant_usersRepository $repo Repository instance
  * @param int $userId User ID
  * @param int $tenantId Tenant ID
  * @return int|null Entity ID or null if not found
  */
-function getUserEntityId(PDO $pdo, int $userId, int $tenantId): ?int
+function getUserEntityId($repo, int $userId, int $tenantId): ?int
 {
-    try {
-        $stmt = $pdo->prepare("SELECT entity_id FROM tenant_users WHERE user_id = ? AND tenant_id = ? LIMIT 1");
-        $stmt->execute([$userId, $tenantId]);
-        $userTenant = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($userTenant && isset($userTenant['entity_id'])) {
-            return (int)$userTenant['entity_id'];
-        }
-    } catch (PDOException $e) {
-        safe_log('error', 'Failed to get user entity ID', [
-            'user_id' => $userId,
-            'tenant_id' => $tenantId,
-            'error' => $e->getMessage()
-        ]);
-    }
-    
-    return null;
+    return $repo->getUserEntityId($userId, $tenantId);
 }
 
 try {

@@ -17,6 +17,7 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/CertificatePdfHelper.php';
+require_once API_VERSION_PATH . '/models/certificates/repositories/PdoCertificatesIssuedRepository.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -57,10 +58,10 @@ try {
         exit;
     }
 
+    $certRepo = new PdoCertificatesIssuedRepository($pdo);
+
     // Fetch issued record
-    $stmt = $pdo->prepare("SELECT * FROM certificates_issued WHERE id = :id LIMIT 1");
-    $stmt->execute([':id' => $issuedId]);
-    $issued = $stmt->fetch(PDO::FETCH_ASSOC);
+    $issued = $certRepo->findById($issuedId);
 
     if (!$issued) {
         http_response_code(404);
@@ -142,14 +143,7 @@ try {
     }
 
     // ── 3. Persist changes to certificates_issued ────────────────────────
-    $update = $pdo->prepare(
-        "UPDATE certificates_issued SET qr_code_path = :qr, pdf_path = :pdf WHERE id = :id"
-    );
-    $update->execute([
-        ':qr'  => $qrCodePath,
-        ':pdf' => $pdfPath,
-        ':id'  => $issuedId,
-    ]);
+    $certRepo->updateFilePaths($issuedId, $qrCodePath, $pdfPath);
 
     $responseData = [
         'issued_id'    => $issuedId,

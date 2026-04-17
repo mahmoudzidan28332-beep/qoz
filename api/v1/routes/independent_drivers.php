@@ -76,6 +76,9 @@ if (!($db instanceof mysqli)) {
     json_error('Database connection not available', 500);
 }
 
+require_once __DIR__ . '/../../v1/models/independent_drivers/repositories/PdoIndependentDriversRepository.php';
+$driverRepo = new PdoIndependentDriversRepository($db);
+
 /* Upload paths */
 define('UPLOAD_DIR', realpath(__DIR__ . '/../../../uploads') ? realpath(__DIR__ . '/../../../uploads') . '/independent_drivers' : __DIR__ . '/../../../uploads/independent_drivers');
 define('UPLOAD_URL', '/uploads/independent_drivers'); // web-relative prefix
@@ -116,13 +119,7 @@ if ($method === 'GET') {
     // single
     if (!empty($_GET['id'])) {
         $id = (int)$_GET['id'];
-        $stmt = $db->prepare("SELECT * FROM independent_drivers WHERE id = ? LIMIT 1");
-        if (!$stmt) json_error('Prepare failed: ' . $db->error, 500);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $row = $res ? $res->fetch_assoc() : null;
-        $stmt->close();
+        $row = $driverRepo->findById($id);
         if ($row) json_ok(['data' => $row]);
         else json_error('Not found', 404);
     }
@@ -166,17 +163,11 @@ if ($method === 'GET') {
         $types .= 's';
     }
 
-    $sql = "SELECT * FROM independent_drivers";
-    if ($where) $sql .= " WHERE " . implode(' AND ', $where);
-    $sql .= " ORDER BY id DESC";
+    $extraSql = "";
+    if ($where) $extraSql .= " WHERE " . implode(' AND ', $where);
+    $extraSql .= " ORDER BY id DESC";
 
-    $stmt = $db->prepare($sql);
-    if (!$stmt) json_error('Prepare failed: ' . $db->error, 500);
-    if ($types) stmt_bind_params($stmt, $types, $params);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    $rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    $stmt->close();
+    $rows = $driverRepo->list($types, $params, $extraSql);
 
     json_ok(['data' => $rows, 'total' => count($rows)]);
 }
@@ -194,13 +185,7 @@ if ($method === 'POST') {
         if ($id <= 0) json_error('Invalid id', 400);
 
         // fetch files to remove
-        $stmt = $db->prepare("SELECT license_photo_url, id_photo_url FROM independent_drivers WHERE id = ? LIMIT 1");
-        if (!$stmt) json_error('Prepare failed: ' . $db->error, 500);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $r = $stmt->get_result();
-        $row = $r ? $r->fetch_assoc() : null;
-        $stmt->close();
+        $row = $driverRepo->getFileUrls($id);
 
         if ($row) {
             foreach (['license_photo_url','id_photo_url'] as $col) {
@@ -211,11 +196,7 @@ if ($method === 'POST') {
             }
         }
 
-        $del = $db->prepare("DELETE FROM independent_drivers WHERE id = ? LIMIT 1");
-        if (!$del) json_error('Prepare failed: ' . $db->error, 500);
-        $del->bind_param('i', $id);
-        $ok = $del->execute();
-        $del->close();
+        $ok = $driverRepo->delete($id);
         if ($ok) json_ok(['message' => 'Deleted']);
         else json_error('Delete failed');
     }
@@ -229,13 +210,7 @@ if ($method === 'POST') {
         // permission checks
         if ($is_edit) {
             // ensure owner or admin or edit permission
-            $check = $db->prepare("SELECT user_id FROM independent_drivers WHERE id = ? LIMIT 1");
-            if (!$check) json_error('Prepare failed: ' . $db->error, 500);
-            $check->bind_param('i', $id);
-            $check->execute();
-            $res = $check->get_result();
-            $row = $res ? $res->fetch_assoc() : null;
-            $check->close();
+            $row = $driverRepo->getOwnerId($id);
             if (!$row) json_error('Not found', 404);
             if (!$isAdmin && (int)$row['user_id'] !== $uid && !has_perm('edit_drivers')) json_error('Forbidden', 403);
         } else {
@@ -285,8 +260,6 @@ if ($method === 'POST') {
             $data['user_id'] = $uid;
 
             $cols = array_keys($data);
-            $placeholders = implode(',', array_fill(0, count($cols), '?'));
-            $colList = implode(',', array_map(function($c){ return "`$c`"; }, $cols));
 
             $types = '';
             $values = [];
@@ -297,24 +270,10 @@ if ($method === 'POST') {
                 $values[] = $v;
             }
 
-            $sql = "INSERT INTO `independent_drivers` ({$colList}) VALUES ({$placeholders})";
-            $stmt = $db->prepare($sql);
-            if (!$stmt) json_error('Prepare failed: ' . $db->error, 500);
-            if ($values) {
-                $bindParams = array_merge([$types], $values);
-                // convert to references
-                $refs = [];
-                foreach ($bindParams as $k => $v) $refs[$k] = &$bindParams[$k];
-                call_user_func_array([$stmt, 'bind_param'], $refs);
+            $driver_id = $driverRepo->insert($cols, $types, $values);
+            if ($driver_id === null) {
+                json_error('Insert failed', 500);
             }
-            $ok = $stmt->execute();
-            if (!$ok) {
-                $err = $stmt->error ?: $db->error;
-                $stmt->close();
-                json_error('Insert failed: ' . $err, 500);
-            }
-            $driver_id = (int)$db->insert_id;
-            $stmt->close();
         } else {
             // UPDATE
             $sets = [];
@@ -326,23 +285,12 @@ if ($method === 'POST') {
                 $types .= 's';
             }
             if (!empty($sets)) {
-                $sql = "UPDATE `independent_drivers` SET " . implode(', ', $sets) . " WHERE id = ? LIMIT 1";
-                $types .= 'i';
-                $values[] = $id;
-                $stmt = $db->prepare($sql);
-                if (!$stmt) json_error('Prepare failed: ' . $db->error, 500);
-                $bindParams = array_merge([$types], $values);
-                $refs = [];
-                foreach ($bindParams as $k => $v) $refs[$k] = &$bindParams[$k];
-                call_user_func_array([$stmt, 'bind_param'], $refs);
-                $ok = $stmt->execute();
-                if (!$ok) {
-                    $err = $stmt->error ?: $db->error;
-                    $stmt->close();
-                    json_error('Update failed: ' . $err, 500);
+                try {
+                    $driverRepo->update($sets, $types, $values, $id);
+                } catch (RuntimeException $e) {
+                    json_error($e->getMessage(), 500);
                 }
                 $driver_id = $id;
-                $stmt->close();
             } else {
                 // nothing to update
                 $driver_id = $id;
@@ -362,12 +310,7 @@ if ($method === 'POST') {
                 if (file_exists($oldPath)) {
                     rename($oldPath, $newPath);
                     $newUrl = UPLOAD_URL . '/' . $driver_id . '/' . $filename;
-                    $upd = $db->prepare("UPDATE `independent_drivers` SET `$col` = ? WHERE id = ? LIMIT 1");
-                    if ($upd) {
-                        $upd->bind_param('si', $newUrl, $driver_id);
-                        $upd->execute();
-                        $upd->close();
-                    }
+                    $driverRepo->updateColumn($driver_id, $col, $newUrl);
                 }
             }
             // attempt to remove temp dir if empty

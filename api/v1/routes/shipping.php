@@ -115,6 +115,9 @@ function acquire_db() {
 $db = acquire_db();
 if (!($db instanceof mysqli)) { log_debug("No DB available"); json_error('Database connection error', 500); }
 
+require_once __DIR__ . '/../../v1/models/shipping/repositories/PdoShippingRepository.php';
+$shippingRepo = new PdoShippingRepository($db);
+
 // detect translation tables & company translations name column
 $hasCountryTrans = ($db->query("SHOW TABLES LIKE 'country_translations'") ? $db->query("SHOW TABLES LIKE 'country_translations'")->num_rows : 0) > 0;
 $hasCityTrans = ($db->query("SHOW TABLES LIKE 'city_translations'") ? $db->query("SHOW TABLES LIKE 'city_translations'")->num_rows : 0) > 0;
@@ -415,33 +418,27 @@ if ($method === 'POST' && $action === 'create_company') {
     $types = ''; $params = [];
     foreach ($cols as $c) { $types .= $typesMap[$c] ?? 's'; $params[] = $data[$c]; }
 
-    $sql = "INSERT INTO delivery_companies ({$colsSql}) VALUES ({$placeholders})";
-    $stmt = $db->prepare($sql);
-    if (!$stmt) { log_debug("INSERT prepare failed: ".$db->error); return json_error('Create failed', 500); }
-    if (!empty($types)) bind_params_stmt($stmt, $types, $params);
-    if (!$stmt->execute()) { $err = $stmt->error; $stmt->close(); log_debug("INSERT failed: $err SQL: $sql"); return json_error('Create failed', 500); }
-    $newId = (int)$stmt->insert_id; $stmt->close();
+    try {
+        $newId = $shippingRepo->insertCompany($colsSql, $placeholders, $types, $params);
+    } catch (RuntimeException $e) {
+        log_debug("INSERT failed: " . $e->getMessage());
+        return json_error('Create failed', 500);
+    }
 
     // logo upload
     if (!empty($_FILES['logo'])) {
         $url = save_uploaded_logo($_FILES['logo'], $newId);
         if ($url) {
-            $ust = $db->prepare("UPDATE delivery_companies SET logo_url = ? WHERE id = ? LIMIT 1");
-            if ($ust) { bind_params_stmt($ust, 'si', [$url, $newId]); $ust->execute(); $ust->close(); }
+            $shippingRepo->updateCompanyLogo($newId, $url);
         }
     }
 
     if (!empty($_POST['translations'])) {
         $trs = json_decode($_POST['translations'], true);
         if (is_array($trs)) {
-            $ins = $db->prepare("INSERT INTO delivery_company_translations (company_id, language_code, description, terms, meta_title, meta_description) VALUES (?, ?, ?, ?, ?, ?)");
-            if ($ins) {
-                foreach ($trs as $lang => $d) {
-                    $desc = $d['description'] ?? null; $terms = $d['terms'] ?? null; $mt = $d['meta_title'] ?? null; $md = $d['meta_description'] ?? null;
-                    bind_params_stmt($ins, 'isssss', [$newId, $lang, $desc, $terms, $mt, $md]);
-                    $ins->execute();
-                }
-                $ins->close();
+            foreach ($trs as $lang => $d) {
+                $desc = $d['description'] ?? null; $terms = $d['terms'] ?? null; $mt = $d['meta_title'] ?? null; $md = $d['meta_description'] ?? null;
+                $shippingRepo->insertTranslation($newId, $lang, $desc, $terms, $mt, $md);
             }
         }
     }
@@ -503,28 +500,24 @@ if ($method === 'POST' && $action === 'update_company') {
             else { $types .= 's'; $params[] = (string)$v; }
         }
         $params[] = $id; $types .= 'i';
-        $sql = "UPDATE delivery_companies SET " . implode(',', $sets) . " WHERE id = ? LIMIT 1";
-        $ust = $db->prepare($sql);
-        if (!$ust) { log_debug("update prepare failed: " . $db->error . " SQL: $sql"); return json_error('Update failed', 500); }
-        bind_params_stmt($ust, $types, $params);
-        if (!$ust->execute()) { log_debug("UPDATE error: ".$ust->error." SQL: $sql"); $ust->close(); return json_error('Update failed', 500); }
-        $ust->close();
+        try {
+            $shippingRepo->updateCompany(implode(',', $sets), $types, $params);
+        } catch (RuntimeException $e) {
+            log_debug("update failed: " . $e->getMessage());
+            return json_error('Update failed', 500);
+        }
     }
 
     // translations replace
     if (isset($_POST['translations'])) {
         $trs = json_decode($_POST['translations'], true);
         if (is_array($trs)) {
-            $del = $db->prepare("DELETE FROM delivery_company_translations WHERE company_id = ?");
-            if ($del) { bind_params_stmt($del, 'i', [$id]); $del->execute(); $del->close(); }
-            $ins = $db->prepare("INSERT INTO delivery_company_translations (company_id, language_code, description, terms, meta_title, meta_description) VALUES (?, ?, ?, ?, ?, ?)");
-            if ($ins) {
-                foreach ($trs as $lang => $d) {
-                    $desc = $d['description'] ?? null; $terms = $d['terms'] ?? null; $mt = $d['meta_title'] ?? null; $md = $d['meta_description'] ?? null;
-                    bind_params_stmt($ins, 'isssss', [$id, $lang, $desc, $terms, $mt, $md]);
-                    if (!$ins->execute()) log_debug("translation insert failed: " . $ins->error);
+            $shippingRepo->deleteTranslations($id);
+            foreach ($trs as $lang => $d) {
+                $desc = $d['description'] ?? null; $terms = $d['terms'] ?? null; $mt = $d['meta_title'] ?? null; $md = $d['meta_description'] ?? null;
+                if (!$shippingRepo->insertTranslation($id, $lang, $desc, $terms, $mt, $md)) {
+                    log_debug("translation insert failed for company $id, lang $lang");
                 }
-                $ins->close();
             }
         }
     }
@@ -538,17 +531,13 @@ if ($method === 'POST' && $action === 'delete_company') {
     $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     if (!$id) return json_error('Invalid id', 400);
 
-    $stmt = $db->prepare("SELECT user_id FROM delivery_companies WHERE id = ? LIMIT 1");
-    if (!$stmt) return json_error('Server error', 500);
-    bind_params_stmt($stmt, 'i', [$id]); $stmt->execute(); $row = stmt_fetch_one_assoc($stmt); $stmt->close();
+    $row = $shippingRepo->findCompanyOwner($id);
     if (!$row) return json_error('Not found', 404);
 
     $ownerId = (int)$row['user_id']; $uid = isset($currentUser['id']) ? (int)$currentUser['id'] : 0;
     if (!is_admin_user_full($currentUser) && $ownerId !== $uid) return json_error('Forbidden', 403);
 
-    $d = $db->prepare("DELETE FROM delivery_companies WHERE id = ? LIMIT 1");
-    if (!$d) return json_error('Server error', 500);
-    bind_params_stmt($d, 'i', [$id]); $ok = $d->execute(); $d->close();
+    $ok = $shippingRepo->deleteCompany($id);
 
     return json_ok(['deleted' => (bool)$ok]);
 }
@@ -559,9 +548,7 @@ if ($method === 'POST' && $action === 'create_company_token') {
     $companyId = isset($_POST['company_id']) ? (int)$_POST['company_id'] : 0;
     if (!$companyId) return json_error('Invalid company id', 400);
 
-    $stmt = $db->prepare("SELECT user_id FROM delivery_companies WHERE id = ? LIMIT 1");
-    if (!$stmt) return json_error('Server error', 500);
-    bind_params_stmt($stmt, 'i', [$companyId]); $stmt->execute(); $row = stmt_fetch_one_assoc($stmt); $stmt->close();
+    $row = $shippingRepo->findCompanyOwner($companyId);
     if (!$row) return json_error('Not found', 404);
 
     $ownerId = (int)$row['user_id']; $uid = isset($currentUser['id']) ? (int)$currentUser['id'] : 0;
@@ -573,11 +560,12 @@ if ($method === 'POST' && $action === 'create_company_token') {
     $expires_at = $expires_in > 0 ? date('Y-m-d H:i:s', time() + $expires_in) : null;
     $token = bin2hex(random_bytes(32));
 
-    $ins = $db->prepare("INSERT INTO delivery_company_tokens (company_id, token, name, scopes, expires_at) VALUES (?, ?, ?, ?, ?)");
-    if (!$ins) return json_error('Server error', 500);
-    bind_params_stmt($ins, 'issss', [$companyId, $token, $name, $scopes, $expires_at]);
-    if (!$ins->execute()) { log_debug("TOKEN INSERT ERROR: " . $ins->error); $ins->close(); return json_error('Token creation failed', 500); }
-    $ins->close();
+    try {
+        $shippingRepo->insertToken($companyId, $token, $name, $scopes, $expires_at);
+    } catch (RuntimeException $e) {
+        log_debug("TOKEN INSERT ERROR: " . $e->getMessage());
+        return json_error('Token creation failed', 500);
+    }
 
     return json_ok(['token' => $token]);
 }

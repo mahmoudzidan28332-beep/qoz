@@ -90,9 +90,7 @@ try {
                 $planId = (int)$data['plan_id'];
                 $tid = (int)$data['tenant_id'];
                 // Fetch plan details
-                $planStmt = $pdo->prepare("SELECT * FROM subscription_plans WHERE id = :id AND is_active = 1 LIMIT 1");
-                $planStmt->execute([':id' => $planId]);
-                $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
+                $plan = $repo->findActivePlan($planId);
                 if (!$plan) { ResponseFormatter::error('Plan not found or inactive', 404); break; }
                 $result = $repo->upgrade($tid, $planId, $plan);
                 AuditLogger::log('subscription_upgraded', 'subscription', $result['id']);
