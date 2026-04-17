@@ -52,6 +52,7 @@ if ($first === 'job_applications') {
 
     try {
         $jobAppRepo = new PdoJobApplicationsRepository($pdo);
+        $jobAppService = new JobApplicationsService($jobAppRepo);
         $appId = $jobAppRepo->createPublic([
             'job_id' => $jobId, 'user_id' => $jobSessUserId,
             'full_name' => $fullName, 'email' => $email, 'phone' => $phone,

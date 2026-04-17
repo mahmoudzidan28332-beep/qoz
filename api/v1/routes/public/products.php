@@ -24,6 +24,7 @@ if ($first === 'products') {
                 if ($rating < 1 || $rating > 5) { ResponseFormatter::error('Rating must be 1-5', 422); exit; }
                 try {
                     $reviewRepo = new PdoProductReviewsRepository($pdo);
+                    $reviewService = new ProductReviewsService($reviewRepo);
                     $reviewId = $reviewRepo->createPublicReview($subPid, $subUserId, $rating, $title ?: null, $comment ?: null);
                     ResponseFormatter::success(['ok' => true, 'id' => $reviewId], 'Review submitted pending approval', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }

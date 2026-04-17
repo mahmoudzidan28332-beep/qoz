@@ -9,6 +9,7 @@ declare(strict_types=1);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 require_once dirname(__DIR__, 2) . '/models/notification/repositories/PdoUserDevicesRepository.php';
+require_once dirname(__DIR__, 2) . '/models/notification/services/UserDevicesService.php';
 
 // ── Helpers ──────────────────────────────────────────────
 function ud_json_body(): array {
@@ -102,6 +103,7 @@ try {
         }
 
         $devRepo = new PdoUserDevicesRepository($pdo);
+        $devService = new UserDevicesService($devRepo);
         ResponseFormatter::success(['items' => $devRepo->listForUser($userId)]);
         exit;
     }

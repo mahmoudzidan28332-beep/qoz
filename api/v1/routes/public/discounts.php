@@ -24,6 +24,7 @@ if ($first === 'discounts') {
     }
 
     $discountsRepo = new PdoDiscountsRepository($pdo);
+    $discountsService = new DiscountsService($discountsRepo);
 
     // Optional filters
     $entityId   = isset($_GET['entity_id']) && (int)$_GET['entity_id'] > 0 ? (int)$_GET['entity_id'] : null;

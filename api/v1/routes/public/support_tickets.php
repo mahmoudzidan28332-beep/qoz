@@ -187,6 +187,7 @@ if ($stMethod === 'POST' && $stSub === '') {
 
     try {
         $ticketRepo = new PdoSupportTicketsRepository($pdo);
+        $ticketService = new SupportTicketsService($ticketRepo);
         $newId = $ticketRepo->createPublic($stTenantId, $stUserId, $categoryId, $subject, $description, $priority);
         ResponseFormatter::success(['id' => $newId, 'success' => true], 'Ticket submitted successfully', 201);
     } catch (Throwable $ex) {

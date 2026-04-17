@@ -16,7 +16,9 @@ if ($first === 'wishlist') {
 
     // Instantiate repository
     require_once dirname(__DIR__, 2) . '/models/wishlists/repositories/PdoWishlistsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/wishlists/services/WishlistsService.php';
     $wishlistRepo = new PdoWishlistsRepository($pdo);
+    $wishlistService = new WishlistsService($wishlistRepo);
 
     /** Helper: get or create default wishlist for user */
     $getDefaultWishlist = function() use ($wishlistRepo, $wishUserId, $tenantId) {

@@ -49,6 +49,7 @@ if ($pdo instanceof PDO) {
     require_once dirname(__DIR__, 2) . '/models/search_logs/repositories/PdoSearchSuggestRepository.php';
     $searchLogsRepo    = new PdoSearchLogsRepository($pdo);
     $searchSuggestRepo = new PdoSearchSuggestRepository($pdo);
+    $searchLogsService = new SearchLogsService($searchLogsRepo);
 }
 
 /* -------------------------------------------------------

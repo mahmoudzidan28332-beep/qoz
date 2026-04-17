@@ -21,6 +21,7 @@ if ($first === 'auctions') {
     $bidsRepo     = new PdoAuctionBidsRepository($pdo);
     $watchersRepo = new PdoAuctionWatchersRepository($pdo);
     $autoBidRepo  = new PdoAutoBidSettingsRepository($pdo);
+    $bidsService  = new AuctionBidsService($bidsRepo);
 
     // Helper: get auction translation
     $getAuctionName = function(int $aid, string $lng) use ($pdo, $pdoOne): string {

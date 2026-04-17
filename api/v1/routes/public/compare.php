@@ -15,6 +15,7 @@ if ($first === 'compare') {
     // Helper: get or create the user's active comparison row
     $cmpRepo = new PdoProductComparisonsRepository($pdo);
     $cmpItemRepo = new PdoProductComparisonItemsRepository($pdo);
+    $cmpService = new ProductComparisonsService($cmpRepo);
     $getCmpId = function () use ($cmpRepo, $cmpUserId): int {
         return $cmpRepo->getOrCreateForUser($cmpUserId);
     };

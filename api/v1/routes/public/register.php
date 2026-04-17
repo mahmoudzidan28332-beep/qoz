@@ -54,6 +54,7 @@ if ($first === 'register') {
             $regTenantId = (int)($_POST['tenant_id'] ?? 0)
                 ?: ($tenantId ?? (int)($_SESSION['pub_tenant_id'] ?? $_SESSION['tenant_id'] ?? 1));
             $entitiesRepo = new PdoEntitiesRepository($pdo);
+            $entitiesService = new EntitiesService($entitiesRepo);
             $newEntityId = $entitiesRepo->createPublic(
                 $regTenantId, $regUserId, $storeName, $slug,
                 $vendorType, $storeType, $phone, $email,

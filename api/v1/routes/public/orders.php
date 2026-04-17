@@ -154,6 +154,7 @@ if ($first === 'orders') {
 
     // Verify order number uniqueness
     $ordersRepo = new PdoOrdersRepository($pdo);
+    $ordersService = new OrdersService($ordersRepo);
     if ($ordersRepo->checkOrderNumber($orderNumber)) {
         $orderNumber .= '-' . rand(10, 99);
     }

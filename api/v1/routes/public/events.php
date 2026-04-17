@@ -112,6 +112,7 @@ $userAgent = isset($_SERVER['HTTP_USER_AGENT'])
 // ── Insert ────────────────────────────────────────────────────────────────────
 try {
     $coreEventRepo = new PdoCoreEventRepository($pdo);
+    $coreEventService = new CoreEventService($coreEventRepo);
     $coreEventRepo->create([
         'entity_type' => $entityType,
         'entity_id'   => $entityId,

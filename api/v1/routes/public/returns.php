@@ -268,6 +268,7 @@ if ($retMethod === 'POST' && $retSub === '') {
         $pdo->beginTransaction();
 
         $returnsRepo = new PdoReturnsRepository($pdo);
+        $returnsService = new ReturnsService($returnsRepo);
         $returnId = $returnsRepo->createPublicReturn($retTenantId, $retUserId, $resolvedOrderId, $returnNumber, $reason);
 
         // Insert return items if provided

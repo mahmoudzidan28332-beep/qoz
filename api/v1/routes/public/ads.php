@@ -74,6 +74,7 @@ if ($adId > 0 && $method === 'POST' && in_array($action, ['click', 'view'], true
     $isClick = $action === 'click' ? 1 : 0;
 
     $adStatRepo = new PdoAdStatRepository($pdo);
+    $adStatService = new AdStatService($adStatRepo);
     try {
         $adStatRepo->recordImpression(
             $adId, $trackUserId, $trackSessionId, $trackIp, $trackUserAgent,

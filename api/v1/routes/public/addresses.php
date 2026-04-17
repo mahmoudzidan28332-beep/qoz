@@ -26,6 +26,7 @@ if ($first === 'addresses') {
         if (!$addrRow) { ResponseFormatter::notFound('Address not found'); exit; }
         try {
             $addrRepo = new PdoAddressesRepository($pdo);
+            $addrService = new AddressesService($addrRepo);
             $addrRepo->deleteById($addrId);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $_) { ResponseFormatter::error('Delete failed', 500); }

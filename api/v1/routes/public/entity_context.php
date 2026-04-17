@@ -85,6 +85,7 @@ if ($first === 'entity_context') {
     };
 
     $ctxRepo = new PdoEntityContextRepository($pdo);
+    $ctxService = new EntityContextService($ctxRepo);
 
     $ctxListEntities = static function (
         ?float $lat = null,

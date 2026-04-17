@@ -321,6 +321,7 @@ if ($first === 'entity') {
                 // Upsert: one rating per user per entity (INSERT or UPDATE if exists)
                 $existing = $pdoOne('SELECT id FROM entity_ratings WHERE entity_id = ? AND user_id = ? LIMIT 1', [$entityId, $rateUserId]);
                 $entityRatingsRepo = new PdoEntityRatingsRepository($pdo);
+                $entityRatingsService = new EntityRatingsService($entityRatingsRepo);
                 if ($existing) {
                     $entityRatingsRepo->updateRating((int)$existing['id'], $ratingVal, $reviewText ?: null);
                     $msg = 'Rating updated';

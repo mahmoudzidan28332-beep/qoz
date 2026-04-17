@@ -57,6 +57,7 @@ if ($notifMethod === 'GET' && $notifSub === 'types') {
     if (!$pdo instanceof PDO) { ResponseFormatter::error('DB unavailable', 503); exit; }
     try {
         $notifRepo = new PdoNotificationsRepository($pdo);
+        $notifService = new NotificationsService($notifRepo);
         $types = $notifRepo->getActiveTypes();
         ResponseFormatter::success(['types' => $types, 'total' => count($types)]);
     } catch (Throwable $e) {

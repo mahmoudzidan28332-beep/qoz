@@ -80,6 +80,7 @@ if ($first === 'cart') {
      */
     $cartRepo = new PdoCartsRepository($pdo);
     $cartItemRepo = new PdoCartItemsRepository($pdo);
+    $cartService = new CartsService($cartRepo);
     $getOrCreateCart = function (int $entityId) use ($cartRepo, $cartUserId): int {
         return $cartRepo->getOrCreateActiveCart($cartUserId, $entityId, session_id() ?: null, $_SERVER['REMOTE_ADDR'] ?? null);
     };

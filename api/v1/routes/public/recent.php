@@ -16,6 +16,7 @@ if ($first === 'recent') {
         $recentUid = $userId ?? null;
         $recentSid = session_id() ?: null;
         $recentRepo = new PdoRecentlyViewedRepository($pdo);
+        $recentService = new RecentlyViewedService($recentRepo);
         try {
             // upsert: update viewed_at if already exists, otherwise insert
             $recentRepo->upsert($recentUid, $recentSid, $recentPid);

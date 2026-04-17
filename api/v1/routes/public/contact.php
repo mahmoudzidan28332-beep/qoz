@@ -74,7 +74,8 @@ if ($ctMethod === 'POST') {
 
     try {
         $contactRepo = new PdoContactMessagesRepository($pdo);
-        $msgId = $contactRepo->createMessage($ctTenantId, $ctUserId, $name, $email, $subject, $message);
+        $contactService = new ContactMessagesService($contactRepo);
+        $msgId = $contactService->createMessage($ctTenantId, $ctUserId, $name, $email, $subject, $message);
 
         ResponseFormatter::success([
             'id'      => $msgId,
