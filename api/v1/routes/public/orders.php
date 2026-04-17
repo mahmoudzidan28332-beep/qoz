@@ -149,8 +149,9 @@ if ($first === 'orders') {
     $orderNumber = 'ORD-' . $tenantId . '-' . time() . '-' . rand(100, 999);
 
     // Verify order number uniqueness
-    $ordersRepo = new PdoOrdersRepository($pdo);
-    if ($ordersRepo->checkOrderNumber($orderNumber)) {
+    $checkSt = $pdo->prepare('SELECT id FROM orders WHERE order_number = ? LIMIT 1');
+    $checkSt->execute([$orderNumber]);
+    if ($checkSt->fetch()) {
         $orderNumber .= '-' . rand(10, 99); // collision resolution
     }
 
@@ -158,14 +159,30 @@ if ($first === 'orders') {
         $pdo->beginTransaction();
 
         // Insert order
-        $orderItemsRepo = new PdoOrderItemsRepository($pdo);
-        $orderId = $ordersRepo->createPublicOrder(
-            $tenantId, $entityId, $orderNumber, $sessUserId,
-            $subtotal, $grandTotal, $currencyCode, $notes,
-            $_SERVER['REMOTE_ADDR'] ?? null
+        $oSt = $pdo->prepare(
+            "INSERT INTO orders
+               (tenant_id, entity_id, order_number, user_id, status, payment_status,
+                subtotal, tax_amount, shipping_cost, discount_amount, total_amount, grand_total,
+                currency_code, customer_notes, ip_address)
+             VALUES (?, ?, ?, ?, 'pending', 'pending',
+                     ?, 0, 0, 0, ?, ?,
+                     ?, ?, ?)"
         );
+        $oSt->execute([
+            $tenantId, $entityId, $orderNumber, $sessUserId,
+            $subtotal, $grandTotal, $grandTotal,
+            $currencyCode, $notes,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+        $orderId = (int)$pdo->lastInsertId();
 
         // Insert order items
+        $iSt = $pdo->prepare(
+            "INSERT INTO order_items
+               (tenant_id, order_id, entity_id, product_id, product_name, sku,
+                quantity, unit_price, subtotal, total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
         foreach ($items as $it) {
             $pId    = (int)($it['id'] ?? 0);
             $pName  = (string)($it['name'] ?? '');
@@ -174,7 +191,7 @@ if ($first === 'orders') {
             $price  = (float)($it['price'] ?? 0);
             $itSub  = round($price * $qty, 2);
             if (!$pId || !$pName) continue;
-            $orderItemsRepo->createPublicItem($tenantId, $orderId, $entityId, $pId, $pName, $pSku, $qty, $price, $itSub, $itSub);
+            $iSt->execute([$tenantId, $orderId, $entityId, $pId, $pName, $pSku, $qty, $price, $itSub, $itSub]);
         }
 
         // Mark user's active cart as converted
@@ -183,8 +200,10 @@ if ($first === 'orders') {
             [$sessUserId]
         );
         if ($userCart) {
-            $cartsRepo = new PdoCartsRepository($pdo);
-            $cartsRepo->convertToOrderById((int)$userCart['id'], $orderId);
+            $pdo->prepare(
+                "UPDATE carts SET status = 'converted', converted_to_order_id = ?, updated_at = NOW()
+                   WHERE id = ?"
+            )->execute([$orderId, (int)$userCart['id']]);
         }
 
         $pdo->commit();
