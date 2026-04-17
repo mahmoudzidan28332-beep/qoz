@@ -23,23 +23,17 @@ if ($first === 'products') {
                 $comment = trim($_POST['comment'] ?? '');
                 if ($rating < 1 || $rating > 5) { ResponseFormatter::error('Rating must be 1-5', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_reviews (product_id, user_id, rating, title, comment, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $rating, $title ?: null, $comment ?: null]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Review submitted pending approval', 201);
+                    $reviewRepo = new PdoProductReviewsRepository($pdo);
+                    $reviewId = $reviewRepo->createPublicReview($subPid, $subUserId, $rating, $title ?: null, $comment ?: null);
+                    ResponseFormatter::success(['ok' => true, 'id' => $reviewId], 'Review submitted pending approval', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             } else {
                 $question = trim($_POST['question'] ?? '');
                 if (strlen($question) < 5) { ResponseFormatter::error('Question too short', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_questions (product_id, user_id, question, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $question]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Question submitted pending review', 201);
+                    $questionRepo = new PdoProductQuestionsRepository($pdo);
+                    $questionId = $questionRepo->createPublicQuestion($subPid, $subUserId, $question);
+                    ResponseFormatter::success(['ok' => true, 'id' => $questionId], 'Question submitted pending review', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             }
             exit;

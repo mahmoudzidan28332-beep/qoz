@@ -408,4 +408,60 @@ final class PdoCartItemsRepository
     {
         $this->pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([$cartId]);
     }
+
+    /** Update item quantity, prices, and totals (add-to-existing-item). */
+    public function updateItemFull(int $itemId, int $qty, float $unitPrice, ?float $salePrice, float $subtotal, float $total): void
+    {
+        $this->pdo->prepare(
+            "UPDATE cart_items
+                SET quantity   = ?,
+                    unit_price = ?,
+                    sale_price = ?,
+                    subtotal   = ?,
+                    total      = ?,
+                    updated_at = NOW()
+              WHERE id = ?"
+        )->execute([$qty, $unitPrice, $salePrice, $subtotal, $total, $itemId]);
+    }
+
+    /** Update item quantity and recalculated totals. */
+    public function updateItemQuantity(int $itemId, int $qty, float $subtotal, float $total): void
+    {
+        $this->pdo->prepare(
+            "UPDATE cart_items
+                SET quantity = ?, subtotal = ?, total = ?, updated_at = NOW()
+              WHERE id = ?"
+        )->execute([$qty, $subtotal, $total, $itemId]);
+    }
+
+    /** Insert a new cart item (public route). */
+    public function insertPublicItem(
+        int $cartId, int $productId, int $entityId, string $productName, string $sku,
+        int $qty, float $unitPrice, ?float $salePrice, float $subtotal, float $total,
+        string $currencyCode, ?string $selectedAttributes, ?string $specialInstructions
+    ): void {
+        $this->pdo->prepare(
+            "INSERT INTO cart_items
+               (cart_id, product_id, entity_id, product_name, sku, quantity,
+                unit_price, sale_price, subtotal, total, currency_code,
+                selected_attributes, special_instructions)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )->execute([
+            $cartId, $productId, $entityId, $productName, $sku, $qty,
+            $unitPrice, $salePrice, $subtotal, $total, $currencyCode,
+            $selectedAttributes, $specialInstructions,
+        ]);
+    }
+
+    /** Remove a single cart item by ID. */
+    public function removeById(int $itemId): void
+    {
+        $this->pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+    }
+
+    /** Remove all items for a cart. */
+    public function removeByCartId(int $cartId): void
+    {
+        $this->pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([$cartId]);
+    }
 }

@@ -73,41 +73,16 @@ if ($adId > 0 && $method === 'POST' && in_array($action, ['click', 'view'], true
     $isView  = $action === 'view'  ? 1 : 0;
     $isClick = $action === 'click' ? 1 : 0;
 
+    $adStatRepo = new PdoAdStatRepository($pdo);
     try {
-        // Atomic upsert: inserts the first event of the day for this ad,
-        // then increments the appropriate counter on any subsequent event.
-        // Relies on UNIQUE KEY uq_ad_stats_ad_date (ad_id, date).
-        $ins = $pdo->prepare(
-            "INSERT INTO ad_stats
-                 (ad_id, user_id, session_id, ip_address, user_agent,
-                  date, created_at, views, clicks, event_type)
-             VALUES
-                 (?, ?, ?, ?, ?, CURDATE(), NOW(), ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                 views  = views  + VALUES(views),
-                 clicks = clicks + VALUES(clicks)"
+        $adStatRepo->recordImpression(
+            $adId, $trackUserId, $trackSessionId, $trackIp, $trackUserAgent,
+            $isView, $isClick, $trackEventType
         );
-        $ins->execute([
-            $adId,
-            $trackUserId,
-            $trackSessionId,
-            $trackIp,
-            $trackUserAgent,
-            $isView,
-            $isClick,
-            $trackEventType,
-        ]);
     } catch (Throwable $e) {
         error_log('[ads.php] ad_stats insert failed for ad_id=' . $adId . ': ' . $e->getMessage());
-        // Fallback: minimal upsert without the extended columns (legacy schema).
         try {
-            $pdo->prepare(
-                "INSERT INTO ad_stats (ad_id, date, views, clicks)
-                 VALUES (?, CURDATE(), ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                     views  = views  + VALUES(views),
-                     clicks = clicks + VALUES(clicks)"
-            )->execute([$adId, $isView, $isClick]);
+            $adStatRepo->incrementStat($adId, $isView, $isClick);
         } catch (Throwable $e2) {
             error_log('[ads.php] ad_stats fallback insert failed for ad_id=' . $adId . ': ' . $e2->getMessage());
         }

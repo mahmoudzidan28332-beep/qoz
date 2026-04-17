@@ -374,4 +374,51 @@ final class PdoCartsRepository
             "UPDATE carts SET total_items = 0, subtotal = 0, total_amount = 0, last_activity_at = NOW() WHERE id = ?"
         )->execute([$cartId]);
     }
+
+    /** Get or create an active cart (public route). Returns cart_id. */
+    public function getOrCreateActiveCart(int $userId, int $entityId, ?string $sessionId, ?string $ipAddress): int
+    {
+        $st = $this->pdo->prepare(
+            "SELECT id FROM carts
+              WHERE user_id = ? AND entity_id = ? AND status = 'active'
+              ORDER BY last_activity_at DESC LIMIT 1"
+        );
+        $st->execute([$userId, $entityId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+
+        $ins = $this->pdo->prepare(
+            "INSERT INTO carts
+               (entity_id, user_id, session_id, status, ip_address, last_activity_at)
+             VALUES (?, ?, ?, 'active', ?, NOW())"
+        );
+        $ins->execute([$entityId, $userId, $sessionId, $ipAddress]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /** Recalculate cart totals including currency (public route). */
+    public function refreshTotalsWithCurrency(int $cartId): void
+    {
+        $st = $this->pdo->prepare(
+            "SELECT
+               COALESCE(SUM(quantity), 0)  AS ti,
+               COALESCE(SUM(subtotal), 0)  AS sub,
+               COALESCE(SUM(total), 0)     AS tot,
+               MAX(currency_code)          AS cur
+             FROM cart_items WHERE cart_id = ?"
+        );
+        $st->execute([$cartId]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        $cur = !empty($r['cur']) ? $r['cur'] : 'SAR';
+
+        $this->pdo->prepare(
+            "UPDATE carts
+                SET total_items    = ?,
+                    subtotal       = ?,
+                    total_amount   = ?,
+                    currency_code  = ?,
+                    last_activity_at = NOW()
+              WHERE id = ?"
+        )->execute([(int)$r['ti'], (float)$r['sub'], (float)$r['tot'], $cur, $cartId]);
+    }
 }

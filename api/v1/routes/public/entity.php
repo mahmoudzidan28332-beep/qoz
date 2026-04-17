@@ -320,13 +320,12 @@ if ($first === 'entity') {
             try {
                 // Upsert: one rating per user per entity (INSERT or UPDATE if exists)
                 $existing = $pdoOne('SELECT id FROM entity_ratings WHERE entity_id = ? AND user_id = ? LIMIT 1', [$entityId, $rateUserId]);
+                $entityRatingsRepo = new PdoEntityRatingsRepository($pdo);
                 if ($existing) {
-                    $pdo->prepare('UPDATE entity_ratings SET rating = ?, review = ?, is_active = 1, updated_at = NOW() WHERE id = ?')
-                        ->execute([$ratingVal, $reviewText ?: null, (int)$existing['id']]);
+                    $entityRatingsRepo->updateRating((int)$existing['id'], $ratingVal, $reviewText ?: null);
                     $msg = 'Rating updated';
                 } else {
-                    $pdo->prepare('INSERT INTO entity_ratings (entity_id, user_id, rating, review, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())')
-                        ->execute([$entityId, $rateUserId, $ratingVal, $reviewText ?: null]);
+                    $entityRatingsRepo->createRating($entityId, $rateUserId, $ratingVal, $reviewText ?: null);
                     $msg = 'Rating submitted';
                 }
                 ResponseFormatter::success(['ok' => true, 'message' => $msg]);

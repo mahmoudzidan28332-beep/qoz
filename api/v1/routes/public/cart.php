@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 if ($first === 'cart') {
 
+    require_once dirname(__DIR__, 2) . '/models/carts/repositories/PdoCartsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/cart_items/repositories/PdoCartItemsRepository.php';
+
     $cartMethod   = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $subPath      = strtolower($segments[1] ?? '');
     $cartUserId   = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
@@ -75,55 +78,17 @@ if ($first === 'cart') {
      * Get or create an active cart for (user, entity).
      * Returns cart_id or throws on failure.
      */
-    $getOrCreateCart = function (int $entityId) use ($pdo, $cartUserId): int {
-        $st = $pdo->prepare(
-            "SELECT id FROM carts
-              WHERE user_id = ? AND entity_id = ? AND status = 'active'
-              ORDER BY last_activity_at DESC LIMIT 1"
-        );
-        $st->execute([$cartUserId, $entityId]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row) return (int)$row['id'];
-
-        $ins = $pdo->prepare(
-            "INSERT INTO carts
-               (entity_id, user_id, session_id, status, ip_address, last_activity_at)
-             VALUES (?, ?, ?, 'active', ?, NOW())"
-        );
-        $ins->execute([
-            $entityId,
-            $cartUserId,
-            session_id() ?: null,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-        ]);
-        return (int)$pdo->lastInsertId();
+    $cartRepo = new PdoCartsRepository($pdo);
+    $cartItemRepo = new PdoCartItemsRepository($pdo);
+    $getOrCreateCart = function (int $entityId) use ($cartRepo, $cartUserId): int {
+        return $cartRepo->getOrCreateActiveCart($cartUserId, $entityId, session_id() ?: null, $_SERVER['REMOTE_ADDR'] ?? null);
     };
 
     /**
      * Recalculate & persist cart totals after any item mutation.
      */
-    $refreshTotals = function (int $cid) use ($pdo): void {
-        $st = $pdo->prepare(
-            "SELECT
-               COALESCE(SUM(quantity), 0)      AS ti,
-               COALESCE(SUM(subtotal), 0)      AS sub,
-               COALESCE(SUM(total), 0)         AS tot,
-               MAX(currency_code)              AS cur
-             FROM cart_items WHERE cart_id = ?"
-        );
-        $st->execute([$cid]);
-        $r = $st->fetch(PDO::FETCH_ASSOC);
-        $cur = !empty($r['cur']) ? $r['cur'] : 'SAR';
-
-        $pdo->prepare(
-            "UPDATE carts
-                SET total_items    = ?,
-                    subtotal       = ?,
-                    total_amount   = ?,
-                    currency_code  = ?,
-                    last_activity_at = NOW()
-              WHERE id = ?"
-        )->execute([(int)$r['ti'], (float)$r['sub'], (float)$r['tot'], $cur, $cid]);
+    $refreshTotals = function (int $cid) use ($cartRepo): void {
+        $cartRepo->refreshTotalsWithCurrency($cid);
     };
 
     /**
@@ -315,30 +280,15 @@ if ($first === 'cart') {
             if ($existing) {
                 $newQty = (int)$existing['quantity'] + $qty;
                 $sub    = round($effective * $newQty, 2);
-                $pdo->prepare(
-                    "UPDATE cart_items
-                        SET quantity   = ?,
-                            unit_price = ?,
-                            sale_price = ?,
-                            subtotal   = ?,
-                            total      = ?,
-                            updated_at = NOW()
-                      WHERE id = ?"
-                )->execute([$newQty, $up, $sp, $sub, $sub, (int)$existing['id']]);
+                $cartItemRepo->updateItemFull((int)$existing['id'], $newQty, $up, $sp, $sub, $sub);
             } else {
                 $sub = round($effective * $qty, 2);
-                $pdo->prepare(
-                    "INSERT INTO cart_items
-                       (cart_id, product_id, entity_id, product_name, sku, quantity,
-                        unit_price, sale_price, subtotal, total, currency_code,
-                        selected_attributes, special_instructions)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                )->execute([
+                $cartItemRepo->insertPublicItem(
                     $cid, $pId, $eid, $pName, $pSku, $qty,
                     $up, $sp, $sub, $sub, $cur,
                     isset($body['selected_attributes']) ? json_encode($body['selected_attributes']) : null,
-                    $body['special_instructions'] ?? null,
-                ]);
+                    $body['special_instructions'] ?? null
+                );
             }
 
             $refreshTotals($cid);
@@ -385,11 +335,7 @@ if ($first === 'cart') {
             $eff = ($sp !== null && $sp < $up) ? $sp : $up;
             $sub = round($eff * $qty, 2);
 
-            $pdo->prepare(
-                "UPDATE cart_items
-                    SET quantity = ?, subtotal = ?, total = ?, updated_at = NOW()
-                  WHERE id = ?"
-            )->execute([$qty, $sub, $sub, $itemId]);
+            $cartItemRepo->updateItemQuantity($itemId, $qty, $sub, $sub);
 
             $refreshTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
@@ -427,7 +373,7 @@ if ($first === 'cart') {
                 exit;
             }
 
-            $pdo->prepare("DELETE FROM cart_items WHERE id = ?")->execute([$itemId]);
+            $cartItemRepo->removeById($itemId);
             $refreshTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
 
@@ -453,13 +399,8 @@ if ($first === 'cart') {
             );
 
             if ($cRow) {
-                $pdo->prepare("DELETE FROM cart_items WHERE cart_id = ?")->execute([(int)$cRow['id']]);
-                $pdo->prepare(
-                    "UPDATE carts
-                        SET total_items = 0, subtotal = 0, total_amount = 0,
-                            last_activity_at = NOW()
-                      WHERE id = ?"
-                )->execute([(int)$cRow['id']]);
+                $cartItemRepo->removeByCartId((int)$cRow['id']);
+                $cartRepo->clearTotals((int)$cRow['id']);
             }
 
             ResponseFormatter::success(['ok' => true]);

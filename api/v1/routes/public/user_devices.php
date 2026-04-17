@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+require_once dirname(__DIR__, 2) . '/models/notification/repositories/PdoUserDevicesRepository.php';
+
 // ── Helpers ──────────────────────────────────────────────
 function ud_json_body(): array {
     $raw = file_get_contents('php://input');
@@ -99,15 +101,8 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("
-            SELECT id, device_type, device_name, ip, last_seen_at, is_active
-              FROM user_devices
-             WHERE user_id = ?
-             ORDER BY last_seen_at DESC
-        ");
-        $stmt->execute([$userId]);
-
-        ResponseFormatter::success(['items' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        $devRepo = new PdoUserDevicesRepository($pdo);
+        ResponseFormatter::success(['items' => $devRepo->listForUser($userId)]);
         exit;
     }
 
@@ -136,70 +131,26 @@ try {
         // FIX: avoid duplicate named params — use positional params instead
         $device = null;
 
+        $devRepo = new PdoUserDevicesRepository($pdo);
         if ($anonToken) {
-            $st = $pdo->prepare("SELECT * FROM user_devices WHERE anonymous_token = ? LIMIT 1");
-            $st->execute([$anonToken]);
-            $device = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+            $device = $devRepo->findByAnonymousToken($anonToken);
         }
 
         if (!$device && $fcmToken) {
-            $st = $pdo->prepare("SELECT * FROM user_devices WHERE fcm_token = ? LIMIT 1");
-            $st->execute([$fcmToken]);
-            $device = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+            $device = $devRepo->findByToken($fcmToken);
         }
 
         // ── UPDATE ──
         if ($device) {
-            $stmt = $pdo->prepare("
-                UPDATE user_devices SET
-                    user_id         = COALESCE(?, user_id),
-                    anonymous_token = COALESCE(?, anonymous_token),
-                    fcm_token       = COALESCE(?, fcm_token),
-                    device_type     = ?,
-                    device_name     = ?,
-                    ip              = ?,
-                    last_seen_at    = NOW(),
-                    is_active       = 1,
-                    updated_at      = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ");
-            $stmt->execute([
-                $userId,
-                $anonToken,
-                $fcmToken,
-                $deviceType,
-                $deviceName,
-                $ip,
-                (int)$device['id'],
-            ]);
-
+            $devRepo->updateRegistration((int)$device['id'], $userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ip);
             ResponseFormatter::success(['id' => (int)$device['id'], 'updated' => true]);
             exit;
         }
 
         // ── INSERT ──
-        $stmt = $pdo->prepare("
-            INSERT INTO user_devices
-                (user_id, anonymous_token, fcm_token,
-                 device_type, device_name, user_agent,
-                 ip, last_seen_at, is_active, created_at)
-            VALUES
-                (?, ?, ?,
-                 ?, ?, ?,
-                 ?, NOW(), 1, CURRENT_TIMESTAMP)
-        ");
-        $stmt->execute([
-            $userId,
-            $anonToken,
-            $fcmToken,
-            $deviceType,
-            $deviceName,
-            $ua,
-            $ip,
-        ]);
-
+        $newDevId = $devRepo->insertRegistration($userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ua, $ip);
         ResponseFormatter::success(
-            ['id' => (int)$pdo->lastInsertId(), 'created' => true],
+            ['id' => $newDevId, 'created' => true],
             'Device registered',
             201
         );
@@ -219,8 +170,8 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?");
-        $stmt->execute([$fcmToken]);
+        $devRepo = new PdoUserDevicesRepository($pdo);
+        $devRepo->deactivateByFcmTokenOnly($fcmToken);
 
         ResponseFormatter::success(['deleted' => true]);
         exit;
