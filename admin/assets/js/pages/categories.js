@@ -1,6 +1,6 @@
 /**
  * Categories Management - Production Version with Full Translation Support
- * Version: 4.1.0 - Fixed issues with translations deletion and table display
+ * Version: 4.2.0 - Fixed pagination: show_all, totalPages, applyFilters
  * Compatible with AdminFramework and fragments
  * Supports automatic RTL/LTR direction based on language
  */
@@ -19,14 +19,14 @@
         permissions: {},
         translations: {},
         language: window.USER_LANGUAGE || 'en',
-        categories: [], // تخزين البيانات المحملة
-        parents: [] // تخزين الفئات الرئيسية
+        categories: [],
+        parents: []
     };
 
     let el = {};
     let availableLanguages = [];
     let imageTypes = [];
-    let deletedTranslations = []; // مصفوفة لتتبع الترجمات المحذوفة
+    let deletedTranslations = [];
 
     // ----------------------------
     // Direction helper
@@ -51,7 +51,6 @@
             container.classList.toggle('ltr', !isRtl);
         }
 
-        // flip helper icons if used
         document.querySelectorAll('.flip-on-rtl').forEach(el => {
             el.classList.toggle('is-rtl', isRtl);
         });
@@ -98,13 +97,11 @@
                 o.textContent = type.name;
                 o.dataset.description = type.description || '';
                 el.imageTypeSelect.appendChild(o);
-                // Pre-select 'category' type
                 if (type.name === 'category') {
                     el.imageTypeSelect.value = type.id;
                     if (el.imageTypeDesc) el.imageTypeDesc.textContent = type.description || '';
                 }
             });
-            // Add change listener
             el.imageTypeSelect.onchange = () => {
                 const selected = imageTypes.find(t => t.id == el.imageTypeSelect.value);
                 if (el.imageTypeDesc) el.imageTypeDesc.textContent = selected?.description || '';
@@ -141,15 +138,14 @@
     }
 
     // ----------------------------
-    // CREATE TRANSLATION PANEL - FIXED
+    // CREATE TRANSLATION PANEL
     // ----------------------------
     function createTranslationPanel(code, data = {}) {
         if (!el.translations) return;
 
-        // التحقق إذا كانت اللوحة موجودة بالفعل
         const existingPanel = el.translations.querySelector(`[data-lang="${code}"]`);
         if (existingPanel) {
-            existingPanel.remove(); // إزالة القديم قبل إضافة الجديد
+            existingPanel.remove();
         }
 
         const langUpper = code.toUpperCase();
@@ -160,7 +156,6 @@
         const metaDescPlaceholder = 'Meta Description (' + langUpper + ')';
         const metaKeywordsPlaceholder = 'Meta Keywords (' + langUpper + ')';
         const removeText = t('form.translations.remove');
-        // English is the required default language — its panel cannot be removed
         const isDefault = (code === 'en');
 
         const div = document.createElement('div');
@@ -203,7 +198,6 @@
             </div>
         `;
 
-        // Add remove handler only for non-default languages
         if (!isDefault) {
             div.querySelector('.remove').onclick = (e) => {
                 e.preventDefault();
@@ -237,7 +231,6 @@
             state.language = lang;
             console.log('[Categories] Translations loaded successfully');
 
-            // Apply translations to elements with data-i18n
             const container = document.getElementById('categoriesPageContainer');
             if (!container) return true;
             container.querySelectorAll('[data-i18n]').forEach(el => {
@@ -251,7 +244,6 @@
                     }
                 }
             });
-            // placeholders
             container.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
                 const key = el.getAttribute('data-i18n-placeholder');
                 const txt = key.split('.').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : null, state.translations);
@@ -336,42 +328,15 @@
                 add_title: "Add Category",
                 edit_title: "Edit Category",
                 fields: {
-                    tenant_id: {
-                        label: "Tenant ID"
-                    },
-                    name: {
-                        label: "Name",
-                        placeholder: "Enter category name"
-                    },
-                    slug: {
-                        label: "Slug",
-                        placeholder: "Enter slug"
-                    },
-                    parent_id: {
-                        label: "Parent Category",
-                        none: "None (Root)"
-                    },
-                    sort_order: {
-                        label: "Sort Order",
-                        placeholder: "Sort order"
-                    },
-                    status: {
-                        label: "Status",
-                        active: "Active",
-                        inactive: "Inactive"
-                    },
-                    featured: {
-                        label: "Featured",
-                        no: "No",
-                        yes: "Yes"
-                    },
-                    description: {
-                        label: "Description",
-                        placeholder: "Enter description"
-                    },
-                    image: {
-                        label: "Image"
-                    }
+                    tenant_id: { label: "Tenant ID" },
+                    name: { label: "Name", placeholder: "Enter category name" },
+                    slug: { label: "Slug", placeholder: "Enter slug" },
+                    parent_id: { label: "Parent Category", none: "None (Root)" },
+                    sort_order: { label: "Sort Order", placeholder: "Sort order" },
+                    status: { label: "Status", active: "Active", inactive: "Inactive" },
+                    featured: { label: "Featured", no: "No", yes: "Yes" },
+                    description: { label: "Description", placeholder: "Enter description" },
+                    image: { label: "Image" }
                 },
                 translations: {
                     select_lang: "Select Language",
@@ -404,19 +369,10 @@
                     not_found: "Item not found"
                 }
             },
-            validation: {
-                required: "Required"
-            },
-            common: {
-                select_image: "Select Image",
-                duplicate: "Duplicate"
-            },
-            accessibility: {
-                close: "Close"
-            },
-            pagination: {
-                showing: "Showing"
-            }
+            validation: { required: "Required" },
+            common: { select_image: "Select Image", duplicate: "Duplicate" },
+            accessibility: { close: "Close" },
+            pagination: { showing: "Showing" }
         };
     }
 
@@ -476,7 +432,6 @@
             else if (payload && Array.isArray(payload.data)) items = payload.data;
             state.parents = items;
 
-            // Populate dropdowns
             if (el.formParentId) {
                 el.formParentId.innerHTML = `<option value="">${t('form.fields.parent_id.none')}</option>`;
                 items.forEach(p => {
@@ -502,12 +457,11 @@
     }
 
     // ----------------------------
-    // RENDER FUNCTIONS - FIXED
+    // RENDER TABLE
     // ----------------------------
     async function renderTable(items) {
         console.log('[Categories] Rendering table with', items?.length || 0, 'items');
 
-        // حفظ البيانات في حالة
         state.categories = items || [];
 
         if (!el.tbody) {
@@ -515,13 +469,9 @@
             return;
         }
 
-        // إخفاء حالات التحميل
         if (el.loading) el.loading.style.display = 'none';
-
-        // إخفاء حالات الخطأ
         if (el.error) el.error.style.display = 'none';
 
-        // حالة عدم وجود عناصر
         if (!items || !items.length) {
             console.log('[Categories] No items to display, showing empty state');
             if (el.empty) {
@@ -536,7 +486,6 @@
             if (el.container) el.container.style.display = 'none';
             el.tbody.innerHTML = '';
 
-            // تحديث عرض النتائج
             if (el.resultsCount && el.resultsCountText) {
                 el.resultsCountText.textContent = '0 records found';
                 el.resultsCount.style.display = 'block';
@@ -544,10 +493,8 @@
             return;
         }
 
-        // إخفاء حالة عدم وجود بيانات
         if (el.empty) el.empty.style.display = 'none';
 
-        // بناء HTML للجدول
         let html = '';
         for (const item of items) {
             const imageUrl = item.image_url || '/assets/images/no-image.png';
@@ -594,7 +541,7 @@
     }
 
     // ----------------------------
-    // FORM FUNCTIONS - FIXED
+    // FORM FUNCTIONS
     // ----------------------------
     async function save(e) {
         e.preventDefault();
@@ -605,9 +552,6 @@
         const id = el.formId.value.trim();
         const isEdit = !!id;
 
-        // ----------------------------
-        // جمع الترجمات الحالية
-        // ----------------------------
         const translations = [];
         el.translations.querySelectorAll('[data-lang]').forEach(panel => {
             const code = panel.dataset.lang;
@@ -622,11 +566,8 @@
             });
         });
 
-        // ----------------------------
-        // جمع الترجمات المحذوفة
-        // ----------------------------
         const deletions = [...deletedTranslations];
-        deletedTranslations = []; // إعادة تهيئة المصفوفة
+        deletedTranslations = [];
 
         const data = {
             tenant_id: window.APP_CONFIG?.TENANT_ID || 1,
@@ -660,8 +601,6 @@
             if (response?.success) {
                 AF.success(isEdit ? t('messages.success.updated') : t('messages.success.created'));
                 AF.Form.hide('categoryFormContainer');
-
-                // إعادة تحميل البيانات
                 await load(state.page);
             } else {
                 const msg = response?.message || t('messages.error.save_failed');
@@ -679,11 +618,9 @@
     async function edit(id) {
         console.log('[Categories] Starting edit for ID:', id);
         try {
-            // جلب بيانات الفئة مع كل الترجمات
             const response = await AF.get(`${API}/${id}?format=json&lang=${state.language}&tenant_id=${window.APP_CONFIG?.TENANT_ID || 1}&all_translations=1`);
             const { payload } = normalizeApiResponse(response);
 
-            // تحديد العنصر الصحيح مهما كان شكل payload
             let item = null;
             if (Array.isArray(payload)) item = payload.find(i => i.id == id) || payload[0] || null;
             else if (payload && Array.isArray(payload.items)) item = payload.items.find(i => i.id == id) || payload.items[0] || null;
@@ -692,14 +629,12 @@
 
             if (!item) throw new Error(t('messages.error.not_found', 'Item not found'));
 
-            // إعادة تهيئة النموذج
             el.form.reset();
             el.form.classList.remove('was-validated');
             if (el.translations) el.translations.innerHTML = '';
 
             AF.Form.show('categoryFormContainer', t('form.edit_title'));
 
-            // إعادة تهيئة مصفوفة الترجمات المحذوفة
             deletedTranslations = [];
 
             el.formId.value = String(item.id || '');
@@ -712,11 +647,9 @@
             el.formDescription.value = item.description || '';
             el.imageId.value = item.image_id ? String(item.image_id) : '';
 
-            // تحميل الصورة
             let imageUrl = '/assets/images/no-image.png';
             let thumbUrl = '/assets/images/no-image.png';
 
-            // Determine image URL
             const tenantId = window.APP_CONFIG?.TENANT_ID || 1;
 
             if (item.image_url && item.image_url !== '/assets/images/no-image.png') {
@@ -733,14 +666,12 @@
                     console.warn('[Categories] Failed to fetch image by ID', err);
                 }
             } else {
-                // Fetch by owner_id (Category ID) and type=1 (Category)
                 try {
                     const resImg = await fetch(`/api/images?tenant_id=${tenantId}&owner_id=${item.id}&image_type_id=1`);
                     const dataImg = await resImg.json();
                     if (dataImg?.data?.length) {
                         imageUrl = dataImg.data[0].url;
                         thumbUrl = dataImg.data[0].thumb_url || imageUrl;
-                        // Pre-fill image ID if found
                         if (el.imageId && !el.imageId.value) el.imageId.value = dataImg.data[0].id;
                     }
                 } catch (err) {
@@ -750,7 +681,6 @@
 
             if (el.imagePreview) el.imagePreview.src = thumbUrl || imageUrl;
 
-            // Update links
             const linksContainer = document.getElementById('catImageLinks');
             if (linksContainer) {
                 if (item.image_id || (item.image_url && item.image_url !== '/assets/images/no-image.png')) {
@@ -763,7 +693,6 @@
                 }
             }
 
-            // تحميل كل الترجمات
             if (item.translations) {
                 console.log('[Categories] Loading translations:', item.translations);
                 if (Array.isArray(item.translations)) {
@@ -777,12 +706,10 @@
                 }
             }
 
-            // Always ensure English translation panel is present
             if (el.translations && !el.translations.querySelector('[data-lang="en"]')) {
                 createTranslationPanel('en', {});
             }
 
-            // تمرير الـ scroll للنموذج
             setTimeout(() => {
                 const container = AF.$('categoryFormContainer');
                 if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -816,14 +743,11 @@
         if (el.imagePreview) el.imagePreview.src = '/assets/images/no-image.png';
         el.imageId.value = '';
 
-        // إعادة تهيئة مصفوفة الترجمات المحذوفة
         deletedTranslations = [];
 
-        // Clear translation panels and auto-add English by default
         if (el.translations) el.translations.innerHTML = '';
         createTranslationPanel('en', {});
 
-        // Reset image type to category
         if (el.imageTypeSelect) {
             const categoryType = imageTypes.find(t => t.name === 'category');
             if (categoryType) {
@@ -841,12 +765,10 @@
         if (iframe) {
             const tenantId = window.APP_CONFIG?.TENANT_ID || 1;
             const ownerId = el.formId.value ? el.formId.value : 0;
-            // Force image_type_id=1 (categories) and lock params
             iframe.src = `/admin/fragments/media_studio.php?embedded=1&tenant_id=${tenantId}&owner_id=${ownerId}&image_type_id=1&mode=select`;
         }
         if (modal) modal.style.display = 'flex';
 
-        // Setup close button for modal (if not already handled)
         const closeBtn = document.getElementById('catMediaStudioClose');
         if (closeBtn) {
             closeBtn.onclick = () => { if (modal) modal.style.display = 'none'; };
@@ -854,13 +776,12 @@
     }
 
     // ----------------------------
-    // DATA LOADING - FIXED
+    // DATA LOADING - FIXED PAGINATION
     // ----------------------------
     async function load(page = 1) {
         try {
             console.log('[Categories] Loading page:', page);
 
-            // إظهار حالة التحميل
             if (el.loading) {
                 el.loading.innerHTML = `<div class="spinner"></div><p>${t('categories.loading')}</p>`;
                 el.loading.style.display = 'block';
@@ -870,14 +791,23 @@
             if (el.error) el.error.style.display = 'none';
 
             state.page = page;
+
+            // ✅ FIX: show_all دائماً مُضمَّن بشكل ثابت في الـ params
+            // لا يُدمج مع state.filters لأن applyFilters قد تُعيد تعريفه
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
                 tenant_id: window.APP_CONFIG?.TENANT_ID || 1,
                 lang: state.language,
                 format: 'json',
-                show_all: '1',
-                ...state.filters
+                show_all: '1'
+            });
+
+            // إضافة الـ filters المطبَّقة (بدون show_all لتجنب التكرار)
+            Object.entries(state.filters).forEach(([key, val]) => {
+                if (key !== 'show_all' && val !== undefined && val !== null && val !== '') {
+                    params.set(key, val);
+                }
             });
 
             console.log('[Categories] Loading from:', `${API}?${params}`);
@@ -899,43 +829,41 @@
                 items = Object.values(payload).filter(item => item && typeof item === 'object' && item.id);
             }
 
-            console.log('[Categories] Extracted items (raw):', items);
-
-            // Images are already included via SQL JOIN in the API response
-            // (image_url, image_thumb_url fields) — no extra fetch needed.
+            console.log('[Categories] Extracted items:', items.length);
 
             const finalMeta = meta || {
                 total: items.length,
                 page: page,
                 per_page: state.perPage,
-                total_pages: Math.ceil(items.length / state.perPage) || 1,
-                from: items.length ? ((page - 1) * state.perPage) + 1 : 0,
-                to: items.length ? Math.min(page * state.perPage, (meta?.total || items.length)) : 0
+                total_pages: Math.ceil(items.length / state.perPage) || 1
             };
 
-            console.log('[Categories] Final items with items:', items.length, 'meta:', finalMeta);
+            // ✅ FIX: حساب totalPages بشكل صحيح مع ضمان القيم الصحيحة
+            const total     = parseInt(finalMeta.total)      || items.length || 0;
+            const perPage   = parseInt(finalMeta.per_page)   || state.perPage;
+            const totalPages = Math.max(
+                parseInt(finalMeta.last_page)    || 0,
+                parseInt(finalMeta.total_pages)  || 0,
+                total > 0 ? Math.ceil(total / perPage) : 0
+            ) || 1;
 
-            // Update Pagination
+            console.log('[Categories] Pagination - total:', total, 'perPage:', perPage, 'totalPages:', totalPages, 'currentPage:', page);
+
+            // Build pagination
             if (el.pagination) {
-                const total = finalMeta.total || items.length || 0;
-                const perPage = finalMeta.per_page || state.perPage;
-                const totalPages = finalMeta.last_page || finalMeta.total_pages || Math.ceil(total / perPage) || 1;
-
-                // Update info text
                 if (el.paginationInfo) {
                     const start = total > 0 ? ((page - 1) * perPage) + 1 : 0;
-                    const end = Math.min(page * perPage, total);
+                    const end   = Math.min(page * perPage, total);
                     el.paginationInfo.textContent = `${start}–${end} of ${total}`;
                 }
 
-                // Build pagination buttons with inline onclick
                 let pgHtml = `<button class="pagination-btn" ${page <= 1 ? 'disabled' : ''} onclick="Categories.load(${page - 1})">
                     <i class="fas fa-chevron-left"></i> Previous
                 </button>`;
 
                 const maxVisible = 7;
                 let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
-                let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                let endPage   = Math.min(totalPages, startPage + maxVisible - 1);
                 if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
 
                 if (startPage > 1) {
@@ -955,27 +883,16 @@
                 </button>`;
 
                 el.pagination.innerHTML = pgHtml;
-            } else if (el.paginationInfo) {
-                // Manual fallback for pagination info
-                const total = finalMeta.total || 0;
-                const from = items.length ? ((finalMeta.page - 1) * (finalMeta.per_page || state.perPage)) + 1 : 0;
-                const to = items.length ? Math.min(finalMeta.page * (finalMeta.per_page || state.perPage), total) : 0;
-                const displayFrom = total > 0 && from === 0 ? 1 : from;
-                const displayTo = total > 0 && to === 0 ? items.length : to;
-                el.paginationInfo.textContent = `Showing ${displayFrom} to ${displayTo} of ${total} results`;
             }
 
             // Render Table
             await renderTable(items);
 
-            // Update Results Count
+            // Results Count
             if (el.resultsCount && el.resultsCountText) {
-                const total = finalMeta.total || items.length || 0;
-                if (total > 0) {
-                    el.resultsCountText.textContent = `${total} record${total !== 1 ? 's' : ''} found`;
-                } else {
-                    el.resultsCountText.textContent = 'No records found';
-                }
+                el.resultsCountText.textContent = total > 0
+                    ? `${total} record${total !== 1 ? 's' : ''} found`
+                    : 'No records found';
                 el.resultsCount.style.display = 'block';
             }
         } catch (err) {
@@ -991,28 +908,28 @@
                     <button id="btnRetry" class="btn btn-secondary">${t('categories.retry')}</button>
                 `;
                 el.error.style.display = 'block';
-
-                // إضافة حدث إعادة المحاولة
                 setTimeout(() => {
                     const retryBtn = document.getElementById('btnRetry');
-                    if (retryBtn) {
-                        retryBtn.onclick = () => load(state.page);
-                    }
+                    if (retryBtn) retryBtn.onclick = () => load(state.page);
                 }, 100);
             }
             if (el.tbody) el.tbody.innerHTML = '';
         }
     }
 
+    // ----------------------------
+    // FILTERS - FIXED
+    // ----------------------------
     function applyFilters() {
         state.filters = {};
+
         if (el.searchInput) {
             const s = el.searchInput.value.trim();
             if (s) state.filters.search = s;
         }
         if (el.tenantFilter) {
-            const t = el.tenantFilter.value.trim();
-            if (t && t !== window.APP_CONFIG?.TENANT_ID.toString()) state.filters.tenant_id = t;
+            const tv = el.tenantFilter.value.trim();
+            if (tv && tv !== String(window.APP_CONFIG?.TENANT_ID)) state.filters.tenant_id = tv;
         }
         if (el.parentFilter) {
             const p = el.parentFilter.value.trim();
@@ -1026,6 +943,10 @@
             const ft = el.featuredFilter.value;
             if (ft !== '') state.filters.is_featured = ft;
         }
+
+        // ✅ FIX: show_all لا يُضاف هنا — يُضاف ثابتاً في load()
+        // هذا يمنع تعارض parent_id الصريح مع show_all
+
         load(1);
     }
 
@@ -1061,59 +982,54 @@
         setDirectionForLang(state.language || window.USER_LANGUAGE || 'en');
 
         el = {
-            loading: AF.$('tableLoading'),
-            container: AF.$('tableContainer'),
-            empty: AF.$('emptyState'),
-            error: AF.$('errorState'),
-            errorMessage: AF.$('errorMessage'),
-            tbody: AF.$('tableBody'),
-            pagination: AF.$('pagination'),
-            paginationInfo: AF.$('paginationInfo'),
-            form: AF.$('categoryForm'),
-            formId: AF.$('formId'),
-            formName: AF.$('catName'),
-            formSlug: AF.$('catSlug'),
-            formParentId: AF.$('catParentId'),
-            formSortOrder: AF.$('catSortOrder'),
-            formIsActive: AF.$('catIsActive'),
-            formIsFeatured: AF.$('catIsFeatured'),
+            loading:         AF.$('tableLoading'),
+            container:       AF.$('tableContainer'),
+            empty:           AF.$('emptyState'),
+            error:           AF.$('errorState'),
+            errorMessage:    AF.$('errorMessage'),
+            tbody:           AF.$('tableBody'),
+            pagination:      AF.$('pagination'),
+            paginationInfo:  AF.$('paginationInfo'),
+            form:            AF.$('categoryForm'),
+            formId:          AF.$('formId'),
+            formName:        AF.$('catName'),
+            formSlug:        AF.$('catSlug'),
+            formParentId:    AF.$('catParentId'),
+            formSortOrder:   AF.$('catSortOrder'),
+            formIsActive:    AF.$('catIsActive'),
+            formIsFeatured:  AF.$('catIsFeatured'),
             formDescription: AF.$('catDescription'),
-            imagePreview: AF.$('catImagePreview'),
-            imageId: AF.$('catImageId'),
-            selectImageBtn: AF.$('catSelectImageBtn'),
-            searchInput: AF.$('searchInput'),
-            tenantFilter: AF.$('tenantFilter'),
-            parentFilter: AF.$('parentFilter'),
-            statusFilter: AF.$('statusFilter'),
-            featuredFilter: AF.$('featuredFilter'),
-            btnSubmit: AF.$('btnSubmitForm'),
-            btnAdd: AF.$('btnAddCategory'),
-            btnClose: AF.$('btnCloseForm'),
-            btnCancel: AF.$('btnCancelForm'),
-            btnApply: AF.$('btnApplyFilters'),
-            btnReset: AF.$('btnResetFilters'),
-            btnRetry: AF.$('btnRetry'),
-            langSelect: AF.$('catLangSelect'),
-            addLangBtn: AF.$('catAddLangBtn'),
-            translations: AF.$('catTranslations'),
-            tenantId: AF.$('catTenantId'),
-            tenantInfo: AF.$('tenantInfo'),
+            imagePreview:    AF.$('catImagePreview'),
+            imageId:         AF.$('catImageId'),
+            selectImageBtn:  AF.$('catSelectImageBtn'),
+            searchInput:     AF.$('searchInput'),
+            tenantFilter:    AF.$('tenantFilter'),
+            parentFilter:    AF.$('parentFilter'),
+            statusFilter:    AF.$('statusFilter'),
+            featuredFilter:  AF.$('featuredFilter'),
+            btnSubmit:       AF.$('btnSubmitForm'),
+            btnAdd:          AF.$('btnAddCategory'),
+            btnClose:        AF.$('btnCloseForm'),
+            btnCancel:       AF.$('btnCancelForm'),
+            btnApply:        AF.$('btnApplyFilters'),
+            btnReset:        AF.$('btnResetFilters'),
+            btnRetry:        AF.$('btnRetry'),
+            langSelect:      AF.$('catLangSelect'),
+            addLangBtn:      AF.$('catAddLangBtn'),
+            translations:    AF.$('catTranslations'),
+            tenantId:        AF.$('catTenantId'),
+            tenantInfo:      AF.$('tenantInfo'),
             imageTypeSelect: AF.$('catImageType'),
-            imageTypeDesc: AF.$('catImageTypeDesc'),
-            resultsCount: AF.$('resultsCount'),
-            resultsCountText: AF.$('resultsCountText')
+            imageTypeDesc:   AF.$('catImageTypeDesc'),
+            resultsCount:    AF.$('resultsCount'),
+            resultsCountText:AF.$('resultsCountText')
         };
 
         try {
             const permsScript = AF.$('pagePermissions');
             if (permsScript) state.permissions = JSON.parse(permsScript.textContent);
         } catch (e) {
-            state.permissions = {
-                canCreate: true,
-                canEdit: true,
-                canDelete: true,
-                canDuplicate: false
-            };
+            state.permissions = { canCreate: true, canEdit: true, canDelete: true, canDuplicate: false };
         }
 
         await loadImageTypes();
@@ -1128,14 +1044,12 @@
                     const studioWin = studioFrame.contentWindow;
                     if (!studioWin) return;
 
-                    // Listen for selection inside iframe
                     studioWin.addEventListener('ImageStudio:selected', (e) => {
                         console.log('[Categories] Image selected:', e.detail);
                         const img = e.detail;
                         if (el.imageId) el.imageId.value = img.id;
                         if (el.imagePreview) el.imagePreview.src = img.thumb_url || img.url;
 
-                        // Update links
                         const linksContainer = document.getElementById('catImageLinks');
                         if (linksContainer) {
                             linksContainer.innerHTML = `
@@ -1145,74 +1059,46 @@
                         }
                     });
 
-                    // Listen for close inside iframe
                     studioWin.addEventListener('ImageStudio:close', () => {
                         const modal = AF.$('catMediaStudioModal');
                         if (modal) modal.style.display = 'none';
                     });
-
-                    // Inject styles to hide locked fields
-                    const urlParams = new URLSearchParams(studioWin.location.search);
-                    if (urlParams.get('image_type_id')) {
-                        const typeSelect = studioWin.document.querySelector('select[name="image_type_id"]');
-                        if (typeSelect) {
-                            typeSelect.style.pointerEvents = 'none';
-                            typeSelect.style.background = 'var(--background-secondary,#eee)';
-                        }
-                        const ownerInput = studioWin.document.querySelector('input[name="owner_id"]');
-                        if (ownerInput) {
-                            // Assuming ownerIdFilter exists or just input
-                            const ownerFilter = studioWin.document.getElementById('ownerIdFilter');
-                            if (ownerFilter) {
-                                ownerFilter.readOnly = true;
-                                ownerFilter.style.background = 'var(--background-secondary,#eee)';
-                            }
-                        }
-                    }
-
                 } catch (err) {
                     console.warn('[Categories] Cannot attach events to iframe (CORS?)', err);
                 }
             };
         }
 
-        // Backup listener just in case custom event logic changes
         window.addEventListener('ImageStudio:close', () => {
             const modal = AF.$('catMediaStudioModal');
             if (modal) modal.style.display = 'none';
         });
 
-        // إعداد الأحداث
-        if (el.form) el.form.onsubmit = save;
+        if (el.form)           el.form.onsubmit    = save;
         if (el.selectImageBtn) el.selectImageBtn.onclick = selectImage;
-        if (el.btnAdd) el.btnAdd.onclick = add;
-        if (el.btnClose) el.btnClose.onclick = () => AF.Form.hide('categoryFormContainer');
-        if (el.btnCancel) el.btnCancel.onclick = () => AF.Form.hide('categoryFormContainer');
-        if (el.btnApply) el.btnApply.onclick = applyFilters;
-        if (el.btnReset) el.btnReset.onclick = resetFilters;
-        if (el.btnRetry) el.btnRetry.onclick = () => load(state.page);
-        if (el.addLangBtn) el.addLangBtn.onclick = () => {
+        if (el.btnAdd)         el.btnAdd.onclick    = add;
+        if (el.btnClose)       el.btnClose.onclick  = () => AF.Form.hide('categoryFormContainer');
+        if (el.btnCancel)      el.btnCancel.onclick = () => AF.Form.hide('categoryFormContainer');
+        if (el.btnApply)       el.btnApply.onclick  = applyFilters;
+        if (el.btnReset)       el.btnReset.onclick  = resetFilters;
+        if (el.btnRetry)       el.btnRetry.onclick  = () => load(state.page);
+        if (el.addLangBtn)     el.addLangBtn.onclick = () => {
             const code = el.langSelect.value;
             if (code) createTranslationPanel(code, {});
         };
         if (el.tenantId) el.tenantId.oninput = verifyTenant;
 
-        // Excel import button
         const btnImport = AF.$('btnImportExcel');
         if (btnImport) btnImport.onclick = openExcelImport;
 
-        // Inject DB theme CSS vars (all colors, fonts, cards, buttons from database)
         injectThemeCss();
 
-        // تحميل البيانات
         load();
         console.log('[Categories] Initialized successfully!');
     }
 
     // ════════════════════════════════════════════════════════════
     // THEME CSS INJECTION FROM DATABASE
-    // Uses window.ADMIN_UI.theme (injected by PHP from DB) to
-    // apply all colors, fonts, button styles and card styles.
     // ════════════════════════════════════════════════════════════
     function injectThemeCss() {
         try {
@@ -1221,7 +1107,6 @@
 
             const root = document.documentElement;
 
-            // Apply color settings
             if (Array.isArray(themeData.color_settings)) {
                 themeData.color_settings.forEach(c => {
                     if (!c || !c.setting_key || !c.color_value) return;
@@ -1230,8 +1115,6 @@
                     root.style.setProperty('--' + key, c.color_value);
                 });
 
-                // Create stable aliases used throughout CSS and inline styles
-                // Only set alias if the target isn't already provided directly by the DB
                 const alias = (target, ...sources) => {
                     if (root.style.getPropertyValue(target).trim()) return;
                     for (const src of sources) {
@@ -1245,20 +1128,13 @@
                 if (secBg && !root.style.getPropertyValue('--background-tertiary').trim()) {
                     root.style.setProperty('--background-tertiary', secBg);
                 }
-                // --thead-bg: table header rows use DB background-tertiary/secondary.
-                // Both hyphen and underscore forms are checked because the DB may store
-                // the key as either background-tertiary or background_tertiary.
                 alias('--thead-bg', '--background-tertiary', '--background_tertiary', '--background-secondary', '--background_secondary');
-                // Inputs/search fields/filter selects use the surface/secondary background
                 alias('--input-background', '--background-secondary', '--background_secondary', '--background-primary', '--background_primary');
-                // Border color aliases
                 alias('--border-color', '--border', '--divider-color', '--divider_color');
-                // Text muted/tertiary for placeholders
                 alias('--text-secondary', '--text-muted', '--text_muted', '--text-light');
                 alias('--text-tertiary', '--text-secondary', '--text_secondary', '--text-muted');
             }
 
-            // Apply font settings
             if (Array.isArray(themeData.font_settings)) {
                 themeData.font_settings.forEach(f => {
                     if (!f || !f.setting_key) return;
@@ -1279,7 +1155,6 @@
                 });
             }
 
-            // Apply design settings (border-radius, padding, spacing…)
             if (Array.isArray(themeData.design_settings)) {
                 themeData.design_settings.forEach(d => {
                     if (!d || !d.setting_key || !d.setting_value) return;
@@ -1289,7 +1164,6 @@
                 });
             }
 
-            // Apply generated_css if present
             if (themeData.generated_css) {
                 let genStyle = document.getElementById('__categories_theme_generated__');
                 if (!genStyle) {
@@ -1307,12 +1181,7 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // EXCEL IMPORT - Hierarchical Categories
-    // Supports main / sub / sub-sub / sub-sub-sub levels.
-    // Excel columns: name, parent_name, level, slug, description,
-    //                sort_order, is_active, is_featured
-    // English is the default language; fills categories +
-    // category_translations tables.
+    // EXCEL IMPORT
     // ════════════════════════════════════════════════════════════
 
     let _excelRows = [];
@@ -1334,7 +1203,6 @@
         const modal = document.getElementById('catExcelImportModal');
         if (modal) modal.style.display = 'flex';
 
-        // Bind events
         if (fileInput) fileInput.onchange = onExcelFileChange;
         const closeBtn = document.getElementById('catExcelImportClose');
         if (closeBtn) closeBtn.onclick = closeExcelImport;
@@ -1352,10 +1220,6 @@
     }
 
     function downloadExcelSample() {
-        // Columns cover both DB tables:
-        //   categories: name, parent_name, level, slug, description, sort_order, is_active, is_featured
-        //   category_translations (EN): en_name, en_slug, en_description, en_meta_title, en_meta_description, en_meta_keywords
-        //   category_translations (AR): ar_name, ar_slug, ar_description, ar_meta_title, ar_meta_description, ar_meta_keywords
         const header = [
             'name', 'parent_name', 'level', 'slug', 'description', 'sort_order', 'is_active', 'is_featured',
             'en_name', 'en_slug', 'en_description', 'en_meta_title', 'en_meta_description', 'en_meta_keywords',
@@ -1368,12 +1232,6 @@
             'Smartphones,Electronics,2,smartphones,Mobile phones and smartphones,0,1,1,' +
                 'Smartphones,smartphones,Mobile phones and smartphones,Best Smartphones,Buy smartphones online,smartphones mobile,' +
                 'الهواتف الذكية,al-hawatif-al-dhakiyya,الهواتف الذكية ومستلزماتها,أفضل الهواتف الذكية,اشتر هاتفاً ذكياً,هواتف ذكية موبايل',
-            'Laptops,Electronics,2,laptops,Portable computers,1,1,0,' +
-                'Laptops,laptops,Portable computers and notebooks,Best Laptops,Buy laptops online,laptops notebooks,' +
-                'اللابتوب,al-laptop,أجهزة الكمبيوتر المحمول,أفضل اللابتوب,اشتر لابتوب,لابتوب كمبيوتر محمول',
-            'Clothing,,1,clothing,Fashion and apparel,1,1,0,' +
-                'Clothing,clothing,Fashion clothing and apparel,Best Fashion,Buy clothes online,clothing fashion apparel,' +
-                'الملابس,al-malabis,أزياء وملابس,أفضل الملابس,اشتر الملابس أونلاين,ملابس أزياء',
         ];
         const csv = header + '\n' + rows.join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1399,7 +1257,6 @@
                 const text = await file.text();
                 _excelRows = parseCsvToRows(text);
             } else {
-                // Load SheetJS lazily for xlsx files
                 _excelRows = await parseXlsxFile(file);
             }
 
@@ -1444,7 +1301,6 @@
     }
 
     async function parseXlsxFile(file) {
-        // Lazy-load SheetJS from CDN
         if (!window.XLSX) {
             await new Promise((resolve, reject) => {
                 const script = document.createElement('script');
@@ -1458,7 +1314,6 @@
         const wb = window.XLSX.read(data, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const json = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
-        // Normalise keys to lowercase
         return json.filter(r => r.name || r.Name).map(r => {
             const norm = {};
             Object.keys(r).forEach(k => { norm[k.toLowerCase().replace(/\s+/g, '_')] = String(r[k] || '').trim(); });
@@ -1478,33 +1333,29 @@
         if (_excelImporting || _excelRows.length === 0) return;
         _excelImporting = true;
 
-        const startBtn = document.getElementById('catExcelImportStart');
-        const cancelBtn = document.getElementById('catExcelImportCancel');
-        const progressArea = document.getElementById('catExcelProgressArea');
-        const progressBar = document.getElementById('catExcelProgressBar');
-        const progressPct = document.getElementById('catExcelProgressPct');
-        const progressLabel = document.getElementById('catExcelProgressLabel');
-        const progressLog = document.getElementById('catExcelProgressLog');
-        const resultSummary = document.getElementById('catExcelResultSummary');
+        const startBtn       = document.getElementById('catExcelImportStart');
+        const cancelBtn      = document.getElementById('catExcelImportCancel');
+        const progressArea   = document.getElementById('catExcelProgressArea');
+        const progressBar    = document.getElementById('catExcelProgressBar');
+        const progressPct    = document.getElementById('catExcelProgressPct');
+        const progressLabel  = document.getElementById('catExcelProgressLabel');
+        const progressLog    = document.getElementById('catExcelProgressLog');
+        const resultSummary  = document.getElementById('catExcelResultSummary');
 
-        if (startBtn) startBtn.disabled = true;
-        if (cancelBtn) cancelBtn.disabled = true;
-        if (progressArea) progressArea.style.display = 'block';
+        if (startBtn)      startBtn.disabled = true;
+        if (cancelBtn)     cancelBtn.disabled = true;
+        if (progressArea)  progressArea.style.display = 'block';
         if (resultSummary) resultSummary.style.display = 'none';
-        if (progressLog) progressLog.textContent = '';
-        if (progressBar) progressBar.style.width = '0%';
-        if (progressPct) progressPct.textContent = '0%';
+        if (progressLog)   progressLog.textContent = '';
+        if (progressBar)   progressBar.style.width = '0%';
+        if (progressPct)   progressPct.textContent = '0%';
 
-        const log = (msg) => {
-            if (progressLog) progressLog.textContent += msg + '\n';
-        };
+        const log = (msg) => { if (progressLog) progressLog.textContent += msg + '\n'; };
 
-        const tenantId = window.APP_CONFIG?.TENANT_ID || 1;
-        const csrfToken = window.APP_CONFIG?.CSRF_TOKEN || window.CSRF_TOKEN || '';
-        const apiUrl = (window.APP_CONFIG?.API_BASE || '/api') + '/categories';
+        const tenantId   = window.APP_CONFIG?.TENANT_ID || 1;
+        const csrfToken  = window.APP_CONFIG?.CSRF_TOKEN || window.CSRF_TOKEN || '';
+        const apiUrl     = (window.APP_CONFIG?.API_BASE || '/api') + '/categories';
 
-        // Build name->id map for parent resolution
-        // Load existing categories first
         const nameToId = {};
         try {
             const res = await fetch(apiUrl + '?per_page=9999&tenant_id=' + tenantId, { credentials: 'same-origin' });
@@ -1518,7 +1369,6 @@
             log('Warning: Could not load existing categories: ' + e.message);
         }
 
-        // Sort rows by level (root first, then subs)
         const sortedRows = [..._excelRows].sort((a, b) => {
             const la = parseInt(a.level) || (a.parent_name ? 2 : 1);
             const lb = parseInt(b.level) || (b.parent_name ? 2 : 1);
@@ -1533,11 +1383,10 @@
             if (!name) { skipped++; continue; }
 
             const pct = Math.round(((i + 1) / sortedRows.length) * 100);
-            if (progressBar) progressBar.style.width = pct + '%';
-            if (progressPct) progressPct.textContent = pct + '%';
+            if (progressBar)   progressBar.style.width = pct + '%';
+            if (progressPct)   progressPct.textContent = pct + '%';
             if (progressLabel) progressLabel.textContent = `Importing ${i + 1}/${sortedRows.length}…`;
 
-            // Resolve parent_id
             let parentId = null;
             const parentName = (row.parent_name || '').trim();
             if (parentName) {
@@ -1549,59 +1398,46 @@
 
             const slug = (row.slug || '').trim() || slugify(name);
 
-            // Build translations from per-language columns (e.g. en_name, ar_name, ar_description …).
-            // Supported columns: {lang}_name, {lang}_slug, {lang}_description,
-            //                    {lang}_meta_title, {lang}_meta_description, {lang}_meta_keywords
             const translations = {};
-
-            // Detect all language prefixes present in this row.
-            // Standard ISO 639-1 (2-char) and ISO 639-2/3 (3-char) codes are supported.
             const langPrefixes = new Set();
             Object.keys(row).forEach(col => {
                 const m = col.match(/^([a-z]{2,3})_(name|slug|description|meta_title|meta_description|meta_keywords)$/);
                 if (m) langPrefixes.add(m[1]);
             });
 
-            // Build a translation entry for each detected language
             langPrefixes.forEach(lang => {
                 const tName = (row[`${lang}_name`] || '').trim();
                 const tSlug = (row[`${lang}_slug`] || '').trim();
                 const tDesc = (row[`${lang}_description`] || '').trim();
-                // Only add translation if at least a name is supplied
                 if (tName || lang === 'en') {
-                    // Slug priority: explicit translated slug → slugified translated name →
-                    //                slugified base English name → base category slug
                     const computedSlug = tSlug || slugify(tName) || slugify(name) || slug;
                     translations[lang] = {
                         name: tName || name,
                         slug: computedSlug,
                         description: tDesc,
-                        meta_title: (row[`${lang}_meta_title`] || '').trim(),
+                        meta_title:       (row[`${lang}_meta_title`]       || '').trim(),
                         meta_description: (row[`${lang}_meta_description`] || '').trim(),
-                        meta_keywords: (row[`${lang}_meta_keywords`] || '').trim()
+                        meta_keywords:    (row[`${lang}_meta_keywords`]    || '').trim()
                     };
                 }
             });
 
-            // Always ensure English translation exists (required by the API)
             if (!translations.en) {
                 translations.en = {
                     name: name,
                     slug: slug,
                     description: (row.description || '').trim(),
-                    meta_title: '',
-                    meta_description: '',
-                    meta_keywords: ''
+                    meta_title: '', meta_description: '', meta_keywords: ''
                 };
             }
 
             const payload = {
-                tenant_id: tenantId,
-                name: name,
-                slug: slug,
-                parent_id: parentId,
-                sort_order: parseInt(row.sort_order) || 0,
-                is_active: row.is_active === '' ? 1 : (row.is_active === '1' ? 1 : 0),
+                tenant_id:   tenantId,
+                name:        name,
+                slug:        slug,
+                parent_id:   parentId,
+                sort_order:  parseInt(row.sort_order) || 0,
+                is_active:   row.is_active === '' ? 1 : (row.is_active === '1' ? 1 : 0),
                 is_featured: row.is_featured === '1' ? 1 : 0,
                 description: (row.description || '').trim(),
                 translations
@@ -1633,12 +1469,11 @@
                 log(`✗ Error: "${name}" — ${err.message}`);
             }
 
-            // Small delay to avoid rate limiting
             await new Promise(r => setTimeout(r, 80));
         }
 
-        if (progressBar) progressBar.style.width = '100%';
-        if (progressPct) progressPct.textContent = '100%';
+        if (progressBar)   progressBar.style.width = '100%';
+        if (progressPct)   progressPct.textContent = '100%';
         if (progressLabel) progressLabel.textContent = 'Import complete!';
 
         if (resultSummary) {
@@ -1655,9 +1490,10 @@
         _excelImporting = false;
         if (cancelBtn) cancelBtn.disabled = false;
 
-        // Refresh the categories table
         load(1);
     }
+
+    // ----------------------------
     // PUBLIC API
     // ----------------------------
     window.Categories = {
@@ -1673,7 +1509,6 @@
         }
     };
 
-    // fragment support
     window.page = { run: init };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
