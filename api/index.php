@@ -65,7 +65,7 @@ register_shutdown_function(function (): void {
 
     $globalFile = $dir . '/' . hash('sha256', "failsafe:ip:{$ip}:global") . '.json';
     $now  = time();
-    $max  = (int)(getenv('RATE_LIMIT_IP_MAX') ?: 50);    // requests per window
+    $max  = (int)(getenv('RATE_LIMIT_IP_MAX') ?: 300);   // requests per window
     $win  = 60;                                            // window in seconds
 
     $fh = @fopen($globalFile, 'c+');

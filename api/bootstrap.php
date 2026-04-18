@@ -282,11 +282,11 @@ if (file_exists($secMiddlewarePath)) {
     require_once $secMiddlewarePath;
     SecurityMiddleware::boot([
         'storageDir'            => sys_get_temp_dir() . '/security_middleware',
-        'rateLimitIpMax'        => (int)(getenv('RATE_LIMIT_IP_MAX') ?: 50),
+        'rateLimitIpMax'        => (int)(getenv('RATE_LIMIT_IP_MAX') ?: 300),
         'rateLimitIpWindow'     => 60,
-        'rateLimitAuthMax'      => (int)(getenv('RATE_LIMIT_AUTH_MAX') ?: 5),
+        'rateLimitAuthMax'      => (int)(getenv('RATE_LIMIT_AUTH_MAX') ?: 10),
         'rateLimitAuthWindow'   => 60,
-        'rateLimitWriteMax'     => (int)(getenv('RATE_LIMIT_WRITE_MAX') ?: 20),
+        'rateLimitWriteMax'     => (int)(getenv('RATE_LIMIT_WRITE_MAX') ?: 60),
         'rateLimitWriteWindow'  => 60,
         'blockAfterViolations'  => 5,
         'blockDuration'         => 300,

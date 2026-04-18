@@ -876,6 +876,7 @@
                 tenant_id: window.APP_CONFIG?.TENANT_ID || 1,
                 lang: state.language,
                 format: 'json',
+                show_all: '1',
                 ...state.filters
             });
 
@@ -900,35 +901,8 @@
 
             console.log('[Categories] Extracted items (raw):', items);
 
-            // Fetch images for each item
-            if (items.length > 0) {
-                const tenantId = window.APP_CONFIG?.TENANT_ID || 1;
-                // Using image_type_id=1 for Categories (id=1 is category, id=2 is product)
-                const imageTypeId = 1;
-
-                try {
-                    console.log('[Categories] Fetching images for items...');
-                    items = await Promise.all(items.map(async (item) => {
-                        try {
-                            // Use /by_owner endpoint (same as products.js) — returns data.data as a
-                            // direct array, avoiding the nested {data:{data:[...]}} from /api/images list.
-                            const res = await fetch(`/api/images/by_owner?owner_id=${item.id}&image_type_id=${imageTypeId}`);
-                            const data = await res.json();
-                            // data.data is a direct array of image objects
-                            const images = Array.isArray(data?.data) ? data.data : [];
-                            let imageUrl = images.length ? images[0].url : null;
-                            // Fallback to item.image_url if fetch returns nothing but item has one
-                            if (!imageUrl && item.image_url) imageUrl = item.image_url;
-                            return { ...item, image_url: imageUrl }; // Normalize to image_url
-                        } catch (e) {
-                            console.warn(`[Categories] Failed to fetch image for item ${item.id}`, e);
-                            return item;
-                        }
-                    }));
-                } catch (err) {
-                    console.error('[Categories] Image fetch error:', err);
-                }
-            }
+            // Images are already included via SQL JOIN in the API response
+            // (image_url, image_thumb_url fields) — no extra fetch needed.
 
             const finalMeta = meta || {
                 total: items.length,
