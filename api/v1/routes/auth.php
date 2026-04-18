@@ -36,6 +36,30 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * File-based rate limiter for login brute-force protection.
+ * Returns ['allowed' => bool, 'current' => int, 'reset_in' => int].
+ */
+function _login_rate_check(string $key, int $max, int $windowSeconds): array
+{
+    $dir  = sys_get_temp_dir() . '/security_middleware/rate';
+    @mkdir($dir, 0750, true);
+    $file = $dir . '/' . hash('sha256', 'login_bf:' . $key) . '.json';
+    $now  = time();
+    $data = file_exists($file) ? @json_decode(@file_get_contents($file), true) : null;
+    if (!is_array($data)) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    if ($data['window_start'] + $windowSeconds <= $now) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    $data['count']++;
+    @file_put_contents($file, json_encode($data), LOCK_EX);
+    $resetIn = max(0, ($data['window_start'] + $windowSeconds) - $now);
+    return ['allowed' => $data['count'] <= $max, 'current' => $data['count'], 'reset_in' => $resetIn];
+}
+
 function _no_cache(): void
 {
     if (!headers_sent()) {
@@ -747,6 +771,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ════════════════════════════════════════════════════════════════════════
     //  LOGIN  (username/email + password)
     // ════════════════════════════════════════════════════════════════════════
+
+    // Brute-force protection: max 5 login attempts per 60 seconds per IP
+    $loginIp = _ip();
+    $loginRateResult = _login_rate_check('login:' . $loginIp, 5, 60);
+    if (!$loginRateResult['allowed']) {
+        if (!headers_sent()) {
+            header('Retry-After: ' . $loginRateResult['reset_in']);
+        }
+        ResponseFormatter::error('Too many login attempts. Please try again later.', 429);
+        exit;
+    }
+
     $username = trim((string)($payload['username'] ?? $payload['email'] ?? ''));
     $password = (string)($payload['password'] ?? '');
     if ($username === '' || $password === '') { ResponseFormatter::error('Missing credentials', 400); exit; }

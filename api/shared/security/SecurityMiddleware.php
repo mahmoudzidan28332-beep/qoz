@@ -202,7 +202,8 @@ final class SecurityMiddleware
         }
 
         // Select the appropriate limit
-        $isAuth  = str_contains($path, '/auth/') || str_contains($path, '/login') || str_contains($path, '/register');
+        $isAuth  = str_contains($path, '/auth/') || str_ends_with($path, '/auth')
+                   || str_contains($path, '/login') || str_contains($path, '/register');
         $isWrite = in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
 
         if ($isAuth) {
