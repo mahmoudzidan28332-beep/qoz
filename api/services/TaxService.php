@@ -52,66 +52,52 @@ class TaxService
         $taxTotal = 0.0;
 
         foreach ($items as $it) {
-            $price = isset($it['price']) ? (float)$it['price'] : 0.0;
-            $qty = max(0, (int)($it['quantity'] ?? 1));
-            $taxClass = $it['tax_class'] ?? null;
-            $productTaxExempt = isset($it['tax_exempt']) ? (bool)$it['tax_exempt'] : false;
-
-            // Check exemption (customer-level or product-level)
-            if ($this->isTaxExempt($customerId, $it)) {
-                $lineTax = 0.0;
-                if ($pricesIncludeTax) {
-                    // price already includes tax but since exempt treat as ex-tax
-                    $priceExTax = $price;
-                    $priceInclTax = $price;
-                } else {
-                    $priceExTax = $price;
-                    $priceInclTax = $price;
-                }
-                $lineTotalExTax = $priceExTax * $qty;
-                $subtotalExTax += $lineTotalExTax;
-                $resultLines[] = array_merge($it, [
-                    'tax_rate' => 0.0,
-                    'tax_amount' => 0.0,
-                    'price_ex_tax' => $this->roundAmount($priceExTax),
-                    'price_incl_tax' => $this->roundAmount($priceInclTax),
-                    'total_ex_tax' => $this->roundAmount($lineTotalExTax),
-                ]);
-                continue;
-            }
-
-            // find applicable tax rate for this product/location
-            $rate = $this->getApplicableTaxRate($destination['country'] ?? null, $destination['region'] ?? null, $destination['postal_code'] ?? null, $taxClass);
-            // rate is decimal percent, e.g., 5.5
-            $rateDecimal = max(0.0, (float)$rate);
-
-            if ($pricesIncludeTax) {
-                // price includes tax -> derive ex-tax price: price_ex = price / (1 + r/100)
-                $priceExTax = $this->roundAmount($price / (1 + ($rateDecimal / 100)));
-                $taxAmountPerUnit = $this->roundAmount($price - $priceExTax);
-                $priceInclTax = $price;
-            } else {
-                $priceExTax = $price;
-                $taxAmountPerUnit = $this->roundAmount($priceExTax * ($rateDecimal / 100));
-                $priceInclTax = $this->roundAmount($priceExTax + $taxAmountPerUnit);
-            }
-
-            $lineTax = $this->roundAmount($taxAmountPerUnit * $qty);
-            $lineTotalExTax = $this->roundAmount($priceExTax * $qty);
-
-            $subtotalExTax += $lineTotalExTax;
-            $taxTotal += $lineTax;
-
-            $resultLines[] = array_merge($it, [
-                'tax_rate' => $rateDecimal,
-                'tax_amount' => $lineTax,
-                'price_ex_tax' => $this->roundAmount($priceExTax),
-                'price_incl_tax' => $this->roundAmount($priceInclTax),
-                'total_ex_tax' => $this->roundAmount($lineTotalExTax),
-            ]);
+            $lineResult = $this->calculateLineItem($it, $pricesIncludeTax, $customerId, $destination);
+            $subtotalExTax += $lineResult['total_ex_tax_raw'];
+            $taxTotal += $lineResult['tax_amount'];
+            $resultLines[] = $lineResult['line'];
         }
 
-        // Shipping tax
+        $shippingBreakdown = $this->calculateShippingTax($shippingAmt, $pricesIncludeTax, $destination);
+        $subtotalExTax += $shippingBreakdown['amount_ex_tax'];
+        $taxTotal += $shippingBreakdown['tax_amount'];
+
+        $grandTotal = $this->roundAmount($subtotalExTax + $taxTotal);
+        return ['lines' => $resultLines, 'shipping' => $shippingBreakdown, 'tax_total' => $this->roundAmount($taxTotal), 'subtotal' => $this->roundAmount($subtotalExTax), 'grand_total' => $grandTotal, 'currency' => $currency];
+    }
+
+    private function calculateLineItem(array $it, bool $pricesIncludeTax, $customerId, array $destination): array
+    {
+        $price = isset($it['price']) ? (float)$it['price'] : 0.0;
+        $qty = max(0, (int)($it['quantity'] ?? 1));
+        $taxClass = $it['tax_class'] ?? null;
+
+        if ($this->isTaxExempt($customerId, $it)) {
+            $lineTotalExTax = $price * $qty;
+            return ['line' => array_merge($it, ['tax_rate' => 0.0, 'tax_amount' => 0.0, 'price_ex_tax' => $this->roundAmount($price), 'price_incl_tax' => $this->roundAmount($price), 'total_ex_tax' => $this->roundAmount($lineTotalExTax)]), 'total_ex_tax_raw' => $lineTotalExTax, 'tax_amount' => 0.0];
+        }
+
+        $rate = $this->getApplicableTaxRate($destination['country'] ?? null, $destination['region'] ?? null, $destination['postal_code'] ?? null, $taxClass);
+        $rateDecimal = max(0.0, (float)$rate);
+
+        if ($pricesIncludeTax) {
+            $priceExTax = $this->roundAmount($price / (1 + ($rateDecimal / 100)));
+            $taxAmountPerUnit = $this->roundAmount($price - $priceExTax);
+            $priceInclTax = $price;
+        } else {
+            $priceExTax = $price;
+            $taxAmountPerUnit = $this->roundAmount($priceExTax * ($rateDecimal / 100));
+            $priceInclTax = $this->roundAmount($priceExTax + $taxAmountPerUnit);
+        }
+
+        $lineTax = $this->roundAmount($taxAmountPerUnit * $qty);
+        $lineTotalExTax = $this->roundAmount($priceExTax * $qty);
+
+        return ['line' => array_merge($it, ['tax_rate' => $rateDecimal, 'tax_amount' => $lineTax, 'price_ex_tax' => $this->roundAmount($priceExTax), 'price_incl_tax' => $this->roundAmount($priceInclTax), 'total_ex_tax' => $this->roundAmount($lineTotalExTax)]), 'total_ex_tax_raw' => $lineTotalExTax, 'tax_amount' => $lineTax];
+    }
+
+    private function calculateShippingTax(float $shippingAmt, bool $pricesIncludeTax, array $destination): array
+    {
         $shippingTaxRate = $this->getApplicableTaxRate($destination['country'] ?? null, $destination['region'] ?? null, $destination['postal_code'] ?? null, 'shipping');
         $shippingRateDecimal = max(0.0, (float)$shippingTaxRate);
         if ($shippingAmt > 0) {
@@ -124,35 +110,9 @@ class TaxService
                 $shippingTaxAmt = $this->roundAmount($shippingExTax * ($shippingRateDecimal / 100));
                 $shippingIncl = $this->roundAmount($shippingExTax + $shippingTaxAmt);
             }
-            $subtotalExTax += $shippingExTax;
-            $taxTotal += $shippingTaxAmt;
-            $shippingBreakdown = [
-                'amount' => $this->roundAmount($shippingAmt),
-                'tax_rate' => $shippingRateDecimal,
-                'tax_amount' => $this->roundAmount($shippingTaxAmt),
-                'amount_ex_tax' => $this->roundAmount($shippingExTax),
-                'amount_incl_tax' => $this->roundAmount($shippingIncl),
-            ];
-        } else {
-            $shippingBreakdown = [
-                'amount' => 0.0,
-                'tax_rate' => $shippingRateDecimal,
-                'tax_amount' => 0.0,
-                'amount_ex_tax' => 0.0,
-                'amount_incl_tax' => 0.0,
-            ];
+            return ['amount' => $this->roundAmount($shippingAmt), 'tax_rate' => $shippingRateDecimal, 'tax_amount' => $this->roundAmount($shippingTaxAmt), 'amount_ex_tax' => $this->roundAmount($shippingExTax), 'amount_incl_tax' => $this->roundAmount($shippingIncl)];
         }
-
-        $grandTotal = $this->roundAmount($subtotalExTax + $taxTotal);
-
-        return [
-            'lines' => $resultLines,
-            'shipping' => $shippingBreakdown,
-            'tax_total' => $this->roundAmount($taxTotal),
-            'subtotal' => $this->roundAmount($subtotalExTax),
-            'grand_total' => $grandTotal,
-            'currency' => $currency
-        ];
+        return ['amount' => 0.0, 'tax_rate' => $shippingRateDecimal, 'tax_amount' => 0.0, 'amount_ex_tax' => 0.0, 'amount_incl_tax' => 0.0];
     }
 
     /**

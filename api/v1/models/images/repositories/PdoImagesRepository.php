@@ -131,9 +131,7 @@ final class PdoImagesRepository
     {
         // إزالة الحقول غير المرغوب فيها
         $unwanted = ['csrf_token', 'entity', '_method', 'image_type_display', 'image_type_name', 'image_type_code'];
-        foreach ($unwanted as $f) { 
-            unset($data[$f]); 
-        }
+        foreach ($unwanted as $f) { unset($data[$f]); }
 
         $isUpdate = !empty($data['id']);
 
@@ -142,103 +140,74 @@ final class PdoImagesRepository
             unset($data['id'], $data['tenant_id']);
             $data['updated_at'] = date('Y-m-d H:i:s');
 
-            // التحقق إذا كان يتم تغيير المالك
             $existing = $this->find($tenantId, $id);
             if ($existing && isset($data['owner_id']) && $data['owner_id'] != $existing['owner_id']) {
-                // إنشاء سجل جديد للمالك الجديد
-                unset($data['id'], $data['updated_at']);
-                $data['tenant_id'] = $tenantId;
-                $data['created_at'] = date('Y-m-d H:i:s');
-                $data['image_type_id'] = $existing['image_type_id']; // تأكيد نفس النوع
-                
-                // السجل الجديد يكون غير رئيسي دائمًا عند نقل الملكية
-                $data['is_main'] = 0;
-                
-                // الحصول على اتصال PDO للإدراج المباشر
-                $columns = implode(', ', array_keys($data));
-                $placeholders = ':' . implode(', :', array_keys($data));
-                $stmt = $this->pdo->prepare("INSERT INTO {$this->table} ($columns) VALUES ($placeholders)");
-                
-                // Bind values
-                foreach ($data as $k => $v) {
-                    $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-                }
-                
-                $stmt->execute();
-                $newId = (int)$this->pdo->lastInsertId();
-                
-                // إذا لم يكن للمالك الجديد صورة رئيسية، جعل الصورة المنقولة هي الرئيسية
-                if (!$this->getMainImage($tenantId, $data['owner_id'], $existing['image_type_id'])) {
-                    $this->setMain($tenantId, $data['owner_id'], $existing['image_type_id'], $newId, $userId);
-                }
-                
-                return $newId;
+                return $this->transferOwnership($tenantId, $data, $existing, $userId);
             }
 
-            // إذا تم تعيين الصورة كرئيسية، إلغاء الرئيسية من الصور الأخرى لنفس المالك والنوع
             if (isset($data['is_main']) && $data['is_main'] == 1) {
                 $this->unsetOtherMainImages(
-                    $tenantId, 
-                    $existing['owner_id'] ?? $data['owner_id'], 
+                    $tenantId,
+                    $existing['owner_id'] ?? $data['owner_id'],
                     $existing['image_type_id'] ?? $data['image_type_id'],
                     $id
                 );
             }
 
-            $fields = []; 
-            $params = [];
-            foreach ($data as $k => $v) { 
-                if ($v !== null) { 
-                    $fields[] = "$k = :$k"; 
-                    $params[":$k"] = $v; 
-                } 
+            $fields = []; $params = [];
+            foreach ($data as $k => $v) {
+                if ($v !== null) { $fields[] = "$k = :$k"; $params[":$k"] = $v; }
             }
-            if (empty($fields)) {
-                throw new RuntimeException('No fields to update');
-            }
+            if (empty($fields)) { throw new RuntimeException('No fields to update'); }
 
-            $params[':id'] = $id; 
-            $params[':tenant_id'] = $tenantId;
+            $params[':id'] = $id; $params[':tenant_id'] = $tenantId;
             $stmt = $this->pdo->prepare("UPDATE {$this->table} SET " . implode(', ', $fields) . " WHERE id = :id AND tenant_id = :tenant_id");
             $stmt->execute($params);
             return $id;
-        } else {
-            // إضافة جديدة - غير رئيسي دائمًا
-            $data['tenant_id'] = $tenantId;
-            if ($userId) {
-                $data['user_id'] = $userId;
-            }
-            
-            $defaults = [
-                'is_main' => 0, // دائمًا غير رئيسي عند الإضافة
-                'sort_order' => 0,
-                'visibility' => 'private',
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
-            
-            $data = array_merge($defaults, $data);
-            
-            // الحصول على اتصال PDO للإدراج المباشر
-            $columns = implode(', ', array_keys($data));
-            $placeholders = ':' . implode(', :', array_keys($data));
-            $stmt = $this->pdo->prepare("INSERT INTO {$this->table} ($columns) VALUES ($placeholders)");
-            
-            // Bind values
-            foreach ($data as $k => $v) {
-                $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
-            
-            $stmt->execute();
-            $newId = (int)$this->pdo->lastInsertId();
-            
-            // إذا كان المالك ليس لديه أي صور، جعل هذه الصورة الرئيسية تلقائيًا
-            if (!$this->getMainImage($tenantId, $data['owner_id'], $data['image_type_id'])) {
-                $this->setMain($tenantId, $data['owner_id'], $data['image_type_id'], $newId, $userId);
-            }
-            
-            return $newId;
         }
+
+        return $this->insertNewImage($tenantId, $data, $userId);
+    }
+
+    private function transferOwnership(int $tenantId, array $data, array $existing, ?int $userId): int
+    {
+        unset($data['id'], $data['updated_at']);
+        $data['tenant_id'] = $tenantId;
+        $data['created_at'] = date('Y-m-d H:i:s');
+        $data['image_type_id'] = $existing['image_type_id'];
+        $data['is_main'] = 0;
+
+        $newId = $this->executeInsert($data);
+        if (!$this->getMainImage($tenantId, $data['owner_id'], $existing['image_type_id'])) {
+            $this->setMain($tenantId, $data['owner_id'], $existing['image_type_id'], $newId, $userId);
+        }
+        return $newId;
+    }
+
+    private function insertNewImage(int $tenantId, array $data, ?int $userId): int
+    {
+        $data['tenant_id'] = $tenantId;
+        if ($userId) { $data['user_id'] = $userId; }
+        $defaults = ['is_main' => 0, 'sort_order' => 0, 'visibility' => 'private', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
+        $data = array_merge($defaults, $data);
+
+        $newId = $this->executeInsert($data);
+        if (!$this->getMainImage($tenantId, $data['owner_id'], $data['image_type_id'])) {
+            $this->setMain($tenantId, $data['owner_id'], $data['image_type_id'], $newId, $userId);
+        }
+        return $newId;
+    }
+
+    private function executeInsert(array $data): int
+    {
+        $columns = implode(', ', array_keys($data));
+        $placeholders = ':' . implode(', :', array_keys($data));
+        $stmt = $this->pdo->prepare("INSERT INTO {$this->table} ($columns) VALUES ($placeholders)");
+        foreach ($data as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->execute();
+        return (int)$this->pdo->lastInsertId();
     }
 
     /* ===================== DELETE ===================== */

@@ -45,95 +45,51 @@ final class PdoTenant_usersRepository
     public function all(int $tenantId, int $perPage = 10, int $offset = 0, array $filters = []): array
     {
         $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : $tenantId;
-
         $whereParts = [];
         $params = [];
 
-        // Only filter by tenant_id if > 0 (0 means super admin viewing all tenants)
-        if ($effectiveTenantId > 0) {
-            $whereParts[] = 'tu.tenant_id = :tenantId';
-            $params[':tenantId'] = $effectiveTenantId;
-        }
+        if ($effectiveTenantId > 0) { $whereParts[] = 'tu.tenant_id = :tenantId'; $params[':tenantId'] = $effectiveTenantId; }
 
+        $this->applyAllFilters($filters, $whereParts, $params);
+
+        $whereSql = !empty($whereParts) ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+
+        $sql = "SELECT tu.id, tu.user_id, u.username, u.email, tu.tenant_id, t.name AS tenant_name,
+                tu.role_id, COALESCE(r.display_name, r.key_name, '') AS role_name, tu.entity_id,
+                e.store_name AS entity_name, e.slug AS entity_slug, tu.joined_at, tu.is_active, tu.updated_at
+            FROM tenant_users tu JOIN users u ON tu.user_id = u.id
+            LEFT JOIN roles r ON tu.role_id = r.id JOIN tenants t ON tu.tenant_id = t.id
+            LEFT JOIN entities e ON tu.entity_id = e.id {$whereSql} ORDER BY tu.joined_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', (int)$perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $this->normalizeRows($rows);
+    }
+
+    private function applyAllFilters(array $filters, array &$whereParts, array &$params): void
+    {
         if (!empty($filters['search'])) {
-            // use distinct parameter names for each LIKE occurrence to avoid PDO named-parameter repetition issues
             $whereParts[] = '(u.username LIKE :search_u OR u.email LIKE :search_e OR t.name LIKE :search_t OR e.store_name LIKE :search_e_name)';
             $params[':search_u'] = '%' . $filters['search'] . '%';
             $params[':search_e'] = '%' . $filters['search'] . '%';
             $params[':search_t'] = '%' . $filters['search'] . '%';
             $params[':search_e_name'] = '%' . $filters['search'] . '%';
         }
+        if (isset($filters['is_active'])) { $whereParts[] = 'tu.is_active = :is_active'; $params[':is_active'] = (int)$filters['is_active']; }
+        if (!empty($filters['role_id'])) { $whereParts[] = 'tu.role_id = :role_id'; $params[':role_id'] = (int)$filters['role_id']; }
+        if (!empty($filters['user_id'])) { $whereParts[] = 'tu.user_id = :user_id'; $params[':user_id'] = (int)$filters['user_id']; }
+        if (!empty($filters['entity_id'])) { $whereParts[] = 'tu.entity_id = :entity_id'; $params[':entity_id'] = (int)$filters['entity_id']; }
+    }
 
-        if (isset($filters['is_active'])) {
-            $whereParts[] = 'tu.is_active = :is_active';
-            $params[':is_active'] = (int)$filters['is_active'];
-        }
-
-        if (!empty($filters['role_id'])) {
-            $whereParts[] = 'tu.role_id = :role_id';
-            $params[':role_id'] = (int)$filters['role_id'];
-        }
-
-        if (!empty($filters['user_id'])) {
-            $whereParts[] = 'tu.user_id = :user_id';
-            $params[':user_id'] = (int)$filters['user_id'];
-        }
-
-        if (!empty($filters['entity_id'])) {
-            $whereParts[] = 'tu.entity_id = :entity_id';
-            $params[':entity_id'] = (int)$filters['entity_id'];
-        }
-
-        $whereSql = '';
-        if (!empty($whereParts)) {
-            $whereSql = 'WHERE ' . implode(' AND ', $whereParts);
-        }
-
-        $sql = "
-            SELECT
-                tu.id,
-                tu.user_id,
-                u.username,
-                u.email,
-                tu.tenant_id,
-                t.name AS tenant_name,
-                tu.role_id,
-                COALESCE(r.display_name, r.key_name, '') AS role_name,
-                tu.entity_id,
-                e.store_name AS entity_name,
-                e.slug AS entity_slug,
-                tu.joined_at,
-                tu.is_active,
-                tu.updated_at
-            FROM tenant_users tu
-            JOIN users u ON tu.user_id = u.id
-            LEFT JOIN roles r ON tu.role_id = r.id
-            JOIN tenants t ON tu.tenant_id = t.id
-            LEFT JOIN entities e ON tu.entity_id = e.id
-            {$whereSql}
-            ORDER BY tu.joined_at DESC
-            LIMIT :limit OFFSET :offset
-        ";
-
-        $stmt = $this->pdo->prepare($sql);
-
-        // bind filter params
-        foreach ($params as $key => $value) {
-            if (is_int($value)) {
-                $stmt->bindValue($key, $value, PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue($key, $value, PDO::PARAM_STR);
-            }
-        }
-
-        // bind limit/offset
-        $stmt->bindValue(':limit', (int)$perPage, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // normalize types
+    private function normalizeRows(array $rows): array
+    {
         foreach ($rows as &$r) {
             $r['id'] = isset($r['id']) ? (int)$r['id'] : null;
             $r['user_id'] = isset($r['user_id']) ? (int)$r['user_id'] : null;
@@ -143,7 +99,6 @@ final class PdoTenant_usersRepository
             $r['is_active'] = isset($r['is_active']) ? (int)$r['is_active'] : 0;
         }
         unset($r);
-
         return $rows;
     }
 

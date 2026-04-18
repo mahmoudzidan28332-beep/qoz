@@ -191,99 +191,48 @@ final class PdoCartsRepository
     public function save(int $tenantId, array $data): int
     {
         $isUpdate = !empty($data['id']);
-
-        // Extract allowed columns
-        $params = [];
-        foreach (self::CART_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
-            }
-        }
-
-        // Set defaults
-        if (empty($params[':currency_code'])) {
-            $params[':currency_code'] = 'SAR';
-        }
-        if (empty($params[':status'])) {
-            $params[':status'] = 'active';
-        }
-        if (empty($params[':total_items'])) {
-            $params[':total_items'] = 0;
-        }
-
-        // Update last_activity_at
-        $params[':last_activity_at'] = date('Y-m-d H:i:s');
+        $params = $this->buildCartParams($data);
 
         if ($isUpdate) {
-            // Verify cart belongs to tenant
-            $checkStmt = $this->pdo->prepare("
-                SELECT id FROM carts 
-                WHERE id = :id 
-                AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)
-            ");
-            $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-            if (!$checkStmt->fetch()) {
-                throw new RuntimeException('Cart not found or access denied');
-            }
-
-            $params[':id'] = (int)$data['id'];
-
-            $stmt = $this->pdo->prepare("
-                UPDATE carts SET
-                    entity_id = :entity_id,
-                    user_id = :user_id,
-                    session_id = :session_id,
-                    device_id = :device_id,
-                    ip_address = :ip_address,
-                    total_items = :total_items,
-                    subtotal = :subtotal,
-                    tax_amount = :tax_amount,
-                    shipping_cost = :shipping_cost,
-                    discount_amount = :discount_amount,
-                    total_amount = :total_amount,
-                    currency_code = :currency_code,
-                    coupon_code = :coupon_code,
-                    discount_id = :discount_id,
-                    items = :items,
-                    loyalty_points_used = :loyalty_points_used,
-                    status = :status,
-                    last_activity_at = :last_activity_at,
-                    converted_to_order_id = :converted_to_order_id,
-                    expires_at = :expires_at,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            $stmt->execute($params);
-            return (int)$data['id'];
+            return $this->updateCart($tenantId, $data, $params);
         }
+        return $this->insertCart($tenantId, $params);
+    }
 
-        // Verify entity belongs to tenant
-        $checkStmt = $this->pdo->prepare("
-            SELECT id FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id
-        ");
+    private function buildCartParams(array $data): array
+    {
+        $params = [];
+        foreach (self::CART_COLUMNS as $col) {
+            $val = $data[$col] ?? null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
+        }
+        if (empty($params[':currency_code'])) { $params[':currency_code'] = 'SAR'; }
+        if (empty($params[':status'])) { $params[':status'] = 'active'; }
+        if (empty($params[':total_items'])) { $params[':total_items'] = 0; }
+        $params[':last_activity_at'] = date('Y-m-d H:i:s');
+        return $params;
+    }
+
+    private function updateCart(int $tenantId, array $data, array $params): int
+    {
+        $checkStmt = $this->pdo->prepare("SELECT id FROM carts WHERE id = :id AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)");
+        $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
+        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart not found or access denied'); }
+        $params[':id'] = (int)$data['id'];
+        $setParts = array_map(fn($c) => "$c = :$c", self::CART_COLUMNS);
+        $stmt = $this->pdo->prepare("UPDATE carts SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
+        $stmt->execute($params);
+        return (int)$data['id'];
+    }
+
+    private function insertCart(int $tenantId, array $params): int
+    {
+        $checkStmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id");
         $checkStmt->execute([':entity_id' => $params[':entity_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new RuntimeException('Entity not found or access denied');
-        }
-
-        $stmt = $this->pdo->prepare("
-            INSERT INTO carts (
-                entity_id, user_id, session_id, device_id, ip_address,
-                total_items, subtotal, tax_amount, shipping_cost,
-                discount_amount, total_amount, currency_code, coupon_code,
-                discount_id, items, loyalty_points_used, status,
-                last_activity_at, converted_to_order_id, expires_at
-            ) VALUES (
-                :entity_id, :user_id, :session_id, :device_id, :ip_address,
-                :total_items, :subtotal, :tax_amount, :shipping_cost,
-                :discount_amount, :total_amount, :currency_code, :coupon_code,
-                :discount_id, :items, :loyalty_points_used, :status,
-                :last_activity_at, :converted_to_order_id, :expires_at
-            )
-        ");
+        if (!$checkStmt->fetch()) { throw new RuntimeException('Entity not found or access denied'); }
+        $colStr = implode(', ', self::CART_COLUMNS);
+        $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_COLUMNS));
+        $stmt = $this->pdo->prepare("INSERT INTO carts ($colStr) VALUES ($phStr)");
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
     }

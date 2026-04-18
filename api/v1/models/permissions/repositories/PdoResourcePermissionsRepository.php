@@ -108,125 +108,78 @@ class PdoResourcePermissionsRepository
     public function upsertByUnique(array $item): int
     {
         $norm = $this->normalizeUpsertItem($item);
-
-        // VALIDATION: Check if permission_id exists before attempting insert
-        if ($norm['permission_id']) {
-            $stmt = $this->pdo->prepare("SELECT id FROM permissions WHERE id = ?");
-            $stmt->execute([$norm['permission_id']]);
-            if (!$stmt->fetch()) {
-                throw new \InvalidArgumentException("Permission ID {$norm['permission_id']} does not exist in permissions table");
-            }
-        } else {
-            throw new \InvalidArgumentException("permission_id is required");
-        }
-
-        // VALIDATION: Check if resource_type is not empty
-        if (empty($norm['resource_type'])) {
-            throw new \InvalidArgumentException("resource_type is required and cannot be empty");
-        }
-
-        // Build columns
-        $cols = ['resource_type','permission_id','role_id','tenant_id'];
-        foreach ($this->flagCols as $f) $cols[] = $f;
-
-        $insertCols = array_map(fn($c) => "`$c`", $cols);
-        $placeholders = array_map(fn($c) => ":$c", $cols);
-
-        // Use LAST_INSERT_ID(id) trick so lastInsertId() returns the id whether new or existing
-        $updateSet = array_map(fn($c) => "`$c` = VALUES(`$c`)", $cols);
-        $sql = "INSERT INTO resource_permissions (" . implode(',', $insertCols) . ")
-                VALUES (" . implode(',', $placeholders) . ")
-                ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), " . implode(', ', $updateSet);
+        $this->validateUpsertData($norm);
 
         try {
-            $stmt = $this->pdo->prepare($sql);
-
-            // Bind values with correct types (NULL handling)
-            // tenant_id may be null
-            if ($norm['tenant_id'] === null) {
-                $stmt->bindValue(':tenant_id', null, PDO::PARAM_NULL);
-            } else {
-                $stmt->bindValue(':tenant_id', (int)$norm['tenant_id'], PDO::PARAM_INT);
-            }
-
-            // role_id may be null
-            if ($norm['role_id'] === null) {
-                $stmt->bindValue(':role_id', null, PDO::PARAM_NULL);
-            } else {
-                $stmt->bindValue(':role_id', (int)$norm['role_id'], PDO::PARAM_INT);
-            }
-
-            $stmt->bindValue(':resource_type', $norm['resource_type'], PDO::PARAM_STR);
-            $stmt->bindValue(':permission_id', (int)$norm['permission_id'], PDO::PARAM_INT);
-            foreach ($this->flagCols as $f) {
-                $stmt->bindValue(":$f", (int)$norm[$f], PDO::PARAM_INT);
-            }
-
-            // optional logging for traceability (if safe_log exists)
-            if (function_exists('safe_log')) {
-                safe_log('info', 'rp.upsert.attempt', ['payload' => $norm]);
-            }
-
-            $stmt->execute();
-            // thanks to id = LAST_INSERT_ID(id) above, lastInsertId returns inserted id or existing id
-            $id = (int)$this->pdo->lastInsertId();
-            if ($id <= 0) {
-                // Defensive: if lastInsertId is 0 (unlikely with trick), try to fetch the row id
-                $existing = $this->findByUnique($norm['role_id'], $norm['resource_type'], $norm['tenant_id']);
-                if ($existing) $id = (int)$existing['id'];
-            }
-
-            if (function_exists('safe_log')) {
-                safe_log('info', 'rp.upsert.success', ['id' => $id, 'payload' => $norm]);
-            }
-
-            return $id;
+            return $this->upsertFastPath($norm);
         } catch (Throwable $e) {
-            // Fallback transactional approach with SELECT ... FOR UPDATE to avoid race
-            if (function_exists('safe_log')) {
-                safe_log('error', 'rp.upsert.failed', ['error' => $e->getMessage(), 'payload' => $norm]);
-            }
+            if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.failed', ['error' => $e->getMessage(), 'payload' => $norm]); }
+            return $this->upsertFallback($norm);
+        }
+    }
 
-            try {
-                $this->pdo->beginTransaction();
+    private function validateUpsertData(array $norm): void
+    {
+        if (!$norm['permission_id']) { throw new \InvalidArgumentException("permission_id is required"); }
+        $stmt = $this->pdo->prepare("SELECT id FROM permissions WHERE id = ?");
+        $stmt->execute([$norm['permission_id']]);
+        if (!$stmt->fetch()) { throw new \InvalidArgumentException("Permission ID {$norm['permission_id']} does not exist in permissions table"); }
+        if (empty($norm['resource_type'])) { throw new \InvalidArgumentException("resource_type is required and cannot be empty"); }
+    }
 
-                // lock candidate row (if exists)
-                $existing = $this->findByUniqueForUpdate($norm['role_id'], $norm['resource_type'], $norm['tenant_id']);
-                if ($existing) {
-                    $this->updateById((int)$existing['id'], $this->filterUpdatableFields($norm));
-                    $this->pdo->commit();
-                    if (function_exists('safe_log')) safe_log('info', 'rp.upsert.fallback.updated', ['id' => $existing['id']]);
-                    return (int)$existing['id'];
-                }
+    private function bindNormValues(\PDOStatement $stmt, array $norm): void
+    {
+        $stmt->bindValue(':tenant_id', $norm['tenant_id'] === null ? null : (int)$norm['tenant_id'], $norm['tenant_id'] === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $stmt->bindValue(':role_id', $norm['role_id'] === null ? null : (int)$norm['role_id'], $norm['role_id'] === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $stmt->bindValue(':resource_type', $norm['resource_type'], PDO::PARAM_STR);
+        $stmt->bindValue(':permission_id', (int)$norm['permission_id'], PDO::PARAM_INT);
+        foreach ($this->flagCols as $f) { $stmt->bindValue(":$f", (int)$norm[$f], PDO::PARAM_INT); }
+    }
 
-                // insert new
-                $insertSql = "INSERT INTO resource_permissions (resource_type, permission_id, role_id, tenant_id, " . implode(',', $this->flagCols) . ", created_at)
-                              VALUES (:resource_type, :permission_id, :role_id, :tenant_id, " . implode(',', array_map(fn($f)=>":$f", $this->flagCols)) . ", NOW())";
-                $stmt2 = $this->pdo->prepare($insertSql);
+    private function upsertFastPath(array $norm): int
+    {
+        $cols = ['resource_type','permission_id','role_id','tenant_id'];
+        foreach ($this->flagCols as $f) { $cols[] = $f; }
+        $insertCols = array_map(fn($c) => "`$c`", $cols);
+        $placeholders = array_map(fn($c) => ":$c", $cols);
+        $updateSet = array_map(fn($c) => "`$c` = VALUES(`$c`)", $cols);
+        $sql = "INSERT INTO resource_permissions (" . implode(',', $insertCols) . ") VALUES (" . implode(',', $placeholders) . ") ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), " . implode(', ', $updateSet);
+        $stmt = $this->pdo->prepare($sql);
+        $this->bindNormValues($stmt, $norm);
+        if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.attempt', ['payload' => $norm]); }
+        $stmt->execute();
+        $id = (int)$this->pdo->lastInsertId();
+        if ($id <= 0) {
+            $existing = $this->findByUnique($norm['role_id'], $norm['resource_type'], $norm['tenant_id']);
+            if ($existing) { $id = (int)$existing['id']; }
+        }
+        if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.success', ['id' => $id, 'payload' => $norm]); }
+        return $id;
+    }
 
-                // bind for insert
-                if ($norm['tenant_id'] === null) $stmt2->bindValue(':tenant_id', null, PDO::PARAM_NULL);
-                else $stmt2->bindValue(':tenant_id', (int)$norm['tenant_id'], PDO::PARAM_INT);
-
-                if ($norm['role_id'] === null) $stmt2->bindValue(':role_id', null, PDO::PARAM_NULL);
-                else $stmt2->bindValue(':role_id', (int)$norm['role_id'], PDO::PARAM_INT);
-
-                $stmt2->bindValue(':resource_type', $norm['resource_type'], PDO::PARAM_STR);
-                $stmt2->bindValue(':permission_id', (int)$norm['permission_id'], PDO::PARAM_INT);
-                foreach ($this->flagCols as $f) $stmt2->bindValue(":$f", (int)$norm[$f], PDO::PARAM_INT);
-
-                $stmt2->execute();
-                $newId = (int)$this->pdo->lastInsertId();
+    private function upsertFallback(array $norm): int
+    {
+        try {
+            $this->pdo->beginTransaction();
+            $existing = $this->findByUniqueForUpdate($norm['role_id'], $norm['resource_type'], $norm['tenant_id']);
+            if ($existing) {
+                $this->updateById((int)$existing['id'], $this->filterUpdatableFields($norm));
                 $this->pdo->commit();
-
-                if (function_exists('safe_log')) safe_log('info', 'rp.upsert.fallback.inserted', ['id' => $newId, 'payload' => $norm]);
-
-                return $newId;
-            } catch (Throwable $e2) {
-                if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-                if (function_exists('safe_log')) safe_log('error', 'rp.upsert.fallback.failed', ['error' => $e2->getMessage(), 'payload' => $norm]);
-                throw new RuntimeException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
+                if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.fallback.updated', ['id' => $existing['id']]); }
+                return (int)$existing['id'];
             }
+            $insertSql = "INSERT INTO resource_permissions (resource_type, permission_id, role_id, tenant_id, " . implode(',', $this->flagCols) . ", created_at) VALUES (:resource_type, :permission_id, :role_id, :tenant_id, " . implode(',', array_map(fn($f)=>":$f", $this->flagCols)) . ", NOW())";
+            $stmt2 = $this->pdo->prepare($insertSql);
+            $this->bindNormValues($stmt2, $norm);
+            $stmt2->execute();
+            $newId = (int)$this->pdo->lastInsertId();
+            $this->pdo->commit();
+            if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.fallback.inserted', ['id' => $newId, 'payload' => $norm]); }
+            return $newId;
+        } catch (Throwable $e2) {
+            if ($this->pdo->inTransaction()) { $this->pdo->rollBack(); }
+            if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.fallback.failed', ['error' => $e2->getMessage(), 'payload' => $norm]); }
+            throw new RuntimeException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
         }
     }
 
