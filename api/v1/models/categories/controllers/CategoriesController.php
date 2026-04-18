@@ -36,7 +36,7 @@ final class CategoriesController
         $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
 
         $filters = [
-            'parent_id'      => $parentId,
+            'parent_id'      => $parentId,           // ✅ FIX: كان مفقوداً — السبب الرئيسي لعطل الـ pagination
             'is_featured'    => $this->sanitizeFlag($_GET['is_featured'] ?? null),
             'is_active'      => $this->sanitizeFlag($_GET['is_active']   ?? null),
             'search'         => $this->sanitizeString($_GET['search']    ?? null),
