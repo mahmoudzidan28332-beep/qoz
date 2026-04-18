@@ -295,231 +295,180 @@ final class AdminUiThemeLoader
      */
     public function generateCss(array $themeData): string
     {
-        // Convert snake_case key to kebab-case CSS var name
         $hyphenateKey = static fn(string $key): string => str_replace('_', '-', strtolower($key));
-
-        // Sanitize a CSS value: strip characters that could break out of a property value.
-        // Removes '{', '}', semicolons, and backticks to prevent CSS injection.
         $sanitizeCssValue = static fn(string $v): string => preg_replace('/[{};`]/', '', trim($v));
-
-        // Sanitize a string for use as a CSS class or variable identifier segment.
-        // Allows only lowercase letters, digits, and hyphens.
-        $safeCssIdent = static fn(string $s): string =>
-            preg_replace('/[^a-z0-9-]/', '-', strtolower($s));
+        $safeCssIdent = static fn(string $s): string => preg_replace('/[^a-z0-9-]/', '-', strtolower($s));
 
         $css = ":root {\n";
+        $css .= $this->generateColorVars($themeData, $hyphenateKey, $sanitizeCssValue);
+        $css .= $this->generateFontVars($themeData, $hyphenateKey, $sanitizeCssValue);
+        $css .= $this->generateDesignVars($themeData, $hyphenateKey, $sanitizeCssValue);
+        $css .= $this->generateButtonVars($themeData, $safeCssIdent, $sanitizeCssValue);
+        $css .= $this->generateCardVars($themeData, $safeCssIdent, $sanitizeCssValue);
+        $css .= "}\n";
+        $css .= $this->generateButtonClasses($themeData, $safeCssIdent, $sanitizeCssValue);
+        $css .= $this->generateCardClasses($themeData, $safeCssIdent, $sanitizeCssValue);
+        return $css;
+    }
 
-        // ── Color settings ───────────────────────────────────────────────────────
-        // Emit both kebab-case (--primary-color) and underscore form (--primary_color)
-        // for maximum compatibility with existing CSS files.
-        $bgTertiary  = null;
-        $bgSecondary = null;
+    private function generateColorVars(array $themeData, callable $hyphenateKey, callable $sanitizeCssValue): string
+    {
+        $css = '';
+        $bgTertiary = null; $bgSecondary = null;
         foreach ($themeData['color_settings'] ?? [] as $color) {
-            if (empty($color['setting_key']) || empty($color['color_value'])) continue;
-            $val    = $sanitizeCssValue((string)$color['color_value']);
+            if (empty($color['setting_key']) || empty($color['color_value'])) { continue; }
+            $val = $sanitizeCssValue((string)$color['color_value']);
             $hyphen = $hyphenateKey($color['setting_key']);
             $css .= "  --{$hyphen}: {$val};\n";
-            // Also emit the original underscore form in case existing CSS references it
-            if ($color['setting_key'] !== $hyphen) {
-                $css .= "  --{$color['setting_key']}: {$val};\n";
-            }
-            if ($hyphen === 'background-tertiary') {
-                $bgTertiary = $val;
-            } elseif ($hyphen === 'background-secondary') {
-                $bgSecondary = $val;
-            }
+            if ($color['setting_key'] !== $hyphen) { $css .= "  --{$color['setting_key']}: {$val};\n"; }
+            if ($hyphen === 'background-tertiary') { $bgTertiary = $val; }
+            elseif ($hyphen === 'background-secondary') { $bgSecondary = $val; }
         }
-
-        // Stable convenience aliases derived from background colors
         $theadBg = $bgTertiary ?? $bgSecondary;
-        if ($theadBg !== null) {
-            $css .= "  --thead-bg: {$theadBg};\n";
-        }
-        if ($bgSecondary !== null) {
-            $css .= "  --input-background: {$bgSecondary};\n";
-        }
+        if ($theadBg !== null) { $css .= "  --thead-bg: {$theadBg};\n"; }
+        if ($bgSecondary !== null) { $css .= "  --input-background: {$bgSecondary};\n"; }
 
-        // Cross-key aliases (only when the target key is not already in DB)
-        $aliasMap = [
-            '--danger-color' => '--error-color',       // DB may store error_color
-            '--card-bg'      => '--background-secondary',
-        ];
+        $aliasMap = ['--danger-color' => '--error-color', '--card-bg' => '--background-secondary'];
         foreach ($aliasMap as $target => $source) {
             $sourceKey = ltrim($source, '-');
             $sourceVal = null;
             foreach ($themeData['color_settings'] ?? [] as $color) {
-                if (empty($color['setting_key']) || empty($color['color_value'])) continue;
-                if ($hyphenateKey($color['setting_key']) === $sourceKey) {
-                    $sourceVal = $sanitizeCssValue((string)$color['color_value']);
-                    break;
-                }
+                if (!empty($color['setting_key']) && !empty($color['color_value']) && $hyphenateKey($color['setting_key']) === $sourceKey) { $sourceVal = $sanitizeCssValue((string)$color['color_value']); break; }
             }
-            if ($sourceVal === null) continue;
-            $targetKey  = ltrim($target, '-');
+            if ($sourceVal === null) { continue; }
+            $targetKey = ltrim($target, '-');
             $alreadySet = false;
             foreach ($themeData['color_settings'] ?? [] as $color) {
-                if (!empty($color['setting_key']) && $hyphenateKey($color['setting_key']) === $targetKey) {
-                    $alreadySet = true;
-                    break;
-                }
+                if (!empty($color['setting_key']) && $hyphenateKey($color['setting_key']) === $targetKey) { $alreadySet = true; break; }
             }
-            if (!$alreadySet) {
-                $css .= "  {$target}: {$sourceVal};\n";
-            }
+            if (!$alreadySet) { $css .= "  {$target}: {$sourceVal};\n"; }
         }
+        return $css;
+    }
 
-        // ── Font settings ────────────────────────────────────────────────────────
+    private function generateFontVars(array $themeData, callable $hyphenateKey, callable $sanitizeCssValue): string
+    {
+        $css = '';
         foreach ($themeData['font_settings'] ?? [] as $font) {
-            if (empty($font['setting_key'])) continue;
+            if (empty($font['setting_key'])) { continue; }
             $hyphen = $hyphenateKey($font['setting_key']);
-            if (!empty($font['font_family'])) {
-                $css .= "  --{$hyphen}-family: " . $sanitizeCssValue((string)$font['font_family']) . ";\n";
-            }
-            if (!empty($font['font_size'])) {
-                $css .= "  --{$hyphen}-size: " . $sanitizeCssValue((string)$font['font_size']) . ";\n";
-            }
-            if (!empty($font['font_weight'])) {
-                $css .= "  --{$hyphen}-weight: " . $sanitizeCssValue((string)$font['font_weight']) . ";\n";
-            }
-            if (!empty($font['line_height'])) {
-                $css .= "  --{$hyphen}-line-height: " . $sanitizeCssValue((string)$font['line_height']) . ";\n";
-            }
+            if (!empty($font['font_family'])) { $css .= "  --{$hyphen}-family: " . $sanitizeCssValue((string)$font['font_family']) . ";\n"; }
+            if (!empty($font['font_size'])) { $css .= "  --{$hyphen}-size: " . $sanitizeCssValue((string)$font['font_size']) . ";\n"; }
+            if (!empty($font['font_weight'])) { $css .= "  --{$hyphen}-weight: " . $sanitizeCssValue((string)$font['font_weight']) . ";\n"; }
+            if (!empty($font['line_height'])) { $css .= "  --{$hyphen}-line-height: " . $sanitizeCssValue((string)$font['line_height']) . ";\n"; }
         }
+        return $css;
+    }
 
-        // ── Design settings → CSS variables ─────────────────────────────────────
-        // Emit color/text/number setting_type entries as CSS variables so layout
-        // and spacing values defined in the DB are available to all page CSS files.
+    private function generateDesignVars(array $themeData, callable $hyphenateKey, callable $sanitizeCssValue): string
+    {
+        $css = '';
         foreach ($themeData['design_settings'] ?? [] as $ds) {
-            if (empty($ds['setting_key']) || empty($ds['setting_value'])) continue;
+            if (empty($ds['setting_key']) || empty($ds['setting_value'])) { continue; }
             $type = strtolower($ds['setting_type'] ?? 'text');
-            if (!in_array($type, ['color', 'text', 'number'], true)) continue;
-            $hyphen = $hyphenateKey($ds['setting_key']);
-            $css .= "  --{$hyphen}: " . $sanitizeCssValue((string)$ds['setting_value']) . ";\n";
+            if (!in_array($type, ['color', 'text', 'number'], true)) { continue; }
+            $css .= "  --" . $hyphenateKey($ds['setting_key']) . ": " . $sanitizeCssValue((string)$ds['setting_value']) . ";\n";
         }
+        return $css;
+    }
 
-        // ── Button styles → :root CSS variables ─────────────────────────────────
-        // Variables are emitted as --btn-{slug}-{property} so page CSS can reference
-        // button properties via CSS variables without hardcoding.  This enables
-        // page-specific prefixed buttons: a page can use var(--btn-primary-bg)
-        // to style its own prefixed buttons (e.g. .prd-btn-primary).
+    private function generateButtonVars(array $themeData, callable $safeCssIdent, callable $sanitizeCssValue): string
+    {
+        $css = '';
         foreach ($themeData['button_styles'] ?? [] as $button) {
-            if (empty($button['slug'])) continue;
+            if (empty($button['slug'])) { continue; }
             $slug = $safeCssIdent((string)$button['slug']);
-            if (!empty($button['background_color']))       $css .= "  --btn-{$slug}-bg: "           . $sanitizeCssValue((string)$button['background_color']) . ";\n";
-            if (!empty($button['text_color']))             $css .= "  --btn-{$slug}-color: "        . $sanitizeCssValue((string)$button['text_color']) . ";\n";
-            if (!empty($button['border_color']))           $css .= "  --btn-{$slug}-border: "       . $sanitizeCssValue((string)$button['border_color']) . ";\n";
-            if (!empty($button['border_width']))           $css .= "  --btn-{$slug}-border-width: " . (int)$button['border_width'] . "px;\n";
-            if (!empty($button['border_radius']))          $css .= "  --btn-{$slug}-radius: "       . (int)$button['border_radius'] . "px;\n";
-            if (!empty($button['padding']))                $css .= "  --btn-{$slug}-padding: "      . $sanitizeCssValue((string)$button['padding']) . ";\n";
-            if (!empty($button['font_size']))              $css .= "  --btn-{$slug}-font-size: "    . $sanitizeCssValue((string)$button['font_size']) . ";\n";
-            if (!empty($button['font_weight']))            $css .= "  --btn-{$slug}-font-weight: "  . $sanitizeCssValue((string)$button['font_weight']) . ";\n";
-            if (!empty($button['hover_background_color'])) $css .= "  --btn-{$slug}-hover-bg: "     . $sanitizeCssValue((string)$button['hover_background_color']) . ";\n";
-            if (!empty($button['hover_text_color']))       $css .= "  --btn-{$slug}-hover-color: "  . $sanitizeCssValue((string)$button['hover_text_color']) . ";\n";
-            if (!empty($button['hover_border_color']))     $css .= "  --btn-{$slug}-hover-border: " . $sanitizeCssValue((string)$button['hover_border_color']) . ";\n";
+            if (!empty($button['background_color']))       { $css .= "  --btn-{$slug}-bg: " . $sanitizeCssValue((string)$button['background_color']) . ";\n"; }
+            if (!empty($button['text_color']))             { $css .= "  --btn-{$slug}-color: " . $sanitizeCssValue((string)$button['text_color']) . ";\n"; }
+            if (!empty($button['border_color']))           { $css .= "  --btn-{$slug}-border: " . $sanitizeCssValue((string)$button['border_color']) . ";\n"; }
+            if (!empty($button['border_width']))           { $css .= "  --btn-{$slug}-border-width: " . (int)$button['border_width'] . "px;\n"; }
+            if (!empty($button['border_radius']))          { $css .= "  --btn-{$slug}-radius: " . (int)$button['border_radius'] . "px;\n"; }
+            if (!empty($button['padding']))                { $css .= "  --btn-{$slug}-padding: " . $sanitizeCssValue((string)$button['padding']) . ";\n"; }
+            if (!empty($button['font_size']))              { $css .= "  --btn-{$slug}-font-size: " . $sanitizeCssValue((string)$button['font_size']) . ";\n"; }
+            if (!empty($button['font_weight']))            { $css .= "  --btn-{$slug}-font-weight: " . $sanitizeCssValue((string)$button['font_weight']) . ";\n"; }
+            if (!empty($button['hover_background_color'])) { $css .= "  --btn-{$slug}-hover-bg: " . $sanitizeCssValue((string)$button['hover_background_color']) . ";\n"; }
+            if (!empty($button['hover_text_color']))       { $css .= "  --btn-{$slug}-hover-color: " . $sanitizeCssValue((string)$button['hover_text_color']) . ";\n"; }
+            if (!empty($button['hover_border_color']))     { $css .= "  --btn-{$slug}-hover-border: " . $sanitizeCssValue((string)$button['hover_border_color']) . ";\n"; }
         }
+        return $css;
+    }
 
-        // ── Card styles → :root CSS variables ────────────────────────────────────
-        // Variables are emitted as --card-{slug}-{property} so page CSS can reference
-        // them without hardcoding colors.  POS-specific aliases (--card-product-*,
-        // --card-category-*) are also emitted for the first active card of each type.
+    private function generateCardVars(array $themeData, callable $safeCssIdent, callable $sanitizeCssValue): string
+    {
+        $css = '';
         $posCardTypesSeen = [];
         foreach ($themeData['card_styles'] ?? [] as $card) {
-            if (empty($card['slug'])) continue;
+            if (empty($card['slug'])) { continue; }
             $slug = $safeCssIdent((string)$card['slug']);
-            if (!empty($card['background_color'])) $css .= "  --card-{$slug}-bg: "           . $sanitizeCssValue((string)$card['background_color']) . ";\n";
-            if (!empty($card['border_color']))     $css .= "  --card-{$slug}-border: "        . $sanitizeCssValue((string)$card['border_color']) . ";\n";
-            if (!empty($card['border_radius']))    $css .= "  --card-{$slug}-radius: "        . $sanitizeCssValue((string)$card['border_radius']) . "px;\n";
-            if (!empty($card['shadow_style']))     $css .= "  --card-{$slug}-shadow: "        . $sanitizeCssValue((string)$card['shadow_style']) . ";\n";
-            if (!empty($card['padding']))          $css .= "  --card-{$slug}-padding: "       . $sanitizeCssValue((string)$card['padding']) . ";\n";
-            if (!empty($card['text_color']))       $css .= "  --card-{$slug}-text: "          . $sanitizeCssValue((string)$card['text_color']) . ";\n";
-            if (!empty($card['border_width']))     $css .= "  --card-{$slug}-border-width: "  . $sanitizeCssValue((string)$card['border_width']) . "px;\n";
-
-            // POS card_type aliases — first active card per type wins
+            if (!empty($card['background_color'])) { $css .= "  --card-{$slug}-bg: " . $sanitizeCssValue((string)$card['background_color']) . ";\n"; }
+            if (!empty($card['border_color']))     { $css .= "  --card-{$slug}-border: " . $sanitizeCssValue((string)$card['border_color']) . ";\n"; }
+            if (!empty($card['border_radius']))    { $css .= "  --card-{$slug}-radius: " . $sanitizeCssValue((string)$card['border_radius']) . "px;\n"; }
+            if (!empty($card['shadow_style']))     { $css .= "  --card-{$slug}-shadow: " . $sanitizeCssValue((string)$card['shadow_style']) . ";\n"; }
+            if (!empty($card['padding']))          { $css .= "  --card-{$slug}-padding: " . $sanitizeCssValue((string)$card['padding']) . ";\n"; }
+            if (!empty($card['text_color']))       { $css .= "  --card-{$slug}-text: " . $sanitizeCssValue((string)$card['text_color']) . ";\n"; }
+            if (!empty($card['border_width']))     { $css .= "  --card-{$slug}-border-width: " . $sanitizeCssValue((string)$card['border_width']) . "px;\n"; }
             $cardType = $card['card_type'] ?? '';
             if (in_array($cardType, self::POS_CARD_TYPES, true) && !isset($posCardTypesSeen[$cardType])) {
                 $posCardTypesSeen[$cardType] = true;
                 $tp = "--card-{$cardType}";
-                if (!empty($card['background_color'])) $css .= "  {$tp}-bg: "           . $sanitizeCssValue((string)$card['background_color']) . ";\n";
-                if (!empty($card['text_color']))       $css .= "  {$tp}-text: "          . $sanitizeCssValue((string)$card['text_color']) . ";\n";
-                if (!empty($card['border_color']))     $css .= "  {$tp}-border: "        . $sanitizeCssValue((string)$card['border_color']) . ";\n";
-                if (!empty($card['border_width']))     $css .= "  {$tp}-border-width: "  . $sanitizeCssValue((string)$card['border_width']) . "px;\n";
-                if (!empty($card['border_radius']))    $css .= "  {$tp}-radius: "        . $sanitizeCssValue((string)$card['border_radius']) . "px;\n";
-                if (!empty($card['shadow_style']))     $css .= "  {$tp}-shadow: "        . $sanitizeCssValue((string)$card['shadow_style']) . ";\n";
-                if (!empty($card['padding']))          $css .= "  {$tp}-padding: "       . $sanitizeCssValue((string)$card['padding']) . ";\n";
+                if (!empty($card['background_color'])) { $css .= "  {$tp}-bg: " . $sanitizeCssValue((string)$card['background_color']) . ";\n"; }
+                if (!empty($card['text_color']))       { $css .= "  {$tp}-text: " . $sanitizeCssValue((string)$card['text_color']) . ";\n"; }
+                if (!empty($card['border_color']))     { $css .= "  {$tp}-border: " . $sanitizeCssValue((string)$card['border_color']) . ";\n"; }
+                if (!empty($card['border_width']))     { $css .= "  {$tp}-border-width: " . $sanitizeCssValue((string)$card['border_width']) . "px;\n"; }
+                if (!empty($card['border_radius']))    { $css .= "  {$tp}-radius: " . $sanitizeCssValue((string)$card['border_radius']) . "px;\n"; }
+                if (!empty($card['shadow_style']))     { $css .= "  {$tp}-shadow: " . $sanitizeCssValue((string)$card['shadow_style']) . ";\n"; }
+                if (!empty($card['padding']))          { $css .= "  {$tp}-padding: " . $sanitizeCssValue((string)$card['padding']) . ";\n"; }
             }
         }
+        return $css;
+    }
 
-        $css .= "}\n";
-
-        // ── Button styles → concrete CSS classes ─────────────────────────────────
+    private function generateButtonClasses(array $themeData, callable $safeCssIdent, callable $sanitizeCssValue): string
+    {
+        $css = '';
         foreach ($themeData['button_styles'] ?? [] as $button) {
-            if (empty($button['slug'])) continue;
+            if (empty($button['slug'])) { continue; }
             $slug = $safeCssIdent((string)$button['slug']);
             $css .= ".btn-{$slug} {\n";
-            if (!empty($button['background_color'])) $css .= "  background-color: " . $sanitizeCssValue((string)$button['background_color']) . ";\n";
-            if (!empty($button['text_color']))       $css .= "  color: "             . $sanitizeCssValue((string)$button['text_color']) . ";\n";
-            if (!empty($button['border_color'])) {
-                $bw = (int)($button['border_width'] ?? 1);
-                $css .= "  border: {$bw}px solid " . $sanitizeCssValue((string)$button['border_color']) . ";\n";
-            }
-            if (!empty($button['border_radius'])) $css .= "  border-radius: " . (int)$button['border_radius'] . "px;\n";
-            if (!empty($button['padding']))        $css .= "  padding: "       . $sanitizeCssValue((string)$button['padding']) . ";\n";
-            if (!empty($button['font_size']))      $css .= "  font-size: "     . $sanitizeCssValue((string)$button['font_size']) . ";\n";
-            if (!empty($button['font_weight']))    $css .= "  font-weight: "   . $sanitizeCssValue((string)$button['font_weight']) . ";\n";
-            $css .= "  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;\n";
-            $css .= "}\n";
-
-            // Hover state — only emit the block when at least one hover value exists
-            $hasHover = !empty($button['hover_background_color'])
-                     || !empty($button['hover_text_color'])
-                     || !empty($button['hover_border_color']);
+            if (!empty($button['background_color'])) { $css .= "  background-color: " . $sanitizeCssValue((string)$button['background_color']) . ";\n"; }
+            if (!empty($button['text_color']))       { $css .= "  color: " . $sanitizeCssValue((string)$button['text_color']) . ";\n"; }
+            if (!empty($button['border_color']))     { $bw = (int)($button['border_width'] ?? 1); $css .= "  border: {$bw}px solid " . $sanitizeCssValue((string)$button['border_color']) . ";\n"; }
+            if (!empty($button['border_radius']))    { $css .= "  border-radius: " . (int)$button['border_radius'] . "px;\n"; }
+            if (!empty($button['padding']))          { $css .= "  padding: " . $sanitizeCssValue((string)$button['padding']) . ";\n"; }
+            if (!empty($button['font_size']))        { $css .= "  font-size: " . $sanitizeCssValue((string)$button['font_size']) . ";\n"; }
+            if (!empty($button['font_weight']))      { $css .= "  font-weight: " . $sanitizeCssValue((string)$button['font_weight']) . ";\n"; }
+            $css .= "  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;\n}\n";
+            $hasHover = !empty($button['hover_background_color']) || !empty($button['hover_text_color']) || !empty($button['hover_border_color']);
             if ($hasHover) {
                 $css .= ".btn-{$slug}:hover,\n.btn-{$slug}:focus-visible {\n";
-                if (!empty($button['hover_background_color'])) $css .= "  background-color: " . $sanitizeCssValue((string)$button['hover_background_color']) . ";\n";
-                if (!empty($button['hover_text_color']))       $css .= "  color: "             . $sanitizeCssValue((string)$button['hover_text_color']) . ";\n";
-                if (!empty($button['hover_border_color']))     $css .= "  border-color: "      . $sanitizeCssValue((string)$button['hover_border_color']) . ";\n";
+                if (!empty($button['hover_background_color'])) { $css .= "  background-color: " . $sanitizeCssValue((string)$button['hover_background_color']) . ";\n"; }
+                if (!empty($button['hover_text_color']))       { $css .= "  color: " . $sanitizeCssValue((string)$button['hover_text_color']) . ";\n"; }
+                if (!empty($button['hover_border_color']))     { $css .= "  border-color: " . $sanitizeCssValue((string)$button['hover_border_color']) . ";\n"; }
                 $css .= "}\n";
             }
         }
+        return $css;
+    }
 
-        // ── Card styles → concrete CSS classes ───────────────────────────────────
-        // hover_effect values map to CSS transitions/transforms on the :hover selector.
-        $hoverEffectMap = [
-            'lift'       => "transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.15);",
-            'zoom'       => "transform: scale(1.03);",
-            'shadow'     => "box-shadow: 0 8px 24px rgba(0,0,0,0.2);",
-            'border'     => "border-color: var(--primary-color, #3B82F6);",
-            'brightness' => "filter: brightness(1.08);",
-        ];
+    private function generateCardClasses(array $themeData, callable $safeCssIdent, callable $sanitizeCssValue): string
+    {
+        $css = '';
+        $hoverEffectMap = ['lift' => "transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.15);", 'zoom' => "transform: scale(1.03);", 'shadow' => "box-shadow: 0 8px 24px rgba(0,0,0,0.2);", 'border' => "border-color: var(--primary-color, #3B82F6);", 'brightness' => "filter: brightness(1.08);"];
         foreach ($themeData['card_styles'] ?? [] as $card) {
-            if (empty($card['slug'])) continue;
-            $slug   = $safeCssIdent((string)$card['slug']);
+            if (empty($card['slug'])) { continue; }
+            $slug = $safeCssIdent((string)$card['slug']);
             $effect = strtolower((string)($card['hover_effect'] ?? 'none'));
             $css .= ".card-{$slug} {\n";
-            if (!empty($card['background_color'])) $css .= "  background-color: " . $sanitizeCssValue((string)$card['background_color']) . ";\n";
-            if (!empty($card['border_color'])) {
-                $bw = (int)($card['border_width'] ?? 1);
-                $css .= "  border: {$bw}px solid " . $sanitizeCssValue((string)$card['border_color']) . ";\n";
-            }
-            if (!empty($card['border_radius'])) $css .= "  border-radius: " . (int)$card['border_radius'] . "px;\n";
-            if (!empty($card['shadow_style']))   $css .= "  box-shadow: "    . $sanitizeCssValue((string)$card['shadow_style']) . ";\n";
-            if (!empty($card['padding']))        $css .= "  padding: "       . $sanitizeCssValue((string)$card['padding']) . ";\n";
-            if (!empty($card['text_align']) && in_array($card['text_align'], ['left', 'center', 'right'], true)) {
-                $css .= "  text-align: {$card['text_align']};\n";
-            }
-            if ($effect !== 'none' && isset($hoverEffectMap[$effect])) {
-                $css .= "  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease;\n";
-            }
+            if (!empty($card['background_color'])) { $css .= "  background-color: " . $sanitizeCssValue((string)$card['background_color']) . ";\n"; }
+            if (!empty($card['border_color']))     { $bw = (int)($card['border_width'] ?? 1); $css .= "  border: {$bw}px solid " . $sanitizeCssValue((string)$card['border_color']) . ";\n"; }
+            if (!empty($card['border_radius']))    { $css .= "  border-radius: " . (int)$card['border_radius'] . "px;\n"; }
+            if (!empty($card['shadow_style']))     { $css .= "  box-shadow: " . $sanitizeCssValue((string)$card['shadow_style']) . ";\n"; }
+            if (!empty($card['padding']))          { $css .= "  padding: " . $sanitizeCssValue((string)$card['padding']) . ";\n"; }
+            if (!empty($card['text_align']) && in_array($card['text_align'], ['left', 'center', 'right'], true)) { $css .= "  text-align: {$card['text_align']};\n"; }
+            if ($effect !== 'none' && isset($hoverEffectMap[$effect])) { $css .= "  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease;\n"; }
             $css .= "}\n";
-
-            // Hover block — only when a supported effect is set
-            if ($effect !== 'none' && isset($hoverEffectMap[$effect])) {
-                $css .= ".card-{$slug}:hover {\n";
-                $css .= "  " . $hoverEffectMap[$effect] . "\n";
-                $css .= "}\n";
-            }
+            if ($effect !== 'none' && isset($hoverEffectMap[$effect])) { $css .= ".card-{$slug}:hover {\n  " . $hoverEffectMap[$effect] . "\n}\n"; }
         }
-
         return $css;
     }
 }

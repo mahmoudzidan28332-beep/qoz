@@ -157,130 +157,60 @@ final class PdoCartItemsRepository
     public function save(int $tenantId, array $data): int
     {
         $isUpdate = !empty($data['id']);
-
-        // Extract allowed columns
-        $params = [];
-        foreach (self::CART_ITEM_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
-            }
-        }
-
-        // Set defaults
-        if (empty($params[':currency_code'])) {
-            $params[':currency_code'] = 'SAR';
-        }
-        if (empty($params[':quantity'])) {
-            $params[':quantity'] = 1;
-        }
-        if (empty($params[':is_gift'])) {
-            $params[':is_gift'] = 0;
-        }
-
-        // Calculate totals if not provided
-        $quantity = (int)($params[':quantity'] ?? 1);
-        $unitPrice = (float)($params[':unit_price'] ?? 0);
-        $salePrice = isset($params[':sale_price']) && $params[':sale_price'] !== null 
-            ? (float)$params[':sale_price'] 
-            : $unitPrice;
-        $discountAmount = (float)($params[':discount_amount'] ?? 0);
-        $taxRate = (float)($params[':tax_rate'] ?? 0);
-
-        // Calculate subtotal
-        $subtotal = $quantity * $salePrice - $discountAmount;
-        $params[':subtotal'] = $subtotal;
-
-        // Calculate tax
-        $taxAmount = $subtotal * ($taxRate / 100);
-        $params[':tax_amount'] = $taxAmount;
-
-        // Calculate total
-        $params[':total'] = $subtotal + $taxAmount;
+        $params = $this->buildCartItemParams($data);
 
         if ($isUpdate) {
-            // Verify item belongs to tenant
-            $checkStmt = $this->pdo->prepare("
-                SELECT ci.id 
-                FROM cart_items ci
-                INNER JOIN carts c ON ci.cart_id = c.id
-                INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id
-                WHERE ci.id = :id
-            ");
-            $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-            if (!$checkStmt->fetch()) {
-                throw new RuntimeException('Cart item not found or access denied');
-            }
-
-            $params[':id'] = (int)$data['id'];
-
-            $stmt = $this->pdo->prepare("
-                UPDATE cart_items SET
-                    cart_id = :cart_id,
-                    product_id = :product_id,
-                    product_variant_id = :product_variant_id,
-                    entity_id = :entity_id,
-                    product_name = :product_name,
-                    sku = :sku,
-                    quantity = :quantity,
-                    unit_price = :unit_price,
-                    sale_price = :sale_price,
-                    discount_amount = :discount_amount,
-                    tax_rate = :tax_rate,
-                    tax_amount = :tax_amount,
-                    subtotal = :subtotal,
-                    total = :total,
-                    currency_code = :currency_code,
-                    selected_attributes = :selected_attributes,
-                    special_instructions = :special_instructions,
-                    is_gift = :is_gift,
-                    gift_message = :gift_message,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            $stmt->execute($params);
-            
-            // Update cart totals
-            $this->updateCartTotals($tenantId, (int)$params[':cart_id']);
-            
-            return (int)$data['id'];
+            return $this->updateCartItem($tenantId, $data, $params);
         }
+        return $this->insertCartItem($tenantId, $params);
+    }
 
-        // Verify cart belongs to tenant
-        $checkStmt = $this->pdo->prepare("
-            SELECT c.id 
-            FROM carts c
-            WHERE c.id = :cart_id 
-            AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)
-        ");
+    private function buildCartItemParams(array $data): array
+    {
+        $params = [];
+        foreach (self::CART_ITEM_COLUMNS as $col) {
+            $val = $data[$col] ?? null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
+        }
+        if (empty($params[':currency_code'])) { $params[':currency_code'] = 'SAR'; }
+        if (empty($params[':quantity'])) { $params[':quantity'] = 1; }
+        if (empty($params[':is_gift'])) { $params[':is_gift'] = 0; }
+        $quantity = (int)($params[':quantity'] ?? 1);
+        $unitPrice = (float)($params[':unit_price'] ?? 0);
+        $salePrice = isset($params[':sale_price']) && $params[':sale_price'] !== null ? (float)$params[':sale_price'] : $unitPrice;
+        $discountAmount = (float)($params[':discount_amount'] ?? 0);
+        $taxRate = (float)($params[':tax_rate'] ?? 0);
+        $subtotal = $quantity * $salePrice - $discountAmount;
+        $params[':subtotal'] = $subtotal;
+        $params[':tax_amount'] = $subtotal * ($taxRate / 100);
+        $params[':total'] = $subtotal + $params[':tax_amount'];
+        return $params;
+    }
+
+    private function updateCartItem(int $tenantId, array $data, array $params): int
+    {
+        $checkStmt = $this->pdo->prepare("SELECT ci.id FROM cart_items ci INNER JOIN carts c ON ci.cart_id = c.id INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id WHERE ci.id = :id");
+        $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
+        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart item not found or access denied'); }
+        $params[':id'] = (int)$data['id'];
+        $setParts = array_map(fn($c) => "$c = :$c", self::CART_ITEM_COLUMNS);
+        $stmt = $this->pdo->prepare("UPDATE cart_items SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
+        $stmt->execute($params);
+        $this->updateCartTotals($tenantId, (int)$params[':cart_id']);
+        return (int)$data['id'];
+    }
+
+    private function insertCartItem(int $tenantId, array $params): int
+    {
+        $checkStmt = $this->pdo->prepare("SELECT c.id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
         $checkStmt->execute([':cart_id' => $params[':cart_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new RuntimeException('Cart not found or access denied');
-        }
-
-        $stmt = $this->pdo->prepare("
-            INSERT INTO cart_items (
-                cart_id, product_id, product_variant_id, entity_id,
-                product_name, sku, quantity, unit_price, sale_price,
-                discount_amount, tax_rate, tax_amount, subtotal, total,
-                currency_code, selected_attributes, special_instructions,
-                is_gift, gift_message
-            ) VALUES (
-                :cart_id, :product_id, :product_variant_id, :entity_id,
-                :product_name, :sku, :quantity, :unit_price, :sale_price,
-                :discount_amount, :tax_rate, :tax_amount, :subtotal, :total,
-                :currency_code, :selected_attributes, :special_instructions,
-                :is_gift, :gift_message
-            )
-        ");
+        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart not found or access denied'); }
+        $colStr = implode(', ', self::CART_ITEM_COLUMNS);
+        $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_ITEM_COLUMNS));
+        $stmt = $this->pdo->prepare("INSERT INTO cart_items ($colStr) VALUES ($phStr)");
         $stmt->execute($params);
         $newId = (int)$this->pdo->lastInsertId();
-        
-        // Update cart totals
         $this->updateCartTotals($tenantId, (int)$params[':cart_id']);
-        
         return $newId;
     }
 

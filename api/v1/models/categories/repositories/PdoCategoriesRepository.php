@@ -192,112 +192,56 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
     {
         if ($tenantId === null) {
             if (empty($data['tenant_id'])) {
-                throw new \InvalidArgumentException(
-                    'tenant_id is required in data when super admin saves a category'
-                );
+                throw new \InvalidArgumentException('tenant_id is required in data when super admin saves a category');
             }
             $tenantId = (int) $data['tenant_id'];
         }
 
         $isUpdate = !empty($data['id']);
-        $oldData  = $isUpdate
-            ? $this->findByIdWithTranslations($tenantId, (int) $data['id'])
-            : null;
+        $oldData  = $isUpdate ? $this->findByIdWithTranslations($tenantId, (int) $data['id']) : null;
 
         $this->pdo->beginTransaction();
         try {
-            if ($isUpdate) {
-                $stmt = $this->pdo->prepare("
-                    UPDATE categories SET
-                        parent_id   = :parent_id,
-                        slug        = :slug,
-                        name        = :name,
-                        description = :description,
-                        sort_order  = :sort_order,
-                        is_active   = :is_active,
-                        is_featured = :is_featured,
-                        updated_at  = NOW()
-                    WHERE tenant_id = :tenantId AND id = :id
-                ");
-                $stmt->execute([
-                    ':parent_id'   => $data['parent_id'] ?? null,
-                    ':slug'        => $data['slug'],
-                    ':name'        => $data['name'],
-                    ':description' => $data['description'] ?? null,
-                    ':sort_order'  => (int) ($data['sort_order']  ?? 0),
-                    ':is_active'   => (int) ($data['is_active']   ?? 1),
-                    ':is_featured' => (int) ($data['is_featured'] ?? 0),
-                    ':tenantId'    => $tenantId,
-                    ':id'          => (int) $data['id'],
-                ]);
-                $categoryId = (int) $data['id'];
-            } else {
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO categories
-                        (tenant_id, parent_id, slug, name, description,
-                         sort_order, is_active, is_featured, created_at)
-                    VALUES
-                        (:tenantId, :parent_id, :slug, :name, :description,
-                         :sort_order, :is_active, :is_featured, NOW())
-                ");
-                $stmt->execute([
-                    ':tenantId'    => $tenantId,
-                    ':parent_id'   => $data['parent_id'] ?? null,
-                    ':slug'        => $data['slug'],
-                    ':name'        => $data['name'],
-                    ':description' => $data['description'] ?? null,
-                    ':sort_order'  => (int) ($data['sort_order']  ?? 0),
-                    ':is_active'   => (int) ($data['is_active']   ?? 1),
-                    ':is_featured' => (int) ($data['is_featured'] ?? 0),
-                ]);
-                $categoryId = (int) $this->pdo->lastInsertId();
-            }
+            $categoryId = $isUpdate
+                ? $this->updateCategory($tenantId, $data)
+                : $this->insertCategory($tenantId, $data);
 
-            // ── Image ────────────────────────────────────────────
-            if (!empty($data['image_id'])) {
-                $this->pdo->prepare("
-                    UPDATE images
-                    SET owner_id = :owner_id, is_main = 1
-                    WHERE id = :image_id AND tenant_id = :tenantId
-                ")->execute([
-                    ':owner_id' => $categoryId,
-                    ':image_id' => (int) $data['image_id'],
-                    ':tenantId' => $tenantId,
-                ]);
-            }
+            $this->saveCategoryRelations($tenantId, $categoryId, $data);
 
-            // ── Translations ─────────────────────────────────────
-            if (isset($data['translations']) && is_array($data['translations'])) {
-                $this->saveTranslations($categoryId, $data['translations']);
-            }
-
-            // ── Deleted translations ──────────────────────────────
-            if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
-                foreach ($data['deleted_translations'] as $translation) {
-                    if (!empty($translation['language_code'])) {
-                        $this->deleteTranslation($categoryId, $translation['language_code']);
-                    }
-                }
-            }
-
-            // ── Audit log ────────────────────────────────────────
-            if ($userId) {
-                $this->logAction(
-                    $tenantId,
-                    $userId,
-                    $isUpdate ? 'update' : 'create',
-                    $categoryId,
-                    $oldData,
-                    $data
-                );
-            }
+            if ($userId) { $this->logAction($tenantId, $userId, $isUpdate ? 'update' : 'create', $categoryId, $oldData, $data); }
 
             $this->pdo->commit();
             return $categoryId;
-
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
             throw $e;
+        }
+    }
+
+    private function updateCategory(int $tenantId, array $data): int
+    {
+        $stmt = $this->pdo->prepare("UPDATE categories SET parent_id = :parent_id, slug = :slug, name = :name, description = :description, sort_order = :sort_order, is_active = :is_active, is_featured = :is_featured, updated_at = NOW() WHERE tenant_id = :tenantId AND id = :id");
+        $stmt->execute([':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0), ':tenantId' => $tenantId, ':id' => (int)$data['id']]);
+        return (int)$data['id'];
+    }
+
+    private function insertCategory(int $tenantId, array $data): int
+    {
+        $stmt = $this->pdo->prepare("INSERT INTO categories (tenant_id, parent_id, slug, name, description, sort_order, is_active, is_featured, created_at) VALUES (:tenantId, :parent_id, :slug, :name, :description, :sort_order, :is_active, :is_featured, NOW())");
+        $stmt->execute([':tenantId' => $tenantId, ':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0)]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    private function saveCategoryRelations(int $tenantId, int $categoryId, array $data): void
+    {
+        if (!empty($data['image_id'])) {
+            $this->pdo->prepare("UPDATE images SET owner_id = :owner_id, is_main = 1 WHERE id = :image_id AND tenant_id = :tenantId")->execute([':owner_id' => $categoryId, ':image_id' => (int)$data['image_id'], ':tenantId' => $tenantId]);
+        }
+        if (isset($data['translations']) && is_array($data['translations'])) { $this->saveTranslations($categoryId, $data['translations']); }
+        if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
+            foreach ($data['deleted_translations'] as $translation) {
+                if (!empty($translation['language_code'])) { $this->deleteTranslation($categoryId, $translation['language_code']); }
+            }
         }
     }
 

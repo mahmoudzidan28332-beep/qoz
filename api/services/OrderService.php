@@ -119,180 +119,113 @@ class OrderService
         $clientProvidedId = $options['client_provided_id'] ?? null;
         $reserveStock = isset($options['reserve_stock']) ? (bool)$options['reserve_stock'] : true;
 
-        // Idempotency check: if client_provided_id exists, try to find existing order
         if ($clientProvidedId) {
-            $stmt = $this->db->prepare("SELECT * FROM orders WHERE client_provided_id = ? LIMIT 1");
-            if ($stmt) {
-                $stmt->bind_param('s', $clientProvidedId);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                if ($res && $res->num_rows) {
-                    $existing = $res->fetch_assoc();
-                    $stmt->close();
-                    return ['success' => true, 'order' => $existing, 'message' => 'Order already exists (idempotent)'];
-                }
-                $stmt->close();
-            }
+            $existing = $this->findByClientId($clientProvidedId);
+            if ($existing) { return ['success' => true, 'order' => $existing, 'message' => 'Order already exists (idempotent)']; }
         }
 
-        // Validate items and optionally reserve/consume stock
         try {
-            if ($reserveStock) {
-                $this->db->begin_transaction();
+            $this->db->begin_transaction();
+            if ($reserveStock) { $this->reserveStock($items); }
 
-                // Check availability and subtract stock atomically
-                foreach ($items as $it) {
-                    $pid = (int)$it['product_id'];
-                    $qty = max(0, (int)$it['quantity']);
-                    if ($qty <= 0) {
-                        throw new Exception("Invalid quantity for product {$pid}");
-                    }
-
-                    // fetch product manage_stock & stock_quantity
-                    $p = $this->productModel->findById($pid);
-                    if (!$p) {
-                        throw new Exception("Product not found: {$pid}");
-                    }
-
-                    $manage = (int)($p['manage_stock'] ?? 0);
-                    $stockQty = (int)($p['stock_quantity'] ?? 0);
-
-                    if ($manage && $stockQty < $qty) {
-                        throw new Exception("Insufficient stock for product: " . ($p['sku'] ?? $pid));
-                    }
-
-                    // subtract stock if managed
-                    if ($manage) {
-                        $stmtUpd = $this->db->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND stock_quantity >= ?");
-                        if (!$stmtUpd) throw new Exception("DB prepare failed for stock update");
-                        $stmtUpd->bind_param('iii', $qty, $pid, $qty);
-                        $stmtUpd->execute();
-                        if ($this->db->affected_rows === 0) {
-                            $stmtUpd->close();
-                            throw new Exception("Failed to reserve stock for product: {$pid}");
-                        }
-                        $stmtUpd->close();
-                    }
-                }
-
-                // if all stock reserved proceed to create order
-                // fall through to insert order and items
-            } else {
-                // start transaction anyway to keep consistency when inserting order and items
-                $this->db->begin_transaction();
-            }
-
-            // Prepare totals
-            $shippingFee = $orderData['shipping_fee'] ?? 0.0;
-            $discount = $orderData['discount_amount'] ?? 0.0;
-            $totals = $this->calculateTotals($items, $shippingFee, $discount);
-
-            // fill default order fields
-            $orderNumber = $this->generateOrderNumber();
-            $order_status = $orderData['order_status'] ?? (defined('ORDER_STATUS_PENDING') ? ORDER_STATUS_PENDING : 'pending');
-            $payment_status = $orderData['payment_status'] ?? (defined('PAYMENT_STATUS_PENDING') ? PAYMENT_STATUS_PENDING : 'pending');
-
-            $stmt = $this->db->prepare("INSERT INTO orders
-                (client_provided_id, user_id, order_number, order_status, payment_status, shipping_address_id, billing_address_id,
-                 shipping_method, shipping_fee, discount_amount, tax_amount, grand_total, currency, payment_method, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-
-            if (!$stmt) {
-                throw new Exception("Failed to prepare order insert");
-            }
-
-            $clientIdParam = $clientProvidedId;
-            $userId = $orderData['user_id'] ?? null;
-            $shippingAddr = $orderData['shipping_address_id'] ?? null;
-            $billingAddr = $orderData['billing_address_id'] ?? null;
-            $shippingMethod = $orderData['shipping_method'] ?? null;
-            $taxAmount = $totals['tax'];
-            $grandTotal = $totals['grand_total'];
-            $currency = $orderData['currency'] ?? ($orderData['currency'] ?? (defined('DEFAULT_CURRENCY') ? DEFAULT_CURRENCY : 'USD'));
-            $paymentMethod = $orderData['payment_method'] ?? null;
-            $notes = $orderData['notes'] ?? null;
-
-            $stmt->bind_param(
-                'sisssiisdidddss',
-                $clientIdParam,
-                $userId,
-                $orderNumber,
-                $order_status,
-                $payment_status,
-                $shippingAddr,
-                $billingAddr,
-                $shippingMethod,
-                $shippingFee,
-                $discount,
-                $taxAmount,
-                $grandTotal,
-                $currency,
-                $paymentMethod,
-                $notes
-            );
-
-            // Note: binding types may require adjustment depending on DB schema; above is best-effort.
-            $execOk = @$stmt->execute();
-            if (!$execOk) {
-                $err = $stmt->error;
-                $stmt->close();
-                throw new Exception("Failed to create order: {$err}");
-            }
-            $orderId = $this->db->insert_id;
-            $stmt->close();
-
-            // Insert order items
-            $stmtItem = $this->db->prepare("INSERT INTO order_items
-                (order_id, product_id, vendor_id, sku, name, quantity, price, total, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            if (!$stmtItem) throw new Exception("Failed to prepare order_items insert");
-
-            foreach ($totals['lines'] as $line) {
-                $vid = $line['vendor_id'] ?? null;
-                $sku = $line['sku'] ?? null;
-                $name = $this->db->real_escape_string($line['name'] ?? '');
-                $qty = (int)$line['quantity'];
-                $price = (float)$line['price'];
-                $total = (float)$line['total'];
-
-                $stmtItem->bind_param('iiissidd', $orderId, $line['product_id'], $vid, $sku, $name, $qty, $price, $total);
-                $ok = @$stmtItem->execute();
-                if (!$ok) {
-                    $err = $stmtItem->error;
-                    $stmtItem->close();
-                    throw new Exception("Failed to insert order item: {$err}");
-                }
-            }
-            $stmtItem->close();
-
-            // Commit transaction
+            $totals = $this->calculateTotals($items, $orderData['shipping_fee'] ?? 0.0, $orderData['discount_amount'] ?? 0.0);
+            $orderId = $this->insertOrder($orderData, $totals, $clientProvidedId);
+            $this->insertOrderItems($orderId, $totals['lines']);
             $this->db->commit();
-
-            // fetch order to return
             $order = $this->getById($orderId);
-
             return ['success' => true, 'order' => $order];
-
         } catch (Throwable $e) {
-            // rollback and try to restore stock if reserved
             try { $this->db->rollback(); } catch (Throwable $_) { error_log('[OrderService] rollback failed: ' . $_->getMessage()); }
-            // if reserveStock was true we attempted subtracting stock for some products; attempt to restore
-            if ($reserveStock && !empty($items)) {
-                foreach ($items as $it) {
-                    $pid = (int)$it['product_id'];
-                    $qty = max(0, (int)$it['quantity']);
-                    if ($qty <= 0) continue;
-                    // best-effort restore — use prepared statement to avoid SQL injection
-                    $restoreStmt = @$this->db->prepare("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?");
-                    if ($restoreStmt) {
-                        $restoreStmt->bind_param('ii', $qty, $pid);
-                        @$restoreStmt->execute();
-                        $restoreStmt->close();
-                    }
-                }
-            }
+            if ($reserveStock && !empty($items)) { $this->restoreStock($items); }
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    private function findByClientId(string $clientProvidedId): ?array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM orders WHERE client_provided_id = ? LIMIT 1");
+        if (!$stmt) { return null; }
+        $stmt->bind_param('s', $clientProvidedId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($res && $res->num_rows) { $existing = $res->fetch_assoc(); $stmt->close(); return $existing; }
+        $stmt->close();
+        return null;
+    }
+
+    private function reserveStock(array $items): void
+    {
+        foreach ($items as $it) {
+            $pid = (int)$it['product_id'];
+            $qty = max(0, (int)$it['quantity']);
+            if ($qty <= 0) { throw new Exception("Invalid quantity for product {$pid}"); }
+            $p = $this->productModel->findById($pid);
+            if (!$p) { throw new Exception("Product not found: {$pid}"); }
+            $manage = (int)($p['manage_stock'] ?? 0);
+            $stockQty = (int)($p['stock_quantity'] ?? 0);
+            if ($manage && $stockQty < $qty) { throw new Exception("Insufficient stock for product: " . ($p['sku'] ?? $pid)); }
+            if ($manage) {
+                $stmtUpd = $this->db->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND stock_quantity >= ?");
+                if (!$stmtUpd) { throw new Exception("DB prepare failed for stock update"); }
+                $stmtUpd->bind_param('iii', $qty, $pid, $qty);
+                $stmtUpd->execute();
+                if ($this->db->affected_rows === 0) { $stmtUpd->close(); throw new Exception("Failed to reserve stock for product: {$pid}"); }
+                $stmtUpd->close();
+            }
+        }
+    }
+
+    private function restoreStock(array $items): void
+    {
+        foreach ($items as $it) {
+            $pid = (int)$it['product_id'];
+            $qty = max(0, (int)$it['quantity']);
+            if ($qty <= 0) { continue; }
+            $restoreStmt = @$this->db->prepare("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?");
+            if ($restoreStmt) { $restoreStmt->bind_param('ii', $qty, $pid); @$restoreStmt->execute(); $restoreStmt->close(); }
+        }
+    }
+
+    private function insertOrder(array $orderData, array $totals, ?string $clientProvidedId): int
+    {
+        $orderNumber = $this->generateOrderNumber();
+        $order_status = $orderData['order_status'] ?? (defined('ORDER_STATUS_PENDING') ? ORDER_STATUS_PENDING : 'pending');
+        $payment_status = $orderData['payment_status'] ?? (defined('PAYMENT_STATUS_PENDING') ? PAYMENT_STATUS_PENDING : 'pending');
+        $stmt = $this->db->prepare("INSERT INTO orders (client_provided_id, user_id, order_number, order_status, payment_status, shipping_address_id, billing_address_id, shipping_method, shipping_fee, discount_amount, tax_amount, grand_total, currency, payment_method, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        if (!$stmt) { throw new Exception("Failed to prepare order insert"); }
+        $userId = $orderData['user_id'] ?? null;
+        $shippingAddr = $orderData['shipping_address_id'] ?? null;
+        $billingAddr = $orderData['billing_address_id'] ?? null;
+        $shippingMethod = $orderData['shipping_method'] ?? null;
+        $shippingFee = $orderData['shipping_fee'] ?? 0.0;
+        $discount = $orderData['discount_amount'] ?? 0.0;
+        $currency = $orderData['currency'] ?? (defined('DEFAULT_CURRENCY') ? DEFAULT_CURRENCY : 'USD');
+        $paymentMethod = $orderData['payment_method'] ?? null;
+        $notes = $orderData['notes'] ?? null;
+        $stmt->bind_param('sisssiisdidddss', $clientProvidedId, $userId, $orderNumber, $order_status, $payment_status, $shippingAddr, $billingAddr, $shippingMethod, $shippingFee, $discount, $totals['tax'], $totals['grand_total'], $currency, $paymentMethod, $notes);
+        $execOk = @$stmt->execute();
+        if (!$execOk) { $err = $stmt->error; $stmt->close(); throw new Exception("Failed to create order: {$err}"); }
+        $orderId = $this->db->insert_id;
+        $stmt->close();
+        return $orderId;
+    }
+
+    private function insertOrderItems(int $orderId, array $lines): void
+    {
+        $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, vendor_id, sku, name, quantity, price, total, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        if (!$stmtItem) { throw new Exception("Failed to prepare order_items insert"); }
+        foreach ($lines as $line) {
+            $vid = $line['vendor_id'] ?? null;
+            $sku = $line['sku'] ?? null;
+            $name = $this->db->real_escape_string($line['name'] ?? '');
+            $qty = (int)$line['quantity'];
+            $price = (float)$line['price'];
+            $total = (float)$line['total'];
+            $stmtItem->bind_param('iiissidd', $orderId, $line['product_id'], $vid, $sku, $name, $qty, $price, $total);
+            $ok = @$stmtItem->execute();
+            if (!$ok) { $err = $stmtItem->error; $stmtItem->close(); throw new Exception("Failed to insert order item: {$err}"); }
+        }
+        $stmtItem->close();
     }
 
     /**

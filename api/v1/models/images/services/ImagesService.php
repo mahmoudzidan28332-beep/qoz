@@ -63,146 +63,84 @@ final class ImagesService
     /* ===================== UPLOAD (FIXED VERSION) ===================== */
     public function upload(int $tenantId, array $data, array $files, ?int $userId = null): array
     {
-        if (empty($files['tmp_name'][0])) {
-            throw new InvalidArgumentException('No files uploaded');
-        }
-        
+        if (empty($files['tmp_name'][0])) { throw new InvalidArgumentException('No files uploaded'); }
         $fileErrors = $this->validator->validateFiles($files);
-        if (!empty($fileErrors)) {
-            throw new InvalidArgumentException('File validation failed: ' . json_encode($fileErrors));
-        }
+        if (!empty($fileErrors)) { throw new InvalidArgumentException('File validation failed: ' . json_encode($fileErrors)); }
 
-        // Get image type settings
         $imageTypeId = (int)($data['image_type_id'] ?? 0);
-        if ($imageTypeId <= 0) {
-            throw new InvalidArgumentException('Image type ID is required');
-        }
-
+        if ($imageTypeId <= 0) { throw new InvalidArgumentException('Image type ID is required'); }
         $imageType = $this->repo->getImageType($imageTypeId);
-        if (!$imageType) {
-            throw new RuntimeException('Image type not found');
-        }
+        if (!$imageType) { throw new RuntimeException('Image type not found'); }
 
-        $uploadedImages = [];
-        $entity = $data['entity'] ?? 'general';
         $ownerId = (int)($data['owner_id'] ?? 0);
-        
-        if ($ownerId <= 0) {
-            throw new InvalidArgumentException('Owner ID is required');
-        }
-
-        // ✅ التحقق إذا كان المالك لديه صورة رئيسية بالفعل
+        if ($ownerId <= 0) { throw new InvalidArgumentException('Owner ID is required'); }
         $hasMainImage = $this->repo->getMainImage($tenantId, $ownerId, $imageTypeId) !== null;
 
-        // Create upload directory
-        $uploadDir = "/uploads/images/{$entity}/" . date('Y/m/d') . "/";
-        $serverBase = $_SERVER['DOCUMENT_ROOT'] . '/admin';
-        $fullDir = $serverBase . $uploadDir;
-        
-        if (!is_dir($fullDir)) {
-            mkdir($fullDir, 0755, true);
-        }
+        $uploadDir = $this->prepareUploadDir($data['entity'] ?? 'general');
+        $uploadedImages = [];
 
         foreach ($files['tmp_name'] as $key => $tmpName) {
-            if (empty($tmpName)) continue;
-            
-            $originalName = $files['name'][$key];
-            $mimeType = $files['type'][$key];
-            $size = $files['size'][$key];
-            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-            
-            // ✅ توليد اسم فريد حقاً باستخدام مزيج من الوقت والعشوائية
-            $microtime = microtime(true);
-            $microtimeStr = str_replace('.', '', (string)$microtime);
-            $randomStr = bin2hex(random_bytes(4));
-            $uniqueId = 'img_' . $microtimeStr . '_' . $randomStr;
-            
-            $baseFilename = $uniqueId;
-            $filename = $baseFilename . '.' . $extension;
-            $serverPath = $fullDir . $filename;
-            
-            // Move uploaded file
-            if (!move_uploaded_file($tmpName, $serverPath)) {
-                throw new RuntimeException("Failed to move uploaded file: {$originalName}");
-            }
-
-            try {
-                // Process image according to image type settings
-                $processedInfo = $this->processImageFile($serverPath, $imageType, $baseFilename);
-                
-                // Update paths if processing was successful
-                if ($processedInfo && $processedInfo['processed_path'] !== $serverPath) {
-                    // Delete original if different format/size
-                    if (file_exists($serverPath)) {
-                        unlink($serverPath);
-                    }
-                    $serverPath = $processedInfo['processed_path'];
-                    $filename = basename($processedInfo['processed_path']);
-                    $mimeType = $processedInfo['mime_type'];
-                    $size = filesize($serverPath);
-                }
-
-                // Web path
-                $webPath = $uploadDir . $filename;
-
-                // Create thumbnail if needed
-                $thumbPath = null;
-                if ($imageType['is_thumbnail'] == 0) {
-                    // Create thumbnail version
-                    $thumbInfo = $this->createThumbnail($serverPath, $baseFilename);
-                    if ($thumbInfo) {
-                        $thumbPath = $uploadDir . $thumbInfo['filename'];
-                    }
-                }
-
-                // ✅ Prepare image data with is_main = 0 ALWAYS during upload
-                $imageData = [
-                    'owner_id' => $ownerId,
-                    'image_type_id' => $imageTypeId,
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId ?? (int)($data['user_id'] ?? 0),
-                    'filename' => $originalName,
-                    'url' => '/admin' . $webPath,
-                    'thumb_url' => $thumbPath ? ('/admin' . $thumbPath) : ('/admin' . $webPath),
-                    'mime_type' => $mimeType,
-                    'size' => $size,
-                    'visibility' => $data['visibility'] ?? 'private',
-                    'is_main' => 0, // ✅ ALWAYS 0 during upload
-                    'sort_order' => (int)($data['sort_order'] ?? 0),
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s')
-                ];
-
-                // ✅ إدراج مباشر باستخدام insertDirect
-                $id = $this->repo->insertDirect($imageData);
-                $savedImage = $this->repo->find($tenantId, $id);
-                
-                if ($savedImage) {
-                    $uploadedImages[] = $savedImage;
-                }
-                
-            } catch (Throwable $e) {
-                // Clean up files on error
-                if (file_exists($serverPath)) {
-                    unlink($serverPath);
-                }
-                if (isset($thumbPath) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath)) {
-                    unlink($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath);
-                }
-                throw new RuntimeException("Failed to process image {$originalName}: " . $e->getMessage());
-            }
+            if (empty($tmpName)) { continue; }
+            $uploadedImages[] = $this->processSingleUpload($tenantId, $data, $files, $key, $tmpName, $imageType, $uploadDir, $userId);
         }
 
-        // ✅ بعد تحميل جميع الصور، إذا لم يكن هناك صورة رئيسية، اجعل أول صورة رئيسية
         if (!$hasMainImage && !empty($uploadedImages)) {
             $firstImage = reset($uploadedImages);
             $this->repo->setMain($tenantId, $ownerId, $imageTypeId, $firstImage['id'], $userId);
-            
-            // تحديث حالة is_main في المصفوفة المعادة
             $firstImage['is_main'] = 1;
         }
-
         return $uploadedImages;
+    }
+
+    private function prepareUploadDir(string $entity): string
+    {
+        $uploadDir = "/uploads/images/{$entity}/" . date('Y/m/d') . "/";
+        $fullDir = $_SERVER['DOCUMENT_ROOT'] . '/admin' . $uploadDir;
+        if (!is_dir($fullDir)) { mkdir($fullDir, 0755, true); }
+        return $uploadDir;
+    }
+
+    private function processSingleUpload(int $tenantId, array $data, array $files, int $key, string $tmpName, array $imageType, string $uploadDir, ?int $userId): array
+    {
+        $originalName = $files['name'][$key];
+        $mimeType = $files['type'][$key];
+        $size = $files['size'][$key];
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $baseFilename = 'img_' . str_replace('.', '', (string)microtime(true)) . '_' . bin2hex(random_bytes(4));
+        $filename = $baseFilename . '.' . $extension;
+        $serverBase = $_SERVER['DOCUMENT_ROOT'] . '/admin';
+        $serverPath = $serverBase . $uploadDir . $filename;
+
+        if (!move_uploaded_file($tmpName, $serverPath)) { throw new RuntimeException("Failed to move uploaded file: {$originalName}"); }
+
+        try {
+            $processedInfo = $this->processImageFile($serverPath, $imageType, $baseFilename);
+            if ($processedInfo && $processedInfo['processed_path'] !== $serverPath) {
+                if (file_exists($serverPath)) { unlink($serverPath); }
+                $serverPath = $processedInfo['processed_path'];
+                $filename = basename($processedInfo['processed_path']);
+                $mimeType = $processedInfo['mime_type'];
+                $size = filesize($serverPath);
+            }
+
+            $webPath = $uploadDir . $filename;
+            $thumbPath = null;
+            if ($imageType['is_thumbnail'] == 0) {
+                $thumbInfo = $this->createThumbnail($serverPath, $baseFilename);
+                if ($thumbInfo) { $thumbPath = $uploadDir . $thumbInfo['filename']; }
+            }
+
+            $imageData = ['owner_id' => (int)($data['owner_id'] ?? 0), 'image_type_id' => (int)($data['image_type_id'] ?? 0), 'tenant_id' => $tenantId, 'user_id' => $userId ?? (int)($data['user_id'] ?? 0), 'filename' => $originalName, 'url' => '/admin' . $webPath, 'thumb_url' => $thumbPath ? ('/admin' . $thumbPath) : ('/admin' . $webPath), 'mime_type' => $mimeType, 'size' => $size, 'visibility' => $data['visibility'] ?? 'private', 'is_main' => 0, 'sort_order' => (int)($data['sort_order'] ?? 0), 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
+
+            $id = $this->repo->insertDirect($imageData);
+            $savedImage = $this->repo->find($tenantId, $id);
+            if (!$savedImage) { throw new RuntimeException("Failed to retrieve saved image"); }
+            return $savedImage;
+        } catch (Throwable $e) {
+            if (file_exists($serverPath)) { unlink($serverPath); }
+            if (isset($thumbPath) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath)) { unlink($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath); }
+            throw new RuntimeException("Failed to process image {$originalName}: " . $e->getMessage());
+        }
     }
 
     /* ===================== IMAGE PROCESSING ===================== */
