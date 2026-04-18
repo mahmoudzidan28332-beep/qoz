@@ -1,12 +1,15 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/DiscountsExclusionsTrait.php';
+
 /**
  * Service layer for discount management.
  * Creates all sub-repositories internally from a single PDO instance.
  */
 final class DiscountsService
 {
+    use DiscountsExclusionsTrait;
     private PdoDiscountsRepository $discounts;
     private PdoDiscountTranslationsRepository $translations;
     private PdoDiscountScopesRepository $scopes;
@@ -183,27 +186,4 @@ final class DiscountsService
         return $this->redemptions->create($data);
     }
 
-    public function redemptionStats(int $discountId): array
-    {
-        return $this->redemptions->stats($discountId);
-    }
-
-    // ================================
-    // Exclusions
-    // ================================
-
-    public function listExclusions(int $discountId): array
-    {
-        return $this->exclusions->listByDiscount($discountId);
-    }
-
-    public function createExclusion(int $discountId, int $excludedDiscountId): int
-    {
-        return $this->exclusions->create($discountId, $excludedDiscountId);
-    }
-
-    public function deleteExclusion(int $id): bool
-    {
-        return $this->exclusions->delete($id);
-    }
 }

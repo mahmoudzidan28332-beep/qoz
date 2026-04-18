@@ -836,7 +836,7 @@ final class InputValidator
         return $this->errors;
     }
 
-    public function firstError(): string
+    protected function firstError(): string
     {
         foreach ($this->errors as $field => $messages) {
             return "{$field}: " . $messages[0];

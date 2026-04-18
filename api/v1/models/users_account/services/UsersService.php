@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/UsersVerificationTrait.php';
 require_once __DIR__ . '/../repositories/PdoUsersRepository.php';
 require_once __DIR__ . '/../validators/UsersValidator.php';
 require_once __DIR__ . '/../repositories/PdoUserPhoneVerificationsRepository.php';
@@ -9,6 +10,7 @@ require_once __DIR__ . '/../repositories/PdoAuthRbacRepository.php';
 
 final class UsersService
 {
+    use UsersVerificationTrait;
     private PdoUsersRepository $repo;
     private UsersValidator $validator;
     private ?PdoUserPhoneVerificationsRepository $phoneVerifRepo;
@@ -161,43 +163,6 @@ final class UsersService
     public function findProfileById(int $id): ?array
     {
         return $this->repo->findProfileById($id);
-    }
-
-    // ── Phone verification methods ───────────────────────────────────────
-
-    public function findPendingVerification(string $tokenHash): ?array
-    {
-        return $this->phoneVerifRepo->findPendingByTokenHash($tokenHash);
-    }
-
-    public function findUsedTokenUserStatus(string $tokenHash): ?array
-    {
-        return $this->phoneVerifRepo->findUsedTokenUserStatus($tokenHash);
-    }
-
-    public function markVerificationUsed(int $id): void
-    {
-        $this->phoneVerifRepo->markUsed($id);
-    }
-
-    public function countRecentVerificationsByIp(string $ip): int
-    {
-        return $this->phoneVerifRepo->countRecentByIp($ip);
-    }
-
-    public function countRecentVerificationsByUserId(int $userId): int
-    {
-        return $this->phoneVerifRepo->countRecentByUserId($userId);
-    }
-
-    public function createPhoneVerification(int $userId, string $tokenHash, string $deviceHash, string $sessionId, string $userAgent, string $ip, string $expiresAt): int
-    {
-        return $this->phoneVerifRepo->create($userId, $tokenHash, $deviceHash, $sessionId, $userAgent, $ip, $expiresAt);
-    }
-
-    public function updateVerificationSessionId(int $id, string $sessionId): void
-    {
-        $this->phoneVerifRepo->updateSessionId($id, $sessionId);
     }
 
     // ── Auth provider methods ────────────────────────────────────────────
