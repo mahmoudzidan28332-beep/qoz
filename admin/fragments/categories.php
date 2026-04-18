@@ -87,12 +87,13 @@ if (!$canView && !$isSuperAdmin) {
 // ════════════════════════════════════════════════════════════
 $initialPayload = [
     'items' => [],
-    'meta' => ['total' => 0, 'page' => 1, 'per_page' => 50]
+    'meta' => ['total' => 0, 'page' => 1, 'per_page' => 25, 'total_pages' => 0]
 ];
 
 try {
     $pdo = $GLOBALS['ADMIN_DB'] ?? $GLOBALS['DB'] ?? null;
     if ($pdo instanceof PDO) {
+        require_once API_VERSION_PATH . '/models/categories/Contracts/CategoriesRepositoryInterface.php';
         require_once API_VERSION_PATH . '/models/categories/repositories/PdoCategoriesRepository.php';
         require_once API_VERSION_PATH . '/models/categories/validators/CategoriesValidator.php';
         require_once API_VERSION_PATH . '/models/categories/services/CategoriesService.php';
@@ -101,15 +102,21 @@ try {
         $validator = new CategoriesValidator();
         $service = new CategoriesService($repo, $validator);
         
-        // Fetch first page of categories
-        $items = $service->list((int)$tenantId, null, false, $lang);
-        if (is_array($items)) {
-            $initialPayload['items'] = $items;
-            $initialPayload['meta'] = [
-                'total' => count($items),
+        // Fetch first page of categories with correct method signature:
+        // list(?int $tenantId, array $filters = [], string $lang = 'ar'): array
+        $filters = [
+            'parent_id' => -1,   // show all categories (bypass parent filter)
+            'page'      => 1,
+            'limit'     => 25,
+        ];
+        $result = $service->list($tenantId ? (int)$tenantId : null, $filters, $lang);
+        if (is_array($result)) {
+            $initialPayload['items'] = $result['items'] ?? [];
+            $initialPayload['meta'] = $result['meta'] ?? [
+                'total' => count($result['items'] ?? []),
                 'page' => 1,
-                'per_page' => 50,
-                'total_pages' => ceil(count($items) / 50)
+                'per_page' => 25,
+                'total_pages' => ceil(count($result['items'] ?? []) / 25)
             ];
         }
     }
@@ -504,7 +511,7 @@ if (!function_exists('assetVer')) {
                         <span id="paginationInfo">
                             <?php 
                             $total = $initialPayload['meta']['total'] ?? 0;
-                            $perPage = $initialPayload['meta']['per_page'] ?? 50;
+                            $perPage = $initialPayload['meta']['per_page'] ?? 25;
                             $start = $total > 0 ? 1 : 0;
                             $end = min($perPage, $total);
                             echo "{$start}–{$end} of {$total}";
