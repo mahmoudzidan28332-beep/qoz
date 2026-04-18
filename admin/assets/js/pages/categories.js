@@ -405,7 +405,12 @@
         const topMeta = response && typeof response === 'object' && response.meta ? response.meta : null;
         const payload = wrapper ? wrapper.data : response;
         const metaFromPayload = payload && typeof payload === 'object' && payload.meta ? payload.meta : null;
-        const meta = topMeta || metaFromPayload || null;
+
+        // ✅ FIX: Merge both metas — payload meta (pagination: total, page, per_page, total_pages)
+        // takes priority over wrapper meta (time, request_id) so pagination info is preserved.
+        const meta = (topMeta || metaFromPayload)
+            ? { ...(topMeta || {}), ...(metaFromPayload || {}) }
+            : null;
 
         console.log('[Categories] Normalized - payload:', payload, 'meta:', meta);
         return { payload, meta };
