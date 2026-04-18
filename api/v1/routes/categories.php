@@ -80,21 +80,21 @@ try {
 
     /* ===================== GET ACTIVE ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/active')) {
-        $data = $controller->getActive($tenantId, $lang);
+        $data = $controller->getActive($tenantId);
         ResponseFormatter::success($data);
         return;
     }
 
     /* ===================== GET FEATURED ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/featured')) {
-        $data = $controller->getFeatured($tenantId, $lang);
+        $data = $controller->getFeatured($tenantId);
         ResponseFormatter::success($data);
         return;
     }
 
     /* ===================== GET TREE ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/tree')) {
-        $data = $controller->tree($tenantId, $lang);
+        $data = $controller->tree($tenantId);
         ResponseFormatter::success($data);
         return;
     }
@@ -114,7 +114,7 @@ try {
         }
         
         try {
-            $row = $controller->getById($tenantId, $id, $lang);
+            $row = $controller->getById($tenantId, $id);
             ResponseFormatter::success($row);
         } catch (RuntimeException $e) {
             ResponseFormatter::error($e->getMessage(), 404);

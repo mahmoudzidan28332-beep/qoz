@@ -30,7 +30,6 @@ final class CategoriesService
         $limit = min(1000, max(1, (int)($filters['limit'] ?? 25)));
         $offset = ($page - 1) * $limit;
         $skipTcFilter = (bool)($filters['skip_tc_filter'] ?? false);
-        $showAll = (bool)($filters['show_all'] ?? false);
 
         // جلب البيانات مع التصفية
         $items = $this->repo->all(
@@ -42,8 +41,7 @@ final class CategoriesService
             $isActive,
             $limit,
             $offset,
-            $skipTcFilter,
-            $showAll
+            $skipTcFilter
         );
 
         // حساب العدد الإجمالي مع التصفية
@@ -299,8 +297,8 @@ final class CategoriesService
 
     public function getCategoryTree(?int $tenantId, string $lang = 'ar'): array
     {
-        // جلب كل الفئات بدون ترقيم
-        $categories = $this->repo->all($tenantId, null, false, $lang, null, null, 0, 0);
+        // جلب كل الفئات بدون ترقيم — parent_id = -1 يتخطى فلتر الجذور
+        $categories = $this->repo->all($tenantId, -1, false, $lang, null, null, 0, 0);
         
         $tree = [];
         $indexed = [];

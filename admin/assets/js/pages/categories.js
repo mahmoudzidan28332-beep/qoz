@@ -462,7 +462,7 @@
         try {
             console.log('[Categories] Loading parents');
             const params = new URLSearchParams({
-                parents: '1',
+                show_all: '1',
                 limit: 1000,
                 tenant_id: window.APP_CONFIG?.TENANT_ID || 1,
                 lang: state.language,
