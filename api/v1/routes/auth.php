@@ -380,6 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             header('Location: '.$appUrl.'/frontend/public/index.php');
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Google callback DB: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Google callback error: '.$e->getMessage());
             header('Location: '.$loginUrl.'?google_error=server_error');
         }
         exit;
@@ -450,6 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ResponseFormatter::success(['ok'=>true,'device_id'=>$deviceId,'anonymous_token'=>$anonToken,'fcm_saved'=>($fcmToken!==null)]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('register_device: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] register_device error: '.$e->getMessage());
             ResponseFormatter::serverError('Could not register device.');
         }
         exit;
@@ -497,6 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ResponseFormatter::success(['ok'=>true,'device_id'=>$targetId,'anonymous_token'=>$anonToken]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('update_fcm: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] update_fcm error: '.$e->getMessage());
             ResponseFormatter::serverError('Could not update FCM token.');
         }
         exit;
@@ -568,6 +571,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Register: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Register error: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
             ResponseFormatter::serverError('Registration failed.');
         }
         exit;
@@ -608,6 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (class_exists('SMS')) { SMS::setPDO($pdo); SMS::sendVerificationLink($uData['phone'],$activationLink,$resendLang); }
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Resend verification: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Resend verification error: '.$e->getMessage());
             ResponseFormatter::serverError('Failed to resend verification SMS.');
         }
         exit;
@@ -657,6 +662,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['ok'=>true,'message'=>'Account verified and activated','user'=>$user]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Verify OTP: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Verify OTP error: '.$e->getMessage());
             ResponseFormatter::serverError('Verification failed.');
         }
         exit;
@@ -692,6 +698,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Google login: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Google login error: '.$e->getMessage());
             ResponseFormatter::serverError('Google sign-in failed. Please try again.');
         }
         exit;
@@ -729,6 +736,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Facebook login: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Facebook login error: '.$e->getMessage());
             ResponseFormatter::serverError('Facebook sign-in failed. Please try again.');
         }
         exit;
@@ -780,6 +788,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Apple login: '.$e->getMessage());
+            if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Apple login error: '.$e->getMessage());
             ResponseFormatter::serverError('Apple sign-in failed. Please try again.');
         }
         exit;
@@ -844,6 +853,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
     } catch (Throwable $e) {
         if (class_exists('Logger')) Logger::error('Login: '.$e->getMessage());
+        if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Login error: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
         ResponseFormatter::serverError('Authentication failed.');
     }
     exit;
