@@ -39,6 +39,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 /**
  * File-based rate limiter for login brute-force protection.
+ * Uses flock() for atomic read-modify-write under concurrent requests.
  * Returns ['allowed' => bool, 'current' => int, 'reset_in' => int].
  */
 function _login_rate_check(string $key, int $max, int $windowSeconds): array
@@ -47,15 +48,32 @@ function _login_rate_check(string $key, int $max, int $windowSeconds): array
     @mkdir($dir, 0750, true);
     $file = $dir . '/' . hash('sha256', 'login_bf:' . $key) . '.json';
     $now  = time();
-    $data = file_exists($file) ? @json_decode(@file_get_contents($file), true) : null;
-    if (!is_array($data)) {
+
+    // Atomic read-modify-write with exclusive lock
+    $fh = @fopen($file, 'c+');
+    if (!$fh) {
+        return ['allowed' => true, 'current' => 0, 'reset_in' => $windowSeconds];
+    }
+
+    flock($fh, LOCK_EX);
+
+    $content = stream_get_contents($fh);
+    $data = ($content !== '' && $content !== false) ? @json_decode($content, true) : null;
+    if (!is_array($data) || !isset($data['window_start'])) {
         $data = ['window_start' => $now, 'count' => 0];
     }
     if ($data['window_start'] + $windowSeconds <= $now) {
         $data = ['window_start' => $now, 'count' => 0];
     }
     $data['count']++;
-    @file_put_contents($file, json_encode($data), LOCK_EX);
+
+    fseek($fh, 0);
+    ftruncate($fh, 0);
+    fwrite($fh, json_encode($data));
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
     $resetIn = max(0, ($data['window_start'] + $windowSeconds) - $now);
     return ['allowed' => $data['count'] <= $max, 'current' => $data['count'], 'reset_in' => $resetIn];
 }

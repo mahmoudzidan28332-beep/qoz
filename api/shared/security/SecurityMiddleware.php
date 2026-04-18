@@ -107,6 +107,7 @@ final class SecurityConfig
     // ── Response ─────────────────────────────────────────────────────────────────
     /** Add these security headers to every response. */
     public static array $securityHeaders = [
+        'Content-Type'              => 'application/json; charset=utf-8',
         'X-Content-Type-Options'    => 'nosniff',
         'X-Frame-Options'           => 'SAMEORIGIN',
         'X-XSS-Protection'          => '1; mode=block',
@@ -187,6 +188,10 @@ final class SecurityMiddleware
 
     /**
      * Apply rate limiting based on endpoint type and method.
+     *
+     * Two layers:
+     *  1. Global per-IP limit (catches burst attacks across all endpoints)
+     *  2. Per-endpoint limit (tighter for auth/write endpoints)
      */
     private static function checkRateLimit(): void
     {
@@ -201,7 +206,26 @@ final class SecurityMiddleware
             }
         }
 
-        // Select the appropriate limit
+        // ── Layer 1: Global per-IP limit (all endpoints combined) ────────────
+        $globalKey    = "ip:{$ip}:global";
+        $globalResult = self::$rateLimiter->checkWithHeaders($globalKey, SecurityConfig::$rateLimitIpMax, SecurityConfig::$rateLimitIpWindow);
+
+        // Add global rate-limit headers
+        foreach ($globalResult['headers'] as $name => $value) {
+            header("{$name}: {$value}");
+        }
+
+        if (!$globalResult['allowed']) {
+            self::$logger->logSecurityEvent('RATE_LIMIT_EXCEEDED', $ip, $path, [
+                'limit'  => SecurityConfig::$rateLimitIpMax,
+                'window' => SecurityConfig::$rateLimitIpWindow,
+                'type'   => 'global',
+            ]);
+            self::$ipBlocker->recordViolation($ip, 'Global rate limit exceeded');
+            self::abort(429, 'Too many requests.', ['Retry-After' => $globalResult['headers']['Retry-After'] ?? '60']);
+        }
+
+        // ── Layer 2: Per-endpoint limit (auth/write are tighter) ─────────────
         $isAuth  = str_contains($path, '/auth/') || str_ends_with($path, '/auth')
                    || str_contains($path, '/login') || str_contains($path, '/register');
         $isWrite = in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
@@ -213,14 +237,14 @@ final class SecurityMiddleware
             $max    = SecurityConfig::$rateLimitWriteMax;
             $window = SecurityConfig::$rateLimitWriteWindow;
         } else {
-            $max    = SecurityConfig::$rateLimitIpMax;
-            $window = SecurityConfig::$rateLimitIpWindow;
+            // Read endpoints — no additional per-endpoint limit beyond global
+            return;
         }
 
         $key    = "ip:{$ip}:path:{$path}:method:{$method}";
         $result = self::$rateLimiter->checkWithHeaders($key, $max, $window);
 
-        // Add rate-limit headers to response
+        // Add per-endpoint rate-limit headers (overrides global ones)
         foreach ($result['headers'] as $name => $value) {
             header("{$name}: {$value}");
         }
@@ -229,6 +253,7 @@ final class SecurityMiddleware
             self::$logger->logSecurityEvent('RATE_LIMIT_EXCEEDED', $ip, $path, [
                 'limit'  => $max,
                 'window' => $window,
+                'type'   => $isAuth ? 'auth' : 'write',
             ]);
             self::$ipBlocker->recordViolation($ip, 'Rate limit exceeded');
             self::abort(429, 'Too many requests.', ['Retry-After' => $result['headers']['Retry-After'] ?? '60']);

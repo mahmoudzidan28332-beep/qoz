@@ -19,13 +19,28 @@ final class RateLimiter
     /**
      * Check the rate limit for a given key.
      *
+     * Uses flock() to ensure atomic read-modify-write under concurrent requests.
+     *
      * @return array{allowed: bool, current: int, limit: int, reset_in: int}
      */
     public function check(string $key, int $max, int $windowSeconds): array
     {
-        $file  = $this->storageDir . '/rate/' . hash('sha256', $key) . '.json';
-        $now   = time();
-        $data  = $this->readFile($file);
+        $file = $this->storageDir . '/rate/' . hash('sha256', $key) . '.json';
+        $now  = time();
+
+        // Atomic read-modify-write with exclusive lock
+        $fh = @fopen($file, 'c+');
+        if (!$fh) {
+            return ['allowed' => true, 'current' => 0, 'limit' => $max, 'reset_in' => $windowSeconds];
+        }
+
+        flock($fh, LOCK_EX);
+
+        $content = stream_get_contents($fh);
+        $data = ($content !== '' && $content !== false) ? @json_decode($content, true) : null;
+        if (!is_array($data) || !isset($data['window_start'])) {
+            $data = ['window_start' => $now, 'count' => 0];
+        }
 
         // Reset window if expired
         if ($data['window_start'] + $windowSeconds <= $now) {
@@ -33,7 +48,13 @@ final class RateLimiter
         }
 
         $data['count']++;
-        $this->writeFile($file, $data);
+
+        fseek($fh, 0);
+        ftruncate($fh, 0);
+        fwrite($fh, json_encode($data));
+        fflush($fh);
+        flock($fh, LOCK_UN);
+        fclose($fh);
 
         $resetIn = ($data['window_start'] + $windowSeconds) - $now;
 
