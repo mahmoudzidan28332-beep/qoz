@@ -27,6 +27,10 @@ function _kernel_log(string $msg): void
 }
 
 set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    // Respect @ operator — error_reporting() returns 0 when @ is active
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
     _kernel_log("[api/index.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
     return false;
 });
@@ -57,7 +61,7 @@ register_shutdown_function(function (): void {
 (function () {
     $ip   = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $dir  = sys_get_temp_dir() . '/security_middleware/rate';
-    @mkdir($dir, 0750, true);
+    if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
 
     $globalFile = $dir . '/' . hash('sha256', "failsafe:ip:{$ip}:global") . '.json';
     $now  = time();

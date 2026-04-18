@@ -45,7 +45,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 function _login_rate_check(string $key, int $max, int $windowSeconds): array
 {
     $dir  = sys_get_temp_dir() . '/security_middleware/rate';
-    @mkdir($dir, 0750, true);
+    if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
     $file = $dir . '/' . hash('sha256', 'login_bf:' . $key) . '.json';
     $now  = time();
 

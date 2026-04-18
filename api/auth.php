@@ -35,6 +35,10 @@ function _auth_log(string $msg): void
 
 // Global error handler — prevents bare 500 responses
 set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    // Respect @ operator — error_reporting() returns 0 when @ is active
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
     _auth_log("[api/auth.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
     return false; // let PHP handle it as well
 });
@@ -75,7 +79,7 @@ header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 (function () {
     $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $dir = sys_get_temp_dir() . '/security_middleware/rate';
-    @mkdir($dir, 0750, true);
+    if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
     $file = $dir . '/' . hash('sha256', "failsafe:auth:ip:{$ip}") . '.json';
     $now  = time();
     $max  = 5;

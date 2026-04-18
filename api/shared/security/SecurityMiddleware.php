@@ -148,7 +148,9 @@ final class SecurityMiddleware
         }
 
         // Ensure storage directory exists
-        @mkdir(SecurityConfig::$storageDir, 0750, true);
+        if (!is_dir(SecurityConfig::$storageDir)) {
+            @mkdir(SecurityConfig::$storageDir, 0750, true);
+        }
 
         self::$rateLimiter = new RateLimiter(SecurityConfig::$storageDir);
         self::$ipBlocker   = new IpBlocker(SecurityConfig::$storageDir);
