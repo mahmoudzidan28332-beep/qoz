@@ -5,7 +5,7 @@ require_once __DIR__ . '/UsersVerificationTrait.php';
 
 final class UsersController
 {
-    use UsersVerificationTrait;
+    use UsersControllerVerificationTrait;
     private UsersService $service;
 
     public function __construct(UsersService $service)

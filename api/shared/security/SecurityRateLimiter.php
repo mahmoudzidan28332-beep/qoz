@@ -13,7 +13,9 @@ final class RateLimiter
     public function __construct(string $storageDir)
     {
         $this->storageDir = $storageDir;
-        @mkdir($this->storageDir . '/rate', 0750, true);
+        if (!is_dir($this->storageDir . '/rate')) {
+            @mkdir($this->storageDir . '/rate', 0750, true);
+        }
     }
 
     /**
@@ -124,7 +126,9 @@ final class IpBlocker
     public function __construct(string $storageDir)
     {
         $this->storageDir = $storageDir;
-        @mkdir($this->storageDir . '/blocks', 0750, true);
+        if (!is_dir($this->storageDir . '/blocks')) {
+            @mkdir($this->storageDir . '/blocks', 0750, true);
+        }
     }
 
     /**

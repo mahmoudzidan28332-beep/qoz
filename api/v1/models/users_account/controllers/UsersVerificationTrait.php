@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-trait UsersVerificationTrait
+trait UsersControllerVerificationTrait
 {
     public function findPendingVerification(string $tokenHash): ?array
     {

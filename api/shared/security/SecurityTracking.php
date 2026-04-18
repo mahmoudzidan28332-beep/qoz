@@ -13,7 +13,9 @@ final class SuspiciousActivityTracker
     public function __construct(string $storageDir)
     {
         $this->storageDir = $storageDir;
-        @mkdir($this->storageDir . '/suspicious', 0750, true);
+        if (!is_dir($this->storageDir . '/suspicious')) {
+            @mkdir($this->storageDir . '/suspicious', 0750, true);
+        }
     }
 
     /** Record an auth failure (401/403). Returns true if threshold reached. */
@@ -100,7 +102,10 @@ final class RequestLogger
     {
         $this->enabled = SecurityConfig::$enableLogging;
         $this->logFile = SecurityConfig::$logFile ?: SecurityConfig::$storageDir . '/security.log';
-        @mkdir(dirname($this->logFile), 0750, true);
+        $logDir = dirname($this->logFile);
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0750, true);
+        }
     }
 
     /**
