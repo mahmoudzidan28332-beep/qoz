@@ -152,6 +152,7 @@ $criticalFiles = [
     'index.php'                         => __DIR__ . '/index.php',
     'Kernel.php'                        => __DIR__ . '/Kernel.php',
     'bootstrap_helpers.php'             => __DIR__ . '/bootstrap_helpers.php',
+    'v1/routes/auth.php'                => __DIR__ . '/v1/routes/auth.php',
     'shared/config/db.php'              => __DIR__ . '/shared/config/db.php',
     'shared/config/config.php'          => __DIR__ . '/shared/config/config.php',
     'shared/config/session.php'         => __DIR__ . '/shared/config/session.php',
@@ -233,12 +234,64 @@ try {
     $checks['auth_syntax'] = ['ok' => false, 'detail' => $e->getMessage()];
 }
 
+// ── 8b. routes/auth.php syntax check ────────────────────────────────────────
+try {
+    $routesAuthFile = __DIR__ . '/v1/routes/auth.php';
+    if (is_file($routesAuthFile)) {
+        $syntaxCheck2 = trim(shell_exec("php -l " . escapeshellarg($routesAuthFile) . " 2>&1") ?? '');
+        $checks['routes_auth_syntax'] = [
+            'ok'     => str_contains($syntaxCheck2, 'No syntax errors'),
+            'detail' => $syntaxCheck2,
+        ];
+    } else {
+        $checks['routes_auth_syntax'] = ['ok' => false, 'detail' => 'MISSING'];
+    }
+} catch (Throwable $e) {
+    $checks['routes_auth_syntax'] = ['ok' => false, 'detail' => $e->getMessage()];
+}
+
 // ── 9. PHP error log path ───────────────────────────────────────────────────
 $errorLog = ini_get('error_log');
+$isDevNull = ($errorLog === '/dev/null');
 $checks['error_log'] = [
-    'ok'     => true,
-    'detail' => $errorLog ?: '(syslog/default)',
+    'ok'     => !$isDevNull,
+    'detail' => $isDevNull
+        ? '⚠️ /dev/null — all errors are silently lost! Check logs/auth_errors.log instead'
+        : ($errorLog ?: '(syslog/default)'),
 ];
+if ($isDevNull) {
+    $errors[] = "error_log = /dev/null — PHP errors are silently discarded. Auth errors now log to logs/auth_errors.log";
+}
+
+// ── 9b. Local auth_errors.log availability ──────────────────────────────────
+$localLogDir = dirname(__DIR__) . '/logs';
+$localLogFile = $localLogDir . '/auth_errors.log';
+$dirExists = is_dir($localLogDir);
+$dirWritable = $dirExists && is_writable($localLogDir);
+$logContent = '';
+if (is_file($localLogFile)) {
+    $logContent = @file_get_contents($localLogFile);
+    $lineCount = $logContent !== false ? substr_count($logContent, "\n") : 0;
+    $checks['auth_error_log'] = [
+        'ok'     => true,
+        'detail' => "{$lineCount} lines — last errors visible here",
+    ];
+    // Show last 5 lines
+    if ($logContent && $lineCount > 0) {
+        $lines = array_filter(explode("\n", $logContent));
+        $checks['auth_error_log_tail'] = [
+            'ok'     => true,
+            'detail' => implode(' | ', array_slice($lines, -5)),
+        ];
+    }
+} else {
+    $checks['auth_error_log'] = [
+        'ok'     => $dirWritable,
+        'detail' => $dirWritable
+            ? 'logs/ dir writable, log file will be created on first error'
+            : ($dirExists ? 'logs/ dir NOT writable' : 'logs/ dir does not exist'),
+    ];
+}
 
 // ── 10. Server info ─────────────────────────────────────────────────────────
 $checks['server'] = [
@@ -268,7 +321,9 @@ $result = [
     'generated_at' => date('c'),
     'tip'          => $failedCount > 0
         ? 'Fix the failed checks above. Common causes of 500: (1) php_flag in .htaccess on CGI/FPM, (2) missing DB tables, (3) session directory not writable, (4) missing PHP extensions.'
-        : 'All checks passed. If 500 persists, check the PHP error log at: ' . ($errorLog ?: 'server default location'),
+        : ($isDevNull
+            ? 'All checks passed but error_log = /dev/null. Try POST /api/auth again, then re-run this diagnose — auth_error_log_tail will show the actual error.'
+            : 'All checks passed. If 500 persists, check the PHP error log at: ' . ($errorLog ?: 'server default location')),
 ];
 
 echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

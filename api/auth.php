@@ -17,13 +17,29 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
 
+// Local file logger — works even when php error_log = /dev/null
+function _auth_log(string $msg): void
+{
+    static $logFile = null;
+    if ($logFile === null) {
+        $dir = dirname(__DIR__) . '/logs';
+        if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
+        $logFile = is_writable($dir) ? $dir . '/auth_errors.log' : false;
+    }
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n";
+    if ($logFile) {
+        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+    }
+    error_log($msg); // also try system log (may be /dev/null)
+}
+
 // Global error handler — prevents bare 500 responses
 set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
-    error_log("[api/auth.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
+    _auth_log("[api/auth.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
     return false; // let PHP handle it as well
 });
 set_exception_handler(function (Throwable $e): void {
-    error_log('[api/auth.php] Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    _auth_log('[api/auth.php] Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString());
     if (!headers_sent()) {
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
@@ -35,12 +51,12 @@ set_exception_handler(function (Throwable $e): void {
 register_shutdown_function(function (): void {
     $err = error_get_last();
     if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
-        error_log("[api/auth.php] FATAL: {$err['message']} in {$err['file']}:{$err['line']}");
+        _auth_log("[api/auth.php] FATAL: {$err['message']} in {$err['file']}:{$err['line']}");
         if (!headers_sent()) {
             http_response_code(500);
             header('Content-Type: application/json; charset=utf-8');
         }
-        echo json_encode(['success' => false, 'message' => 'Internal server error', 'hint' => 'Check PHP error log'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'message' => 'Internal server error', 'hint' => 'Check logs/auth_errors.log'], JSON_UNESCAPED_UNICODE);
     }
 });
 
@@ -171,10 +187,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
             session_set_cookie_params(0, '/', $cookieDomain, $secure, true);
         }
         if (!@session_start(['use_strict_mode' => true])) {
-            error_log('[api/auth.php] session_start() failed — continuing without session');
+            _auth_log('[api/auth.php] session_start() failed — continuing without session');
         }
     } catch (Throwable $e) {
-        error_log('[api/auth.php] Session init error: ' . $e->getMessage());
+        _auth_log('[api/auth.php] Session init error: ' . $e->getMessage());
     }
 }
 
@@ -213,7 +229,7 @@ if (!$pdo instanceof PDO) {
                 ]);
                 $GLOBALS['ADMIN_DB'] = $pdo;
             } catch (Throwable $e) {
-                error_log('[api/auth.php] DB connect failed: ' . $e->getMessage());
+                _auth_log('[api/auth.php] DB connect failed: ' . $e->getMessage());
             }
         }
     }
@@ -231,7 +247,7 @@ if (!$pdo instanceof PDO) {
                     $GLOBALS['ADMIN_DB'] = $pdo;
                 }
             } catch (Throwable $e) {
-                error_log('[api/auth.php] DatabaseConnection failed: ' . $e->getMessage());
+                _auth_log('[api/auth.php] DatabaseConnection failed: ' . $e->getMessage());
             }
         }
     }
@@ -326,7 +342,7 @@ function _auth_rbac(PDO $pdo, int $userId, ?int $roleId): array
             }
         }
     } catch (Throwable $e) {
-        error_log('[api/auth.php] RBAC error: ' . $e->getMessage());
+        _auth_log('[api/auth.php] RBAC error: ' . $e->getMessage());
     }
     return [
         'roles'       => array_values(array_unique($roles)),
@@ -438,6 +454,7 @@ if ($method === 'POST') {
             _auth_json(true, 'Registration successful', ['user' => $user]);
         } catch (Throwable $e) {
             error_log('[api/auth.php] Register error: ' . $e->getMessage());
+            _auth_log('[api/auth.php] Register error: ' . $e->getMessage());
             _auth_json(false, 'Registration failed', [], 500);
         }
     }
@@ -494,7 +511,7 @@ if ($method === 'POST') {
                 $tuStmt->execute([$dbUserId]);
                 $tenantRow = $tuStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             } catch (Throwable $e) {
-                error_log('[api/auth.php] tenant_users lookup error: ' . $e->getMessage());
+                _auth_log('[api/auth.php] tenant_users lookup error: ' . $e->getMessage());
             }
         }
 
@@ -527,7 +544,7 @@ if ($method === 'POST') {
         _auth_json(true, 'Login successful', ['user' => $user]);
 
     } catch (Throwable $e) {
-        error_log('[api/auth.php] Login error: ' . $e->getMessage());
+        _auth_log('[api/auth.php] Login error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         _auth_json(false, 'Authentication failed', [], 500);
     }
 }
