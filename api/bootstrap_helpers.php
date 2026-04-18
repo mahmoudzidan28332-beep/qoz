@@ -18,6 +18,9 @@ function handle_health_check(array $container): void
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Content-Security-Policy: default-src \'none\'');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
     $health = [
         'status' => 'healthy',

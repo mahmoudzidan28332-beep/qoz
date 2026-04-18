@@ -15,6 +15,22 @@ declare(strict_types=1);
 
 // ── Security / output ────────────────────────────────────────────────────────
 ini_set('display_errors', '0');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+
+// Global error handler — prevents bare 500 responses
+set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    error_log("[api/auth.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
+    return false; // let PHP handle it as well
+});
+set_exception_handler(function (Throwable $e): void {
+    error_log('[api/auth.php] Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['success' => false, 'message' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
+    exit;
+});
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -23,6 +39,51 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Content-Security-Policy: default-src \'none\'');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+// ── Early global per-IP rate limiter (auth endpoint) ────────────────────────
+// Protects /api/auth from burst attacks (tighter than global: 5 req/min for auth)
+(function () {
+    $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $dir = sys_get_temp_dir() . '/security_middleware/rate';
+    @mkdir($dir, 0750, true);
+    $file = $dir . '/' . hash('sha256', "failsafe:auth:ip:{$ip}") . '.json';
+    $now  = time();
+    $max  = 5;
+    $win  = 60;
+
+    $fh = @fopen($file, 'c+');
+    if (!$fh) return;
+
+    flock($fh, LOCK_EX);
+    $raw  = stream_get_contents($fh);
+    $data = ($raw !== '' && $raw !== false) ? @json_decode($raw, true) : null;
+    if (!is_array($data) || !isset($data['window_start'])) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    if ($data['window_start'] + $win <= $now) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    $data['count']++;
+    fseek($fh, 0);
+    ftruncate($fh, 0);
+    fwrite($fh, json_encode($data));
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    if ($data['count'] > $max) {
+        $retryAfter = max(1, ($data['window_start'] + $win) - $now);
+        http_response_code(429);
+        header('Retry-After: ' . $retryAfter);
+        header('X-RateLimit-Limit: ' . $max);
+        header('X-RateLimit-Remaining: 0');
+        header('X-RateLimit-Reset: ' . ($now + $retryAfter));
+        echo json_encode(['success' => false, 'message' => 'Too many requests. Please try again later.']);
+        exit;
+    }
+})();
 
 // ── Path root ────────────────────────────────────────────────────────────────
 // Correct base for this file: the api/ directory itself.
@@ -360,7 +421,7 @@ if ($method === 'POST') {
     // ── LOGIN ─────────────────────────────────────────────────────────────────
     // Rate-limit login attempts per IP (10 attempts per 60 seconds)
     $loginIp  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    $rateResult = _auth_rate_check('login:' . $loginIp, 10, 60);
+    $rateResult = _auth_rate_check('login:' . $loginIp, 5, 60);
     if (!$rateResult['allowed']) {
         header('Retry-After: ' . $rateResult['reset_in']);
         _auth_json(false, 'Too many login attempts. Please try again later.', [], 429);

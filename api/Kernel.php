@@ -24,6 +24,9 @@ final class Kernel
             header('X-Content-Type-Options: nosniff');
             header('X-Frame-Options: SAMEORIGIN');
             header('Content-Security-Policy: default-src \'none\'');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
+            header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+            header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
             http_response_code(200);
             echo json_encode([
                 'status' => 'ok',
@@ -36,6 +39,11 @@ final class Kernel
         $routeFile = self::resolveRouteFile($uri);
         if (!$routeFile) {
             http_response_code(404);
+            header('Content-Type: application/json; charset=utf-8');
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: SAMEORIGIN');
+            header('Content-Security-Policy: default-src \'none\'');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
             echo json_encode([
                 'success' => false,
                 'error'   => 'Route not found',
