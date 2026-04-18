@@ -14,7 +14,7 @@
 
     const state = {
         page: 1,
-        perPage: 25,
+        perPage: 0,
         filters: {},
         permissions: {},
         translations: {},
@@ -424,7 +424,7 @@
             console.log('[Categories] Loading parents');
             const params = new URLSearchParams({
                 show_all: '1',
-                limit: 1000,
+                limit: 0,
                 tenant_id: window.APP_CONFIG?.TENANT_ID || 1,
                 lang: state.language,
                 format: 'json'
@@ -437,6 +437,7 @@
             else if (payload && Array.isArray(payload.data)) items = payload.data;
             state.parents = items;
 
+            // ✅ Form parent dropdown: show ALL categories (for assigning parent)
             if (el.formParentId) {
                 el.formParentId.innerHTML = `<option value="">${t('form.fields.parent_id.none')}</option>`;
                 items.forEach(p => {
@@ -446,18 +447,84 @@
                     el.formParentId.appendChild(opt);
                 });
             }
+
+            // ✅ FIX: Filter parentFilter to only show ROOT categories (parent_id=0 or null)
+            const roots = items.filter(p => !p.parent_id || p.parent_id === 0 || p.parent_id === '0');
             if (el.parentFilter) {
                 el.parentFilter.innerHTML = `<option value="">${t('filters.parent_options.all')}</option>`;
-                items.forEach(p => {
+                roots.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = p.name || `Category ${p.id}`;
                     el.parentFilter.appendChild(opt);
                 });
             }
-            console.log('[Categories] Parents loaded:', items.length);
+
+            // Reset sub-filters
+            resetSubFilter();
+            resetSubSubFilter();
+
+            console.log('[Categories] Parents loaded:', items.length, '(roots:', roots.length, ')');
         } catch (err) {
             console.warn('[Categories] Failed to load parents', err);
+        }
+    }
+
+    // ----------------------------
+    // CASCADING FILTER HELPERS
+    // ----------------------------
+    function updateSubFilter(parentId) {
+        resetSubFilter();
+        resetSubSubFilter();
+
+        if (!parentId || !el.subFilter) return;
+
+        const children = state.parents.filter(c =>
+            String(c.parent_id) === String(parentId)
+        );
+
+        if (children.length > 0) {
+            el.subFilter.disabled = false;
+            children.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name || `Category ${c.id}`;
+                el.subFilter.appendChild(opt);
+            });
+        }
+    }
+
+    function updateSubSubFilter(subId) {
+        resetSubSubFilter();
+
+        if (!subId || !el.subSubFilter) return;
+
+        const children = state.parents.filter(c =>
+            String(c.parent_id) === String(subId)
+        );
+
+        if (children.length > 0) {
+            el.subSubFilter.disabled = false;
+            children.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name || `Category ${c.id}`;
+                el.subSubFilter.appendChild(opt);
+            });
+        }
+    }
+
+    function resetSubFilter() {
+        if (el.subFilter) {
+            el.subFilter.innerHTML = `<option value="">${t('filters.sub_options.all', 'All Sub Categories')}</option>`;
+            el.subFilter.disabled = true;
+        }
+    }
+
+    function resetSubSubFilter() {
+        if (el.subSubFilter) {
+            el.subSubFilter.innerHTML = `<option value="">${t('filters.sub_sub_options.all', 'All Sub-Sub Categories')}</option>`;
+            el.subSubFilter.disabled = true;
         }
     }
 
@@ -798,7 +865,7 @@
             state.page = page;
 
             // ✅ FIX: show_all دائماً مُضمَّن بشكل ثابت في الـ params
-            // لا يُدمج مع state.filters لأن applyFilters قد تُعيد تعريفه
+            // limit=0 means "no limit" — show all records
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
@@ -809,6 +876,7 @@
             });
 
             // إضافة الـ filters المطبَّقة (بدون show_all لتجنب التكرار)
+            // ✅ FIX: when parent_id filter is set, it takes priority over show_all
             Object.entries(state.filters).forEach(([key, val]) => {
                 if (key !== 'show_all' && val !== undefined && val !== null && val !== '') {
                     params.set(key, val);
@@ -839,55 +907,70 @@
             const finalMeta = meta || {
                 total: items.length,
                 page: page,
-                per_page: state.perPage,
-                total_pages: Math.ceil(items.length / state.perPage) || 1
+                per_page: items.length,
+                total_pages: 1
             };
 
-            // ✅ FIX: حساب totalPages بشكل صحيح مع ضمان القيم الصحيحة
+            // ✅ FIX: حساب totalPages بشكل صحيح
+            // When perPage=0 (show all), treat perPage as total for display
             const total     = parseInt(finalMeta.total)      || items.length || 0;
-            const perPage   = parseInt(finalMeta.per_page)   || state.perPage;
-            const totalPages = Math.max(
-                parseInt(finalMeta.last_page)    || 0,
-                parseInt(finalMeta.total_pages)  || 0,
-                total > 0 ? Math.ceil(total / perPage) : 0
-            ) || 1;
+            const perPage   = state.perPage > 0
+                ? (parseInt(finalMeta.per_page) || state.perPage)
+                : total;
+            const totalPages = state.perPage > 0
+                ? (Math.max(
+                    parseInt(finalMeta.last_page)    || 0,
+                    parseInt(finalMeta.total_pages)  || 0,
+                    total > 0 && perPage > 0 ? Math.ceil(total / perPage) : 0
+                  ) || 1)
+                : 1;
 
             console.log('[Categories] Pagination - total:', total, 'perPage:', perPage, 'totalPages:', totalPages, 'currentPage:', page);
 
             // Build pagination
             if (el.pagination) {
                 if (el.paginationInfo) {
-                    const start = total > 0 ? ((page - 1) * perPage) + 1 : 0;
-                    const end   = Math.min(page * perPage, total);
-                    el.paginationInfo.textContent = `${start}–${end} of ${total}`;
+                    if (state.perPage === 0 || totalPages <= 1) {
+                        // Show all mode — no pagination needed, just show total
+                        el.paginationInfo.textContent = `1–${total} of ${total}`;
+                    } else {
+                        const start = total > 0 ? ((page - 1) * perPage) + 1 : 0;
+                        const end   = Math.min(page * perPage, total);
+                        el.paginationInfo.textContent = `${start}–${end} of ${total}`;
+                    }
                 }
 
-                let pgHtml = `<button class="pagination-btn" ${page <= 1 ? 'disabled' : ''} onclick="Categories.load(${page - 1})">
-                    <i class="fas fa-chevron-left"></i> Previous
-                </button>`;
+                if (state.perPage === 0 || totalPages <= 1) {
+                    // No pagination buttons needed when showing all
+                    el.pagination.innerHTML = '';
+                } else {
+                    let pgHtml = `<button class="pagination-btn" ${page <= 1 ? 'disabled' : ''} onclick="Categories.load(${page - 1})">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>`;
 
-                const maxVisible = 7;
-                let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
-                let endPage   = Math.min(totalPages, startPage + maxVisible - 1);
-                if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+                    const maxVisible = 7;
+                    let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
+                    let endPage   = Math.min(totalPages, startPage + maxVisible - 1);
+                    if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
 
-                if (startPage > 1) {
-                    pgHtml += `<button class="pagination-btn" onclick="Categories.load(1)">1</button>`;
-                    if (startPage > 2) pgHtml += `<span class="pagination-dots">...</span>`;
+                    if (startPage > 1) {
+                        pgHtml += `<button class="pagination-btn" onclick="Categories.load(1)">1</button>`;
+                        if (startPage > 2) pgHtml += `<span class="pagination-dots">...</span>`;
+                    }
+                    for (let i = startPage; i <= endPage; i++) {
+                        pgHtml += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="Categories.load(${i})" ${i === page ? 'aria-current="page"' : ''}>${i}</button>`;
+                    }
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) pgHtml += `<span class="pagination-dots">...</span>`;
+                        pgHtml += `<button class="pagination-btn" onclick="Categories.load(${totalPages})">${totalPages}</button>`;
+                    }
+
+                    pgHtml += `<button class="pagination-btn" ${page >= totalPages ? 'disabled' : ''} onclick="Categories.load(${page + 1})">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>`;
+
+                    el.pagination.innerHTML = pgHtml;
                 }
-                for (let i = startPage; i <= endPage; i++) {
-                    pgHtml += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="Categories.load(${i})" ${i === page ? 'aria-current="page"' : ''}>${i}</button>`;
-                }
-                if (endPage < totalPages) {
-                    if (endPage < totalPages - 1) pgHtml += `<span class="pagination-dots">...</span>`;
-                    pgHtml += `<button class="pagination-btn" onclick="Categories.load(${totalPages})">${totalPages}</button>`;
-                }
-
-                pgHtml += `<button class="pagination-btn" ${page >= totalPages ? 'disabled' : ''} onclick="Categories.load(${page + 1})">
-                    Next <i class="fas fa-chevron-right"></i>
-                </button>`;
-
-                el.pagination.innerHTML = pgHtml;
             }
 
             // Render Table
@@ -936,10 +1019,17 @@
             const tv = el.tenantFilter.value.trim();
             if (tv && tv !== String(window.APP_CONFIG?.TENANT_ID)) state.filters.tenant_id = tv;
         }
-        if (el.parentFilter) {
+
+        // ✅ FIX: Use the most specific selected filter (subSub > sub > parent)
+        if (el.subSubFilter && el.subSubFilter.value) {
+            state.filters.parent_id = el.subSubFilter.value;
+        } else if (el.subFilter && el.subFilter.value) {
+            state.filters.parent_id = el.subFilter.value;
+        } else if (el.parentFilter) {
             const p = el.parentFilter.value.trim();
             if (p) state.filters.parent_id = p;
         }
+
         if (el.statusFilter) {
             const st = el.statusFilter.value;
             if (st !== '') state.filters.is_active = st;
@@ -948,9 +1038,6 @@
             const ft = el.featuredFilter.value;
             if (ft !== '') state.filters.is_featured = ft;
         }
-
-        // ✅ FIX: show_all لا يُضاف هنا — يُضاف ثابتاً في load()
-        // هذا يمنع تعارض parent_id الصريح مع show_all
 
         load(1);
     }
@@ -961,6 +1048,8 @@
         if (el.parentFilter) el.parentFilter.value = '';
         if (el.statusFilter) el.statusFilter.value = '';
         if (el.featuredFilter) el.featuredFilter.value = '';
+        resetSubFilter();
+        resetSubSubFilter();
         state.filters = {};
         load(1);
     }
@@ -1010,6 +1099,8 @@
             searchInput:     AF.$('searchInput'),
             tenantFilter:    AF.$('tenantFilter'),
             parentFilter:    AF.$('parentFilter'),
+            subFilter:       AF.$('subFilter'),
+            subSubFilter:    AF.$('subSubFilter'),
             statusFilter:    AF.$('statusFilter'),
             featuredFilter:  AF.$('featuredFilter'),
             btnSubmit:       AF.$('btnSubmitForm'),
@@ -1087,6 +1178,19 @@
         if (el.btnApply)       el.btnApply.onclick  = applyFilters;
         if (el.btnReset)       el.btnReset.onclick  = resetFilters;
         if (el.btnRetry)       el.btnRetry.onclick  = () => load(state.page);
+
+        // ✅ Cascading filter event listeners
+        if (el.parentFilter) {
+            el.parentFilter.onchange = () => {
+                updateSubFilter(el.parentFilter.value);
+            };
+        }
+        if (el.subFilter) {
+            el.subFilter.onchange = () => {
+                updateSubSubFilter(el.subFilter.value);
+            };
+        }
+
         if (el.addLangBtn)     el.addLangBtn.onclick = () => {
             const code = el.langSelect.value;
             if (code) createTranslationPanel(code, {});

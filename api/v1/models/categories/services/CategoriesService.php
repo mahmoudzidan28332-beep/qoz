@@ -32,8 +32,10 @@ final class CategoriesService
         $isActive     = isset($filters['is_active']) ? filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN) : null;
         $search       = $filters['search'] ?? null;
         $page         = max(1, (int)($filters['page']  ?? 1));
-        $limit        = min(1000, max(1, (int)($filters['limit'] ?? 25)));
-        $offset       = ($page - 1) * $limit;
+        // ✅ FIX: limit=0 means "no limit" — admin panel shows all records at once
+        $rawLimit     = (int)($filters['limit'] ?? 25);
+        $limit        = $rawLimit === 0 ? 0 : min(10000, max(1, $rawLimit));
+        $offset       = $limit > 0 ? ($page - 1) * $limit : 0;
         $skipTcFilter = (bool)($filters['skip_tc_filter'] ?? false);
 
         // ✅ FIX: تمرير نفس parent_id (-1 / null / رقم) إلى كلا الاستعلامين
@@ -62,12 +64,12 @@ final class CategoriesService
             'items' => $items,
             'meta'  => [
                 'total'       => $total,
-                'page'        => $page,
-                'per_page'    => $limit,
-                'total_pages' => $total > 0 ? (int) ceil($total / $limit) : 0,
-                'from'        => $total > 0 ? $offset + 1 : 0,
-                'to'          => $total > 0 ? min($offset + $limit, $total) : 0,
-                'last_page'   => $total > 0 ? (int) ceil($total / $limit) : 1,
+                'page'        => $limit > 0 ? $page : 1,
+                'per_page'    => $limit > 0 ? $limit : $total,
+                'total_pages' => $limit > 0 && $total > 0 ? (int) ceil($total / $limit) : ($total > 0 ? 1 : 0),
+                'from'        => $total > 0 ? ($limit > 0 ? $offset + 1 : 1) : 0,
+                'to'          => $total > 0 ? ($limit > 0 ? min($offset + $limit, $total) : $total) : 0,
+                'last_page'   => $limit > 0 && $total > 0 ? (int) ceil($total / $limit) : 1,
             ]
         ];
     }
