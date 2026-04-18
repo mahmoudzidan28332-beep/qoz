@@ -38,10 +38,12 @@ trait PdoCategoriesQueryTrait
         }
 
         // ── Parent / Hierarchy filter ─────────────────────────────
-        $pid = $filters['parent_id'] ?? null;
+        // ✅ FIX: cast to int لضمان المقارنة الصحيحة سواء جاءت القيمة
+        //         كـ integer أو string من الـ filters array
+        $pid = isset($filters['parent_id']) ? (int) $filters['parent_id'] : null;
 
         if ($pid === -1) {
-            // show_all bypass — لا فلترة
+            // show_all bypass — لا فلترة على الـ parent_id نهائياً
         } elseif ($pid === null || $pid === 0) {
             if (empty($filters['search'])) {
                 $sql .= " AND (c.parent_id IS NULL OR c.parent_id = 0)";
