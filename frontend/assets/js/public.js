@@ -25,7 +25,7 @@ function pubEntityStateStorageKey(tenantId) {
 }
 
 function pubEntityCartStorageKey(entityId, tenantId) {
-  return 'pub_cart:' + String(tenantId || pubGetTenantId()) + ':' + String(parseInt(entityId, 10) || 0);
+  return 'pub_cart_t' + String(tenantId || pubGetTenantId()) + '_e' + String(parseInt(entityId, 10) || 0);
 }
 
 function pubGetClientActiveEntity() {
@@ -61,11 +61,26 @@ function pubGetActiveEntityId() {
 function pubMigrateLegacyCart(entityId, tenantId) {
   var eid = parseInt(entityId, 10) || pubGetActiveEntityId();
   if (!eid) return [];
+  var tid = tenantId || pubGetTenantId();
 
-  var scopedKey = pubEntityCartStorageKey(eid, tenantId);
+  var scopedKey = pubEntityCartStorageKey(eid, tid);
   var scoped = [];
   try { scoped = JSON.parse(localStorage.getItem(scopedKey) || '[]'); } catch (e) { scoped = []; }
   if (Array.isArray(scoped) && scoped.length) return scoped;
+
+  /* Try old colon-format key (pub_cart:T:E) first */
+  var oldColonKey = 'pub_cart:' + String(tid) + ':' + String(eid);
+  var fromOldKey = [];
+  try { fromOldKey = JSON.parse(localStorage.getItem(oldColonKey) || '[]'); } catch (e) { fromOldKey = []; }
+  if (Array.isArray(fromOldKey) && fromOldKey.length) {
+    try {
+      localStorage.setItem(scopedKey, JSON.stringify(fromOldKey));
+      localStorage.removeItem(oldColonKey);
+    } catch (e) {}
+    return fromOldKey;
+  }
+  /* Remove stale colon-key even if empty */
+  try { localStorage.removeItem(oldColonKey); } catch (e) {}
 
   var legacy = [];
   try { legacy = JSON.parse(localStorage.getItem('pub_cart') || '[]'); } catch (e) { legacy = []; }
@@ -1036,10 +1051,23 @@ function pubAddToCart(btn) {
 
   // ── Entity conflict check ──────────────────────────────
   var tenantIdForCheck = pubGetTenantId();
-  var cartKeyPrefix = 'pub_cart:' + String(tenantIdForCheck) + ':';
+  var cartKeyPrefix = 'pub_cart_t' + String(tenantIdForCheck) + '_e';
+  var oldColonPrefix = 'pub_cart:' + String(tenantIdForCheck) + ':';
   var conflictingEid = 0;
 
   try {
+    // Clean up stale old-format colon keys first
+    var keysToRemove = [];
+    for (var j = 0; j < localStorage.length; j++) {
+      var oldKey = localStorage.key(j);
+      if (oldKey && oldKey.indexOf(oldColonPrefix) === 0) {
+        keysToRemove.push(oldKey);
+      }
+    }
+    for (var k = 0; k < keysToRemove.length; k++) {
+      localStorage.removeItem(keysToRemove[k]);
+    }
+
     for (var i = 0; i < localStorage.length; i++) {
         var lsKey = localStorage.key(i);
         if (!lsKey || lsKey.indexOf(cartKeyPrefix) !== 0) continue;
