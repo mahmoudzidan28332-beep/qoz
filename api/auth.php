@@ -31,6 +31,18 @@ set_exception_handler(function (Throwable $e): void {
     echo json_encode(['success' => false, 'message' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
     exit;
 });
+// Catch fatal errors (out-of-memory, timeout, etc.)
+register_shutdown_function(function (): void {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        error_log("[api/auth.php] FATAL: {$err['message']} in {$err['file']}:{$err['line']}");
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode(['success' => false, 'message' => 'Internal server error', 'hint' => 'Check PHP error log'], JSON_UNESCAPED_UNICODE);
+    }
+});
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -136,23 +148,34 @@ function _auth_rate_check(string $key, int $max, int $windowSeconds): array
 
 // ── Session — match APP_SESSID used by bootstrap_admin_ui.php ───────────────
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    if (session_name() !== 'APP_SESSID') {
-        session_name('APP_SESSID');
+    try {
+        if (session_name() !== 'APP_SESSID') {
+            session_name('APP_SESSID');
+        }
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        // Extract hostname without port for cookie domain
+        $cookieDomain = '';
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $cookieDomain = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST']);
+        }
+        if (PHP_VERSION_ID >= 70300) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path'     => '/',
+                'domain'   => $cookieDomain,
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        } else {
+            session_set_cookie_params(0, '/', $cookieDomain, $secure, true);
+        }
+        if (!@session_start(['use_strict_mode' => true])) {
+            error_log('[api/auth.php] session_start() failed — continuing without session');
+        }
+    } catch (Throwable $e) {
+        error_log('[api/auth.php] Session init error: ' . $e->getMessage());
     }
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    if (PHP_VERSION_ID >= 70300) {
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path'     => '/',
-            'domain'   => $_SERVER['HTTP_HOST'] ?? '',
-            'secure'   => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    } else {
-        session_set_cookie_params(0, '/', $_SERVER['HTTP_HOST'] ?? '', $secure, true);
-    }
-    session_start(['use_strict_mode' => true]);
 }
 
 // ── JSON helper ──────────────────────────────────────────────────────────────
@@ -186,6 +209,7 @@ if (!$pdo instanceof PDO) {
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES   => false,
+                    PDO::ATTR_TIMEOUT            => 5,
                 ]);
                 $GLOBALS['ADMIN_DB'] = $pdo;
             } catch (Throwable $e) {
