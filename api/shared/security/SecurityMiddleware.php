@@ -93,8 +93,8 @@ final class SecurityConfig
     public static bool $xssSanitize         = true;
 
     // ── Public Paths ─────────────────────────────────────────────────────────────
-    /** Paths that bypass rate limiting (health-check, etc.). */
-    public static array $rateLimitWhitelist = ['/health', '/ping', '/status'];
+    /** Paths that bypass rate limiting. Health is rate-limited to prevent burst abuse. */
+    public static array $rateLimitWhitelist = ['/ping', '/status'];
 
     /** IPs that are never blocked (e.g. your office, monitoring server). */
     public static array $ipWhitelist        = ['127.0.0.1', '::1'];
@@ -113,6 +113,7 @@ final class SecurityConfig
         'Referrer-Policy'           => 'strict-origin-when-cross-origin',
         'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
         'Permissions-Policy'        => 'camera=(), microphone=(), geolocation=()',
+        'Content-Security-Policy'   => "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'",
     ];
 }
 

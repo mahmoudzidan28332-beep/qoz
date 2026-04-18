@@ -274,6 +274,37 @@ foreach ($coreFiles as $file) {
     }
 }
 
+// ==============================================
+// 7b. Security Middleware (Rate Limiting & Headers)
+// ==============================================
+$secMiddlewarePath = BASE_DIR . '/shared/security/SecurityMiddleware.php';
+if (file_exists($secMiddlewarePath)) {
+    require_once $secMiddlewarePath;
+    SecurityMiddleware::boot([
+        'storageDir'            => sys_get_temp_dir() . '/security_middleware',
+        'rateLimitIpMax'        => (int)(getenv('RATE_LIMIT_IP_MAX') ?: 120),
+        'rateLimitIpWindow'     => 60,
+        'rateLimitAuthMax'      => (int)(getenv('RATE_LIMIT_AUTH_MAX') ?: 10),
+        'rateLimitAuthWindow'   => 60,
+        'rateLimitWriteMax'     => (int)(getenv('RATE_LIMIT_WRITE_MAX') ?: 60),
+        'rateLimitWriteWindow'  => 60,
+        'blockAfterViolations'  => 5,
+        'blockDuration'         => 300,
+        'rateLimitWhitelist'    => ['/ping', '/status'],
+    ]);
+    safe_log('info', 'SecurityMiddleware booted');
+}
+
+// Early enforcement of upload size limits (DoS protection)
+$maxUploadBytes = (int)(getenv('MAX_UPLOAD_SIZE') ?: 20 * 1024 * 1024); // 20 MB default
+$contentLength  = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+if ($contentLength > $maxUploadBytes && $contentLength > 0) {
+    http_response_code(413);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'error' => 'Request entity too large']);
+    exit;
+}
+
 $redisHelperPath = BASE_DIR . '/shared/helpers/RedisHelper.php';
 if (file_exists($redisHelperPath)) {
     require_once $redisHelperPath;

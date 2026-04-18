@@ -20,6 +20,10 @@ final class Kernel
 
         // Health check
         if (preg_match('#^/(v\d+/)?(admin|mobile)?/?health$#', $uri)) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: SAMEORIGIN');
+            header('Content-Security-Policy: default-src \'none\'');
             http_response_code(200);
             echo json_encode([
                 'status' => 'ok',

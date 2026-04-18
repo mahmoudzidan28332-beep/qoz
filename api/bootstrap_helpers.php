@@ -14,7 +14,10 @@ function handle_health_check(array $container): void
         return;
     }
 
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Content-Security-Policy: default-src \'none\'');
 
     $health = [
         'status' => 'healthy',

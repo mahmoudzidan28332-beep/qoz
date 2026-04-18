@@ -21,11 +21,39 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('Content-Security-Policy: default-src \'none\'');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 // ── Path root ────────────────────────────────────────────────────────────────
 // Correct base for this file: the api/ directory itself.
 // Do NOT use dirname(__DIR__, 2) — that would escape above the project root.
 $baseDir = __DIR__;
+
+// ── Login rate limiter (file-based, no Redis needed) ────────────────────────
+$_authRateLimiterDir = sys_get_temp_dir() . '/security_middleware/rate';
+@mkdir($_authRateLimiterDir, 0750, true);
+
+/**
+ * Check if a key has exceeded the allowed number of requests in a time window.
+ * Returns ['allowed' => bool, 'current' => int, 'reset_in' => int].
+ */
+function _auth_rate_check(string $key, int $max, int $windowSeconds): array
+{
+    global $_authRateLimiterDir;
+    $file = $_authRateLimiterDir . '/' . hash('sha256', 'auth:' . $key) . '.json';
+    $now  = time();
+    $data = file_exists($file) ? @json_decode(@file_get_contents($file), true) : null;
+    if (!is_array($data)) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    if ($data['window_start'] + $windowSeconds <= $now) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    $data['count']++;
+    @file_put_contents($file, json_encode($data), LOCK_EX);
+    $resetIn = max(0, ($data['window_start'] + $windowSeconds) - $now);
+    return ['allowed' => $data['count'] <= $max, 'current' => $data['count'], 'reset_in' => $resetIn];
+}
 
 // ── Session — match APP_SESSID used by bootstrap_admin_ui.php ───────────────
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -312,6 +340,14 @@ if ($method === 'POST') {
     }
 
     // ── LOGIN ─────────────────────────────────────────────────────────────────
+    // Rate-limit login attempts per IP (10 attempts per 60 seconds)
+    $loginIp  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $rateResult = _auth_rate_check('login:' . $loginIp, 10, 60);
+    if (!$rateResult['allowed']) {
+        header('Retry-After: ' . $rateResult['reset_in']);
+        _auth_json(false, 'Too many login attempts. Please try again later.', [], 429);
+    }
+
     $identifier = trim((string)($payload['username'] ?? $payload['email'] ?? $payload['identifier'] ?? ''));
     $password   = (string)($payload['password'] ?? '');
 
