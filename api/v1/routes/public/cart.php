@@ -14,6 +14,7 @@ declare(strict_types=1);
 if ($first === 'cart') {
 
     require_once dirname(__DIR__, 2) . '/models/carts/repositories/PdoCartsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/carts/services/CartsService.php';
     require_once dirname(__DIR__, 2) . '/models/cart_items/repositories/PdoCartItemsRepository.php';
 
     $cartMethod   = $_SERVER['REQUEST_METHOD'] ?? 'GET';
