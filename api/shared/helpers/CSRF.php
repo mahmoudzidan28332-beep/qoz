@@ -81,7 +81,7 @@ class CSRF
     }
 
     // Convenience: validate and throw exception with message (optional)
-    public static function requireValid(?string $token, int $maxAge = self::DEFAULT_MAX_AGE, bool $invalidateAfterUse = false)
+    public static function requireValid(?string $token, int $maxAge = self::DEFAULT_MAX_AGE, bool $invalidateAfterUse = false): void
     {
         if (!self::validate($token, $maxAge, $invalidateAfterUse)) {
             http_response_code(400);

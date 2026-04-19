@@ -13,7 +13,7 @@ class DbUtilsService
      * @return PDOStatement|false
      * @throws RuntimeException
      */
-    public static function executeQuery(PDO $pdo, string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC)
+    public static function executeQuery(PDO $pdo, string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC): \PDOStatement
     {
         try {
             $stmt = $pdo->prepare($query);
