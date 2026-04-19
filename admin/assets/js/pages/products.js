@@ -1621,7 +1621,7 @@
         if (!el.prodMainCategory) return;
 
         // القوائم الرئيسية = التي ليس لها أب (parent_id = null)
-        const mainCategories = state.categories.filter(cat => !cat.parent_id);
+        const mainCategories = state.categories.filter(cat => !cat.parent_id || cat.parent_id === 0 || cat.parent_id === '0');
 
         el.prodMainCategory.innerHTML = '<option value="">' + t('form.fields.main_category.select', 'Select main category') + '</option>';
 
@@ -1741,8 +1741,12 @@
         if (!el.prodCategoriesTree) return;
 
         // Build the DOM tree recursively from flat array
+        const isRoot = (cat) => !cat.parent_id || cat.parent_id === 0 || cat.parent_id === '0';
+
         const buildNodes = (parentId) => {
-            const children = state.categories.filter(c => c.parent_id == parentId);
+            const children = parentId === null
+                ? state.categories.filter(c => isRoot(c))
+                : state.categories.filter(c => String(c.parent_id) === String(parentId));
             if (!children.length) return null;
 
             const ul = document.createElement('ul');
@@ -1797,7 +1801,7 @@
         };
 
         el.prodCategoriesTree.innerHTML = '';
-        const tree = buildNodes(null) || buildNodes(0);
+        const tree = buildNodes(null);
         if (tree) {
             tree.style.display = ''; // root is always visible
             el.prodCategoriesTree.appendChild(tree);

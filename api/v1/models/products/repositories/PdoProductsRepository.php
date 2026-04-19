@@ -66,6 +66,13 @@ final class PdoProductsRepository
                 ON pp.product_id = p.id
                AND pp.variant_id IS NULL
                AND pp.is_active = 1
+               AND pp.id = (
+                   SELECT MIN(pp2.id)
+                   FROM product_pricing pp2
+                   WHERE pp2.product_id = p.id
+                     AND pp2.variant_id IS NULL
+                     AND pp2.is_active = 1
+               )
             WHERE p.tenant_id = :tenant_id
         ";
         $params = [':tenant_id' => $tenantId, ':lang' => $lang];
