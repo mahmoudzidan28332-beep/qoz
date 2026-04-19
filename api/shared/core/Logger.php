@@ -56,7 +56,7 @@ class Logger
             } else {
                 error_log($line);
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException | \ErrorException $e) {
             error_log('Logger failed: ' . $e->getMessage() . ' | ' . $line);
         }
     }

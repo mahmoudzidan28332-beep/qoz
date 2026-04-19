@@ -24,7 +24,7 @@ final class PdoQueryHelper
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoQueryHelper::list] ' . $e->getMessage());
             return [];
         }
@@ -37,7 +37,7 @@ final class PdoQueryHelper
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoQueryHelper::one] ' . $e->getMessage());
             return null;
         }
@@ -50,7 +50,7 @@ final class PdoQueryHelper
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return (int)$stmt->fetchColumn();
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoQueryHelper::count] ' . $e->getMessage());
             return 0;
         }

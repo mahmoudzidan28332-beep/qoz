@@ -20,7 +20,7 @@ try {
     $pdo = DatabaseConnection::getConnection();
     $stmt = $pdo->query('SELECT 1');
     $dbOk = $stmt->fetchColumn() === 1;
-} catch (Throwable $e) {
+} catch (\PDOException $e) {
     Logger::error("Health check DB error: " . $e->getMessage());
 }
 
@@ -30,7 +30,7 @@ try {
         CacheManager::set('health_test', 'ok', 10);
         $cacheOk = CacheManager::get('health_test') === 'ok';
     }
-} catch (Throwable $e) {
+} catch (\RedisException | \RuntimeException $e) {
     Logger::warning("Health check cache error: " . $e->getMessage());
 }
 
