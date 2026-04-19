@@ -57,7 +57,8 @@ try {
             }
 
             if (isset($_GET['barcode']) && $_GET['barcode'] !== '') {
-                $row = $controller->lookupByBarcode(trim($_GET['barcode']));
+                $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
+                $row = $controller->lookupByBarcode(trim($_GET['barcode']), $entityId);
                 if (!$row) {
                     ResponseFormatter::error('Barcode not found', 404);
                     break;

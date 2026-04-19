@@ -336,6 +336,14 @@ final class PdoStockMovementsRepository
             return null;
         }
 
+        // Pre-fetch tenant_id to avoid correlated subquery per row
+        $tenantStmt = $this->pdo->prepare("SELECT tenant_id FROM entities WHERE id = :eid LIMIT 1");
+        $tenantStmt->execute([':eid' => $entityId]);
+        $tenantId = $tenantStmt->fetchColumn();
+        if ($tenantId === false) {
+            return null;
+        }
+
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status,
                    pt.name AS product_name, NULL AS variant_id
@@ -343,10 +351,10 @@ final class PdoStockMovementsRepository
             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE p.sku = :sku
-              AND p.tenant_id = (SELECT tenant_id FROM entities WHERE id = :entity_id2 LIMIT 1)
+              AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':entity_id2' => $entityId]);
+        $stmt->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) return $row;
 
@@ -355,13 +363,13 @@ final class PdoStockMovementsRepository
                    pt.name AS product_name, pv.id AS variant_id
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
-              AND p.tenant_id = (SELECT tenant_id FROM entities WHERE id = :entity_id2 LIMIT 1)
+              AND p.tenant_id = :tenant_id
             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE pv.sku = :sku
             LIMIT 1
         ");
-        $stmt2->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':entity_id2' => $entityId]);
+        $stmt2->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt2->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -494,18 +502,33 @@ final class PdoStockMovementsRepository
     // ================================
     // Lookup by Barcode
     // ================================
-    public function lookupByBarcode(string $barcode): ?array
+    public function lookupByBarcode(string $barcode, ?int $entityId = null): ?array
     {
+        // Multi-tenant safety: require entity scoping to prevent cross-tenant data leakage
+        if ($entityId === null) {
+            return null;
+        }
+
+        // Pre-fetch tenant_id for scoping
+        $tenantStmt = $this->pdo->prepare("SELECT tenant_id FROM entities WHERE id = :eid LIMIT 1");
+        $tenantStmt->execute([':eid' => $entityId]);
+        $tenantId = $tenantStmt->fetchColumn();
+        if ($tenantId === false) {
+            return null;
+        }
+
         // Search in products table
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status, p.manage_stock,
                    pt.name AS product_name, NULL AS variant_id
-            FROM products p /* tenant_id scoped via barcode lookup */
+            FROM products p
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'en'
             WHERE p.barcode = :barcode
+              AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':barcode' => $barcode]);
+        $stmt->execute([':barcode' => $barcode, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
@@ -521,11 +544,13 @@ final class PdoStockMovementsRepository
                    pv.stock_quantity AS variant_stock_quantity
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
+              AND p.tenant_id = :tenant_id
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'en'
             WHERE pv.barcode = :barcode
             LIMIT 1
         ");
-        $stmt->execute([':barcode' => $barcode]);
+        $stmt->execute([':barcode' => $barcode, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;

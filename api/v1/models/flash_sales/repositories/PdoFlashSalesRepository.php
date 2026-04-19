@@ -120,9 +120,18 @@ class PdoFlashSalesRepository {
         return $stmt->execute();
     }
 
-    public function delete(int $id): bool {
-        $stmt = $this->pdo->prepare("DELETE FROM flash_sales WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+    public function delete(int $id, ?int $entityId = null): bool {
+        $sql = "DELETE FROM flash_sales WHERE id = :id";
+        $params = [':id' => $id];
+
+        // Multi-tenant safety: scope delete to entity to prevent cross-tenant deletion
+        if ($entityId !== null) {
+            $sql .= " AND entity_id = :entity_id";
+            $params[':entity_id'] = $entityId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     /* ── Translations ── */

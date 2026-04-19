@@ -95,7 +95,8 @@ try {
         case 'DELETE':
             $id = (int)($_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
-            $controller->delete($id);
+            $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
+            $controller->delete($id, $entityId);
             ResponseFormatter::success(null, 'Flash sale deleted');
             break;
 

@@ -52,9 +52,9 @@ final class StockMovementsController
         return $this->service->movementStats($filters);
     }
 
-    public function lookupByBarcode(string $barcode): ?array
+    public function lookupByBarcode(string $barcode, ?int $entityId = null): ?array
     {
-        return $this->service->lookupByBarcode($barcode);
+        return $this->service->lookupByBarcode($barcode, $entityId);
     }
 
     public function lookupBySku(string $sku, string $lang, ?int $entityId = null): ?array

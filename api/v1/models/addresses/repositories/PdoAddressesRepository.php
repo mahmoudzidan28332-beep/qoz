@@ -51,8 +51,10 @@ final class PdoAddressesRepository
             }
         }
 
-        // Multi-tenant safety: require at least one scoping filter to prevent cross-tenant data leakage
-        if (empty($where)) {
+        // Multi-tenant safety: require tenant_id or owner scoping to prevent cross-tenant data leakage
+        $hasTenantScope = isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '';
+        $hasOwnerScope  = (isset($filters['owner_type']) && $filters['owner_type'] !== '') && (isset($filters['owner_id']) && $filters['owner_id'] !== '');
+        if (!$hasTenantScope && !$hasOwnerScope) {
             return ['items' => [], 'total' => 0];
         }
 
@@ -128,14 +130,17 @@ final class PdoAddressesRepository
     // ================================
     public function find(int $id, string $language = 'ar', ?int $tenantId = null): ?array
     {
-        $tenantFilter = '';
+        $where  = ['a.id = :id'];
         $params = [];
 
         if ($tenantId !== null) {
             // Multi-tenant safety: scope address to entities owned by the given tenant
-            $tenantFilter = " AND (a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))";
+            $where[] = "a.owner_type = 'entity'";
+            $where[] = "a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)";
             $params[':tenant_id'] = $tenantId;
         }
+
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
 
         $sql = "
             SELECT 
@@ -147,7 +152,7 @@ final class PdoAddressesRepository
             LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
             LEFT JOIN cities ci ON a.city_id = ci.id
             LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
-            WHERE a.id = :id{$tenantFilter}
+            $whereSql
             LIMIT 1
         ";
 
