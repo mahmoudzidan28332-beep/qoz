@@ -424,13 +424,14 @@
 
     // ── Build flat→tree index ──────────────────────────────
     function _buildNodeIndex(items) {
+        const isRoot = (c) => !c.parent_id || c.parent_id === 0 || c.parent_id === '0';
         const idx = {};
         items.forEach(c => {
             idx[c.id] = { ...c, children: [] };
         });
         const roots = [];
         items.forEach(c => {
-            if (c.parent_id && idx[c.parent_id]) {
+            if (!isRoot(c) && idx[c.parent_id]) {
                 idx[c.parent_id].children.push(idx[c.id]);
             } else {
                 roots.push(idx[c.id]);
@@ -576,7 +577,7 @@
         try {
             // Parallel fetch: all categories + existing assignments
             const [allRes, assignedRes] = await Promise.all([
-                AF.get(`${allCatApiUrl()}?limit=2000&lang=${state.language}&skip_tc_filter=1`),
+                AF.get(`${allCatApiUrl()}?limit=2000&lang=${state.language}&skip_tc_filter=1&show_all=1`),
                 AF.get(`${tenantCatApiUrl()}?tenant_id=${tenantId}&lang=${state.language || 'ar'}`),
             ]);
 
