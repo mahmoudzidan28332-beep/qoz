@@ -868,6 +868,42 @@
     }
 
     // ════════════════════════════════════════════════════════════
+    // ADDRESS IFRAME DATA HELPER (must be defined before saveEntity)
+    // ════════════════════════════════════════════════════════════
+    async function requestAddressDataFromIframe() {
+        const iframe = document.getElementById('addressFrame');
+        if (!iframe || !iframe.contentWindow) {
+            return null;
+        }
+
+        return new Promise((resolve) => {
+            const messageHandler = (e) => {
+                if (e.data && e.data.type === 'current-address-data') {
+                    window.removeEventListener('message', messageHandler);
+                    resolve(e.data.addressData);
+                }
+            };
+
+            setTimeout(() => {
+                window.removeEventListener('message', messageHandler);
+                resolve(null);
+            }, 5000);
+
+            window.addEventListener('message', messageHandler);
+
+            try {
+                iframe.contentWindow.postMessage({
+                    type: 'get-address-data'
+                }, '*');
+            } catch (err) {
+                console.warn('[Entities] Failed to request address data:', err);
+                window.removeEventListener('message', messageHandler);
+                resolve(null);
+            }
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════
     // FORM SUBMISSION
     // ════════════════════════════════════════════════════════════
     async function saveEntity(e) {
@@ -1751,39 +1787,6 @@
             `;
         }
         state.addressData = null;
-    }
-
-    async function requestAddressDataFromIframe() {
-        const iframe = document.getElementById('addressFrame');
-        if (!iframe || !iframe.contentWindow) {
-            return null;
-        }
-
-        return new Promise((resolve) => {
-            const messageHandler = (e) => {
-                if (e.data && e.data.type === 'current-address-data') {
-                    window.removeEventListener('message', messageHandler);
-                    resolve(e.data.addressData);
-                }
-            };
-
-            setTimeout(() => {
-                window.removeEventListener('message', messageHandler);
-                resolve(null);
-            }, 5000);
-
-            window.addEventListener('message', messageHandler);
-
-            try {
-                iframe.contentWindow.postMessage({
-                    type: 'get-address-data'
-                }, '*');
-            } catch (err) {
-                console.warn('[Entities] Failed to request address data:', err);
-                window.removeEventListener('message', messageHandler);
-                resolve(null);
-            }
-        });
     }
 
     function handleAddressMessage(e) {

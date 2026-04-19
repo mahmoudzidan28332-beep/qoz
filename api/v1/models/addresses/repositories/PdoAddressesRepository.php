@@ -35,12 +35,10 @@ final class PdoAddressesRepository
         $params = [];
         $language = $filters['language'] ?? 'ar';
 
-        // Multi-tenant: always apply tenant_id filter when provided
+        // Multi-tenant: always apply tenant_id filter when provided (direct column on addresses table)
         if (isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '') {
-            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))
-                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :filter_tenant_id_usr)))";
+            $where[] = "a.tenant_id = :filter_tenant_id";
             $params['filter_tenant_id'] = (int)$filters['tenant_id'];
-            $params['filter_tenant_id_usr'] = (int)$filters['tenant_id'];
         }
 
         // Apply individual field filters alongside tenant_id (not exclusively)
@@ -136,11 +134,9 @@ final class PdoAddressesRepository
         $params = [];
 
         if ($tenantId !== null) {
-            // Multi-tenant safety: scope address to entities or users belonging to the given tenant
-            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))
-                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :tenant_id_usr)))";
+            // Multi-tenant safety: scope address directly via tenant_id column
+            $where[] = "a.tenant_id = :tenant_id";
             $params[':tenant_id'] = $tenantId;
-            $params[':tenant_id_usr'] = $tenantId;
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -165,7 +161,6 @@ final class PdoAddressesRepository
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         if ($tenantId !== null) {
             $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
-            $stmt->bindValue(':tenant_id_usr', $tenantId, PDO::PARAM_INT);
         }
         $stmt->execute();
 
@@ -185,17 +180,18 @@ final class PdoAddressesRepository
 
         $sql = "
             INSERT INTO addresses (
-                owner_type, owner_id, address_line1, address_line2,
+                tenant_id, owner_type, owner_id, address_line1, address_line2,
                 city_id, country_id, postal_code,
                 latitude, longitude, is_primary
             ) VALUES (
-                :owner_type, :owner_id, :address_line1, :address_line2,
+                :tenant_id, :owner_type, :owner_id, :address_line1, :address_line2,
                 :city_id, :country_id, :postal_code,
                 :latitude, :longitude, :is_primary
             )
         ";
 
         $params = [
+            'tenant_id'     => isset($data['tenant_id']) && $data['tenant_id'] !== '' ? (int)$data['tenant_id'] : null,
             'owner_type'    => $data['owner_type'] ?? null,
             'owner_id'      => $data['owner_id'] ?? null,
             'address_line1' => $data['address_line1'] ?? null,
