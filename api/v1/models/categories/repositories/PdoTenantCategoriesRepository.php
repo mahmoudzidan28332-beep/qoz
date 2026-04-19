@@ -44,8 +44,8 @@ final class PdoTenantCategoriesRepository
 
         $sql .= " ORDER BY tc.sort_order ASC, tc.created_at DESC";
 
-        // Apply limit if provided
-        if ($limit !== null) {
+        // Apply limit if provided (limit=0 or null → no limit)
+        if ($limit !== null && $limit > 0) {
             $sql .= " LIMIT :limit OFFSET :offset";
             $params[':limit'] = $limit;
             $params[':offset'] = $offset;

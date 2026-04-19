@@ -448,16 +448,17 @@
         const wrapId    = depth === 0 ? 'id="catTreeRootList"' : '';
         let html = `<div class="${wrapClass}" ${wrapId}>`;
         nodes.forEach(node => {
+            const nid         = parseInt(node.id, 10);
             const hasChildren = node.children.length > 0;
-            const checked     = _catTree.checkedIds.has(node.id);
+            const checked     = _catTree.checkedIds.has(nid);
             const toggleCls   = hasChildren ? '' : ' leaf';
             const toggleIcon  = 'fa-chevron-right';
             html += `
-            <div class="cat-tree-node" data-cat-id="${node.id}" data-parent-id="${node.parent_id || 0}">
-                <span class="cat-tree-toggle${toggleCls}" data-toggle="${node.id}"><i class="fas ${toggleIcon}"></i></span>
-                <input type="checkbox" class="cat-tree-cb" data-cb="${node.id}" ${checked ? 'checked' : ''}>
-                <span class="cat-tree-label">${esc(node.name || String(node.id))}</span>
-                ${hasChildren ? `<span class="cat-tree-count" data-count="${node.id}">${node.children.length}</span>` : ''}
+            <div class="cat-tree-node" data-cat-id="${nid}" data-parent-id="${node.parent_id || 0}">
+                <span class="cat-tree-toggle${toggleCls}" data-toggle="${nid}"><i class="fas ${toggleIcon}"></i></span>
+                <input type="checkbox" class="cat-tree-cb" data-cb="${nid}" ${checked ? 'checked' : ''}>
+                <span class="cat-tree-label">${esc(node.name || String(nid))}</span>
+                ${hasChildren ? `<span class="cat-tree-count" data-count="${nid}">${node.children.length}</span>` : ''}
             </div>
             ${hasChildren ? _renderNodes(node.children, depth + 1) : ''}`;
         });
@@ -469,11 +470,12 @@
     function _syncAllParents() {
         // Bottom-up: iterate all nodes that have children
         Object.values(_catTree.nodeIndex).forEach(node => {
-            if (node.children.length) _syncParentState(node.id);
+            if (node.children.length) _syncParentState(parseInt(node.id, 10));
         });
     }
 
     function _syncParentState(parentId) {
+        parentId = parseInt(parentId, 10);
         const node = _catTree.nodeIndex[parentId];
         if (!node || !node.children.length) return;
         const cbEl = document.querySelector(`.cat-tree-cb[data-cb="${parentId}"]`);
@@ -500,8 +502,9 @@
         if (!node) return [];
         let ids = [];
         node.children.forEach(c => {
-            ids.push(c.id);
-            ids = ids.concat(_getAllDescendants(c.id));
+            const cid = parseInt(c.id, 10);
+            ids.push(cid);
+            ids = ids.concat(_getAllDescendants(cid));
         });
         return ids;
     }
@@ -520,7 +523,8 @@
 
         // Cascade to all descendants
         const descendants = _getAllDescendants(catId);
-        descendants.forEach(id => {
+        descendants.forEach(rawId => {
+            const id = parseInt(rawId, 10);
             const el = document.querySelector(`.cat-tree-cb[data-cb="${id}"]`);
             if (el) { el.checked = checked; el.indeterminate = false; }
             if (checked) _catTree.checkedIds.add(id);
@@ -528,11 +532,11 @@
         });
 
         // Bubble up ancestors
-        let parentId = node.parent_id;
+        let parentId = node.parent_id ? parseInt(node.parent_id, 10) : 0;
         while (parentId) {
             _syncParentState(parentId);
             const p = _catTree.nodeIndex[parentId];
-            parentId = p ? p.parent_id : null;
+            parentId = p && p.parent_id ? parseInt(p.parent_id, 10) : 0;
         }
     }
 
@@ -579,7 +583,7 @@
             // Parallel fetch: all categories + existing assignments
             const [allRes, assignedRes] = await Promise.all([
                 AF.get(`${allCatApiUrl()}?limit=2000&lang=${state.language}&skip_tc_filter=1&show_all=1`),
-                AF.get(`${tenantCatApiUrl()}?tenant_id=${tenantId}&lang=${state.language || 'ar'}`),
+                AF.get(`${tenantCatApiUrl()}?tenant_id=${tenantId}&lang=${state.language || 'ar'}&limit=0`),
             ]);
 
             const allItems      = allRes?.data?.items || allRes?.data || allRes?.items || [];
@@ -595,12 +599,15 @@
             _catTree.nodeIndex   = idx;
             _catTree.allCats     = allItems;
 
-            // Build assignedMap  and initial checkedIds
+            // Build assignedMap  and initial checkedIds (normalise to int)
             _catTree.assignedMap = {};
             _catTree.checkedIds  = new Set();
             assignedItems.forEach(a => {
-                _catTree.assignedMap[a.category_id] = a.id;   // category_id → assignment row id
-                _catTree.checkedIds.add(a.category_id);
+                const cid = parseInt(a.category_id, 10);
+                if (!isNaN(cid)) {
+                    _catTree.assignedMap[cid] = a.id;   // category_id → assignment row id
+                    _catTree.checkedIds.add(cid);
+                }
             });
 
             // Render
@@ -612,8 +619,9 @@
             // Re-apply checked state DOM (for parents whose children are all checked)
             Object.values(_catTree.nodeIndex).forEach(node => {
                 if (node.children.length) {
-                    const cbEl = document.querySelector(`.cat-tree-cb[data-cb="${node.id}"]`);
-                    if (cbEl && _catTree.checkedIds.has(node.id)) cbEl.checked = true;
+                    const nid  = parseInt(node.id, 10);
+                    const cbEl = document.querySelector(`.cat-tree-cb[data-cb="${nid}"]`);
+                    if (cbEl && _catTree.checkedIds.has(nid)) cbEl.checked = true;
                 }
             });
 
@@ -656,6 +664,19 @@
         container.addEventListener('click', _treeClickHandler, { passive: true });
     }
 
+    // ── Collect ancestor IDs for a given node ────────────────
+    function _getAncestorIds(catId) {
+        const ids = [];
+        let node = _catTree.nodeIndex[catId];
+        while (node && node.parent_id) {
+            const pid = parseInt(node.parent_id, 10);
+            if (!pid || !_catTree.nodeIndex[pid]) break;
+            ids.push(pid);
+            node = _catTree.nodeIndex[pid];
+        }
+        return ids;
+    }
+
     // ── Batch save ────────────────────────────────────────
     async function saveCategoryTree() {
         if (!state.currentTenantId) return;
@@ -664,10 +685,17 @@
         _setTreeStatus(t('categories.saving', 'Saving…'));
 
         try {
+            // Include ancestors of every checked item so indeterminate parents
+            // (parents whose children are partially checked) stay assigned.
+            const saveIds = new Set(_catTree.checkedIds);
+            _catTree.checkedIds.forEach(id => {
+                _getAncestorIds(id).forEach(aid => saveIds.add(aid));
+            });
+
             // Single batch-sync call — backend resolves children and diffs
             await AF.post(`${tenantCatApiUrl()}/sync`, {
                 tenant_id:        state.currentTenantId,
-                category_ids:     [..._catTree.checkedIds],
+                category_ids:     [...saveIds],
                 include_children: true,
                 is_active:        1,
             });
