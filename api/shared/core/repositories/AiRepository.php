@@ -30,7 +30,7 @@ class AiRepository
         $stmt = $this->pdo->query("
             SELECT DATE(created_at) as date, COUNT(*) as sales
             FROM orders /* tenant_id: platform-wide aggregate */
-            WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE created_at >= CURDATE() - INTERVAL 30 DAY
             GROUP BY DATE(created_at)
             ORDER BY date
         ");

@@ -301,11 +301,11 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
 
         // Date range filter (inclusive)
         if (!empty($filters['date_from'])) {
-            $where[]              = 'DATE(o.created_at) >= :date_from';
-            $params[':date_from'] = $filters['date_from'];
+            $where[]              = 'o.created_at >= :date_from';
+            $params[':date_from'] = $filters['date_from'] . ' 00:00:00';
         }
         if (!empty($filters['date_to'])) {
-            $where[]            = 'DATE(o.created_at) <= :date_to';
+            $where[]            = 'o.created_at < DATE_ADD(:date_to, INTERVAL 1 DAY)';
             $params[':date_to'] = $filters['date_to'];
         }
         // Payment method filter – exact match (LIKE with escaped special chars)
