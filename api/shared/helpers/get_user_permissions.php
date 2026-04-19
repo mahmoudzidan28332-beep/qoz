@@ -1,5 +1,6 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/get_user_permissions.php
+// Delegates to repository layer — no direct SQL in helpers.
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
@@ -19,77 +20,104 @@ if (empty($_SESSION['user_id'])) {
 
 $currentUserId = (int)$_SESSION['user_id'];
 
-try {
-    // جلب بيانات المستخدم مع الدور
-    $stmt = $conn->prepare("
-        SELECT u.id, u.username, u.email, u.is_active, u.role_id,
-               r.key_name AS role_key, r.display_name AS role_display_name
-        FROM users u
-        LEFT JOIN roles r ON r.id = u.role_id
-        WHERE u.id = ?
-        LIMIT 1
-    ");
-    $stmt->bind_param('i', $currentUserId);
-    $stmt->execute();
-    $userResult = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!$userResult) {
-        http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'User not found']);
-        exit;
-    }
-
-    $user = [
-        'id' => $userResult['id'],
-        'username' => $userResult['username'],
-        'email' => $userResult['email'],
-        'is_active' => $userResult['is_active']
-    ];
-
-    $roles = [];
-    if ($userResult['role_id']) {
-        $roles[] = [
-            'id' => (int)$userResult['role_id'],
-            'key_name' => $userResult['role_key'],
-            'display_name' => $userResult['role_display_name']
-        ];
-    }
-
-    // جلب الصلاحيات إذا كان هناك دور
-    $permissions = [];
-    $permissionMap = [];
-    if ($userResult['role_id']) {
-        $stmt = $conn->prepare("
-            SELECT DISTINCT p.key_name, p.display_name, p.description
-            FROM role_permissions rp
-            JOIN permissions p ON p.id = rp.permission_id
-            WHERE rp.role_id = ?
-        ");
-        $stmt->bind_param('i', $userResult['role_id']);
-        $stmt->execute();
-        $permRes = $stmt->get_result();
-        $permissions = $permRes->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-
-        foreach ($permissions as $p) {
-            $permissionMap[$p['key_name']] = true;
+// Resolve PDO connection
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    // Build PDO from the same config that provides $conn
+    $dbHost = $GLOBALS['db_host'] ?? ($_ENV['DB_HOST'] ?? 'localhost');
+    $dbName = $GLOBALS['db_name'] ?? ($_ENV['DB_NAME'] ?? '');
+    $dbUser = $GLOBALS['db_user'] ?? ($_ENV['DB_USER'] ?? '');
+    $dbPass = $GLOBALS['db_pass'] ?? ($_ENV['DB_PASS'] ?? '');
+    if ($dbName) {
+        try {
+            $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+            exit;
         }
     }
+}
 
-    echo json_encode([
-        'success' => true,
-        'user' => $user,
-        'roles' => $roles,
-        'permissions' => $permissionMap,
-        'permissions_full' => $permissions
-    ], JSON_UNESCAPED_UNICODE);
+if (!$pdo instanceof PDO) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database unavailable']);
+    exit;
+}
 
+// Load repositories
+$modelsBase = dirname(__DIR__, 2) . '/api/v1/models';
+if (!is_dir($modelsBase)) {
+    $modelsBase = dirname(__DIR__) . '/v1/models';
+}
+if (!is_dir($modelsBase)) {
+    $modelsBase = __DIR__ . '/../../v1/models';
+}
+
+$usersRepoFile = $modelsBase . '/users_account/repositories/PdoUsersRepository.php';
+$rbacRepoFile  = $modelsBase . '/users_account/repositories/PdoAuthRbacRepository.php';
+
+if (is_readable($usersRepoFile)) { require_once $usersRepoFile; }
+if (is_readable($rbacRepoFile))  { require_once $rbacRepoFile; }
+
+try {
+    if (class_exists('PdoUsersRepository') && class_exists('PdoAuthRbacRepository')) {
+        $usersRepo = new PdoUsersRepository($pdo);
+        $rbacRepo  = new PdoAuthRbacRepository($pdo);
+
+        $userResult = $usersRepo->find($currentUserId);
+        if (!$userResult) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+
+        $user = [
+            'id'        => $userResult['id'],
+            'username'  => $userResult['username'] ?? '',
+            'email'     => $userResult['email'] ?? '',
+            'is_active' => $userResult['is_active'] ?? 0,
+        ];
+
+        $roles = [];
+        $roleId = (int)($userResult['role_id'] ?? 0);
+        if ($roleId) {
+            $roleKey = $rbacRepo->getRoleKeyById($roleId);
+            $roles[] = [
+                'id'           => $roleId,
+                'key_name'     => $roleKey ?? '',
+                'display_name' => $userResult['role_display_name'] ?? $roleKey ?? '',
+            ];
+        }
+
+        $permissionMap = [];
+        $permissions   = [];
+        if ($roleId) {
+            $permKeys = $rbacRepo->getPermissionKeysByRoleId($roleId);
+            foreach ($permKeys as $key) {
+                $permissionMap[$key] = true;
+                $permissions[] = ['key_name' => $key];
+            }
+        }
+
+        echo json_encode([
+            'success'          => true,
+            'user'             => $user,
+            'roles'            => $roles,
+            'permissions'      => $permissionMap,
+            'permissions_full' => $permissions,
+        ], JSON_UNESCAPED_UNICODE);
+    } else {
+        // Fallback: repos not available, return minimal info
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Repository classes not available']);
+    }
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => 'Server error',
-        'debug' => $e->getMessage()  // احذف هذا في الإنتاج
     ]);
 }

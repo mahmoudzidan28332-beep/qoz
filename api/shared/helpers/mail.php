@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+require_once __DIR__ . '/../core/repositories/MailRepository.php';
 // htdocs/api/helpers/mail.php
 // ملف دوال إرسال البريد الإلكتروني (Email Helper)
 // يدعم SMTP والقوالب، مع تخزين السجلات في DB عبر PDO
@@ -340,9 +341,8 @@ class Mail {
         if (!self::$pdo) return false;
         
         try {
-            $stmt = self::$pdo->prepare("INSERT INTO email_logs (recipient, subject, body, status, language, sent_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$to, $subject, $body, $status, $lang]);
-            return true;
+            $repo = new MailRepository(self::$pdo);
+            return $repo->insertEmailLog($to, $subject, $body, $status, $lang);
         } catch (PDOException $e) {
             self::logError('Failed to save email log: ' . $e->getMessage());
             return false;
@@ -463,6 +463,7 @@ class Mail {
         $year = date('Y');
         $direction = $lang === 'ar' ? 'rtl' : 'ltr';
         $langCode = $lang;
+        $styles = self::getEmailStyles($direction);
         
         return <<<HTML
 <!DOCTYPE html>
@@ -471,75 +472,12 @@ class Mail {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$appName}</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            direction: {$direction};
-        }
-        .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
-            text-align: center;
-            color: white;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-        }
-        .content {
-            padding: 30px;
-            color: #333;
-            line-height: 1.6;
-        }
-        .button {
-            display: inline-block;
-            padding: 12px 30px;
-            background-color: #667eea;
-            color: white !important;
-            text-decoration: none;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            border-top: 1px solid #eee;
-        }
-        .otp-code {
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-            letter-spacing: 5px;
-            padding: 20px;
-            background-color: #f0f0f0;
-            border-radius: 5px;
-            text-align: center;
-            margin: 20px 0;
-        }
-    </style>
+    <style>{$styles}</style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>{$appName}</h1>
-        </div>
-        <div class="content">
-            {$content}
-        </div>
+        <div class="header"><h1>{$appName}</h1></div>
+        <div class="content">{$content}</div>
         <div class="footer">
             <p>&copy; {$year} {$appName}. جميع الحقوق محفوظة - All rights reserved.</p>
             <p>
@@ -551,6 +489,20 @@ class Mail {
 </body>
 </html>
 HTML;
+    }
+
+    private static function getEmailStyles(string $direction): string
+    {
+        return "
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; direction: {$direction}; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .content { padding: 30px; color: #333; line-height: 1.6; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #667eea; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #eee; }
+        .otp-code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; padding: 20px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0; }
+        ";
     }
     
     /**

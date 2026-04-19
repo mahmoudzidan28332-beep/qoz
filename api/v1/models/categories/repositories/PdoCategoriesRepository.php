@@ -1,8 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/PdoCategoriesQueryTrait.php';
+
 final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 {
+    use PdoCategoriesQueryTrait;
+
     private PDO $pdo;
 
     public function __construct(PDO $pdo)
@@ -57,14 +61,13 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
                 ON c.id = ct.category_id AND ct.language_code = :lang
             LEFT JOIN categories p
                 ON c.parent_id = p.id
+            LEFT JOIN image_types it_cat
+                ON it_cat.name = 'category'
             LEFT JOIN images i
                 ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
+               AND i.image_type_id = it_cat.id
                AND i.is_main = 1
         ";
-
         $params = [':lang' => $lang];
 
         // ── Tenant JOIN ──────────────────────────────────────────
@@ -193,112 +196,64 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
     {
         if ($tenantId === null) {
             if (empty($data['tenant_id'])) {
-                throw new \InvalidArgumentException(
-                    'tenant_id is required in data when super admin saves a category'
-                );
+                throw new \InvalidArgumentException('tenant_id is required in data when super admin saves a category');
             }
             $tenantId = (int) $data['tenant_id'];
         }
 
         $isUpdate = !empty($data['id']);
-        $oldData  = $isUpdate
-            ? $this->findByIdWithTranslations($tenantId, (int) $data['id'])
-            : null;
+        $oldData  = $isUpdate ? $this->findByIdWithTranslations($tenantId, (int) $data['id']) : null;
 
         $this->pdo->beginTransaction();
         try {
-            if ($isUpdate) {
-                $stmt = $this->pdo->prepare("
-                    UPDATE categories SET
-                        parent_id   = :parent_id,
-                        slug        = :slug,
-                        name        = :name,
-                        description = :description,
-                        sort_order  = :sort_order,
-                        is_active   = :is_active,
-                        is_featured = :is_featured,
-                        updated_at  = NOW()
-                    WHERE tenant_id = :tenantId AND id = :id
-                ");
-                $stmt->execute([
-                    ':parent_id'   => $data['parent_id'] ?? null,
-                    ':slug'        => $data['slug'],
-                    ':name'        => $data['name'],
-                    ':description' => $data['description'] ?? null,
-                    ':sort_order'  => (int) ($data['sort_order']  ?? 0),
-                    ':is_active'   => (int) ($data['is_active']   ?? 1),
-                    ':is_featured' => (int) ($data['is_featured'] ?? 0),
-                    ':tenantId'    => $tenantId,
-                    ':id'          => (int) $data['id'],
-                ]);
-                $categoryId = (int) $data['id'];
-            } else {
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO categories
-                        (tenant_id, parent_id, slug, name, description,
-                         sort_order, is_active, is_featured, created_at)
-                    VALUES
-                        (:tenantId, :parent_id, :slug, :name, :description,
-                         :sort_order, :is_active, :is_featured, NOW())
-                ");
-                $stmt->execute([
-                    ':tenantId'    => $tenantId,
-                    ':parent_id'   => $data['parent_id'] ?? null,
-                    ':slug'        => $data['slug'],
-                    ':name'        => $data['name'],
-                    ':description' => $data['description'] ?? null,
-                    ':sort_order'  => (int) ($data['sort_order']  ?? 0),
-                    ':is_active'   => (int) ($data['is_active']   ?? 1),
-                    ':is_featured' => (int) ($data['is_featured'] ?? 0),
-                ]);
-                $categoryId = (int) $this->pdo->lastInsertId();
-            }
+            $categoryId = $isUpdate
+                ? $this->updateCategory($tenantId, $data)
+                : $this->insertCategory($tenantId, $data);
 
-            // ── Image ────────────────────────────────────────────
-            if (!empty($data['image_id'])) {
-                $this->pdo->prepare("
-                    UPDATE images
-                    SET owner_id = :owner_id, is_main = 1
-                    WHERE id = :image_id AND tenant_id = :tenantId
-                ")->execute([
-                    ':owner_id' => $categoryId,
-                    ':image_id' => (int) $data['image_id'],
-                    ':tenantId' => $tenantId,
-                ]);
-            }
+            $this->saveCategoryRelations($tenantId, $categoryId, $data);
 
-            // ── Translations ─────────────────────────────────────
-            if (isset($data['translations']) && is_array($data['translations'])) {
-                $this->saveTranslations($categoryId, $data['translations']);
-            }
-
-            // ── Deleted translations ──────────────────────────────
-            if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
-                foreach ($data['deleted_translations'] as $translation) {
-                    if (!empty($translation['language_code'])) {
-                        $this->deleteTranslation($categoryId, $translation['language_code']);
-                    }
-                }
-            }
-
-            // ── Audit log ────────────────────────────────────────
-            if ($userId) {
-                $this->logAction(
-                    $tenantId,
-                    $userId,
-                    $isUpdate ? 'update' : 'create',
-                    $categoryId,
-                    $oldData,
-                    $data
-                );
-            }
+            if ($userId) { $this->logAction($tenantId, $userId, $isUpdate ? 'update' : 'create', $categoryId, $oldData, $data); }
 
             $this->pdo->commit();
             return $categoryId;
-
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
             throw $e;
+        }
+    }
+
+    private function updateCategory(int $tenantId, array $data): int
+    {
+        $stmt = $this->pdo->prepare("UPDATE categories SET parent_id = :parent_id, slug = :slug, name = :name, description = :description, sort_order = :sort_order, is_active = :is_active, is_featured = :is_featured, updated_at = NOW() WHERE tenant_id = :tenantId AND id = :id");
+        $stmt->execute([':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0), ':tenantId' => $tenantId, ':id' => (int)$data['id']]);
+        return (int)$data['id'];
+    }
+
+    private function insertCategory(int $tenantId, array $data): int
+    {
+        $stmt = $this->pdo->prepare("INSERT INTO categories (tenant_id, parent_id, slug, name, description, sort_order, is_active, is_featured, created_at) VALUES (:tenantId, :parent_id, :slug, :name, :description, :sort_order, :is_active, :is_featured, NOW())");
+        $stmt->execute([':tenantId' => $tenantId, ':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0)]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    private function saveCategoryRelations(int $tenantId, int $categoryId, array $data): void
+    {
+        if (!empty($data['image_id'])) {
+            $this->pdo->prepare("UPDATE images SET owner_id = :owner_id, is_main = 1 WHERE id = :image_id AND tenant_id = :tenantId")->execute([':owner_id' => $categoryId, ':image_id' => (int)$data['image_id'], ':tenantId' => $tenantId]);
+        }
+        if (isset($data['translations']) && is_array($data['translations'])) { $this->saveTranslations($categoryId, $data['translations']); }
+        if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
+            $langs = array_filter(array_column($data['deleted_translations'], 'language_code'));
+            if (!empty($langs)) {
+                $placeholders = [];
+                $params = [':cat_id' => $categoryId];
+                foreach ($langs as $i => $lang) {
+                    $placeholders[] = ":lang_{$i}";
+                    $params[":lang_{$i}"] = $lang;
+                }
+                $sql = "DELETE FROM category_translations WHERE category_id = :cat_id AND language_code IN (" . implode(',', $placeholders) . ")";
+                $this->pdo->prepare($sql)->execute($params);
+            }
         }
     }
 
@@ -384,37 +339,26 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             return;
         }
 
-        $stmt = $this->pdo->prepare("
-            INSERT INTO category_translations
-                (category_id, language_code, name, description, slug,
-                 meta_title, meta_description, meta_keywords)
-            VALUES
-                (:category_id, :lang, :name, :description, :slug,
-                 :meta_title, :meta_description, :meta_keywords)
-            ON DUPLICATE KEY UPDATE
-                name             = VALUES(name),
-                description      = VALUES(description),
-                slug             = VALUES(slug),
-                meta_title       = VALUES(meta_title),
-                meta_description = VALUES(meta_description),
-                meta_keywords    = VALUES(meta_keywords)
-        ");
-
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $trans) {
-            $lang = $trans['language_code'] ?? null;
-            if (!$lang) continue;
-
-            $stmt->execute([
-                ':category_id'      => $categoryId,
-                ':lang'             => $lang,
-                ':name'             => $trans['name']             ?? null,
-                ':description'      => $trans['description']      ?? null,
-                ':slug'             => $trans['slug']             ?? null,
-                ':meta_title'       => $trans['meta_title']       ?? null,
-                ':meta_description' => $trans['meta_description'] ?? null,
-                ':meta_keywords'    => $trans['meta_keywords']    ?? null,
-            ]);
+            $values[] = "(:category_id_{$i}, :lang_{$i}, :name_{$i}, :description_{$i}, :slug_{$i}, :meta_title_{$i}, :meta_description_{$i}, :meta_keywords_{$i})";
+            $params[":category_id_{$i}"]      = $categoryId;
+            $params[":lang_{$i}"]             = $trans['language_code'];
+            $params[":name_{$i}"]             = $trans['name']             ?? null;
+            $params[":description_{$i}"]      = $trans['description']      ?? null;
+            $params[":slug_{$i}"]             = $trans['slug']             ?? null;
+            $params[":meta_title_{$i}"]       = $trans['meta_title']       ?? null;
+            $params[":meta_description_{$i}"] = $trans['meta_description'] ?? null;
+            $params[":meta_keywords_{$i}"]    = $trans['meta_keywords']    ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO category_translations (category_id, language_code, name, description, slug, meta_title, meta_description, meta_keywords) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), slug = VALUES(slug), meta_title = VALUES(meta_title), meta_description = VALUES(meta_description), meta_keywords = VALUES(meta_keywords)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $categoryId): array
@@ -474,161 +418,6 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    /* ============================================================
-     * COUNT ALL (for pagination)
-     *
-     * نفس منطق parent_id المستخدم في all():
-     *   -1   → كل الفئات
-     *   null / 0 → roots فقط (ما لم يوجد search)
-     *   > 0  → فئة محددة + أبناؤها
-     * ============================================================ */
-    public function countAll(?int $tenantId, array $filters = [], bool $skipTcFilter = false): int
-    {
-        $isSuperAdmin   = ($tenantId === null);
-        $hasAssignments = (!$isSuperAdmin && !$skipTcFilter)
-            ? $this->hasTenantCategoryAssignments($tenantId)
-            : false;
-
-        if ($hasAssignments) {
-            $sql    = "
-                SELECT COUNT(*) AS total
-                FROM categories c
-                LEFT JOIN tenant_categories tc_assign
-                    ON c.id = tc_assign.category_id
-                   AND tc_assign.tenant_id = :tenantId_tc
-                   AND tc_assign.is_active = 1
-                WHERE (c.tenant_id = :tenantId OR tc_assign.category_id IS NOT NULL)
-            ";
-            $params = [':tenantId' => $tenantId, ':tenantId_tc' => $tenantId];
-        } elseif (!$isSuperAdmin) {
-            $sql    = "SELECT COUNT(*) AS total FROM categories c WHERE c.tenant_id = :tenantId";
-            $params = [':tenantId' => $tenantId];
-        } else {
-            $sql    = "SELECT COUNT(*) AS total FROM categories c WHERE 1=1";
-            $params = [];
-        }
-
-        // ── Parent / Hierarchy filter ─────────────────────────────
-        $pid = $filters['parent_id'] ?? null;
-
-        if ($pid === -1) {
-            // show_all bypass — لا فلترة
-        } elseif ($pid === null || $pid === 0) {
-            if (empty($filters['search'])) {
-                $sql .= " AND (c.parent_id IS NULL OR c.parent_id = 0)";
-            }
-        } else {
-            $sql .= " AND (c.id = :parent_id1 OR c.parent_id = :parent_id2)";
-            $params[':parent_id1'] = $pid;
-            $params[':parent_id2'] = $pid;
-        }
-
-        // ── Optional filters ──────────────────────────────────────
-        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
-            $sql .= " AND c.is_active = :is_active";
-            $params[':is_active'] = (int) $filters['is_active'];
-        }
-
-        if (isset($filters['is_featured']) && $filters['is_featured'] !== '') {
-            $sql .= " AND c.is_featured = :is_featured";
-            $params[':is_featured'] = (int) $filters['is_featured'];
-        }
-
-        if (!empty($filters['search'])) {
-            $sql .= "
-                AND (
-                    c.name LIKE :search1
-                    OR c.slug LIKE :search2
-                    OR EXISTS (
-                        SELECT 1 FROM category_translations ct2
-                        WHERE ct2.category_id = c.id
-                          AND ct2.name LIKE :search3
-                    )
-                )";
-            $searchVal             = "%{$filters['search']}%";
-            $params[':search1']    = $searchVal;
-            $params[':search2']    = $searchVal;
-            $params[':search3']    = $searchVal;
-        }
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
-    }
-
-    /* ============================================================
-     * ADDITIONAL QUERY METHODS
-     * ============================================================ */
-
-    public function getActiveCategories(?int $tenantId, string $lang = 'en'): array
-    {
-        $sql    = "
-            SELECT
-                c.*,
-                COALESCE(ct.name,        c.name)        AS name,
-                COALESCE(ct.description, c.description) AS description,
-                COALESCE(ct.slug,        c.slug)        AS slug,
-                i.url AS image_url
-            FROM categories c
-            LEFT JOIN category_translations ct
-                ON c.id = ct.category_id AND ct.language_code = :lang
-            LEFT JOIN images i
-                ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
-               AND i.is_main = 1
-            WHERE c.is_active = 1
-        ";
-        $params = [':lang' => $lang];
-
-        if ($tenantId !== null) {
-            $sql .= " AND c.tenant_id = :tenantId";
-            $params[':tenantId'] = $tenantId;
-        }
-
-        $sql .= " ORDER BY c.sort_order ASC";
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function getFeaturedCategories(?int $tenantId, string $lang = 'en'): array
-    {
-        $sql    = "
-            SELECT
-                c.*,
-                COALESCE(ct.name,        c.name)        AS name,
-                COALESCE(ct.description, c.description) AS description,
-                COALESCE(ct.slug,        c.slug)        AS slug,
-                i.url AS image_url
-            FROM categories c
-            LEFT JOIN category_translations ct
-                ON c.id = ct.category_id AND ct.language_code = :lang
-            LEFT JOIN images i
-                ON i.owner_id = c.id
-               AND i.image_type_id = (
-                       SELECT id FROM image_types WHERE name = 'category' LIMIT 1
-                   )
-               AND i.is_main = 1
-            WHERE c.is_active = 1 AND c.is_featured = 1
-        ";
-        $params = [':lang' => $lang];
-
-        if ($tenantId !== null) {
-            $sql .= " AND c.tenant_id = :tenantId";
-            $params[':tenantId'] = $tenantId;
-        }
-
-        $sql .= " ORDER BY c.sort_order ASC";
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
     public function findIdBySlug(?int $tenantId, string $slug): ?int
     {
         if ($tenantId === null) {
@@ -647,6 +436,28 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ? (int) $result['id'] : null;
+    }
+
+    public function bulkUpdateStatus(?int $tenantId, array $ids, bool $isActive, ?int $userId = null): int
+    {
+        if (empty($ids)) {
+            return 0;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        if ($tenantId === null) {
+            $params = array_merge([$isActive ? 1 : 0], $ids);
+            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE id IN ($placeholders)";
+        } else {
+            $params = array_merge([$isActive ? 1 : 0, $tenantId], $ids);
+            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE tenant_id = ? AND id IN ($placeholders)";
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->rowCount();
     }
 
     public function slugExists(?int $tenantId, string $slug, ?int $excludeId = null): bool
@@ -676,92 +487,5 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         );
         $stmt->execute([':categoryId' => $categoryId]);
         return ((int) ($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0)) > 0;
-    }
-
-    /* ============================================================
-     * PRIVATE HELPERS
-     * ============================================================ */
-
-    private function hasTenantCategoryAssignments(?int $tenantId): bool
-    {
-        if ($tenantId === null) return false;
-
-        $stmt = $this->pdo->prepare(
-            "SELECT COUNT(*) AS cnt FROM tenant_categories WHERE tenant_id = :tenantId LIMIT 1"
-        );
-        $stmt->execute([':tenantId' => $tenantId]);
-        return ((int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0)) > 0;
-    }
-
-    /* ============================================================
-     * LOGGING
-     * ============================================================ */
-    private function logAction(
-        int $tenantId,
-        int $userId,
-        string $action,
-        int $entityId,
-        ?array $oldData,
-        ?array $newData
-    ): void {
-        $sensitiveFields = [
-            'password', 'token', 'api_key', 'secret_key',
-            'refresh_token', 'access_token', 'session_id',
-        ];
-
-        foreach ($sensitiveFields as $field) {
-            if ($oldData) unset($oldData[$field]);
-            if ($newData) unset($newData[$field]);
-        }
-
-        if (class_exists('AuditLogsService')) {
-            AuditLogsService::log(
-                'category.' . $action,
-                'category',
-                $entityId,
-                null,
-                $tenantId,
-                $userId,
-                $oldData,
-                $newData
-            );
-            return;
-        }
-
-        try {
-            $diff = null;
-            if ($oldData !== null && $newData !== null && class_exists('PdoAuditLogsRepository')) {
-                $diff = PdoAuditLogsRepository::computeDiff($oldData, $newData);
-            }
-
-            $stmt = $this->pdo->prepare("
-                INSERT INTO audit_logs
-                    (tenant_id, entity_type, entity_id, user_id, action,
-                     ip_address, user_agent, old_values, new_values, diff,
-                     http_method, http_url, session_id)
-                VALUES
-                    (:tenantId, :entity_type, :entity_id, :userId, :action,
-                     :ip, :user_agent, :old_values, :new_values, :diff,
-                     :http_method, :http_url, :session_id)
-            ");
-
-            $stmt->execute([
-                ':tenantId'    => $tenantId,
-                ':entity_type' => 'category',
-                ':entity_id'   => $entityId,
-                ':userId'      => $userId,
-                ':action'      => 'category.' . $action,
-                ':ip'          => $_SERVER['REMOTE_ADDR']     ?? null,
-                ':user_agent'  => $_SERVER['HTTP_USER_AGENT'] ?? null,
-                ':old_values'  => $oldData !== null ? json_encode($oldData, JSON_UNESCAPED_UNICODE) : null,
-                ':new_values'  => $newData !== null ? json_encode($newData, JSON_UNESCAPED_UNICODE) : null,
-                ':diff'        => $diff    !== null ? json_encode($diff,    JSON_UNESCAPED_UNICODE) : null,
-                ':http_method' => $_SERVER['REQUEST_METHOD'] ?? null,
-                ':http_url'    => $_SERVER['REQUEST_URI']    ?? null,
-                ':session_id'  => session_id()               ?: null,
-            ]);
-        } catch (\Throwable $e) {
-            error_log('AuditLog (categories fallback) failed: ' . $e->getMessage());
-        }
     }
 }

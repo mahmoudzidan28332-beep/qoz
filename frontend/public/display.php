@@ -133,9 +133,9 @@ if (!$pdo || (empty($products) && empty($categories))) {
 // Static demo banners if table is empty
 if (empty($banners)) {
     $banners = [
-        ['id' => 1, 'title' => $isRtl ? 'عروض حصرية' : 'Exclusive Deals', 'subtitle' => $isRtl ? 'اكتشف أفضل المنتجات بأسعار لا تُصدق' : 'Discover top products at unbeatable prices', 'image_url' => '', 'link_url' => '', 'button_text' => $isRtl ? 'تسوق الآن' : 'Shop Now', 'color' => '#03874e'],
-        ['id' => 2, 'title' => $isRtl ? 'منتجات جديدة' : 'New Arrivals',   'subtitle' => $isRtl ? 'أحدث المنتجات المتاحة في متجرنا'      : 'Latest products now available in our store', 'image_url' => '', 'link_url' => '', 'button_text' => $isRtl ? 'اكتشف الجديد' : 'Explore New', 'color' => '#098684'],
-        ['id' => 3, 'title' => $isRtl ? 'تشكيلة واسعة' : 'Wide Selection', 'subtitle' => $isRtl ? 'آلاف المنتجات تنتظرك في مكان واحد'      : 'Thousands of products waiting for you in one place', 'image_url' => '', 'link_url' => '', 'button_text' => $isRtl ? 'تصفح المنتجات' : 'Browse All', 'color' => '#10B981'],
+        ['id' => 1, 'title' => t('display.exclusive_deals'), 'subtitle' => t('display.exclusive_deals_sub'), 'image_url' => '', 'link_url' => '', 'button_text' => t('display.shop_now'), 'color' => '#03874e'],
+        ['id' => 2, 'title' => t('display.new_arrivals'),   'subtitle' => t('display.new_arrivals_sub'),   'image_url' => '', 'link_url' => '', 'button_text' => t('display.explore_new'), 'color' => '#098684'],
+        ['id' => 3, 'title' => t('display.wide_selection'), 'subtitle' => t('display.wide_selection_sub'), 'image_url' => '', 'link_url' => '', 'button_text' => t('display.browse_all'),   'color' => '#10B981'],
     ];
 }
 
@@ -155,7 +155,7 @@ function d_img(?string $url, string $fallback = ''): string {
     return d_e($url);
 }
 
-$pageTitle = $isRtl ? 'عرض المنتجات والقوائم' : 'Products & Menu Display';
+$pageTitle = t('display.page_title');
 $activeCategory = null;
 foreach ($categories as $c) {
     if ((int)$c['id'] === $catId) { $activeCategory = $c; break; }
@@ -729,15 +729,15 @@ foreach ($categories as $c) {
             <input type="search"
                    name="q"
                    id="dpSearchInput"
-                   placeholder="<?= $isRtl ? 'ابحث عن منتجات، متاجر...' : 'Search products, stores...' ?>"
+                   placeholder="<?= e(t('display.search_placeholder')) ?>"
                    value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
-                   aria-label="<?= $isRtl ? 'بحث' : 'Search' ?>"
+                   aria-label="<?= e(t('search.button')) ?>"
                    aria-autocomplete="list"
                    aria-controls="dpSearchSuggest"
                    style="flex:1;background:none;border:none;outline:none;padding:8px 14px;color:var(--text);font-size:.9rem;">
             <button type="submit"
                     style="background:var(--primary);border:none;color:#fff;padding:8px 16px;cursor:pointer;font-size:.9rem;transition:background .15s;">
-                <?= $isRtl ? 'بحث' : 'Search' ?>
+                <?= e(t('search.button')) ?>
             </button>
         </form>
         <ul id="dpSearchSuggest" role="listbox" hidden
@@ -748,9 +748,9 @@ foreach ($categories as $c) {
     </div>
 
     <nav style="display:flex;gap:16px;font-size:.85rem;font-weight:500;flex-shrink:0;">
-        <a href="/frontend/public/index.php"      style="color:var(--text-muted)"><?= $isRtl ? 'الرئيسية'  : 'Home' ?></a>
-        <a href="/frontend/public/products.php"   style="color:var(--text-muted)"><?= $isRtl ? 'المنتجات'  : 'Products' ?></a>
-        <a href="/frontend/public/categories.php" style="color:var(--text-muted)"><?= $isRtl ? 'التصنيفات' : 'Categories' ?></a>
+        <a href="/frontend/public/index.php"      style="color:var(--text-muted)"><?= e(t('nav.home')) ?></a>
+        <a href="/frontend/public/products.php"   style="color:var(--text-muted)"><?= e(t('nav.products')) ?></a>
+        <a href="/frontend/public/categories.php" style="color:var(--text-muted)"><?= e(t('nav.categories')) ?></a>
     </nav>
 </header>
 
@@ -765,15 +765,15 @@ foreach ($categories as $c) {
     <!-- ----------------------------------------------------------------
          CATEGORY MENU SIDEBAR
          ---------------------------------------------------------------- -->
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="<?= $isRtl ? 'قائمة التصنيفات' : 'Category menu' ?>">
-        <p class="sidebar-title"><?= $isRtl ? 'التصنيفات' : 'Categories' ?></p>
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="<?= e(t('display.category_menu')) ?>">
+        <p class="sidebar-title"><?= e(t('nav.categories')) ?></p>
 
         <ul class="cat-list">
             <!-- All Products link -->
             <li class="cat-item <?= !$catId ? 'active' : '' ?>">
                 <a href="?<?= $search ? 'q=' . urlencode($search) : '' ?>">
                     <span class="cat-dot"></span>
-                    <?= $isRtl ? 'كل المنتجات' : 'All Products' ?>
+                    <?= e(t('display.all_products')) ?>
                 </a>
             </li>
 
@@ -1167,7 +1167,7 @@ foreach ($categories as $c) {
             fetchPopular(function(popular) {
                 if (!popular.length) return;
                 list.innerHTML = '';
-                list.appendChild(makeSectionHdr('🔥 <?= $isRtl ? "الأكثر بحثاً" : "Popular" ?>'));
+                list.appendChild(makeSectionHdr('🔥 ' + <?= json_encode(t('search.popular', 'Popular Search')) ?>));
                 popular.forEach(function(q) {
                     list.appendChild(makeItem('🔥', q, function(){ inp.value = q; inp.form.submit(); }));
                 });
@@ -1179,10 +1179,10 @@ foreach ($categories as $c) {
             list.innerHTML = '';
             var any = false;
             var groups = [
-                {key:'products',  icon:'🛍️', label:'<?= $isRtl ? "المنتجات" : "Products" ?>'},
-                {key:'categories',icon:'📂', label:'<?= $isRtl ? "التصنيفات" : "Categories" ?>'},
-                {key:'entities',  icon:'🏢', label:'<?= $isRtl ? "البائعون" : "Sellers" ?>'},
-                {key:'jobs',      icon:'💼', label:'<?= $isRtl ? "الوظائف" : "Jobs" ?>'}
+                {key:'products',  icon:'🛍️', label:<?= json_encode(t('common.products', 'Products')) ?>},
+                {key:'categories',icon:'📂', label:<?= json_encode(t('common.categories', 'Categories')) ?>},
+                {key:'entities',  icon:'🏢', label:<?= json_encode(t('common.sellers', 'Sellers')) ?>},
+                {key:'jobs',      icon:'💼', label:<?= json_encode(t('common.jobs', 'Jobs')) ?>}
             ];
             groups.forEach(function(g) {
                 var items = (d[g.key] || []).slice(0,4);
@@ -1203,7 +1203,7 @@ foreach ($categories as $c) {
                 var a = document.createElement('a');
                 a.href = '/frontend/public/search.php?q=' + encodeURIComponent(q);
                 a.style.cssText = 'font-size:.8rem;color:var(--primary,#03874e);text-decoration:none;';
-                a.textContent = '<?= $isRtl ? "← عرض كل النتائج" : "← View all results" ?>';
+                a.textContent = <?= json_encode(t('search.view_all', '← View all results')) ?>;
                 a.addEventListener('mousedown', function(e){ e.preventDefault(); window.location.href = this.href; });
                 foot.appendChild(a);
                 list.appendChild(foot);

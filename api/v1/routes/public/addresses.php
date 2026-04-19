@@ -25,7 +25,9 @@ if ($first === 'addresses') {
         $addrRow = $pdoOne('SELECT id FROM addresses WHERE id = ? AND owner_id = ? AND owner_type = "user" LIMIT 1', [$addrId, $addrSessUserId]);
         if (!$addrRow) { ResponseFormatter::notFound('Address not found'); exit; }
         try {
-            $pdo->prepare('DELETE FROM addresses WHERE id = ?')->execute([$addrId]);
+            $addrRepo = new PdoAddressesRepository($pdo);
+            $addrService = new AddressesService($addrRepo);
+            $addrRepo->deleteById($addrId);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $_) { ResponseFormatter::error('Delete failed', 500); }
         exit;
@@ -41,16 +43,12 @@ if ($first === 'addresses') {
         if (!$addrLine1) { ResponseFormatter::error('address_line1 is required', 422); exit; }
 
         try {
+            $addrRepo = new PdoAddressesRepository($pdo);
             if ($isPrimary) {
-                // Clear existing primary for this user
-                $pdo->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')->execute([$addrSessUserId]);
+                $addrRepo->resetPrimary($addrSessUserId);
             }
-            $st = $pdo->prepare(
-                'INSERT INTO addresses (owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
-                 VALUES ("user", ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $st->execute([$addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary]);
-            ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Address added', 201);
+            $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary);
+            ResponseFormatter::success(['ok' => true, 'id' => $newAddrId], 'Address added', 201);
         } catch (Throwable $_) { ResponseFormatter::error('Failed to save address', 500); }
         exit;
     }

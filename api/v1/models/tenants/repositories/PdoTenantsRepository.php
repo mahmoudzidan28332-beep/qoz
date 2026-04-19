@@ -217,11 +217,8 @@ final class PdoTenantsRepository
     public function bulkUpdateStatus(array $ids, string $status, ?int $userId = null): int
     {
         $placeholders = str_repeat('?,', count($ids) - 1) . '?';
-        $stmt = $this->pdo->prepare("
-            UPDATE tenants
-            SET status = ?, updated_at = NOW()
-            WHERE id IN ({$placeholders})
-        ");
+        $sql = sprintf('UPDATE tenants SET status = ?, updated_at = NOW() WHERE id IN (%s)', $placeholders);
+        $stmt = $this->pdo->prepare($sql);
         
         $params = array_merge([$status], $ids);
         $stmt->execute($params);
@@ -254,6 +251,16 @@ final class PdoTenantsRepository
         ");
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function createTenantPublic(string $name, ?string $domain, int $ownerUserId): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO tenants (name, domain, owner_user_id, status, created_at)
+             VALUES (?, ?, ?, "suspended", NOW())'
+        );
+        $st->execute([$name, $domain, $ownerUserId]);
+        return (int)$this->pdo->lastInsertId();
     }
 
     /**

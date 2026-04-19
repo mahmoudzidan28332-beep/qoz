@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+require_once __DIR__ . '/../core/repositories/SmsRepository.php';
 // htdocs/api/helpers/sms.php
 // ملف دوال إرسال الرسائل النصية SMS (SMS Helper)
 // يدعم Unifonic, Twilio, Nexmo، مع تخزين السجلات في DB عبر PDO
@@ -332,9 +333,8 @@ class SMS {
         if (!self::$pdo) return false;
         
         try {
-            $stmt = self::$pdo->prepare("INSERT INTO sms_logs (phone, message, status, message_id, language, sent_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$phone, $message, $status, $messageId, $lang]);
-            return true;
+            $repo = new SmsRepository(self::$pdo);
+            return $repo->insertSmsLog($phone, $message, $status, $messageId, $lang);
         } catch (PDOException $e) {
             self::logError('Failed to save SMS log: ' . $e->getMessage());
             return false;

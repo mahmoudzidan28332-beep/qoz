@@ -227,7 +227,11 @@
         "delete": "हटाएँ",
         "yes": "हाँ",
         "no": "नहीं",
-        "login": "लॉग इन"
+        "login": "लॉग इन",
+        "shop_more": "अधिक खरीदारी करें",
+        "free": "मुफ्त",
+        "minutes": "मिनट",
+        "area": "क्षेत्र"
     },
     "cart": {
         "title": "शॉपिंग कार्ट",
@@ -241,7 +245,8 @@
         "total": "कुल",
         "remove": "हटाएँ",
         "add": "कार्ट में डालें",
-        "added": "जोड़ा गया!"
+        "added": "जोड़ा गया!",
+        "conflict_error": "आपकी कार्ट में कई शाखाओं के उत्पाद हैं। कृपया इसे साफ़ करें और पुनः प्रयास करें।"
     },
     "checkout": {
         "title": "चेकआउट",
@@ -261,7 +266,35 @@
         "error_fields_required": "कृपया नाम और फ़ोन नंबर दर्ज करें।",
         "secure_transaction": "आपका लेन-देन सुरक्षित और एन्क्रिप्टेड है",
         "no_payment_methods": "कोई भुगतान विकल्प उपलब्ध नहीं",
-        "cash_on_delivery": "कैश ऑन डिलीवरी"
+        "cash_on_delivery": "कैश ऑन डिलीवरी",
+        "error_select_branch": "कृपया चेकआउट करने से पहले डिलीवरी शाखा चुनें",
+        "error_branch_mismatch": "सक्रिय शाखा आपकी वर्तमान कार्ट से मेल नहीं खातीं।",
+        "error_delivery_method_required": "कृपया डिलीवरी विधि चुनें।",
+        "pickup_hint_admin": "Dashboard → Store → Pickup Points से जोड़ें",
+        "driver_nav_link": "ड्राइवर नेविगेशन लिंक",
+        "my_location": "मेरा वर्तमान स्थान",
+        "address_placeholder": "पिन हिलाने या स्थान प्राप्त करने पर स्वतः भर जाता है...",
+        "map_hint": "सटीक स्थान सेट करने के लिए पिन खींचें या मानचित्र पर क्लिक करें",
+        "delivery_merchant": "मर्चेंट डिलीवरी",
+        "delivery_courier": "कूरियर कंपनी",
+        "delivery_pickup": "स्टोर पिकअप",
+        "merchant_delivery_map_hint": "उपलब्ध डिलीवरी क्षेत्र देखने के लिए मानचित्र पर अपना स्थान सेट करें।",
+        "no_couriers": "वर्तमान में कोई कूरियर सक्रिय नहीं है।",
+        "select_courier": "कूरियर चुनें",
+        "no_pickup_points": "अभी तक कोई पिकअप पॉइंट नहीं जोड़ा गया।",
+        "delivery_select_hint": "आगे बढ़ने के लिए डिलीवरी विधि चुनें",
+        "error_select_zone": "कृपया डिलीवरी क्षेत्र चुनें",
+        "out_of_coverage": "कवरेज क्षेत्र से बाहर",
+        "in_coverage": "आपके क्षेत्र में डिलीवरी उपलब्ध है!",
+        "delivery_info": "डिलीवरी की जानकारी",
+        "additional_notes": "अतिरिक्त विवरण...",
+        "nav_link_title": "ड्राइवर नेविगेशन लिंक",
+        "address_detecting": "पते का पता लगाया जा रहा है...",
+        "calculating_delivery": "डिलीवरी क्षेत्रों की गणना की जा रही है...",
+        "delivery_load_error": "डिलीवरी विकल्प लोड नहीं किए जा सके",
+        "try_courier": "एक कूरियर आज़माएं",
+        "pickup_point_id": "बिंदु #",
+        "detect_location_err": "कृपया पहले मानचित्र पर अपना स्थान निर्धारित करें"
     },
     "entity": {
         "products_tab": "उत्पाद",

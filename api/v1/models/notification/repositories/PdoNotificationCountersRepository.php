@@ -209,4 +209,46 @@ final class PdoNotificationCountersRepository
         $stmt = $this->pdo->prepare("DELETE FROM notification_counters WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
+
+    /** Get cached unread count for a user, or null if no row exists. */
+    public function getUnreadCountForUser(int $tenantId, int $userId): ?int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT unread_count FROM notification_counters
+              WHERE tenant_id = ? AND recipient_type = 'user' AND recipient_id = ?
+              LIMIT 1"
+        );
+        $stmt->execute([$tenantId, $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row !== false ? (int)$row['unread_count'] : null;
+    }
+
+    /** Recalculate and upsert unread_count from notification_recipients. */
+    public function recalculateForUser(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
+             VALUES (?, 'user', ?,
+                 (SELECT COUNT(*) FROM notification_recipients nr2
+                    JOIN notifications n2 ON n2.id = nr2.notification_id
+                   WHERE nr2.recipient_type = 'user'
+                     AND nr2.recipient_id   = ?
+                     AND nr2.is_read        = 0
+                     AND n2.tenant_id       = ?
+                     AND (n2.expires_at IS NULL OR n2.expires_at > NOW()))
+             )
+             ON DUPLICATE KEY UPDATE
+                 unread_count = VALUES(unread_count)"
+        )->execute([$tenantId, $userId, $userId, $tenantId]);
+    }
+
+    /** Reset unread_count to zero (upsert). */
+    public function resetForUser(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            "INSERT INTO notification_counters (tenant_id, recipient_type, recipient_id, unread_count)
+             VALUES (?, 'user', ?, 0)
+             ON DUPLICATE KEY UPDATE unread_count = 0"
+        )->execute([$tenantId, $userId]);
+    }
 }

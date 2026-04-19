@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 // تفعيل عرض الأخطاء للتطوير فقط
-error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
 $baseDir = dirname(__DIR__, 2);

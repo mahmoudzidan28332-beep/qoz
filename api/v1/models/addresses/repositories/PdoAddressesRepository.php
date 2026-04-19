@@ -35,19 +35,29 @@ final class PdoAddressesRepository
         $params = [];
         $language = $filters['language'] ?? 'ar';
 
-        // When filtering by tenant_id, fetch all entity addresses for that tenant
+        // Multi-tenant: always apply tenant_id filter when provided
         if (isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '') {
-            $where[] = "(a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))";
+            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))
+                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :filter_tenant_id_usr)))";
             $params['filter_tenant_id'] = (int)$filters['tenant_id'];
-        } else {
-            foreach ([
-                'id','owner_type','owner_id','city_id','country_id','is_primary'
-            ] as $field) {
-                if (array_key_exists($field, $filters) && $filters[$field] !== null && $filters[$field] !== '') {
-                    $where[] = "a.$field = :filter_$field";
-                    $params["filter_$field"] = $filters[$field];
-                }
+            $params['filter_tenant_id_usr'] = (int)$filters['tenant_id'];
+        }
+
+        // Apply individual field filters alongside tenant_id (not exclusively)
+        foreach ([
+            'id','owner_type','owner_id','city_id','country_id','is_primary'
+        ] as $field) {
+            if (array_key_exists($field, $filters) && $filters[$field] !== null && $filters[$field] !== '') {
+                $where[] = "a.$field = :filter_$field";
+                $params["filter_$field"] = $filters[$field];
             }
+        }
+
+        // Multi-tenant safety: require tenant_id or owner scoping to prevent cross-tenant data leakage
+        $hasTenantScope = isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '';
+        $hasOwnerScope  = (isset($filters['owner_type']) && $filters['owner_type'] !== '') && (isset($filters['owner_id']) && $filters['owner_id'] !== '');
+        if (!$hasTenantScope && !$hasOwnerScope) {
+            return ['items' => [], 'total' => 0];
         }
 
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
@@ -120,8 +130,21 @@ final class PdoAddressesRepository
     // ================================
     // GET
     // ================================
-    public function find(int $id, string $language = 'ar'): ?array
+    public function find(int $id, string $language = 'ar', ?int $tenantId = null): ?array
     {
+        $where  = ['a.id = :id'];
+        $params = [];
+
+        if ($tenantId !== null) {
+            // Multi-tenant safety: scope address to entities or users belonging to the given tenant
+            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))
+                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :tenant_id_usr)))";
+            $params[':tenant_id'] = $tenantId;
+            $params[':tenant_id_usr'] = $tenantId;
+        }
+
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+
         $sql = "
             SELECT 
                 a.*,
@@ -131,16 +154,19 @@ final class PdoAddressesRepository
             LEFT JOIN countries c ON a.country_id = c.id
             LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
             LEFT JOIN cities ci ON a.city_id = ci.id
-            LEFT JOIN city_translations cit ON ci.id = cit.city_id AND ct.language_code = :lang_city
-            WHERE a.id = :id
+            LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
+            $whereSql
             LIMIT 1
         ";
 
         $stmt = $this->pdo->prepare($sql);
-        // Fix: Bind language parameters separately here too for consistency
         $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
         $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        if ($tenantId !== null) {
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $stmt->bindValue(':tenant_id_usr', $tenantId, PDO::PARAM_INT);
+        }
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -258,6 +284,39 @@ final class PdoAddressesRepository
         }
 
         $this->pdo->prepare($sql)->execute($params);
+    }
+
+    // ================================
+    // DELETE BY ID (simple, no owner check - caller must verify ownership)
+    // ================================
+    public function deleteById(int $id): bool
+    {
+        return $this->pdo
+            ->prepare("DELETE FROM addresses WHERE id = ?")
+            ->execute([$id]);
+    }
+
+    // ================================
+    // RESET PRIMARY (set is_primary = 0 for all addresses of a user)
+    // ================================
+    public function resetPrimary(int $ownerId): bool
+    {
+        return $this->pdo
+            ->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')
+            ->execute([$ownerId]);
+    }
+
+    // ================================
+    // CREATE ADDRESS (simplified public route version)
+    // ================================
+    public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary): int
+    {
+        $st = $this->pdo->prepare(
+            'INSERT INTO addresses (owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
+             VALUES ("user", ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $st->execute([$ownerId, $addressLine1, $addressLine2, $cityId, $countryId, $postalCode, $isPrimary]);
+        return (int)$this->pdo->lastInsertId();
     }
 
     // ================================

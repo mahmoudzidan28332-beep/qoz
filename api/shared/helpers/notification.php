@@ -1,4 +1,6 @@
-<?php
+<?php declare(strict_types=1);
+require_once __DIR__ . '/../core/repositories/NotificationRepository.php';
+require_once __DIR__ . '/notification_push.php';
 // htdocs/api/shared/helpers/notification.php
 // ملف دوال الإشعارات - معدّل حسب هيكل قاعدة البيانات الفعلي
 // يدعم: Database, Email, SMS, Push (Firebase FCM)
@@ -48,6 +50,8 @@ if (!defined('SMS_ENABLED'))  define('SMS_ENABLED',  (bool)(getenv('SMS_ENABLED'
 
 class Notification
 {
+    use NotificationPushTrait;
+
     private static ?PDO $pdo = null;
 
     // كاش محلي للقنوات والأنواع لتفادي استعلامات متكررة
@@ -190,27 +194,11 @@ class Notification
     ): ?int {
         $dataJson = !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : null;
 
-        $stmt = self::$pdo->prepare("
-            INSERT INTO notifications
-                (tenant_id, sender_entity_id, entity_id, title, message, data,
-                 notification_type_id, priority, expires_at, sent_at)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
-
-        $stmt->execute([
-            $tenantId,
-            $senderEntityId,
-            $entityId,
-            $title,
-            $message,
-            $dataJson,
-            $typeId,
-            $priority,
-            $expiresAt,
-        ]);
-
-        return (int) self::$pdo->lastInsertId() ?: null;
+        $repo = new NotificationRepository(self::$pdo);
+        return $repo->insertNotification(
+            $tenantId, $senderEntityId, $entityId, $title, $message,
+            $dataJson, $typeId, $priority, $expiresAt
+        );
     }
 
     // -------------------------------------------------------
@@ -224,15 +212,8 @@ class Notification
     ): array {
         try {
             // upsert في notification_counters
-            $stmt = self::$pdo->prepare("
-                INSERT INTO notification_counters
-                    (tenant_id, recipient_type, recipient_id, unread_count)
-                VALUES
-                    (?, ?, ?, 1)
-                ON DUPLICATE KEY UPDATE
-                    unread_count = unread_count + 1
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->upsertNotificationCounter($tenantId, $recipientType, $recipientId);
 
             self::logNotification('database', $recipientId, 'counter_updated');
             return ['success' => true];
@@ -275,389 +256,6 @@ class Notification
     }
 
     // -------------------------------------------------------
-    // 6️⃣  قناة Push — Firebase FCM
-    // -------------------------------------------------------
-
-    private static function handlePushChannel(
-        int    $recipientId,
-        string $recipientType,
-        string $title,
-        string $message,
-        array  $data,
-        int    $notificationId,
-        array  $deviceIds = []
-    ): array {
-        // جلب FCM tokens من user_devices
-        $tokens = self::getFcmTokens($recipientId, $recipientType, $deviceIds);
-
-        if (empty($tokens)) {
-            return ['success' => false, 'message' => 'No active FCM tokens found'];
-        }
-
-        // محاولة FCM v1 API أولاً (الطريقة الحديثة)
-        $accessToken = self::getFcmAccessToken();
-        if ($accessToken) {
-            if (empty(FCM_PROJECT_ID)) {
-                return ['success' => false, 'message' => 'FCM_PROJECT_ID not configured in .env'];
-            }
-            return self::sendViaFcmV1($tokens, $title, $message, $data, $notificationId, $recipientId, $accessToken);
-        }
-
-        // Fallback: Legacy FCM API (deprecated)
-        if (!empty(FCM_SERVER_KEY) && FCM_SERVER_KEY !== 'REPLACE_WITH_YOUR_SERVER_KEY') {
-            return self::sendViaFcmLegacy($tokens, $title, $message, $data, $notificationId, $recipientId);
-        }
-
-        return ['success' => false, 'message' => 'FCM not configured: set service account JSON file or FCM_SERVER_KEY'];
-    }
-
-    // -------------------------------------------------------
-    // 6️⃣.1  FCM v1 API — الطريقة الحديثة (OAuth2 + Service Account)
-    // -------------------------------------------------------
-
-    private static function sendViaFcmV1(
-        array  $tokens,
-        string $title,
-        string $message,
-        array  $data,
-        int    $notificationId,
-        int    $recipientId,
-        string $accessToken
-    ): array {
-        $projectId = FCM_PROJECT_ID;
-        $endpoint  = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
-
-        $successCount = 0;
-        $failureCount = 0;
-        $invalidTokens = [];
-
-        // v1 API يرسل رسالة واحدة لكل جهاز
-        foreach ($tokens as $token) {
-            $payload = [
-                'message' => [
-                    'token'        => $token,
-                    'notification' => [
-                        'title' => $title,
-                        'body'  => $message,
-                        'image' => APP_LOGO_URL,
-                    ],
-                    'data' => array_map('strval', array_merge($data, [
-                        'notification_id' => (string) $notificationId,
-                        'click_action'    => 'FLUTTER_NOTIFICATION_CLICK',
-                    ])),
-                    'android' => [
-                        'priority' => 'high',
-                        'notification' => [
-                            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                            'icon'         => 'ic_notification',
-                        ],
-                    ],
-                    'webpush' => [
-                        'notification' => [
-                            'icon'  => APP_LOGO_URL,
-                            'badge' => APP_LOGO_URL,
-                        ],
-                        'fcm_options' => [
-                            'link' => '/',
-                        ],
-                    ],
-                ],
-            ];
-
-            $ch = curl_init($endpoint);
-            curl_setopt_array($ch, [
-                CURLOPT_POST           => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER     => [
-                    'Authorization: Bearer ' . $accessToken,
-                    'Content-Type: application/json',
-                ],
-                CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                CURLOPT_TIMEOUT    => 10,
-            ]);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlErr  = curl_error($ch);
-            curl_close($ch);
-
-            if ($curlErr) {
-                self::logError("FCM v1 cURL error: {$curlErr}");
-                $failureCount++;
-                continue;
-            }
-
-            if ($httpCode === 200) {
-                $successCount++;
-            } else {
-                $failureCount++;
-                $decoded = json_decode($response, true);
-                $errorCode = $decoded['error']['details'][0]['errorCode'] ?? ($decoded['error']['status'] ?? '');
-
-                // Token منتهي الصلاحية أو غير صالح
-                if (in_array($errorCode, ['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND'], true)
-                    || ($httpCode === 404)) {
-                    $invalidTokens[] = $token;
-                }
-
-                self::logError("FCM v1 error [{$httpCode}]: " . ($response ?: 'empty'));
-            }
-        }
-
-        // تنظيف tokens غير صالحة
-        foreach ($invalidTokens as $badToken) {
-            try {
-                $stmt = self::$pdo->prepare("UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?");
-                $stmt->execute([$badToken]);
-            } catch (PDOException $e) {
-                self::logError('cleanInvalidToken: ' . $e->getMessage());
-            }
-        }
-
-        $success = $successCount > 0;
-        self::logNotification('push', $recipientId, $success ? 'sent' : 'failed');
-
-        return [
-            'success'      => $success,
-            'tokens_sent'  => count($tokens),
-            'fcm_success'  => $successCount,
-            'fcm_failure'  => $failureCount,
-            'api_version'  => 'v1',
-        ];
-    }
-
-    // -------------------------------------------------------
-    // 6️⃣.2  FCM Legacy API — fallback (deprecated)
-    // -------------------------------------------------------
-
-    private static function sendViaFcmLegacy(
-        array  $tokens,
-        string $title,
-        string $message,
-        array  $data,
-        int    $notificationId,
-        int    $recipientId
-    ): array {
-        $payload = [
-            'registration_ids' => $tokens,
-            'notification'     => [
-                'title' => $title,
-                'body'  => $message,
-                'icon'  => APP_LOGO_URL,
-                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-            ],
-            'data' => array_merge($data, [
-                'notification_id' => $notificationId,
-                'click_action'    => 'FLUTTER_NOTIFICATION_CLICK',
-            ]),
-            'priority' => 'high',
-        ];
-
-        $ch = curl_init(FCM_ENDPOINT);
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => [
-                'Authorization: key=' . FCM_SERVER_KEY,
-                'Content-Type: application/json',
-            ],
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_TIMEOUT    => 10,
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr  = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlErr) {
-            self::logError("FCM Legacy cURL error: {$curlErr}");
-            return ['success' => false, 'error' => $curlErr];
-        }
-
-        $decoded = json_decode($response, true);
-        $success = ($httpCode === 200 && isset($decoded['success']) && $decoded['success'] > 0);
-
-        if (isset($decoded['results'])) {
-            self::cleanInvalidTokens($tokens, $decoded['results']);
-        }
-
-        self::logNotification('push', $recipientId, $success ? 'sent' : 'failed');
-
-        return [
-            'success'      => $success,
-            'tokens_sent'  => count($tokens),
-            'fcm_success'  => $decoded['success']  ?? 0,
-            'fcm_failure'  => $decoded['failure']  ?? 0,
-            'http_code'    => $httpCode,
-            'api_version'  => 'legacy',
-        ];
-    }
-
-    // -------------------------------------------------------
-    // 6️⃣.3  FCM v1 API — OAuth2 Access Token من Service Account
-    // -------------------------------------------------------
-
-    private static ?string $cachedAccessToken = null;
-    private static int $tokenExpiresAt = 0;
-
-    private static function getFcmAccessToken(): ?string
-    {
-        // استخدام التوكن المحفوظ إن لم ينتهِ
-        if (self::$cachedAccessToken && time() < self::$tokenExpiresAt) {
-            return self::$cachedAccessToken;
-        }
-
-        $saPath = FCM_SERVICE_ACCOUNT_PATH;
-        if (!$saPath || !file_exists($saPath)) {
-            return null;
-        }
-
-        $sa = json_decode(file_get_contents($saPath), true);
-        if (!$sa || empty($sa['private_key']) || empty($sa['client_email']) || empty($sa['token_uri'])) {
-            self::logError('FCM service account JSON invalid or missing required fields');
-            return null;
-        }
-
-        try {
-            $now = time();
-            $jwtTtlSeconds = 3600; // JWT valid for 1 hour
-            $exp = $now + $jwtTtlSeconds;
-
-            // بناء JWT header + claims
-            $header = self::base64UrlEncode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-            $claims = self::base64UrlEncode(json_encode([
-                'iss'   => $sa['client_email'],
-                'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
-                'aud'   => $sa['token_uri'],
-                'iat'   => $now,
-                'exp'   => $exp,
-            ]));
-
-            $signingInput = "{$header}.{$claims}";
-
-            // توقيع RS256
-            $privateKey = openssl_pkey_get_private($sa['private_key']);
-            if (!$privateKey) {
-                self::logError('FCM: Failed to parse private key from service account');
-                return null;
-            }
-
-            $signature = '';
-            openssl_sign($signingInput, $signature, $privateKey, OPENSSL_ALGO_SHA256);
-            $jwt = $signingInput . '.' . self::base64UrlEncode($signature);
-
-            // تبادل JWT بـ access token
-            $ch = curl_init($sa['token_uri']);
-            curl_setopt_array($ch, [
-                CURLOPT_POST           => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
-                CURLOPT_POSTFIELDS     => http_build_query([
-                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                    'assertion'  => $jwt,
-                ]),
-                CURLOPT_TIMEOUT => 10,
-            ]);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlErr  = curl_error($ch);
-            curl_close($ch);
-
-            if ($curlErr) {
-                self::logError("FCM OAuth2 cURL error: {$curlErr}");
-                return null;
-            }
-
-            $tokenData = json_decode($response, true);
-            if ($httpCode !== 200 || empty($tokenData['access_token'])) {
-                self::logError("FCM OAuth2 failed [{$httpCode}]: " . ($response ?: 'empty'));
-                return null;
-            }
-
-            self::$cachedAccessToken = $tokenData['access_token'];
-            $tokenExpiryBuffer = 60; // refresh 60 seconds before actual expiry
-            self::$tokenExpiresAt    = $now + (int)($tokenData['expires_in'] ?? 3500) - $tokenExpiryBuffer;
-
-            return self::$cachedAccessToken;
-
-        } catch (Throwable $e) {
-            self::logError('FCM getAccessToken: ' . $e->getMessage());
-            return null;
-        }
-    }
-
-    private static function base64UrlEncode(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
-
-    // -------------------------------------------------------
-    // 7️⃣  جلب FCM tokens من user_devices
-    // -------------------------------------------------------
-
-    private static function getFcmTokens(int $userId, string $recipientType, array $deviceIds = []): array
-    {
-        if (!self::$pdo) return [];
-
-        // حالياً يدعم النوع 'user' فقط عبر جدول user_devices
-        if ($recipientType !== 'user') return [];
-
-        try {
-            // إذا تم تحديد أجهزة معينة، جلب tokens لتلك الأجهزة فقط
-            if (!empty($deviceIds)) {
-                $deviceIds = array_slice($deviceIds, 0, 100); // حد أقصى 100 جهاز
-                $placeholders = implode(',', array_fill(0, count($deviceIds), '?'));
-                $stmt = self::$pdo->prepare("
-                    SELECT fcm_token FROM user_devices
-                    WHERE user_id = ? AND is_active = 1 AND fcm_token IS NOT NULL
-                      AND id IN ({$placeholders})
-                ");
-                $params = array_merge([$userId], array_map('intval', $deviceIds));
-                $stmt->execute($params);
-                return $stmt->fetchAll(PDO::FETCH_COLUMN);
-            }
-
-            $stmt = self::$pdo->prepare("
-                SELECT fcm_token FROM user_devices
-                WHERE user_id = ? AND is_active = 1 AND fcm_token IS NOT NULL
-            ");
-            $stmt->execute([$userId]);
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
-        } catch (PDOException $e) {
-            self::logError('getFcmTokens: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    // -------------------------------------------------------
-    // 8️⃣  تنظيف FCM tokens المنتهية الصلاحية
-    // -------------------------------------------------------
-
-    private static function cleanInvalidTokens(array $tokens, array $results): void
-    {
-        foreach ($results as $index => $result) {
-            if (isset($result['error']) && in_array($result['error'], [
-                'InvalidRegistration',
-                'NotRegistered',
-            ], true)) {
-                $invalidToken = $tokens[$index] ?? null;
-                if ($invalidToken) {
-                    try {
-                        $stmt = self::$pdo->prepare("
-                            UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?
-                        ");
-                        $stmt->execute([$invalidToken]);
-                    } catch (PDOException $e) {
-                        self::logError('cleanInvalidTokens: ' . $e->getMessage());
-                    }
-                }
-            }
-        }
-    }
-
-    // -------------------------------------------------------
     // 9️⃣  حفظ سجل التسليم في notification_deliveries
     // -------------------------------------------------------
 
@@ -666,14 +264,8 @@ class Notification
         if (!$channelId) return null;
 
         try {
-            $stmt = self::$pdo->prepare("
-                INSERT INTO notification_deliveries
-                    (notification_id, channel_id, delivery_status, attempts, created_at)
-                VALUES
-                    (?, ?, 'pending', 0, NOW())
-            ");
-            $stmt->execute([$notificationId, $channelId]);
-            return (int) self::$pdo->lastInsertId();
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->insertDelivery($notificationId, $channelId);
         } catch (PDOException $e) {
             self::logError('insertDelivery: ' . $e->getMessage());
             return null;
@@ -685,15 +277,8 @@ class Notification
         if (!$deliveryId) return;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE notification_deliveries
-                SET delivery_status = ?,
-                    attempts        = attempts + 1,
-                    sent_at         = IF(? = 'sent', NOW(), sent_at),
-                    error_message   = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$status, $status, $errorMessage, $deliveryId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->updateDeliveryStatus($deliveryId, $status, $errorMessage);
         } catch (PDOException $e) {
             self::logError('updateDeliveryStatus: ' . $e->getMessage());
         }
@@ -710,12 +295,9 @@ class Notification
         }
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id FROM notification_channels WHERE code = ? AND is_active = 1 LIMIT 1
-            ");
-            $stmt->execute([$code]);
-            $id = $stmt->fetchColumn();
-            self::$channelsCache[$code] = $id ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            $id = $repo->resolveChannelId($code);
+            self::$channelsCache[$code] = $id;
             return self::$channelsCache[$code];
         } catch (PDOException $e) {
             return null;
@@ -729,12 +311,9 @@ class Notification
         }
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id FROM notification_types WHERE code = ? AND is_active = 1 LIMIT 1
-            ");
-            $stmt->execute([$code]);
-            $id = $stmt->fetchColumn();
-            self::$typesCache[$code] = $id ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            $id = $repo->resolveTypeId($code);
+            self::$typesCache[$code] = $id;
             return self::$typesCache[$code];
         } catch (PDOException $e) {
             return null;
@@ -750,11 +329,8 @@ class Notification
         if (!self::$pdo) return null;
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT id, username, email, phone FROM users WHERE id = ? LIMIT 1
-            ");
-            $stmt->execute([$userId]);
-            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUserData($userId);
         } catch (PDOException $e) {
             return null;
         }
@@ -776,27 +352,8 @@ class Notification
         if (!self::$pdo) return [];
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT
-                    n.id,
-                    n.title,
-                    n.message,
-                    n.data,
-                    n.priority,
-                    n.sent_at,
-                    n.expires_at,
-                    nt.code  AS type_code,
-                    nt.name  AS type_name
-                FROM notifications n
-                LEFT JOIN notification_types nt ON nt.id = n.notification_type_id
-                WHERE n.entity_id  = ?
-                  AND n.tenant_id  = ?
-                  AND (n.expires_at IS NULL OR n.expires_at > NOW())
-                ORDER BY n.sent_at DESC
-                LIMIT ? OFFSET ?
-            ");
-            $stmt->execute([$recipientId, $tenantId, $limit, $offset]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUserNotifications($recipientId, $tenantId, $limit, $offset);
         } catch (PDOException $e) {
             self::logError('getUserNotifications: ' . $e->getMessage());
             return [];
@@ -814,15 +371,8 @@ class Notification
         if (!self::$pdo) return 0;
 
         try {
-            $stmt = self::$pdo->prepare("
-                SELECT unread_count FROM notification_counters
-                WHERE tenant_id      = ?
-                  AND recipient_type = ?
-                  AND recipient_id   = ?
-                LIMIT 1
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
-            return (int) ($stmt->fetchColumn() ?? 0);
+            $repo = new NotificationRepository(self::$pdo);
+            return $repo->getUnreadCount($recipientId, $recipientType, $tenantId);
         } catch (PDOException $e) {
             return 0;
         }
@@ -839,14 +389,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE notification_counters
-                SET unread_count = 0
-                WHERE tenant_id      = ?
-                  AND recipient_type = ?
-                  AND recipient_id   = ?
-            ");
-            $stmt->execute([$tenantId, $recipientType, $recipientId]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->resetUnreadCount($recipientId, $recipientType, $tenantId);
             return true;
         } catch (PDOException $e) {
             self::logError('markAllRead: ' . $e->getMessage());
@@ -872,22 +416,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                INSERT INTO user_devices
-                    (user_id, fcm_token, device_type, device_name, user_agent, ip,
-                     is_active, last_seen_at, created_at)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE
-                    user_id      = VALUES(user_id),
-                    device_type  = VALUES(device_type),
-                    device_name  = VALUES(device_name),
-                    user_agent   = VALUES(user_agent),
-                    ip           = VALUES(ip),
-                    is_active    = 1,
-                    last_seen_at = NOW()
-            ");
-            $stmt->execute([$userId, $fcmToken, $deviceType, $deviceName, $userAgent, $ip]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->registerDeviceToken($userId, $fcmToken, $deviceType, $deviceName, $userAgent, $ip);
             return true;
         } catch (PDOException $e) {
             self::logError('registerDeviceToken: ' . $e->getMessage());
@@ -903,10 +433,8 @@ class Notification
         if (!self::$pdo) return false;
 
         try {
-            $stmt = self::$pdo->prepare("
-                UPDATE user_devices SET is_active = 0 WHERE fcm_token = ?
-            ");
-            $stmt->execute([$fcmToken]);
+            $repo = new NotificationRepository(self::$pdo);
+            $repo->deregisterDeviceToken($fcmToken);
             return true;
         } catch (PDOException $e) {
             self::logError('deregisterDeviceToken: ' . $e->getMessage());

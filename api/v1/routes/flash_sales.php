@@ -55,7 +55,9 @@ try {
                 break;
             }
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
-                $item = $controller->find((int)$_GET['id']);
+                $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
+                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+                $item = $controller->find((int)$_GET['id'], $entityId, $tenantId);
                 if (!$item) { ResponseFormatter::error('Flash sale not found', 404); break; }
                 ResponseFormatter::success($item);
             } else {
@@ -64,6 +66,7 @@ try {
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))     $filters['search'] = $_GET['search'];
                 if (isset($_GET['entity_id']))  $filters['entity_id'] = $_GET['entity_id'];
+                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
                 if (isset($_GET['limit']))      $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))     $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);
@@ -92,7 +95,8 @@ try {
         case 'DELETE':
             $id = (int)($_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
-            $controller->delete($id);
+            $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
+            $controller->delete($id, $entityId);
             ResponseFormatter::success(null, 'Flash sale deleted');
             break;
 

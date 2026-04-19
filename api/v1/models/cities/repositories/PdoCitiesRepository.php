@@ -158,19 +158,23 @@ final class PdoCitiesRepository
 
     public function saveTranslations(int $cityId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO city_translations (city_id, language_code, name)
-            VALUES (:city_id, :lang, :name)
-            ON DUPLICATE KEY UPDATE name = VALUES(name)
-        ");
+        if (empty($translations)) return;
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $name) {
-            $stmt->execute([
-                ':city_id' => $cityId,
-                ':lang'    => $lang,
-                ':name'    => $name
-            ]);
+            $values[] = "(:city_id_{$i}, :lang_{$i}, :name_{$i})";
+            $params[":city_id_{$i}"] = $cityId;
+            $params[":lang_{$i}"]    = $lang;
+            $params[":name_{$i}"]    = $name;
+            $i++;
         }
+
+        $sql = "INSERT INTO city_translations (city_id, language_code, name) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $cityId): array

@@ -32,9 +32,9 @@ final class AddressesController
     // ================================
     // GET
     // ================================
-    public function get(int $id, string $language = 'ar'): array
+    public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
     {
-        return $this->service->get($id, $language);
+        return $this->service->get($id, $language, $tenantId);
     }
 
     // ================================

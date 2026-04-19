@@ -104,6 +104,33 @@ final class PdoProductComparisonItemsRepository
     }
 
     /**
+     * Add a product to a comparison (public route, INSERT IGNORE).
+     */
+    public function addItem(int $comparisonId, int $productId): void
+    {
+        $this->pdo->prepare('INSERT IGNORE INTO product_comparison_items (comparison_id, product_id, added_at) VALUES (?, ?, NOW())')
+            ->execute([$comparisonId, $productId]);
+    }
+
+    /**
+     * Remove a product from a comparison.
+     */
+    public function removeItem(int $comparisonId, int $productId): void
+    {
+        $this->pdo->prepare('DELETE FROM product_comparison_items WHERE comparison_id = ? AND product_id = ?')
+            ->execute([$comparisonId, $productId]);
+    }
+
+    /**
+     * Clear all items from a comparison.
+     */
+    public function clearItems(int $comparisonId): void
+    {
+        $this->pdo->prepare('DELETE FROM product_comparison_items WHERE comparison_id = ?')
+            ->execute([$comparisonId]);
+    }
+
+    /**
      * التحقق من أن المقارنة تنتمي للمستأجر (عبر المنتج الرئيسي)
      */
     private function validateComparisonAccess(int $tenantId, int $comparisonId): void

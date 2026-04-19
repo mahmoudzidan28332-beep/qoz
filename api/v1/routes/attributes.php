@@ -8,7 +8,8 @@ if (is_readable($bootstrap)) { require_once $bootstrap; }
 
 try {
     // نستخدم الجدول الصحيح: vendor_attributes + vendor_attribute_translations
-    $lang = $_GET['lang'] ?? 'en';
+    $lang = isset($_GET['lang']) ? trim($_GET['lang']) : 'en';
+    if (!preg_match('/^[a-z]{2}$/', $lang)) { $lang = 'en'; }
     $sql = "SELECT va.id, va.slug, vat.name AS display_name
             FROM vendor_attributes va
             LEFT JOIN vendor_attribute_translations vat 

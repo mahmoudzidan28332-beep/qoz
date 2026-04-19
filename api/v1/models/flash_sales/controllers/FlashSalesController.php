@@ -9,10 +9,10 @@ class FlashSalesController {
     }
 
     public function list(array $filters = []): array { return $this->service->list($filters); }
-    public function find(int $id): ?array { return $this->service->find($id); }
+    public function find(int $id, ?int $entityId = null, ?int $tenantId = null): ?array { return $this->service->find($id, $entityId, $tenantId); }
     public function create(array $data): int { return $this->service->create($data); }
     public function update(int $id, array $data): bool { return $this->service->update($id, $data); }
-    public function delete(int $id): bool { return $this->service->delete($id); }
+    public function delete(int $id, ?int $entityId = null): bool { return $this->service->delete($id, $entityId); }
     public function stats(): array { return $this->service->stats(); }
 
     public function getTranslations(int $id, ?string $lang = null): array { return $this->service->getTranslations($id, $lang); }

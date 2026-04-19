@@ -82,6 +82,18 @@ final class CountriesService
     }
 
     /**
+     * Get country by identifier (id, iso2, iso3 or name) with optional translation
+     *
+     * @param string $identifier
+     * @param string|null $lang
+     * @return array|null
+     */
+    public function getByIdentifier(string $identifier, ?string $lang = null): ?array
+    {
+        return $this->repo->getByIdentifier($identifier, $lang);
+    }
+
+    /**
      * Delete country
      *
      * @param int $id

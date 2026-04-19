@@ -194,20 +194,24 @@ final class PdoCategoryAttributesRepository
 
     public function saveTranslations(int $categoryAttributeId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO category_attribute_translations (category_attribute_id, language_code, name, description)
-            VALUES (:category_attribute_id, :lang, :name, :description)
-            ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)
-        ");
+        if (empty($translations)) return;
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $data) {
-            $stmt->execute([
-                ':category_attribute_id' => $categoryAttributeId,
-                ':lang'                  => $lang,
-                ':name'                  => $data['name'] ?? null,
-                ':description'           => $data['description'] ?? null
-            ]);
+            $values[] = "(:category_attribute_id_{$i}, :lang_{$i}, :name_{$i}, :description_{$i})";
+            $params[":category_attribute_id_{$i}"] = $categoryAttributeId;
+            $params[":lang_{$i}"]                  = $lang;
+            $params[":name_{$i}"]                  = $data['name']        ?? null;
+            $params[":description_{$i}"]           = $data['description'] ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO category_attribute_translations (category_attribute_id, language_code, name, description) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $categoryAttributeId): array

@@ -51,22 +51,15 @@ if ($first === 'job_applications') {
     if (!$jobRow) { ResponseFormatter::notFound('Job not found or no longer accepting applications'); exit; }
 
     try {
-        $st = $pdo->prepare(
-            "INSERT INTO job_applications
-               (job_id, user_id, full_name, email, phone,
-                cover_letter, portfolio_url, linkedin_url, cv_file_url,
-                status, ip_address)
-             VALUES (?, ?, ?, ?, ?,
-                     ?, ?, ?, ?,
-                     'submitted', ?)"
-        );
-        $st->execute([
-            $jobId, $jobSessUserId,
-            $fullName, $email, $phone,
-            $coverLetter, $portfolioUrl, $linkedinUrl, $cvFileUrl,
-            $_SERVER['REMOTE_ADDR'] ?? null,
+        $jobAppRepo = new PdoJobApplicationsRepository($pdo);
+        $jobAppService = new JobApplicationsService($jobAppRepo);
+        $appId = $jobAppRepo->createPublic([
+            'job_id' => $jobId, 'user_id' => $jobSessUserId,
+            'full_name' => $fullName, 'email' => $email, 'phone' => $phone,
+            'cover_letter' => $coverLetter, 'portfolio_url' => $portfolioUrl,
+            'linkedin_url' => $linkedinUrl, 'cv_file_url' => $cvFileUrl,
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
-        $appId = (int)$pdo->lastInsertId();
         ResponseFormatter::success(['ok' => true, 'id' => $appId], 'Application submitted', 201);
     } catch (Throwable $ex) {
         ResponseFormatter::error('Application submission failed', 500);

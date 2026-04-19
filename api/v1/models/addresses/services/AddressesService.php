@@ -32,9 +32,9 @@ final class AddressesService
     // ================================
     // GET
     // ================================
-    public function get(int $id, string $language = 'ar'): array
+    public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
     {
-        $item = $this->repo->find($id, $language);
+        $item = $this->repo->find($id, $language, $tenantId);
         if (!$item) {
             throw new RuntimeException('Address not found', 404);
         }

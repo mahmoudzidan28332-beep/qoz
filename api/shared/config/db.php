@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/shared/config/db.php
 
 if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: 'sv61.ifastnet10.org');

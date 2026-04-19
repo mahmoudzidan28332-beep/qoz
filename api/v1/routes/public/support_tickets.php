@@ -186,13 +186,9 @@ if ($stMethod === 'POST' && $stSub === '') {
     }
 
     try {
-        $pdo->prepare(
-            "INSERT INTO support_tickets
-               (tenant_id, user_id, category_id, subject, description, status, priority, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'open', ?, NOW(), NOW())"
-        )->execute([$stTenantId, $stUserId, $categoryId, $subject, $description, $priority]);
-
-        $newId = (int)$pdo->lastInsertId();
+        $ticketRepo = new PdoSupportTicketsRepository($pdo);
+        $ticketService = new SupportTicketsService($ticketRepo);
+        $newId = $ticketRepo->createPublic($stTenantId, $stUserId, $categoryId, $subject, $description, $priority);
         ResponseFormatter::success(['id' => $newId, 'success' => true], 'Ticket submitted successfully', 201);
     } catch (Throwable $ex) {
         ResponseFormatter::error('Failed to create ticket', 500);

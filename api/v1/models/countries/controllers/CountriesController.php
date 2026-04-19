@@ -22,6 +22,18 @@ final class CountriesController
     }
 
     /**
+     * Get country by identifier with optional translation
+     *
+     * @param string $identifier
+     * @param string|null $lang
+     * @return array|null
+     */
+    public function getByIdentifier(string $identifier, ?string $lang = null): ?array
+    {
+        return $this->service->getByIdentifier($identifier, $lang);
+    }
+
+    /**
      * Store a country
      *
      * @param array $data

@@ -139,6 +139,11 @@ if ($first === 'categories') {
             $tree = filterTreeByFeatured($tree);
         }
 
+        /* ✅ NEW: If has_products filter, remove branches with no products anywhere */
+        if (!empty($_GET['has_products'])) {
+            $tree = filterTreeByProducts($tree);
+        }
+
         /* ✅ Calculate total counts recursively */
         $totalCategories = countAllNodesRecursive($tree);
         $totalProducts = sumProductCountsRecursive($tree);
@@ -152,9 +157,10 @@ if ($first === 'categories') {
                 'root_count'      => count($tree),
                 'max_depth'       => calculateMaxDepth($tree),
                 'filters_applied' => [
-                    'search'   => $searchKeyword ?: null,
-                    'featured' => !empty($_GET['featured']),
-                    'tenant'   => $tenantId
+                    'search'       => $searchKeyword ?: null,
+                    'featured'     => !empty($_GET['featured']),
+                    'has_products' => !empty($_GET['has_products']),
+                    'tenant'       => $tenantId
                 ]
             ],
         ]);
@@ -195,6 +201,18 @@ if ($first === 'categories') {
         $whereParams[] = $kw;
         $whereParams[] = $kw;
         $whereParams[] = $kw;
+    }
+
+    /* ✅ NEW: has_products filter for list mode */
+    $having = '';
+    if (!empty($_GET['has_products'])) {
+        // Since product_count is a subquery in the SELECT, we can use HAVING or wrap it.
+        // For simplicity in this specific schema, we can check if it matches the product join.
+        $where .= " AND EXISTS (
+            SELECT 1 FROM product_categories pc3 
+            INNER JOIN products p3 ON p3.id = pc3.product_id 
+            WHERE pc3.category_id = c.id AND p3.is_active = 1
+        )";
     }
 
     // Count total
@@ -303,6 +321,35 @@ function filterTreeByFeatured(array $nodes): array {
         
         // Keep if this is featured OR has featured descendants
         if ($isFeatured || $hasFeaturedChildren) {
+            $result[] = $node;
+        }
+    }
+    unset($node);
+    
+    return $result;
+}
+
+/**
+ * Filter tree to keep only categories with products (directly or in descendants)
+ * 
+ * @param array $nodes Array of category nodes
+ * @return array Filtered tree
+ */
+function filterTreeByProducts(array $nodes): array {
+    $result = [];
+    
+    foreach ($nodes as &$node) {
+        $hasDirectProducts = (int)($node['product_count'] ?? 0) > 0;
+        
+        // Recursively check children
+        $hasProductsInChildren = false;
+        if (!empty($node['children'])) {
+            $node['children'] = filterTreeByProducts($node['children']);
+            $hasProductsInChildren = count($node['children']) > 0;
+        }
+        
+        // Keep if this has products OR has descendants with products
+        if ($hasDirectProducts || $hasProductsInChildren) {
             $result[] = $node;
         }
     }

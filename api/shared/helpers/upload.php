@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+require_once __DIR__ . '/../core/repositories/UploadRepository.php';
 // htdocs/api/helpers/upload.php
 // ملف دوال رفع الملفات (File Upload Helper)
 // يدعم الصور، المستندات، والتحقق من الأمان
@@ -387,12 +388,8 @@ class Upload {
         if (!self::$pdo) return null;
         
         try {
-            $stmt = self::$pdo->prepare("
-                INSERT INTO files (file_name, file_path, folder, type, mime_type, size, width, height, user_id, thumbnail_path, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ");
-            $stmt->execute([$fileName, $filePath, $folder, $type, $mimeType, $size, $width, $height, $userId, $thumbnailPath]);
-            return self::$pdo->lastInsertId();
+            $repo = new UploadRepository(self::$pdo);
+            return $repo->insertFile($fileName, $filePath, $folder, $type, $mimeType, $size, $width, $height, $userId, $thumbnailPath);
         } catch (PDOException $e) {
             self::logError('Failed to save file to DB: ' . $e->getMessage());
             return null;
@@ -409,9 +406,8 @@ class Upload {
         if (!self::$pdo) return false;
         
         try {
-            $stmt = self::$pdo->prepare("DELETE FROM files WHERE id = ?");
-            $stmt->execute([$fileId]);
-            return $stmt->rowCount() > 0;
+            $repo = new UploadRepository(self::$pdo);
+            return $repo->deleteFile($fileId);
         } catch (PDOException $e) {
             self::logError('Failed to delete file from DB: ' . $e->getMessage());
             return false;
@@ -428,9 +424,8 @@ class Upload {
         if (!self::$pdo) return null;
         
         try {
-            $stmt = self::$pdo->prepare("SELECT * FROM files WHERE id = ?");
-            $stmt->execute([$fileId]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            $repo = new UploadRepository(self::$pdo);
+            return $repo->findFileById($fileId);
         } catch (PDOException $e) {
             self::logError('Failed to get file from DB: ' . $e->getMessage());
             return null;

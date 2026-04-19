@@ -52,8 +52,28 @@ final class StockMovementsController
         return $this->service->movementStats($filters);
     }
 
-    public function lookupByBarcode(string $barcode): ?array
+    public function lookupByBarcode(string $barcode, ?int $entityId = null): ?array
     {
-        return $this->service->lookupByBarcode($barcode);
+        return $this->service->lookupByBarcode($barcode, $entityId);
+    }
+
+    public function lookupBySku(string $sku, string $lang, ?int $entityId = null): ?array
+    {
+        return $this->service->lookupBySku($sku, $lang, $entityId);
+    }
+
+    public function findWithProductName(int $id): ?array
+    {
+        return $this->service->findWithProductName($id);
+    }
+
+    public function listPaginated(array $filters, int $limit, int $offset): array
+    {
+        return $this->service->listPaginated($filters, $limit, $offset);
+    }
+
+    public function updateMovement(int $id, array $data, array $oldMovement): void
+    {
+        $this->service->updateMovement($id, $data, $oldMovement);
     }
 }

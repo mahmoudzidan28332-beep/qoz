@@ -135,95 +135,52 @@ final class PdoOrdersRepository
     public function save(int $tenantId, array $data): int
     {
         $isUpdate = !empty($data['id']);
-
-        $params = [];
-        foreach (self::ORDER_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
-            }
-        }
-
-        // Generate order number if not provided
-        if (empty($params[':order_number'])) {
-            $params[':order_number'] = $this->generateOrderNumber($tenantId);
-        }
-
-        // Set defaults
-        if (empty($params[':currency_code'])) $params[':currency_code'] = 'SAR';
-        if (empty($params[':status'])) $params[':status'] = 'pending';
-        if (empty($params[':payment_status'])) $params[':payment_status'] = 'pending';
-        if (empty($params[':fulfillment_status'])) $params[':fulfillment_status'] = 'unfulfilled';
-        if (empty($params[':order_type'])) $params[':order_type'] = 'online';
+        $params = $this->buildOrderParams($data, $tenantId);
 
         if ($isUpdate) {
-            // Verify order belongs to tenant
-            $checkStmt = $this->pdo->prepare("
-                SELECT o.id FROM orders o
-                INNER JOIN entities e ON o.user_id = e.user_id
-                WHERE o.id = :id AND e.tenant_id = :tenant_id
-            ");
-            $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-            if (!$checkStmt->fetch()) {
-                throw new RuntimeException('Order not found or access denied');
-            }
-
-            $params[':id'] = (int)$data['id'];
-
-            $stmt = $this->pdo->prepare("
-                UPDATE orders SET
-                    order_number = :order_number, user_id = :user_id, cart_id = :cart_id,
-                    order_type = :order_type, status = :status, payment_status = :payment_status,
-                    fulfillment_status = :fulfillment_status, subtotal = :subtotal, tax_amount = :tax_amount,
-                    shipping_cost = :shipping_cost, discount_amount = :discount_amount,
-                    coupon_discount = :coupon_discount, loyalty_points_discount = :loyalty_points_discount,
-                    wallet_amount_used = :wallet_amount_used, total_amount = :total_amount,
-                    grand_total = :grand_total, currency_code = :currency_code, coupon_code = :coupon_code,
-                    loyalty_points_used = :loyalty_points_used, loyalty_points_earned = :loyalty_points_earned,
-                    shipping_address_id = :shipping_address_id, billing_address_id = :billing_address_id,
-                    delivery_company_id = :delivery_company_id, estimated_delivery_date = :estimated_delivery_date,
-                    actual_delivery_date = :actual_delivery_date, customer_notes = :customer_notes,
-                    internal_notes = :internal_notes, ip_address = :ip_address, user_agent = :user_agent,
-                    is_gift = :is_gift, gift_message = :gift_message, confirmed_at = :confirmed_at,
-                    shipped_at = :shipped_at, delivered_at = :delivered_at, cancelled_at = :cancelled_at,
-                    cancellation_reason = :cancellation_reason, assigned_driver_id = :assigned_driver_id,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            $stmt->execute($params);
-            return (int)$data['id'];
+            return $this->updateOrder($tenantId, $data, $params);
         }
+        return $this->insertOrder($tenantId, $params);
+    }
 
-        // Verify user belongs to tenant
+    private function buildOrderParams(array $data, int $tenantId): array
+    {
+        $params = [];
+        foreach (self::ORDER_COLUMNS as $col) {
+            $val = $data[$col] ?? null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
+        }
+        if (empty($params[':order_number'])) { $params[':order_number'] = $this->generateOrderNumber($tenantId); }
+        if (empty($params[':currency_code'])) { $params[':currency_code'] = 'SAR'; }
+        if (empty($params[':status'])) { $params[':status'] = 'pending'; }
+        if (empty($params[':payment_status'])) { $params[':payment_status'] = 'pending'; }
+        if (empty($params[':fulfillment_status'])) { $params[':fulfillment_status'] = 'unfulfilled'; }
+        if (empty($params[':order_type'])) { $params[':order_type'] = 'online'; }
+        return $params;
+    }
+
+    private function updateOrder(int $tenantId, array $data, array $params): int
+    {
+        $checkStmt = $this->pdo->prepare("SELECT o.id FROM orders o INNER JOIN entities e ON o.user_id = e.user_id WHERE o.id = :id AND e.tenant_id = :tenant_id");
+        $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
+        if (!$checkStmt->fetch()) { throw new RuntimeException('Order not found or access denied'); }
+        $params[':id'] = (int)$data['id'];
+        $cols = self::ORDER_COLUMNS;
+        $setParts = array_map(fn($c) => "$c = :$c", $cols);
+        $stmt = $this->pdo->prepare("UPDATE orders SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
+        $stmt->execute($params);
+        return (int)$data['id'];
+    }
+
+    private function insertOrder(int $tenantId, array $params): int
+    {
         $checkStmt = $this->pdo->prepare("SELECT id FROM users WHERE id = :user_id AND tenant_id = :tenant_id");
         $checkStmt->execute([':user_id' => $params[':user_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new RuntimeException('User not found or access denied');
-        }
-
-        $stmt = $this->pdo->prepare("
-            INSERT INTO orders (
-                order_number, user_id, cart_id, order_type, status, payment_status,
-                fulfillment_status, subtotal, tax_amount, shipping_cost, discount_amount,
-                coupon_discount, loyalty_points_discount, wallet_amount_used, total_amount,
-                grand_total, currency_code, coupon_code, loyalty_points_used, loyalty_points_earned,
-                shipping_address_id, billing_address_id, delivery_company_id, estimated_delivery_date,
-                actual_delivery_date, customer_notes, internal_notes, ip_address, user_agent,
-                is_gift, gift_message, confirmed_at, shipped_at, delivered_at, cancelled_at,
-                cancellation_reason, assigned_driver_id
-            ) VALUES (
-                :order_number, :user_id, :cart_id, :order_type, :status, :payment_status,
-                :fulfillment_status, :subtotal, :tax_amount, :shipping_cost, :discount_amount,
-                :coupon_discount, :loyalty_points_discount, :wallet_amount_used, :total_amount,
-                :grand_total, :currency_code, :coupon_code, :loyalty_points_used, :loyalty_points_earned,
-                :shipping_address_id, :billing_address_id, :delivery_company_id, :estimated_delivery_date,
-                :actual_delivery_date, :customer_notes, :internal_notes, :ip_address, :user_agent,
-                :is_gift, :gift_message, :confirmed_at, :shipped_at, :delivered_at, :cancelled_at,
-                :cancellation_reason, :assigned_driver_id
-            )
-        ");
+        if (!$checkStmt->fetch()) { throw new RuntimeException('User not found or access denied'); }
+        $cols = self::ORDER_COLUMNS;
+        $colStr = implode(', ', $cols);
+        $phStr = implode(', ', array_map(fn($c) => ":$c", $cols));
+        $stmt = $this->pdo->prepare("INSERT INTO orders ($colStr) VALUES ($phStr)");
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
     }
@@ -246,6 +203,42 @@ final class PdoOrdersRepository
             WHERE id = :id
         ");
         return $stmt->execute([':id' => $id]);
+    }
+
+    public function checkOrderNumber(string $orderNumber): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM orders WHERE order_number = ? LIMIT 1');
+        $stmt->execute([$orderNumber]);
+        return (bool)$stmt->fetch();
+    }
+
+    public function createPublicOrder(
+        int $tenantId,
+        int $entityId,
+        string $orderNumber,
+        int $userId,
+        float $subtotal,
+        float $grandTotal,
+        string $currencyCode,
+        string $notes,
+        ?string $ipAddress
+    ): int {
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO orders
+               (tenant_id, entity_id, order_number, user_id, status, payment_status,
+                subtotal, tax_amount, shipping_cost, discount_amount, total_amount, grand_total,
+                currency_code, customer_notes, ip_address)
+             VALUES (?, ?, ?, ?, 'pending', 'pending',
+                     ?, 0, 0, 0, ?, ?,
+                     ?, ?, ?)"
+        );
+        $stmt->execute([
+            $tenantId, $entityId, $orderNumber, $userId,
+            $subtotal, $grandTotal, $grandTotal,
+            $currencyCode, $notes,
+            $ipAddress,
+        ]);
+        return (int)$this->pdo->lastInsertId();
     }
 
     private function generateOrderNumber(int $tenantId): string

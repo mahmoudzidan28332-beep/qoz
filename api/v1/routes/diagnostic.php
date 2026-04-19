@@ -1,10 +1,9 @@
-<?php
+<?php declare(strict_types=1);
 // =====================================================
 // diagnostic.php — ضعه في api/routes/ مؤقتاً
 // ثم افتح: https://hcsfcs.top/api/routes/diagnostic.php
 // احذفه بعد حل المشكلة
 // =====================================================
-error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
 echo "<pre style='direction:ltr;font-size:13px;'>\n";

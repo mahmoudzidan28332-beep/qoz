@@ -112,8 +112,7 @@ try {
                     ResponseFormatter::error('Authentication required', 401);
                     break;
                 }
-                $stmt = $pdo->prepare("UPDATE user_devices SET is_active = 0 WHERE fcm_token = ? AND user_id = ?");
-                $stmt->execute([$fcmToken, $sessionUserId]);
+                $stmt = $repo->deactivateByFcmTokenAndUser($fcmToken, $sessionUserId);
                 ResponseFormatter::success(['deregistered' => true], 'Device deregistered successfully');
                 break;
             }

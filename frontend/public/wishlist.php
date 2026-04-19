@@ -7,7 +7,7 @@ if (!$_isLoggedIn) {
     exit;
 }
 
-$GLOBALS['PUB_PAGE_TITLE'] = e(t('wishlist.page_title')) . ' — QOOQZ';
+$GLOBALS['PUB_PAGE_TITLE'] = e(t('wishlist.page_title')) . ' � QOOQZ';
 $GLOBALS['PUB_PAGE_TYPE']  = 'products';
 include dirname(__DIR__) . '/partials/header.php';
 
@@ -58,15 +58,25 @@ if (!empty($wishItems)) {
 ?>
 
 <main class="pub-container" style="padding-top:24px;padding-bottom:48px;">
-    <h1 class="pub-page-title">♡ <?= e(t('wishlist.page_title')) ?></h1>
+
+    <!-- Breadcrumb -->
+    <nav class="pub-breadcrumb" aria-label="breadcrumb">
+        <a href="/frontend/public/index.php"><?= e(t('common.home')) ?></a>
+        <span class="pub-breadcrumb-sep"><i class="bi bi-chevron-right"></i></span>
+        <span><?= e(t('wishlist.page_title')) ?></span>
+    </nav>
+
+    <h1 class="pub-page-title" style="display:flex;align-items:center;gap:10px;">
+        <i class="bi bi-heart-fill" style="color:var(--pub-danger,#ef4444);"></i> <?= e(t('wishlist.page_title')) ?>
+    </h1>
     <p class="pub-page-sub"><?= e(t('wishlist.page_subtitle')) ?></p>
 
     <?php if (empty($wishItems)): ?>
-    <div class="pub-wishlist-empty">
-        <span class="pub-wishlist-empty-icon">♡</span>
-        <p><?= e(t('wishlist.empty')) ?></p>
-        <a href="/frontend/public/products.php" class="pub-btn pub-btn--primary" style="margin-top:16px;display:inline-block;">
-            <?= e(t('wishlist.browse_products')) ?>
+    <div class="pub-wishlist-empty" style="text-align:center;padding:80px 20px;">
+        <div class="qz-icon-empty"><i class="bi bi-heart"></i></div>
+        <p style="font-weight:500;font-size:1.1rem;color:var(--pub-text);"><?= e(t('wishlist.empty')) ?></p>
+        <a href="/frontend/public/products.php" class="pub-btn pub-btn--primary" style="margin-top:20px;display:inline-flex;">
+            <i class="bi bi-shop"></i> <?= e(t('wishlist.browse_products')) ?>
         </a>
     </div>
     <?php else: ?>
@@ -76,7 +86,7 @@ if (!empty($wishItems)) {
             <?= count($wishItems) ?> <?= e(t('wishlist.items_count')) ?>
         </p>
         <button class="pub-btn pub-btn--ghost pub-btn--sm" type="button" onclick="pubClearWishlist(this)">
-            🗑 <?= e(t('wishlist.clear_all')) ?>
+            <i class="bi bi-trash"></i> <?= e(t('wishlist.clear_all')) ?>
         </button>
     </div>
 
@@ -89,12 +99,12 @@ if (!empty($wishItems)) {
             $wImg   = pub_img($wi['image_url'] ?? null, 'product');
         ?>
         <div class="pub-product-card<?= $_wishProductCardClass ? ' ' . $_wishProductCardClass : '' ?>" style="position:relative;<?= e($_wishProductCardStyle) ?>" id="wishcard-<?= $wPid ?>">
-            <!-- Heart button (active — in wishlist) -->
+            <!-- Heart button (active � in wishlist) -->
             <button class="pub-wishlist-btn pub-wishlist-active"
                     type="button"
                     data-product-id="<?= $wPid ?>"
                     onclick="pubToggleWishlist(this)"
-                    title="<?= e(t('wishlist.remove')) ?>">♥</button>
+                    title="<?= e(t('wishlist.remove')) ?>"><i class="bi bi-heart-fill"></i></button>
 
             <a href="/frontend/public/product.php?id=<?= $wPid ?>"
                style="text-decoration:none;display:flex;flex-direction:column;flex:1;"
@@ -104,9 +114,9 @@ if (!empty($wishItems)) {
                         <img src="<?= e($wImg) ?>" alt="<?= e($wName) ?>"
                              class="pub-cat-img" loading="lazy"
                              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                        <span class="pub-img-placeholder" style="display:none;" aria-hidden="true">🖼️</span>
+                        <span class="pub-img-placeholder" style="display:none;" aria-hidden="true"><i class="bi bi-image"></i></span>
                     <?php else: ?>
-                        <span class="pub-img-placeholder" aria-hidden="true">🖼️</span>
+                        <span class="pub-img-placeholder" aria-hidden="true"><i class="bi bi-image"></i></span>
                     <?php endif; ?>
                 </div>
                 <div class="pub-product-card-body">
@@ -134,10 +144,12 @@ if (!empty($wishItems)) {
                         data-product-name="<?= e($wName) ?>"
                         data-product-price="<?= e((string)($wPrice ?? '0')) ?>"
                         data-product-image="<?= e($wImg ?: '') ?>"
+                        data-product-sku=""
                         data-currency="<?= e($wCur) ?>"
-                        data-added-text="✅ <?= e(t('cart.added')) ?>"
-                        onclick="pubAddToCart(this)">
-                    🛒 <?= e(t('cart.add')) ?>
+                        data-entity-id="<?= (int)($ctx['active_entity']['id'] ?? 1) ?>"
+                        data-added-text="<?= e(t('cart.added')) ?>"
+                        onclick="event.stopPropagation();pubAddToCart(this)">
+                    <i class="bi bi-cart-plus"></i> <?= e(t('cart.add')) ?>
                 </button>
             </div>
         </div>

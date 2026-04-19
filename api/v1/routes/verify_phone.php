@@ -47,6 +47,21 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+$_vpModelsPath = dirname(__DIR__) . '/models/users_account';
+require_once $_vpModelsPath . '/repositories/PdoUsersRepository.php';
+require_once $_vpModelsPath . '/repositories/PdoUserPhoneVerificationsRepository.php';
+require_once $_vpModelsPath . '/services/UsersService.php';
+require_once $_vpModelsPath . '/controllers/UsersController.php';
+require_once $_vpModelsPath . '/validators/UsersValidator.php';
+
+$controller = new UsersController(
+    new UsersService(
+        new PdoUsersRepository($pdo),
+        new UsersValidator(),
+        new PdoUserPhoneVerificationsRepository($pdo)
+    )
+);
+
 // ---- Read token ----
 $rawToken    = '';
 $rawDevice   = '';
@@ -120,28 +135,11 @@ $deviceHash = ($rawDevice !== '') ? hash('sha256', $rawDevice) : '';
 
 try {
     // Look up pending verification record
-    $stmt = $pdo->prepare(
-        'SELECT v.id, v.user_id, v.device_hash, v.session_id, v.user_agent, v.ip, v.expires_at
-         FROM user_phone_verifications v
-         WHERE v.token_hash = ? AND v.used_at IS NULL
-         LIMIT 1'
-    );
-    $stmt->execute([$tokenHash]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $row = $controller->findPendingVerification($tokenHash);
 
     if (!$row) {
         // Token not found or already used — check if the user is already active
-        // (handles the case where the link was opened twice: first open activated
-        // the account, second open should not show an error)
-        $usedStmt = $pdo->prepare(
-            'SELECT u.is_active
-               FROM user_phone_verifications v
-               JOIN users u ON u.id = v.user_id
-              WHERE v.token_hash = ?
-              LIMIT 1'
-        );
-        $usedStmt->execute([$tokenHash]);
-        $usedRow = $usedStmt->fetch(PDO::FETCH_ASSOC);
+        $usedRow = $controller->findUsedTokenUserStatus($tokenHash);
         if ($usedRow && (int)$usedRow['is_active'] === 1) {
             // Account is already active — treat as success
             if ($isJsonReq) {
@@ -201,11 +199,7 @@ try {
     // Doing this first ensures that if the SELECT fails (e.g. unexpected schema
     // difference) the activation UPDATE has not yet run, so the account stays
     // inactive and the token stays unused — no partial state is left behind.
-    $uStmt = $pdo->prepare(
-        'SELECT id, username, email, phone, preferred_language, is_active FROM users WHERE id = ?'
-    );
-    $uStmt->execute([$userId]);
-    $userData = $uStmt->fetch(PDO::FETCH_ASSOC);
+    $userData = $controller->findBasicById($userId);
 
     if (!$userData) {
         _vpError('لم يُعثر على الحساب المرتبط بهذا الرابط.', 404, $isJsonReq);
@@ -215,13 +209,11 @@ try {
     // ---- Activate the user ----
     // Omit updated_at from the SET clause — it may be absent on some installs;
     // if the column has ON UPDATE CURRENT_TIMESTAMP MySQL will update it anyway.
-    $upd = $pdo->prepare('UPDATE users SET is_active = 1 WHERE id = ? AND is_active = 0');
-    $upd->execute([$userId]);
+    $controller->activateUser($userId);
     // rowCount() == 0 means account was already active; token is still marked used below.
 
     // Mark token as used (one-time)
-    $pdo->prepare('UPDATE user_phone_verifications SET used_at = NOW() WHERE id = ?')
-        ->execute([$row['id']]);
+    $controller->markVerificationUsed($row['id']);
 
     // Build user object for session and response
     $user = [

@@ -277,4 +277,28 @@ final class PdoProductsRepository
         );
         return $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id]);
     }
+
+    // ================================
+    // Check subscription product limit for tenant
+    // ================================
+    public function getSubscriptionProductLimit(int $tenantId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT s.id, sp.max_products, sp.plan_name
+             FROM subscriptions s
+             JOIN subscription_plans sp ON s.plan_id = sp.id
+             WHERE s.tenant_id = :tid AND s.status IN ('active','trial')
+             ORDER BY s.id DESC LIMIT 1"
+        );
+        $stmt->execute([':tid' => $tenantId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function countByTenant(int $tenantId): int
+    {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tid");
+        $stmt->execute([':tid' => $tenantId]);
+        return (int)$stmt->fetchColumn();
+    }
 }

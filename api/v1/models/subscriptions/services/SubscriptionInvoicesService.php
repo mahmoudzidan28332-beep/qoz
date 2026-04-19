@@ -8,6 +8,7 @@ class SubscriptionInvoicesService {
         $this->repo = $repo;
     }
 
+    public function all(int $limit = 25, int $offset = 0, array $filters = []): array { return $this->repo->all($limit, $offset, $filters); }
     public function list(array $filters = []): array { return $this->repo->list(isset($filters['limit']) ? (int)$filters['limit'] : null, isset($filters['offset']) ? (int)$filters['offset'] : null, $filters); }
     public function find(int $id): ?array { return $this->repo->find($id); }
     public function create(array $data): int { return $this->repo->create($data); }

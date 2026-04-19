@@ -104,4 +104,18 @@ final class StorePagesController
     {
         $this->service->saveSectionTranslations($sectionId, $translations);
     }
+
+    // =========================================================
+    // Direct lookups (nullable returns for route-level checks)
+    // =========================================================
+
+    public function findSectionByIdOnly(int $sectionId): ?array
+    {
+        return $this->service->findSectionByIdOnly($sectionId);
+    }
+
+    public function findSection(int $pageId, int $sectionId, string $lang = 'en', bool $allTranslations = false): ?array
+    {
+        return $this->service->findSection($pageId, $sectionId, $lang, $allTranslations);
+    }
 }

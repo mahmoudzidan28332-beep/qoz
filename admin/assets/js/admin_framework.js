@@ -10,15 +10,17 @@
     // ════════════════════════════════════════════════════════════
     // FRAMEWORK NAMESPACE
     // ════════════════════════════════════════════════════════════
-    window.AdminFramework = {
-        version: '1.0.1',
-        config: {
-            apiBase: '/api',
-            perPage: 10,
-            debounceDelay: 300,
-            notificationDuration: 3000
-        }
-    };
+    if (!window.AdminFramework || !window.AdminFramework.version) {
+        window.AdminFramework = {
+            version: '1.0.1',
+            config: {
+                apiBase: '/api',
+                perPage: 10,
+                debounceDelay: 300,
+                notificationDuration: 3000
+            }
+        };
+    }
 
     const AF = window.AdminFramework;
 
@@ -111,7 +113,7 @@
     // API CALLS
     // ════════════════════════════════════════════════════════════
     
-    AF.api = async function(url, options = {}) {
+    AF.api = async function(url, options = {}, _retryCount = 0) {
         try {
             const defaultOptions = {
                 credentials: 'same-origin',
@@ -130,9 +132,18 @@
                     setTimeout(() => window.location.reload(), 2000);
                     throw new Error('Unauthorized');
                 }
+
+                // Handle rate limiting with automatic retry
+                if (response.status === 429 && _retryCount < 2) {
+                    const retryAfter = parseInt(response.headers.get('Retry-After') || '3', 10);
+                    const delay = Math.min(retryAfter, 10) * 1000;
+                    console.warn('[API] Rate limited, retrying in', delay, 'ms —', url);
+                    await new Promise(r => setTimeout(r, delay));
+                    return AF.api(url, options, _retryCount + 1);
+                }
                 
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();

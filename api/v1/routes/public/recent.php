@@ -8,27 +8,22 @@ declare(strict_types=1);
  */
 
 if ($first === 'recent') {
-    $sub = $segments[1] ?? '';
+    $sub = isset($segments[1]) ? trim($segments[1]) : '';
 
     if ($sub === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $recentPid = (int)($_POST['product_id'] ?? 0);
+        $recentPid = intval($_POST['product_id'] ?? 0);
         if (!$recentPid) { ResponseFormatter::error('product_id required', 422); exit; }
         $recentUid = $userId ?? null;
         $recentSid = session_id() ?: null;
+        $recentRepo = new PdoRecentlyViewedRepository($pdo);
+        $recentService = new RecentlyViewedService($recentRepo);
         try {
             // upsert: update viewed_at if already exists, otherwise insert
-            $pdo->prepare(
-                'INSERT INTO recently_viewed_products (user_id, session_id, product_id, viewed_at)
-                 VALUES (?, ?, ?, NOW())
-                 ON DUPLICATE KEY UPDATE viewed_at = NOW()'
-            )->execute([$recentUid, $recentSid, $recentPid]);
+            $recentRepo->upsert($recentUid, $recentSid, $recentPid);
         } catch (Throwable $_) {
             // table may not have unique constraint — try insert ignore
             try {
-                $pdo->prepare(
-                    'INSERT IGNORE INTO recently_viewed_products (user_id, session_id, product_id, viewed_at)
-                     VALUES (?, ?, ?, NOW())'
-                )->execute([$recentUid, $recentSid, $recentPid]);
+                $recentRepo->insertIgnore($recentUid, $recentSid, $recentPid);
             } catch (Throwable $__) { /* non-fatal */ }
         }
         ResponseFormatter::success(['ok' => true]);

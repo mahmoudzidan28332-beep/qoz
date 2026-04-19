@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // api/routes/product_meta.php
 // Enhanced, defensive product metadata API.
 // GET params: lang=ar
@@ -160,14 +160,22 @@ try {
         while ($r = $res->fetch_assoc()) { $r['values'] = []; $attrs[$r['id']] = $r; }
 
         if (!empty($attrs) && table_exists($conn, 'product_attribute_values')) {
-            $ids = implode(',', array_keys($attrs));
+            $ids = array_map('intval', array_keys($attrs));
             $valCols = get_columns($conn, 'product_attribute_values');
             $selectValCols = [];
             foreach (['id','attribute_id','value','slug','color_code','image_url','sort_order','is_active'] as $c) if (in_array($c,$valCols)) $selectValCols[] = "`{$c}`";
-            $rv = $conn->query("SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values WHERE attribute_id IN ({$ids}) ORDER BY sort_order ASC, id ASC");
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sql = "SELECT " . implode(',', $selectValCols) . " FROM product_attribute_values";
+            $sql .= " WHERE attribute_id IN (" . $placeholders . ") ORDER BY sort_order ASC, id ASC";
+            $stmt = $conn->prepare($sql);
+            $types = str_repeat('i', count($ids));
+            $stmt->bind_param($types, ...$ids);
+            $stmt->execute();
+            $rv = $stmt->get_result();
             while ($v = $rv->fetch_assoc()) {
                 if (isset($attrs[$v['attribute_id']])) $attrs[$v['attribute_id']]['values'][] = $v;
             }
+            $stmt->close();
         }
 
         $attrTrans = get_translations_map($conn, 'product_attribute_translations', 'attribute_id', $lang);

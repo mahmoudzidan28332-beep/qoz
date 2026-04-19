@@ -188,4 +188,18 @@ final class PdoSupportTicketsRepository implements SupportTicketsRepositoryInter
         );
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
+
+    /**
+     * Create a ticket from the public route (simplified, fewer fields).
+     */
+    public function createPublic(int $tenantId, int $userId, ?int $categoryId, string $subject, string $description, string $priority): int
+    {
+        $this->pdo->prepare(
+            "INSERT INTO support_tickets
+               (tenant_id, user_id, category_id, subject, description, status, priority, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'open', ?, NOW(), NOW())"
+        )->execute([$tenantId, $userId, $categoryId, $subject, $description, $priority]);
+
+        return (int)$this->pdo->lastInsertId();
+    }
 }

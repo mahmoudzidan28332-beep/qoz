@@ -258,7 +258,8 @@ final class PdoEntityProductVariantsRepository
         $this->validateReferences(
             (int)$params[':entity_id'],
             (int)$params[':product_id'],
-            (int)$params[':variant_id']
+            (int)$params[':variant_id'],
+            isset($params[':tenant_id']) ? (int)$params[':tenant_id'] : null
         );
 
         if ($isUpdate) {
@@ -422,22 +423,44 @@ final class PdoEntityProductVariantsRepository
     /**
      * Validate entity, product, and variant exist
      */
-    private function validateReferences(int $entityId, int $productId, int $variantId): void
+    private function validateReferences(int $entityId, int $productId, int $variantId, ?int $expectedTenantId = null): void
     {
-        $stmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $entityId]);
-        if (!$stmt->fetch()) {
+        // Multi-tenant safety: verify entity exists and optionally confirm tenant_id matches
+        $sql = "SELECT id, tenant_id FROM entities WHERE id = :id";
+        $params = [':id' => $entityId];
+        if ($expectedTenantId !== null) {
+            $sql .= " AND tenant_id = :tenant_id";
+            $params[':tenant_id'] = $expectedTenantId;
+        }
+        $sql .= " LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $entity = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$entity) {
             throw new RuntimeException("Entity not found");
         }
+        $tenantId = (int)$entity['tenant_id'];
 
-        $stmt = $this->pdo->prepare("SELECT id FROM products WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $productId]);
+        // Ensure product belongs to this entity and tenant via entity_products
+        $stmt = $this->pdo->prepare("
+            SELECT p.id FROM products p
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
+            WHERE p.id = :id AND p.tenant_id = :tenant_id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $productId, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Product not found");
         }
 
-        $stmt = $this->pdo->prepare("SELECT id FROM product_variants WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $variantId]);
+        // Ensure variant belongs to the validated product (tenant-scoped via product chain)
+        $stmt = $this->pdo->prepare("
+            SELECT pv.id FROM product_variants pv
+            INNER JOIN products p ON p.id = pv.product_id AND p.tenant_id = :tenant_id
+            WHERE pv.id = :id AND pv.product_id = :product_id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $variantId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Variant not found");
         }

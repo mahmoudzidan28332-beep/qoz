@@ -79,6 +79,11 @@ final class CitiesService
         ];
     }
 
+    public function findWithTranslation(string $identifier, ?string $lang = null): ?array
+    {
+        return $this->repo->findWithTranslation((int) $identifier, $lang ?? 'en');
+    }
+
     public function delete(int $id): void
     {
         if (!$this->repo->delete($id)) {

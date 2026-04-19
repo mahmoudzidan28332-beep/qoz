@@ -106,19 +106,9 @@ try {
         case 'POST':
             // Check subscription product limit before creating
             try {
-                $limitStmt = $pdo->prepare(
-                    "SELECT s.id, sp.max_products, sp.plan_name
-                     FROM subscriptions s
-                     JOIN subscription_plans sp ON s.plan_id = sp.id
-                     WHERE s.tenant_id = :tid AND s.status IN ('active','trial')
-                     ORDER BY s.id DESC LIMIT 1"
-                );
-                $limitStmt->execute([':tid' => $tenantId]);
-                $activePlan = $limitStmt->fetch(PDO::FETCH_ASSOC);
+                $activePlan = $controller->getSubscriptionProductLimit($tenantId);
                 if ($activePlan && (int)$activePlan['max_products'] > 0) {
-                    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tid");
-                    $countStmt->execute([':tid' => $tenantId]);
-                    $currentCount = (int)$countStmt->fetchColumn();
+                    $currentCount = $controller->countByTenant($tenantId);
                     if ($currentCount >= (int)$activePlan['max_products']) {
                         ResponseFormatter::error(
                             'Product limit reached (' . $currentCount . '/' . $activePlan['max_products'] . '). Upgrade your plan to add more products.',
@@ -128,7 +118,7 @@ try {
                     }
                 }
             } catch (\Throwable $e) {
-                // Don't block product creation if limit check fails
+                error_log('[products] subscription limit check failed: ' . $e->getMessage());
             }
 
             // Bad words check on text fields
@@ -171,7 +161,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$newId);
             } catch (\Throwable $e) {
-                // SEO sync failure should not break product creation
+                error_log('[products] SEO sync on create failed: ' . $e->getMessage());
             }
 
             // Audit log: product created (new_values = what was just saved)
@@ -223,7 +213,7 @@ try {
                 try {
                     $oldProductState = $controller->get($tenantId, (int)$data['id'], $lang);
                 } catch (\Throwable $e) {
-                    // Non-fatal: proceed without old_values
+                    error_log('[products] fetch old product state failed: ' . $e->getMessage());
                 }
             }
 
@@ -239,7 +229,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$updatedId);
             } catch (\Throwable $e) {
-                // SEO sync failure should not break product update
+                error_log('[products] SEO sync on update failed: ' . $e->getMessage());
             }
 
             // Audit log: product updated (diff auto-computed by repository)
@@ -267,7 +257,7 @@ try {
             try {
                 $deletedProductState = $controller->get($tenantId, (int)$data['id'], $lang);
             } catch (\Throwable $e) {
-                // Non-fatal
+                error_log('[products] fetch deleted product state failed: ' . $e->getMessage());
             }
 
             $deleted = $controller->delete($tenantId, (int)$data['id']);
@@ -276,7 +266,7 @@ try {
             try {
                 SeoAutoManager::delete($pdo, 'product', (int)$data['id']);
             } catch (\Throwable $e) {
-                // SEO delete failure should not break product deletion
+                error_log('[products] SEO delete failed: ' . $e->getMessage());
             }
 
             // Audit log: product deleted (old_values = snapshot before deletion)

@@ -21,7 +21,9 @@ final class ResponseFormatter
             if (isset($GLOBALS['i18n']) && method_exists($GLOBALS['i18n'], 't')) {
                 return (string) $GLOBALS['i18n']->t($message);
             }
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+            error_log('[ResponseFormatter] translation lookup failed: ' . $e->getMessage());
+        }
 
         return $message;
     }

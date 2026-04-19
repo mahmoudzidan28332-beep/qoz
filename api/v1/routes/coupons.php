@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/routes/coupons.php
 // Routes for coupon endpoints (maps HTTP requests to CouponController methods)
 // Supports: listing, creating, show, update, delete, apply/redeem, validate, user coupons, stats

@@ -22,6 +22,8 @@ define('BASE_DIR', __DIR__);
 define('API_BASE_PATH', realpath(__DIR__));
 define('API_SHARED_PATH', API_BASE_PATH . '/shared');
 
+require_once __DIR__ . '/bootstrap_helpers.php';
+
 // ==============================================
 // 0. Environment & Error Handling (Ultimate)
 // ==============================================
@@ -270,6 +272,37 @@ foreach ($coreFiles as $file) {
     if (file_exists($path)) {
         require_once $path;
     }
+}
+
+// ==============================================
+// 7b. Security Middleware (Rate Limiting & Headers)
+// ==============================================
+$secMiddlewarePath = BASE_DIR . '/shared/security/SecurityMiddleware.php';
+if (file_exists($secMiddlewarePath)) {
+    require_once $secMiddlewarePath;
+    SecurityMiddleware::boot([
+        'storageDir'            => sys_get_temp_dir() . '/security_middleware',
+        'rateLimitIpMax'        => (int)(getenv('RATE_LIMIT_IP_MAX') ?: 300),
+        'rateLimitIpWindow'     => 60,
+        'rateLimitAuthMax'      => (int)(getenv('RATE_LIMIT_AUTH_MAX') ?: 10),
+        'rateLimitAuthWindow'   => 60,
+        'rateLimitWriteMax'     => (int)(getenv('RATE_LIMIT_WRITE_MAX') ?: 60),
+        'rateLimitWriteWindow'  => 60,
+        'blockAfterViolations'  => 5,
+        'blockDuration'         => 300,
+        'rateLimitWhitelist'    => ['/ping', '/status'],
+    ]);
+    safe_log('info', 'SecurityMiddleware booted');
+}
+
+// Early enforcement of upload size limits (DoS protection)
+$maxUploadBytes = (int)(getenv('MAX_UPLOAD_SIZE') ?: 20 * 1024 * 1024); // 20 MB default
+$contentLength  = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+if ($contentLength > $maxUploadBytes && $contentLength > 0) {
+    http_response_code(413);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'error' => 'Request entity too large']);
+    exit;
 }
 
 $redisHelperPath = BASE_DIR . '/shared/helpers/RedisHelper.php';
@@ -621,83 +654,12 @@ if (!IS_DEBUG) {
 // ==============================================
 // 19. Health Check Endpoint (Auto)
 // ==============================================
-if (API_ROUTE === '/health') {
-    header('Content-Type: application/json');
-    
-    $health = [
-        'status' => 'healthy',
-        'timestamp' => date('c'),
-        'request_id' => REQUEST_ID,
-        'checks' => [
-            'database' => $container['pdo'] !== null,
-            'redis' => class_exists('RedisHelper', false) && RedisHelper::isAvailable(),
-            'cache' => $container['cache_manager'] !== null,
-            'rbac' => class_exists('RBAC', false),
-            'request_context' => isset($container['request_context']),
-            'memory_usage_mb' => round(memory_get_usage(true) / 1048576, 2),
-            'execution_time_ms' => round((microtime(true) - START_TIME) * 1000, 1),
-        ],
-        'version' => API_VERSION,
-        'environment' => ENVIRONMENT,
-    ];
-    
-    // Determine overall status
-    $unhealthy = array_filter($health['checks'], fn($check) => $check === false);
-    if (!empty($unhealthy)) {
-        $health['status'] = 'unhealthy';
-        http_response_code(503);
-    }
-    
-    echo json_encode($health, JSON_PRETTY_PRINT);
-    exit;
-}
+handle_health_check($container);
 
 // ==============================================
 // 20. Performance Metrics Collection
 // ==============================================
-$container['metrics'] = [
-    'start_time' => START_TIME,
-    'memory_start' => memory_get_usage(true),
-    'request_id' => REQUEST_ID,
-    'user_id' => $container['current_user']['id'] ?? null,
-    'tenant_id' => $_SESSION['tenant_id'] ?? null,
-    'route' => API_ROUTE,
-    'method' => $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN',
-];
-
-// Register metrics collection on shutdown
-register_shutdown_function(function() use ($container) {
-    $endTime = microtime(true);
-    $endMemory = memory_get_usage(true);
-    
-    $metrics = [
-        'request_id' => REQUEST_ID,
-        'duration_ms' => round(($endTime - START_TIME) * 1000, 1),
-        'memory_used_mb' => round(($endMemory - $container['metrics']['memory_start']) / 1048576, 2),
-        'peak_memory_mb' => round(memory_get_peak_usage(true) / 1048576, 2),
-        'user_id' => $container['metrics']['user_id'],
-        'tenant_id' => $container['metrics']['tenant_id'],
-        'route' => $container['metrics']['route'],
-        'method' => $container['metrics']['method'],
-        'api_version' => API_VERSION,
-        'status' => http_response_code(),
-    ];
-    
-    safe_log('metric', 'Request completed', $metrics);
-    
-    // Send to monitoring if available
-    if (class_exists('RedisHelper', false)) {
-        try {
-            RedisHelper::logMetric('request_duration', $metrics['duration_ms'], [
-                'route' => $metrics['route'],
-                'method' => $metrics['method'],
-                'tenant_id' => $metrics['tenant_id']
-            ]);
-        } catch (Throwable $e) {
-            // Ignore monitoring errors
-        }
-    }
-});
+register_metrics_shutdown($container);
 
 // ==============================================
 // 21. Final Bootstrap Log (Comprehensive)

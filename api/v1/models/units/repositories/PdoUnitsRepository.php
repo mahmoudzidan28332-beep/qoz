@@ -108,19 +108,23 @@ final class PdoUnitsRepository
 
     public function saveTranslations(int $unitId,array $translations): void
     {
-        $stmt=$this->pdo->prepare("
-            INSERT INTO units_translations (unit_id,language_code,name)
-            VALUES (:id,:lang,:name)
-            ON DUPLICATE KEY UPDATE name=VALUES(name)
-        ");
+        if (empty($translations)) return;
 
-        foreach($translations as $lang=>$name){
-            $stmt->execute([
-                ':id'=>$unitId,
-                ':lang'=>$lang,
-                ':name'=>$name
-            ]);
+        $values = [];
+        $params = [];
+        $i = 0;
+        foreach ($translations as $lang => $name) {
+            $values[] = "(:unit_id_{$i}, :lang_{$i}, :name_{$i})";
+            $params[":unit_id_{$i}"] = $unitId;
+            $params[":lang_{$i}"]    = $lang;
+            $params[":name_{$i}"]    = $name;
+            $i++;
         }
+
+        $sql = "INSERT INTO units_translations (unit_id, language_code, name) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $unitId): array

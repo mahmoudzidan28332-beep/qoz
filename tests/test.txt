@@ -1,0 +1,122 @@
+🏗️ Architecture & Performance Report
+v4.0 — Generated: 2026-04-19 04:18:39 — Total analysis time: 1031.5 ms
+
+🌙 Toggle Theme
+Score
+18
+Grade
+F
+Critical
+Tests Run
+41
+Critical
+13
+Warnings
+6
+Info
+502
+Module	Time (ms)	Tests	Findings
+Architecture Validation	147.4	7	0
+Performance Validation	105	7	95
+Multi-Tenant Safety	8.6	2	55
+Security Validation	187.2	6	0
+Type Safety	43.1	4	26
+Configuration Safety	359.9	4	0
+Exception Handling	28.7	3	274
+Code Quality	138.3	6	69
+Runtime Simulation	13.3	2	2
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/banners/repositories/PdoBannersRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/brands/repositories/PdoBrandsRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/categories/repositories/PdoCategoriesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/category_attributes/repositories/PdoCategoryAttributesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/cities/repositories/PdoCitiesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/homepage_sections/repositories/PdoHomepageSectionsRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/permissions/repositories/PdoRolePermissionsRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/permissions/repositories/PdoRolesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/product_attribute_values/repositories/PdoProductAttributeValuesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/products/repositories/PdoProductAttributeValuesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/products/repositories/PdoProductAttributesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/store_pages/repositories/PdoStorePagesRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[N+1 Query]
+Module: Performance Validation
+Database call inside a loop — classic N+1 pattern
+📁 api/v1/models/units/repositories/PdoUnitsRepository.php
+💡 Batch the query outside the loop or rewrite with IN() / JOIN.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'addresses' may be missing a tenant_id filter
+📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php:63
+💡 All queries on 'addresses' must include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'product_variants' may be missing a tenant_id filter
+📁 api/v1/models/entities/repositories/PdoEntityProductVariantsRepository.php:439
+💡 All queries on 'product_variants' must include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'addresses' may be missing a tenant_id filter
+📁 api/v1/models/entity_context/repositories/PdoEntityContextRepository.php:38
+💡 All queries on 'addresses' must include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'flash_sales' may be missing a tenant_id filter
+📁 api/v1/models/flash_sales/repositories/PdoFlashSalesRepository.php:43
+💡 All queries on 'flash_sales' must include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'order_items' may be missing a tenant_id filter
+📁 api/v1/models/order_items/repositories/PdoOrderItemsRepository.php:107
+💡 All queries on 'order_items' must include a tenant_id condition to prevent data leakage.
+[Multi-Tenant]
+Module: Multi-Tenant Safety
+Query on 'product_variants' may be missing a tenant_id filter
+📁 api/v1/models/stock_movements/repositories/PdoStockMovementsRepository.php:349
+💡 All queries on 'product_variants' must include a tenant_id condition to prevent data leakage.

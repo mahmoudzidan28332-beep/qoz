@@ -473,12 +473,34 @@ if (!function_exists('renderFragmentThemeVars')) {
                 <?php endif; ?>
 
                 <div class="filter-group">
-                    <label for="parentFilter" data-i18n="filters.parent_id">
-                        <?= __t('filters.parent_id', 'Parent ID') ?>
+                    <label for="parentFilter" data-i18n="filters.main_category">
+                        <?= __t('filters.main_category', 'Main Category') ?>
                     </label>
                     <select id="parentFilter" class="form-control">
                         <option value="" data-i18n="filters.parent_options.all">
-                            <?= __t('filters.parent_options.all', 'All Parents') ?>
+                            <?= __t('filters.parent_options.all', 'All Categories') ?>
+                        </option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="subFilter" data-i18n="filters.sub_category">
+                        <?= __t('filters.sub_category', 'Sub Category') ?>
+                    </label>
+                    <select id="subFilter" class="form-control" disabled>
+                        <option value="" data-i18n="filters.sub_options.all">
+                            <?= __t('filters.sub_options.all', 'All Sub Categories') ?>
+                        </option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="subSubFilter" data-i18n="filters.sub_sub_category">
+                        <?= __t('filters.sub_sub_category', 'Sub-Sub Category') ?>
+                    </label>
+                    <select id="subSubFilter" class="form-control" disabled>
+                        <option value="" data-i18n="filters.sub_sub_options.all">
+                            <?= __t('filters.sub_sub_options.all', 'All Sub-Sub Categories') ?>
                         </option>
                     </select>
                 </div>

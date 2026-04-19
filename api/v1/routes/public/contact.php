@@ -73,13 +73,9 @@ if ($ctMethod === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO contact_messages (tenant_id, user_id, name, email, subject, message)
-             VALUES (?, ?, ?, ?, ?, ?)"
-        );
-        $stmt->execute([$ctTenantId, $ctUserId, $name, $email, $subject, $message]);
-
-        $msgId = (int)$pdo->lastInsertId();
+        $contactRepo = new PdoContactMessagesRepository($pdo);
+        $contactService = new ContactMessagesService($contactRepo);
+        $msgId = $contactService->createMessage($ctTenantId, $ctUserId, $name, $email, $subject, $message);
 
         ResponseFormatter::success([
             'id'      => $msgId,

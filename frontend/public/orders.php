@@ -132,14 +132,14 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
 .pub-orders-wrap{max-width:900px;margin:32px auto;padding:0 16px 60px}
 .pub-orders-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
 @media(max-width:600px){.pub-orders-summary{grid-template-columns:repeat(2,1fr)}}
-.pub-stat-card{background:var(--pub-card);border-radius:12px;padding:16px;text-align:center}
+.pub-stat-card{background:var(--pub-surface);border:1px solid var(--pub-glass-border);border-radius:12px;padding:16px;text-align:center;box-shadow:var(--pub-shadow)}
 .pub-stat-card .stat-num{font-size:2rem;font-weight:800;color:var(--pub-primary)}
 .pub-stat-card .stat-lbl{font-size:0.78rem;color:var(--pub-muted);margin-top:4px}
 .pub-filter-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
 .pub-filter-btn{padding:6px 16px;border-radius:20px;border:1px solid var(--pub-border);background:transparent;color:inherit;cursor:pointer;font-size:0.85rem;text-decoration:none}
 .pub-filter-btn.active,.pub-filter-btn:hover{background:var(--pub-primary);border-color:var(--pub-primary);color:var(--btn-primary-color, #fff)}
-.pub-order-row{background:var(--pub-card);border-radius:12px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer;transition:box-shadow .2s}
-.pub-order-row:hover{box-shadow:0 0 0 2px var(--pub-primary)}
+.pub-order-row{background:var(--pub-surface);border:1px solid var(--pub-glass-border);border-radius:12px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer;transition:all .2s;box-shadow:var(--pub-shadow)}
+.pub-order-row:hover{box-shadow:var(--pub-shadow-hover);border-color:var(--pub-primary);transform:translateY(-2px)}
 .pub-order-num{font-weight:700;font-size:1rem}
 .pub-order-date{font-size:0.78rem;color:var(--pub-muted);margin-top:2px}
 .pub-order-total{font-size:1.1rem;font-weight:700;color:var(--pub-accent)}
@@ -153,7 +153,7 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
 .status-bad{background:color-mix(in srgb, var(--pub-danger, #ef4444) 18%, transparent);color:var(--pub-danger, #f87171)}
 .status-default{background:color-mix(in srgb, var(--pub-muted, #94a3b8) 18%, transparent);color:var(--pub-muted)}
 /* Detail panel */
-.pub-order-detail{background:var(--pub-card);border-radius:12px;padding:24px;margin-bottom:24px}
+.pub-order-detail{background:var(--pub-surface);border:1px solid var(--pub-glass-border);border-radius:12px;padding:24px;margin-bottom:24px;box-shadow:var(--pub-shadow)}
 .pub-order-detail h2{font-size:1.2rem;font-weight:700;margin:0 0 20px}
 .pub-items-table{width:100%;border-collapse:collapse;margin-bottom:20px}
 .pub-items-table th{font-size:0.78rem;color:var(--pub-muted);padding:6px 8px;text-align:start;font-weight:500}
@@ -185,15 +185,15 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
 
 <?php if ($viewOrder): ?>
     <!-- ========= ORDER DETAIL + TRACKING VIEW ========= -->
-    <a href="?<?= $filter ? 'status='.e($filter) : '' ?>" class="pub-detail-back">
-        ← <?= e(t('orders.back_to_orders')) ?>
+    <a href="?<?= $filter ? 'status='.e($filter) : '' ?>" class="pub-detail-back" dir="auto">
+        <i class="bi bi-arrow-left"></i> <?= e(t('orders.back_to_orders')) ?>
     </a>
 
     <div class="pub-order-detail">
         <h2>
             <?= e(t('orders.order_number')) ?>: <?= e($viewOrder['order_number']) ?>
             <?php if (!empty($viewOrder['auction_id'])): ?>
-                <span style="background:var(--pub-accent, #f59e0b);color:var(--btn-primary-color, #000);font-size:0.7rem;padding:2px 8px;border-radius:4px;margin-inline-start:8px">🔨 <?= e(t('nav.auctions')) ?> #<?= (int)$viewOrder['auction_id'] ?></span>
+                <span style="background:var(--pub-accent, #f59e0b);color:var(--btn-primary-color, #000);font-size:0.7rem;padding:2px 8px;border-radius:4px;margin-inline-start:8px"><i class="bi bi-hammer"></i> <?= e(t('nav.auctions')) ?> #<?= (int)$viewOrder['auction_id'] ?></span>
             <?php endif; ?>
             <span class="pub-order-badge <?= orderStatusClass($viewOrder['status']) ?>" style="margin-inline-start:10px">
                 <?= e(t('orders.status_' . $viewOrder['status'])) ?>
@@ -201,7 +201,7 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
             <?php if (in_array($viewOrder['payment_status'], ['pending','failed']) && !in_array($viewOrder['status'], ['cancelled','refunded','failed'])): ?>
                 <a href="/frontend/public/pay.php?order_id=<?= (int)$viewOrder['id'] ?>"
                    style="background:var(--btn-primary-bg, var(--pub-primary));color:var(--btn-primary-color, #fff);font-size:0.78rem;padding:5px 14px;border-radius:20px;text-decoration:none;font-weight:700;margin-inline-start:10px;display:inline-block">
-                    💳 <?= e(t('orders.pay_now')) ?>
+                    <i class="bi bi-credit-card"></i> <?= e(t('orders.pay_now')) ?>
                 </a>
             <?php endif; ?>
         </h2>
@@ -217,7 +217,14 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
         $cancelledOrFailed = in_array($viewOrder['status'], ['cancelled','refunded','failed']);
         if (!$cancelledOrFailed):
             $currentIdx = array_search($viewOrder['status'], $trackingSteps);
-            $stepIcons  = ['⏳','✅','⚙️','📦','🚚','🎉'];
+            $stepIcons  = [
+                '<i class="bi bi-clock"></i>',
+                '<i class="bi bi-check-circle"></i>',
+                '<i class="bi bi-gear"></i>',
+                '<i class="bi bi-box"></i>',
+                '<i class="bi bi-truck"></i>',
+                '<i class="bi bi-check2-all"></i>'
+            ];
         ?>
         <div style="margin-bottom:24px">
             <div style="font-weight:600;margin-bottom:12px"><?= e(t('orders.track_title')) ?></div>
@@ -279,7 +286,7 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
                     </td>
                     <td style="text-align:center"><?= (int)$it['quantity'] ?></td>
                     <td style="text-align:end"><?= number_format((float)$it['unit_price'], 2) ?></td>
-                    <td style="text-align:end;font-weight:600"><?= number_format((float)$it['total'], 2) ?> <?= e($it['currency_code']) ?></td>
+                    <td style="text-align:end;font-weight:600"><?= number_format((float)$it['total'], 2) ?> <small><?= e($it['currency_code'] ?: 'SAR') ?></small></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
@@ -288,7 +295,7 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
 
         <!-- Totals -->
         <div class="pub-totals-box">
-            <div class="pub-totals-row"><span><?= e(t('orders.subtotal')) ?></span><span><?= number_format((float)$viewOrder['subtotal'], 2) ?> <?= e($viewOrder['currency_code']) ?></span></div>
+            <div class="pub-totals-row"><span><?= e(t('orders.subtotal')) ?></span><span><?= number_format((float)$viewOrder['subtotal'], 2) ?> <?= e($viewOrder['currency_code'] ?: 'SAR') ?></span></div>
             <?php if ((float)$viewOrder['tax_amount'] > 0): ?>
             <div class="pub-totals-row"><span><?= e(t('orders.tax')) ?></span><span><?= number_format((float)$viewOrder['tax_amount'], 2) ?></span></div>
             <?php endif; ?>
@@ -298,7 +305,7 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
             <?php if ((float)$viewOrder['discount_amount'] > 0): ?>
             <div class="pub-totals-row" style="color:var(--pub-primary)"><span><?= e(t('orders.discount')) ?></span><span>-<?= number_format((float)$viewOrder['discount_amount'], 2) ?></span></div>
             <?php endif; ?>
-            <div class="pub-totals-row grand"><span><?= e(t('orders.grand_total')) ?></span><span><?= number_format((float)$viewOrder['grand_total'], 2) ?> <?= e($viewOrder['currency_code']) ?></span></div>
+            <div class="pub-totals-row grand"><span><?= e(t('orders.grand_total')) ?></span><span><?= number_format((float)$viewOrder['grand_total'], 2) ?> <?= e($viewOrder['currency_code'] ?: 'SAR') ?></span></div>
         </div>
 
         <!-- Status History -->
@@ -359,26 +366,25 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
         <?php endforeach; ?>
     </div>
 
-    <!-- Orders List -->
     <?php if (empty($orders)): ?>
-        <div style="text-align:center;padding:60px 20px;color:var(--pub-muted)">
-            <div style="font-size:3rem;margin-bottom:12px">📭</div>
-            <div style="font-size:1.1rem;margin-bottom:16px"><?= e(t('orders.empty')) ?></div>
-            <a href="/frontend/public/products.php" class="pub-btn pub-btn--primary"><?= e(t('orders.browse_products')) ?></a>
+        <div style="text-align:center;padding:100px 20px;color:var(--pub-muted); opacity: 0.5;">
+            <div style="font-size:4rem;margin-bottom:20px"><i class="bi bi-inbox"></i></div>
+            <div style="font-size:1.1rem;margin-bottom:24px"><?= e(t('orders.empty')) ?></div>
+            <a href="/frontend/public/products.php" class="pub-btn pub-btn--primary" style="padding: 10px 24px; border-radius: 20px;"><?= e(t('orders.browse_products')) ?></a>
         </div>
-    <?php else: ?>
+<?php else: ?>
         <?php foreach ($orders as $ord): ?>
         <a href="?view=<?= (int)$ord['id'] ?><?= $filter ? '&status='.e($filter) : '' ?>" style="display:block;text-decoration:none;color:inherit" class="pub-order-row">
             <div>
                 <div class="pub-order-num">
                     <?= e($ord['order_number']) ?>
                     <?php if (!empty($ord['auction_id'])): ?>
-                        <span style="background:var(--pub-accent, #f59e0b);color:var(--btn-primary-color, #000);font-size:0.65rem;padding:1px 6px;border-radius:4px;margin-inline-start:6px">🔨 <?= e(t('nav.auctions')) ?></span>
+                        <span style="background:var(--pub-accent, #f59e0b);color:var(--btn-primary-color, #000);font-size:0.65rem;padding:1px 6px;border-radius:4px;margin-inline-start:6px"><i class="bi bi-hammer"></i> <?= e(t('nav.auctions')) ?></span>
                     <?php endif; ?>
                 </div>
                 <div class="pub-order-date">
                     <?= date('Y-m-d H:i', strtotime($ord['created_at'])) ?>
-                    &nbsp;·&nbsp; <?= (int)$ord['item_count'] ?> <?= e(t('orders.items')) ?>
+                    <span style="color:var(--pub-border);margin:0 4px;">|</span> <?= (int)$ord['item_count'] ?> <?= e(t('orders.items')) ?>
                 </div>
             </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -388,10 +394,10 @@ $passedStatuses = $viewOrder ? array_map(fn($h) => $h['status'], $statusHistory)
                 <?php if ($ord['payment_status'] !== 'paid'): ?>
                     <span class="pub-order-badge status-pending" style="font-size:0.7rem"><?= e(t('orders.payment_' . $ord['payment_status'])) ?></span>
                 <?php endif; ?>
-                <div class="pub-order-total"><?= number_format((float)$ord['grand_total'], 2) ?> <?= e($ord['currency_code']) ?></div>
+                <div class="pub-order-total"><?= number_format((float)$ord['grand_total'], 2) ?> <small><?= e($ord['currency_code'] ?: 'SAR') ?></small></div>
                 <?php if (in_array($ord['payment_status'], ['pending','failed']) && !in_array($ord['status'], ['cancelled','refunded','failed'])): ?>
-                    <span onclick="event.preventDefault(); window.location.href='/frontend/public/pay.php?order_id=<?= (int)$ord['id'] ?>'" class="pub-order-badge" style="background:var(--btn-primary-bg, var(--pub-primary));color:var(--btn-primary-color, #fff);cursor:pointer">
-                        💳 <?= e(t('orders.pay_now')) ?>
+                    <span onclick="event.preventDefault(); window.location.href='/frontend/public/pay.php?order_id=<?= (int)$ord['id'] ?>'" class="pub-order-badge" style="background:var(--btn-primary-bg, var(--pub-primary));color:var(--btn-primary-color, #fff);cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                        <i class="bi bi-credit-card"></i> <?= e(t('orders.pay_now')) ?>
                     </span>
                 <?php endif; ?>
             </div>

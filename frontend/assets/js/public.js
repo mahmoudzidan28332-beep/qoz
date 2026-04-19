@@ -25,12 +25,17 @@ function pubEntityStateStorageKey(tenantId) {
 }
 
 function pubEntityCartStorageKey(entityId, tenantId) {
-  return 'pub_cart:' + String(tenantId || pubGetTenantId()) + ':' + String(parseInt(entityId, 10) || 0);
+  return 'pub_cart_t' + String(tenantId || pubGetTenantId()) + '_e' + String(parseInt(entityId, 10) || 0);
 }
 
 function pubGetClientActiveEntity() {
+  // Respect server-injected context first
   var active = (typeof window.pubActiveEntity !== 'undefined' && window.pubActiveEntity) ? window.pubActiveEntity : null;
+
+  // If server provided a valid entity ID (even in discovery mode), use it
   if (active && parseInt(active.id, 10) > 0) return active;
+
+  // Fall back to localStorage for returning visitors
   try {
     active = JSON.parse(localStorage.getItem(pubEntityStateStorageKey()) || 'null');
   } catch (e) {
@@ -56,11 +61,26 @@ function pubGetActiveEntityId() {
 function pubMigrateLegacyCart(entityId, tenantId) {
   var eid = parseInt(entityId, 10) || pubGetActiveEntityId();
   if (!eid) return [];
+  var tid = tenantId || pubGetTenantId();
 
-  var scopedKey = pubEntityCartStorageKey(eid, tenantId);
+  var scopedKey = pubEntityCartStorageKey(eid, tid);
   var scoped = [];
   try { scoped = JSON.parse(localStorage.getItem(scopedKey) || '[]'); } catch (e) { scoped = []; }
   if (Array.isArray(scoped) && scoped.length) return scoped;
+
+  /* Try old colon-format key (pub_cart:T:E) first */
+  var oldColonKey = 'pub_cart:' + String(tid) + ':' + String(eid);
+  var fromOldKey = [];
+  try { fromOldKey = JSON.parse(localStorage.getItem(oldColonKey) || '[]'); } catch (e) { fromOldKey = []; }
+  if (Array.isArray(fromOldKey) && fromOldKey.length) {
+    try {
+      localStorage.setItem(scopedKey, JSON.stringify(fromOldKey));
+      localStorage.removeItem(oldColonKey);
+    } catch (e) {}
+    return fromOldKey;
+  }
+  /* Remove stale colon-key even if empty */
+  try { localStorage.removeItem(oldColonKey); } catch (e) {}
 
   var legacy = [];
   try { legacy = JSON.parse(localStorage.getItem('pub_cart') || '[]'); } catch (e) { legacy = []; }
@@ -83,13 +103,14 @@ function pubMigrateLegacyCart(entityId, tenantId) {
 }
 
 function pubLoadScopedCart(entityId, tenantId) {
+  var tid = tenantId || pubGetTenantId();
   var eid = parseInt(entityId, 10) || pubGetActiveEntityId();
   if (!eid) return [];
-  var key = pubEntityCartStorageKey(eid, tenantId);
+  var key = pubEntityCartStorageKey(eid, tid);
   var cart = [];
   try { cart = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { cart = []; }
   if (!Array.isArray(cart) || !cart.length) {
-    cart = pubMigrateLegacyCart(eid, tenantId);
+    cart = pubMigrateLegacyCart(eid, tid);
   }
   return Array.isArray(cart) ? cart : [];
 }
@@ -703,9 +724,13 @@ function pubSyncCartBadges() {
     window.pubOpenEntityModal = openModal;
     window.pubRefreshEntityContext = refreshCurrent;
 
-    renderStrip(pubGetClientActiveEntity() || window.pubActiveEntity || null);
-    refreshCurrent();
-    maybeAutoResolve();
+    // Only run side-effects if NOT in discovery mode, 
+    // or if specifically requested by context.
+    if (strip.dataset.mode !== 'discovery') {
+        renderStrip(pubGetClientActiveEntity() || window.pubActiveEntity || null);
+        refreshCurrent();
+        maybeAutoResolve();
+    }
   }
 
   function updateUserDisplay() {
@@ -785,7 +810,7 @@ function pubSyncCartBadges() {
       if (!list) return;
       if (!notifications.length) {
         list.innerHTML = '<div class="pub-notif-empty">'
-          + (document.documentElement.lang === 'ar' ? 'ظ„ط§ طھظˆط¬ط¯ ط¥ط´ط¹ط§ط±ط§طھ' : 'No notifications')
+          + (window.pubTranslations && window.pubTranslations.common && window.pubTranslations.common.no_notifications ? window.pubTranslations.common.no_notifications : 'No notifications')
           + '</div>';
         return;
       }
@@ -886,9 +911,93 @@ function pubSyncCartBadges() {
 })();
 
 
-/* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+/* -------------------------------------------------------
+ * Global comparison helpers
+ * ----------------------------------------------------- */
+
+/**
+ * Toggle a product in/out of comparison list.
+ * Max 4 products allowed. Strict login required.
+ */
+function pubToggleCompare(btn) {
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
+  if (!u || !u.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
+    window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
+    return;
+  }
+
+  var pid = btn.dataset.productId;
+  if (!pid) return;
+
+  var inList = (localStorage.getItem('pub_compare') || '').split(',').filter(Boolean);
+  var idx = inList.indexOf(String(pid));
+  var action = (idx >= 0) ? 'remove' : 'add';
+
+  if (action === 'add' && inList.length >= 4) {
+    alert(window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_max ? window.pubTranslations.products.compare_max : 'Max 4 products can be compared.');
+    return;
+  }
+
+  btn.disabled = true;
+
+  var fd = new FormData();
+  fd.append('product_id', pid);
+
+  fetch('/api/public/compare/' + action, { method: 'POST', credentials: 'include', body: fd })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success || data.ok) {
+        if (action === 'remove') {
+          inList.splice(idx, 1);
+          btn.classList.remove('active');
+          btn.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare) ? window.pubTranslations.products.compare : 'Compare';
+        } else {
+          inList.push(String(pid));
+          btn.classList.add('active');
+          btn.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_added) ? window.pubTranslations.products.compare_added : 'In Comparison';
+        }
+        localStorage.setItem('pub_compare', inList.join(','));
+        pubUpdateCompareBadge();
+      }
+    })
+    .catch(function () {})
+    .finally(function () { btn.disabled = false; });
+}
+
+/**
+ * Update comparison badge counts and button states.
+ */
+function pubUpdateCompareBadge() {
+  var inList = (localStorage.getItem('pub_compare') || '').split(',').filter(Boolean);
+  var n = inList.length;
+
+  var b1 = document.getElementById('pubCompareBadge');
+  var b2 = document.getElementById('pubCompareBadgeSidebar');
+  if (b1) { b1.textContent = n; b1.style.display = n > 0 ? 'inline-flex' : 'none'; }
+  if (b2) { b2.textContent = n; b2.style.display = n > 0 ? 'inline-flex' : 'none'; }
+
+  document.querySelectorAll('.pub-compare-toggle').forEach(function (el) {
+    var pid = String(el.dataset.productId);
+    if (inList.indexOf(pid) >= 0) {
+      el.classList.add('active');
+      el.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_added) ? window.pubTranslations.products.compare_added : 'In Comparison';
+    } else {
+      el.classList.remove('active');
+      el.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare) ? window.pubTranslations.products.compare : 'Compare';
+    }
+  });
+}
+
+// Auto-init comparison on page load
+document.addEventListener('DOMContentLoaded', function() {
+  pubUpdateCompareBadge();
+});
+
+
+/* -------------------------------------------------------
  * Global cart helpers (available on all pages, no module wrap)
- * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
+ * ----------------------------------------------------- */
 
 /**
  * Increment / decrement quantity in #pubQtyInput by delta.
@@ -906,22 +1015,19 @@ function pubQtyChange(delta) {
  * Saves to DB when logged in; always writes to localStorage as fallback.
  */
 function pubAddToCart(btn) {
-  // Require login
+  // Require login - server session is authoritative
   var pubU = null;
-  try {
-    pubU = JSON.parse(localStorage.getItem('pubUser') || 'null');
-    if (!pubU || !pubU.id) {
-      if (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) {
-        pubU = window.pubSessionUser;
-        try { localStorage.setItem('pubUser', JSON.stringify(pubU)); } catch (e) {}
-      }
-    }
-    if (!pubU || !pubU.id) {
-      window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
-      return;
-    }
-  } catch (e) {
-    window.location.href = '/frontend/login.php';
+
+  // 1. Check server-injected session user FIRST (authoritative source)
+  if (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) {
+    pubU = window.pubSessionUser;
+    try { localStorage.setItem('pubUser', JSON.stringify(pubU)); } catch (e) {}
+  }
+
+  // 2. If no server session, do NOT trust localStorage - it may be stale
+  if (!pubU || !pubU.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
+    window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
     return;
   }
 
@@ -934,14 +1040,82 @@ function pubAddToCart(btn) {
   var img   = btn.dataset.productImage || '';
   var cur   = btn.dataset.currency     || '';
   var sku   = btn.dataset.productSku   || '';
-  var eid   = pubGetActiveEntityId() || parseInt(btn.dataset.entityId, 10) || 0;
+  var eid   = parseInt(btn.dataset.entityId, 10) || pubGetActiveEntityId() || 0;
 
   if (!id) return;
   if (!eid) {
-    if (typeof window.pubOpenEntityModal === 'function') {
-      window.pubOpenEntityModal();
+    // Single-tenant fallback: use entity 1 if no entity is resolved
+    // This prevents silent failures on marketplace/discovery pages
+    eid = 1;
+  }
+
+  // ── Entity conflict check ──────────────────────────────
+  var tenantIdForCheck = pubGetTenantId();
+  var cartKeyPrefix = 'pub_cart_t' + String(tenantIdForCheck) + '_e';
+  var oldColonPrefix = 'pub_cart:' + String(tenantIdForCheck) + ':';
+  var conflictingEid = 0;
+
+  try {
+    // Clean up stale old-format colon keys first
+    var keysToRemove = [];
+    for (var j = 0; j < localStorage.length; j++) {
+      var oldKey = localStorage.key(j);
+      if (oldKey && oldKey.indexOf(oldColonPrefix) === 0) {
+        keysToRemove.push(oldKey);
+      }
     }
-    return;
+    for (var k = 0; k < keysToRemove.length; k++) {
+      localStorage.removeItem(keysToRemove[k]);
+    }
+
+    for (var i = 0; i < localStorage.length; i++) {
+        var lsKey = localStorage.key(i);
+        if (!lsKey || lsKey.indexOf(cartKeyPrefix) !== 0) continue;
+        var otherEid = parseInt(lsKey.substring(cartKeyPrefix.length), 10) || 0;
+        if (otherEid === eid || otherEid <= 0) continue;
+        var otherCart = JSON.parse(localStorage.getItem(lsKey) || '[]');
+        if (Array.isArray(otherCart) && otherCart.length > 0) {
+            conflictingEid = otherEid;
+            break;
+        }
+    }
+  } catch(e) {}
+
+  if (conflictingEid > 0) {
+      // PREMIUM: Open custom conflict modal instead of confirm()
+      var conflictModal = document.getElementById('pubCartConflictModal');
+      if (conflictModal) {
+          conflictModal.hidden = false;
+          // Store pending data to retry after clear
+          window._pubPendingAdd = { btn: btn, eid: eid, otherEid: conflictingEid };
+          
+          // One-time setup for buttons inside modal
+          var switchBtn = document.getElementById('pubCartConflictSwitch');
+          var cancelBtn = document.getElementById('pubCartConflictCancel');
+          var closeBtn  = document.getElementById('pubCartConflictCloseBtn');
+          var backdrop  = document.getElementById('pubCartConflictCloseBackdrop');
+
+          var _cleanup = function() {
+              conflictModal.hidden = true;
+              delete window._pubPendingAdd;
+          };
+
+          if (switchBtn) {
+              switchBtn.onclick = function() {
+                  var p = window._pubPendingAdd;
+                  if (p) {
+                      pubClearScopedCart(p.otherEid, tenantIdForCheck);
+                      _cleanup();
+                      pubAddToCart(p.btn); // retry with new context
+                  }
+              };
+          }
+          if (cancelBtn) cancelBtn.onclick = _cleanup;
+          if (closeBtn)  closeBtn.onclick  = _cleanup;
+          if (backdrop)  backdrop.onclick  = _cleanup;
+          
+          return; // Exit, wait for modal
+      }
   }
 
   // 1. Update localStorage immediately
@@ -952,16 +1126,27 @@ function pubAddToCart(btn) {
   cart.forEach(function (item) {
     if (parseInt(item.id, 10) === id) { 
       item.qty = (parseInt(item.qty, 10) || 0) + qty; 
-      // Update metadata to ensure it's fresh
-      item.name  = name  || item.name;
-      item.image = img   || item.image;
-      item.price = sale !== null && sale < price ? sale : price;
-      item.sku   = sku   || item.sku;
+      item.name = name || item.name;
+      item.image = img || item.image;
+      item.price = price;
+      item.sale_price = (sale !== null && sale < price) ? sale : null;
+      item.sku = sku || item.sku;
       found = true; 
     }
   });
+
   if (!found) {
-    cart.push({ id: id, name: name, price: (sale !== null && sale < price ? sale : price), qty: qty, image: img, currency: cur, sku: sku, entity_id: eid });
+    cart.push({ 
+      id: id, 
+      name: name, 
+      price: price, 
+      sale_price: (sale !== null && sale < price ? sale : null),
+      qty: qty, 
+      image: img, 
+      currency: cur, 
+      sku: sku, 
+      entity_id: eid 
+    });
   }
   pubSaveScopedCart(cart, eid);
 
@@ -977,16 +1162,44 @@ function pubAddToCart(btn) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ product_id: id, product_name: name, sku: sku, unit_price: price, qty: qty, entity_id: eid })
-    }).catch(function () {});
+      body: JSON.stringify({ product_id: id, product_name: name, sku: sku, unit_price: price, qty: qty, entity_id: eid, currency_code: cur })
+    })
+    .then(function(r) {
+       // Handle auth failures - session expired
+       if (r.status === 401 || r.status === 403) {
+         try { localStorage.removeItem('pubUser'); } catch (e) {}
+         window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
+         throw new Error('AUTH_REDIRECT');
+       }
+       if (!r.ok) {
+         throw new Error('Server error: ' + r.status);
+       }
+       return r.json();
+    })
+    .then(function(resp) {
+       if (!resp || !resp.success) {
+         console.error('Cart add failed:', resp);
+       }
+       pubSyncCartBadges();
+       btn.textContent = (window.pubTranslations && window.pubTranslations.cart && window.pubTranslations.cart.added) ? window.pubTranslations.cart.added : '\u2705';
+       btn.disabled = true;
+       setTimeout(function () {
+         window.location.href = '/frontend/public/cart.php';
+       }, 800);
+    })
+    .catch(function (err) {
+       if (err && err.message === 'AUTH_REDIRECT') return;
+       console.error('Cart sync failed:', err);
+       // Still redirect to cart since localStorage was already updated
+       setTimeout(function() { window.location.href = '/frontend/public/cart.php'; }, 1000);
+    });
+    return; // Exit here, handled in .then()
   }
 
   // 3. Update all cart badges
   pubSyncCartBadges();
-
-  // 4. Visual feedback then navigate
   var orig = btn.textContent;
-  btn.textContent = btn.dataset.addedText || 'âœ…';
+  btn.textContent = (window.pubTranslations && window.pubTranslations.cart && window.pubTranslations.cart.added) ? window.pubTranslations.cart.added : 'âœ…';
   btn.disabled = true;
   setTimeout(function () {
     window.location.href = '/frontend/public/cart.php';
@@ -999,8 +1212,9 @@ function pubAddToCart(btn) {
  * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
 
 function pubToggleWishlist(btn) {
-  var u = window.pubSessionUser || JSON.parse(localStorage.getItem('pubUser') || 'null');
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
   if (!u || !u.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
     window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
     return;
   }
@@ -1021,11 +1235,11 @@ function pubToggleWishlist(btn) {
       if (data.success || data.ok) {
         if (active) {
           btn.classList.remove('pub-wishlist-active');
-          btn.title       = 'Add to wishlist';
+          btn.title       = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.add) ? window.pubTranslations.wishlist.add : 'Add to wishlist';
           btn.textContent = 'â™،';
         } else {
           btn.classList.add('pub-wishlist-active');
-          btn.title       = 'In wishlist';
+          btn.title       = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.added) ? window.pubTranslations.wishlist.added : 'In wishlist';
           btn.textContent = 'â™¥';
           if (typeof window.pubTrackEvent === 'function') {
             window.pubTrackEvent('product', parseInt(productId, 10), 'favorite');
@@ -1054,11 +1268,11 @@ function pubRefreshWishlistBadge() {
         if (ids.map(String).indexOf(String(btn.dataset.productId)) !== -1) {
           btn.classList.add('pub-wishlist-active');
           btn.textContent = 'â™¥';
-          btn.title = 'In wishlist';
+          btn.title = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.added) ? window.pubTranslations.wishlist.added : 'In wishlist';
         } else {
           btn.classList.remove('pub-wishlist-active');
           btn.textContent = 'â™،';
-          btn.title = 'Add to wishlist';
+          btn.title = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.add) ? window.pubTranslations.wishlist.add : 'Add to wishlist';
         }
       });
     })
@@ -1067,7 +1281,7 @@ function pubRefreshWishlistBadge() {
 
 // Auto-refresh wishlist badge on page load when user is logged in
 (function () {
-  var u = window.pubSessionUser || JSON.parse(localStorage.getItem('pubUser') || 'null');
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
   if (u && u.id && document.querySelector('.pub-wishlist-btn')) {
     pubRefreshWishlistBadge();
   }

@@ -65,7 +65,7 @@ try {
                 ]);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break translation creation
+            error_log('[product_translations] SEO sync on create failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($res, 'Created', 201);
@@ -86,7 +86,7 @@ try {
                 ]);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break translation update
+            error_log('[product_translations] SEO sync on update failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($res, 'Updated');

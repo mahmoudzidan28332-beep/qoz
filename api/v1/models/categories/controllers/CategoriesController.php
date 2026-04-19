@@ -24,19 +24,23 @@ final class CategoriesController
         $showAll  = isset($_GET['show_all']) && $_GET['show_all'] === '1';
         $rawPid   = $_GET['parent_id'] ?? '';
 
-        if ($showAll) {
-            $parentId = -1;                          // bypass — لا فلترة على الـ parent
-        } elseif ($rawPid !== '' && is_numeric($rawPid)) {
+        // ✅ FIX: explicit parent_id takes priority over show_all
+        // so the cascading filter dropdowns work even when show_all=1
+        if ($rawPid !== '' && is_numeric($rawPid)) {
             $parentId = (int) $rawPid;               // فلترة بـ parent محدد
+        } elseif ($showAll) {
+            $parentId = -1;                          // bypass — لا فلترة على الـ parent
         } else {
             $parentId = null;                        // السلوك الافتراضي (roots فقط)
         }
 
         $page  = max(1, (int) ($_GET['page']  ?? 1));
-        $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+        $rawLimit = (int) ($_GET['limit'] ?? 50);
+        // ✅ FIX: limit=0 means "no limit" (admin panel shows all records)
+        $limit = $rawLimit === 0 ? 0 : min(10000, max(1, $rawLimit));
 
         $filters = [
-            'parent_id'      => $parentId,
+            'parent_id'      => $parentId,           // ✅ FIX: كان مفقوداً — السبب الرئيسي لعطل الـ pagination
             'is_featured'    => $this->sanitizeFlag($_GET['is_featured'] ?? null),
             'is_active'      => $this->sanitizeFlag($_GET['is_active']   ?? null),
             'search'         => $this->sanitizeString($_GET['search']    ?? null),
@@ -221,6 +225,11 @@ final class CategoriesController
     /* ============================================================
      * VALIDATE SLUG
      * ============================================================ */
+    public function findIdBySlug(?int $tenantId, string $slug): ?int
+    {
+        return $this->service->findIdBySlug($tenantId, $slug);
+    }
+
     public function validateSlug(?int $tenantId, array $data): array
     {
         $slug      = trim($data['slug'] ?? '');
@@ -246,10 +255,17 @@ final class CategoriesController
     /**
      * يحل userId من SESSION أولاً ثم من البيانات المُمرَّرة كـ fallback.
      */
+    private ?int $actingUserId = null;
+
+    public function setActingUserId(?int $userId): void
+    {
+        $this->actingUserId = $userId;
+    }
+
     private function resolveUserId(array $data = []): ?int
     {
-        if (!empty($_SESSION['user_id'])) {
-            return (int) $_SESSION['user_id'];
+        if ($this->actingUserId !== null) {
+            return $this->actingUserId;
         }
         if (!empty($data['user_id']) && is_numeric($data['user_id'])) {
             return (int) $data['user_id'];

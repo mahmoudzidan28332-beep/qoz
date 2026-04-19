@@ -14,6 +14,15 @@ if ($first === 'auctions') {
     $auctionUserId = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
     $auctionLang = $lang ?: 'ar';
 
+    // Instantiate repositories
+    require_once dirname(__DIR__, 2) . '/models/auctions/repositories/PdoAuctionBidsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/auctions/repositories/PdoAuctionWatchersRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/auctions/repositories/PdoAutoBidSettingsRepository.php';
+    $bidsRepo     = new PdoAuctionBidsRepository($pdo);
+    $watchersRepo = new PdoAuctionWatchersRepository($pdo);
+    $autoBidRepo  = new PdoAutoBidSettingsRepository($pdo);
+    $bidsService  = new AuctionBidsService($bidsRepo);
+
     // Helper: get auction translation
     $getAuctionName = function(int $aid, string $lng) use ($pdo, $pdoOne): string {
         $r = $pdoOne('SELECT title FROM auction_translations WHERE auction_id=? AND language_code=? LIMIT 1', [$aid, $lng]);
@@ -120,7 +129,7 @@ if ($first === 'auctions') {
             if ($bidAmount < $minBid) { ResponseFormatter::error("Minimum bid is $minBid", 422); exit; }
             $pdo->beginTransaction();
             // Use FOR UPDATE to prevent race conditions on concurrent bids
-            $pdo->prepare('SELECT id FROM auctions WHERE id=? FOR UPDATE')->execute([$auctionId]);
+            $bidsRepo->lockForUpdate($auctionId);
             // Re-read current price under lock
             $aLocked = $pdoOne('SELECT current_price, bid_increment, status, end_date FROM auctions WHERE id=?', [$auctionId]);
             if (!$aLocked || $aLocked['status'] !== 'active') {
@@ -133,17 +142,11 @@ if ($first === 'auctions') {
                 ResponseFormatter::error("Minimum bid is $minBidLocked", 422); exit;
             }
             // Mark only the previous winning bid as not winning (targeted update)
-            $pdo->prepare('UPDATE auction_bids SET is_winning=0 WHERE auction_id=? AND is_winning=1')->execute([$auctionId]);
+            $bidsRepo->clearWinningBids($auctionId);
             // Insert new bid
-            $stB = $pdo->prepare('INSERT INTO auction_bids (auction_id, user_id, bid_amount, bid_type, is_winning, ip_address, created_at) VALUES (?,?,?,?,1,?,NOW())');
-            $stB->execute([$auctionId, $auctionUserId, $bidAmount, 'manual', $_SERVER['REMOTE_ADDR'] ?? null]);
-            $newBidId = (int)$pdo->lastInsertId();
+            $newBidId = $bidsRepo->insertManualBid($auctionId, $auctionUserId, $bidAmount, $_SERVER['REMOTE_ADDR'] ?? null);
             // Update auction: current price, bid count, unique bidder count, winner
-            $pdo->prepare(
-                'UPDATE auctions SET current_price=?, total_bids=total_bids+1,
-                 total_bidders=(SELECT COUNT(DISTINCT user_id) FROM auction_bids WHERE auction_id=?),
-                 winner_user_id=?, winner_bid_id=? WHERE id=?'
-            )->execute([$bidAmount, $auctionId, $auctionUserId, $newBidId, $auctionId]);
+            $bidsRepo->updateAuctionAfterBid($auctionId, $bidAmount, $auctionUserId, $newBidId);
             $pdo->commit();
             ResponseFormatter::success(['ok' => true, 'bid_id' => $newBidId, 'new_price' => $bidAmount], 'Bid placed', 201);
         } catch (Throwable $ex) {
@@ -165,8 +168,7 @@ if ($first === 'auctions') {
             if (!$aAbRow) { ResponseFormatter::error('Auction not found or not active', 422); exit; }
             $abMinBid = (float)$aAbRow['current_price'] + (float)$aAbRow['bid_increment'];
             if ($maxBid < $abMinBid) { ResponseFormatter::error("Max bid must be at least $abMinBid", 422); exit; }
-            $stAB = $pdo->prepare('INSERT INTO auto_bid_settings (auction_id, user_id, max_bid_amount, is_active, created_at, updated_at) VALUES (?,?,?,1,NOW(),NOW()) ON DUPLICATE KEY UPDATE max_bid_amount=VALUES(max_bid_amount), is_active=1, updated_at=NOW()');
-            $stAB->execute([$auctionId, $auctionUserId, $maxBid]);
+            $autoBidRepo->upsert($auctionId, $auctionUserId, $maxBid);
             ResponseFormatter::success(['ok' => true, 'max_bid' => $maxBid], 'Auto-bid set');
         } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
         exit;
@@ -177,13 +179,11 @@ if ($first === 'auctions') {
         if (!$auctionUserId) { ResponseFormatter::error('Login required', 401); exit; }
         if (!$pdo) { ResponseFormatter::error('DB unavailable', 503); exit; }
         try {
-            $exists = $pdoOne('SELECT id FROM auction_watchers WHERE auction_id=? AND user_id=? LIMIT 1', [$auctionId, $auctionUserId]);
-            if ($exists) {
-                $pdo->prepare('DELETE FROM auction_watchers WHERE auction_id=? AND user_id=?')->execute([$auctionId, $auctionUserId]);
-                ResponseFormatter::success(['ok' => true, 'watching' => false], 'Unwatched');
-            } else {
-                $pdo->prepare('INSERT INTO auction_watchers (auction_id, user_id, created_at) VALUES (?,?,NOW())')->execute([$auctionId, $auctionUserId]);
+            $watching = $watchersRepo->toggle($auctionId, $auctionUserId);
+            if ($watching) {
                 ResponseFormatter::success(['ok' => true, 'watching' => true], 'Watching', 201);
+            } else {
+                ResponseFormatter::success(['ok' => true, 'watching' => false], 'Unwatched');
             }
         } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
         exit;
@@ -203,12 +203,9 @@ if ($first === 'auctions') {
             $aProductId = (int)($aRow['product_id'] ?? 0);
             $aBuyPrice  = (float)$aRow['buy_now_price'];
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE auction_bids SET is_winning=0 WHERE auction_id=?')->execute([$auctionId]);
-            $stBN = $pdo->prepare('INSERT INTO auction_bids (auction_id, user_id, bid_amount, bid_type, is_winning, created_at) VALUES (?,?,?,?,1,NOW())');
-            $stBN->execute([$auctionId, $auctionUserId, $aBuyPrice, 'buy_now']);
-            $bnId = (int)$pdo->lastInsertId();
-            $pdo->prepare("UPDATE auctions SET status='sold', current_price=?, winner_user_id=?, winner_bid_id=?, winning_amount=?, ended_at=NOW() WHERE id=?")
-                ->execute([$aBuyPrice, $auctionUserId, $bnId, $aBuyPrice, $auctionId]);
+            $bidsRepo->clearWinningBids($auctionId);
+            $bnId = $bidsRepo->insertBuyNowBid($auctionId, $auctionUserId, $aBuyPrice);
+            $bidsRepo->markAsSold($auctionId, $aBuyPrice, $auctionUserId, $bnId);
 
             // Create order (auction_id set, cart_id NULL)
             $bnOrderNum = 'AUC-' . $aTenantId . '-' . $auctionId . '-' . time();
@@ -223,35 +220,22 @@ if ($first === 'auctions') {
                     $prdSku  = $prdRow['sku']   ?: $prdSku;
                 }
             }
-            $pdo->prepare(
-                "INSERT INTO orders (tenant_id, entity_id, order_number, user_id, cart_id, auction_id,
-                    order_type, status, payment_status, subtotal, total_amount, grand_total,
-                    currency_code, ip_address)
-                 VALUES (?,?,?,?,NULL,?,'online','pending','pending',?,?,?,'SAR',?)"
-            )->execute([
-                $aTenantId, $aEntityId, $bnOrderNum, $auctionUserId, $auctionId,
-                $aBuyPrice, $aBuyPrice, $aBuyPrice,
-                $_SERVER['REMOTE_ADDR'] ?? null,
-            ]);
-            $bnOrderId = (int)$pdo->lastInsertId();
+            $bnOrderId = $bidsRepo->insertAuctionOrder($aTenantId, $aEntityId, $bnOrderNum, $auctionUserId, $auctionId, $aBuyPrice, $_SERVER['REMOTE_ADDR'] ?? null);
             if ($aProductId && $bnOrderId) {
                 try {
-                    $pdo->prepare(
-                        "INSERT INTO order_items (tenant_id, order_id, entity_id, product_id, product_name, sku, quantity, unit_price, subtotal, total)
-                         VALUES (?,?,?,?,?,?,1,?,?,?)"
-                    )->execute([$aTenantId, $bnOrderId, $aEntityId, $aProductId, $prdName, $prdSku, $aBuyPrice, $aBuyPrice, $aBuyPrice]);
-                } catch (Throwable) {}
+                    $bidsRepo->insertAuctionOrderItem($aTenantId, $bnOrderId, $aEntityId, $aProductId, $prdName, $prdSku, $aBuyPrice);
+                } catch (Throwable $e) {
+                    error_log('[auctions] insert order item failed: ' . $e->getMessage());
+                }
             }
             $pdo->commit();
             // Insert payment record (non-fatal)
             try {
                 $bnPmNum = 'PAY-AUC-' . $auctionId . '-' . time();
-                $pdo->prepare(
-                    "INSERT INTO payments (entity_id, payment_number, order_id, user_id, payment_method,
-                        amount, currency_code, status, payment_type, ip_address, created_at, updated_at)
-                     VALUES (?,?,?,?,'buy_now',?,'SAR','pending','order',?,NOW(),NOW())"
-                )->execute([$aEntityId, $bnPmNum, $bnOrderId, $auctionUserId, $aBuyPrice, $_SERVER['REMOTE_ADDR'] ?? null]);
-            } catch (Throwable) {}
+                $bidsRepo->insertAuctionPayment($aEntityId, $bnPmNum, $bnOrderId, $auctionUserId, $aBuyPrice, $_SERVER['REMOTE_ADDR'] ?? null);
+            } catch (Throwable $e) {
+                error_log('[auctions] insert payment record failed: ' . $e->getMessage());
+            }
             ResponseFormatter::success(['ok' => true, 'bid_id' => $bnId, 'amount' => $aBuyPrice, 'order_id' => $bnOrderId, 'order_number' => $bnOrderNum], 'Purchased!');
         } catch (Throwable $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -284,18 +268,17 @@ if ($first === 'auctions') {
             );
             $pdo->beginTransaction();
             // Cancel winner's order
-            $pdo->prepare("UPDATE orders SET status='cancelled', cancellation_reason='Payment deadline expired', cancelled_at=NOW() WHERE id=?")->execute([$winnerOrder['id']]);
+            $bidsRepo->cancelOrder((int)$winnerOrder['id']);
             if ($secondBid) {
                 $newWinnerId = (int)$secondBid['user_id'];
                 $newAmount   = (float)$secondBid['bid_amount'];
                 $expOrderNum = 'AUC-EXP-' . $auctionId . '-' . time();
-                $pdo->prepare("UPDATE auctions SET winner_user_id=?, winning_amount=? WHERE id=?")->execute([$newWinnerId, $newAmount, $auctionId]);
-                $pdo->prepare("INSERT INTO orders (tenant_id, entity_id, order_number, user_id, auction_id, order_type, status, payment_status, subtotal, total_amount, grand_total, currency_code, ip_address) VALUES (?,?,?,?,NULL,'online','pending','pending',?,?,?,'SAR',?)")
-                    ->execute([(int)$aExp['tenant_id'], (int)$aExp['entity_id'], $expOrderNum, $newWinnerId, $newAmount, $newAmount, $newAmount, $_SERVER['REMOTE_ADDR'] ?? null]);
+                $bidsRepo->updateWinner($auctionId, $newWinnerId, $newAmount);
+                $bidsRepo->insertExpireOrder((int)$aExp['tenant_id'], (int)$aExp['entity_id'], $expOrderNum, $newWinnerId, $newAmount, $_SERVER['REMOTE_ADDR'] ?? null);
                 $pdo->commit();
                 ResponseFormatter::success(['ok' => true, 'transferred_to' => $newWinnerId, 'order_number' => $expOrderNum], 'Transferred to second bidder');
             } else {
-                $pdo->prepare("UPDATE auctions SET winner_user_id=NULL, winning_amount=NULL, status='ended' WHERE id=?")->execute([$auctionId]);
+                $bidsRepo->markEndedNoWinner($auctionId);
                 $pdo->commit();
                 ResponseFormatter::success(['ok' => true, 'transferred_to' => null], 'No second bidder — auction marked as ended without winner');
             }

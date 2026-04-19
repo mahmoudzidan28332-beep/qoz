@@ -1,10 +1,14 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/i18n.php
 // Global I18n helper with per-scope translations, caching, and PDO support for global languages.
 // Usage:
 //   $pdo = new PDO(...); // Initialize PDO
 //   $i18n = new I18n($pdo, 'merchants'); // scope can be 'merchants', 'products', etc. (optional)
 //   echo $i18n->t('page.title');
+
+if (!class_exists('I18nRepository')) {
+    require_once __DIR__ . '/../core/repositories/I18nRepository.php';
+}
 
 if (!class_exists('I18n')) {
     class I18n
@@ -67,9 +71,8 @@ if (!class_exists('I18n')) {
         private function loadSupportedLanguages(): void
         {
             try {
-                $stmt = $this->pdo->prepare("SELECT code FROM languages WHERE is_active = 1");
-                $stmt->execute();
-                $this->supportedLanguages = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'code');
+                $repo = new I18nRepository($this->pdo);
+                $this->supportedLanguages = $repo->getActiveLanguageCodes();
             } catch (PDOException $e) {
                 // في حالة فشل، استخدم لغات افتراضية
                 $this->supportedLanguages = ['en', 'ar'];

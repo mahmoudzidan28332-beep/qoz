@@ -225,19 +225,22 @@ final class PdoProductAttributeValuesRepository
 
     public function saveTranslations(int $attributeValueId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO product_attribute_value_translations (attribute_value_id, language_code, label)
-            VALUES (:attribute_value_id, :lang, :label)
-            ON DUPLICATE KEY UPDATE label = VALUES(label)
-        ");
-
-        foreach ($translations as $lang => $data) {
-            $stmt->execute([
-                ':attribute_value_id' => $attributeValueId,
-                ':lang'               => $lang,
-                ':label'              => $data['label'] ?? null
-            ]);
+        if (empty($translations)) {
+            return;
         }
+
+        $values = [];
+        $params = [];
+        $i = 0;
+        foreach ($translations as $lang => $data) {
+            $values[] = "(:attribute_value_id_{$i}, :lang_{$i}, :label_{$i})";
+            $params[":attribute_value_id_{$i}"] = $attributeValueId;
+            $params[":lang_{$i}"] = $lang;
+            $params[":label_{$i}"] = $data['label'] ?? null;
+            $i++;
+        }
+        $sql = "INSERT INTO product_attribute_value_translations (attribute_value_id, language_code, label) VALUES " . implode(', ', $values) . " ON DUPLICATE KEY UPDATE label = VALUES(label)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $attributeValueId): array

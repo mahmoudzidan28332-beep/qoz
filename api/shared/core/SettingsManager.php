@@ -9,7 +9,7 @@ final class SettingsManager
     /* =========================
      * Get setting
      * ========================= */
-    public static function get(string $key, ?int $tenantId = null)
+    public static function get(string $key, ?int $tenantId = null): mixed
     {
         $cacheKey = self::cacheKey($key, $tenantId);
 

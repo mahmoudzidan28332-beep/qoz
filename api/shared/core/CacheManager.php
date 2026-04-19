@@ -69,7 +69,7 @@ class CacheManager
 
             self::$redis = $redis;
 
-        } catch (Throwable $e) {
+        } catch (\RedisException $e) {
             error_log('CacheManager Redis failed: ' . $e->getMessage());
             self::$redis = null;
         }

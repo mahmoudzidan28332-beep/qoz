@@ -2,7 +2,7 @@
  * Service Worker — Qooqz Public Frontend
  * Provides offline caching for static assets (CSS, JS, images).
  */
-var CACHE_NAME = 'qooqz-v1';
+var CACHE_NAME = 'qooqz-v2';
 var STATIC_ASSETS = [
   '/frontend/assets/css/public.css',
   '/frontend/assets/css/variables.css',
@@ -33,6 +33,12 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {
   // Network-first for HTML (always fresh), cache-first for static assets
   var url = new URL(event.request.url);
+
+  // Never cache API calls or non-GET requests
+  if (event.request.method !== 'GET' || url.pathname.indexOf('/api/') === 0) {
+    return;
+  }
+
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(function () {

@@ -130,7 +130,7 @@ final class PdoStockMovementsRepository
                 SELECT 1 FROM product_translations pt2
                 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search
             ) OR EXISTS (
-                SELECT 1 FROM products p2
+                SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */
                 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
             ))";
             $params[':search']         = '%' . trim($filters['search']) . '%';
@@ -207,7 +207,7 @@ final class PdoStockMovementsRepository
             }
 
             // Update products.stock_status based on new quantity
-            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :product_id");
+            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
             $stmtQty->execute([':product_id' => (int)$data['product_id']]);
             $newQty = (int)$stmtQty->fetchColumn();
 
@@ -226,6 +226,46 @@ final class PdoStockMovementsRepository
             $this->pdo->rollBack();
             throw $e;
         }
+    }
+
+    // ================================
+    // Update movement and adjust stock
+    // ================================
+    public function updateMovement(int $id, array $data, array $oldMovement): void
+    {
+        // Reverse old stock change
+        $reverseQty = -1 * (int)$oldMovement['change_quantity'];
+        if ($oldMovement['variant_id']) {
+            $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :vid")
+                ->execute([':qty' => $reverseQty, ':vid' => $oldMovement['variant_id']]);
+        }
+        $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :pid")
+            ->execute([':qty' => $reverseQty, ':pid' => $oldMovement['product_id']]);
+
+        // Update movement record
+        $this->pdo->prepare("
+            UPDATE product_stock_movements
+            SET product_id = :product_id, variant_id = :variant_id, change_quantity = :qty,
+                type = :type, reference_id = :ref_id, notes = :notes
+            WHERE id = :id
+        ")->execute([
+            ':product_id' => (int)$data['product_id'],
+            ':variant_id' => isset($data['variant_id']) ? (int)$data['variant_id'] : null,
+            ':qty' => (int)$data['change_quantity'],
+            ':type' => $data['type'],
+            ':ref_id' => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
+            ':notes' => $data['notes'] ?? null,
+            ':id' => $id
+        ]);
+
+        // Apply new stock change
+        $newQty = (int)$data['change_quantity'];
+        if (isset($data['variant_id']) && $data['variant_id']) {
+            $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :vid")
+                ->execute([':qty' => $newQty, ':vid' => (int)$data['variant_id']]);
+        }
+        $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :pid")
+            ->execute([':qty' => $newQty, ':pid' => (int)$data['product_id']]);
     }
 
     // ================================
@@ -267,7 +307,7 @@ final class PdoStockMovementsRepository
             }
 
             // Update stock_status based on new quantity
-            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :product_id");
+            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
             $stmtQty->execute([':product_id' => (int)$movement['product_id']]);
             $newQty = (int)$stmtQty->fetchColumn();
             $stockStatus = $newQty > 0 ? 'in_stock' : 'out_of_stock';
@@ -287,7 +327,129 @@ final class PdoStockMovementsRepository
     }
 
     // ================================
-    // Get by Product
+    // Lookup by SKU
+    // ================================
+    public function lookupBySku(string $sku, string $lang, ?int $entityId = null): ?array
+    {
+        // Multi-tenant safety: require entity scoping to prevent cross-tenant data leakage
+        if ($entityId === null) {
+            return null;
+        }
+
+        // Pre-fetch tenant_id to avoid correlated subquery per row
+        $tenantStmt = $this->pdo->prepare("SELECT tenant_id FROM entities WHERE id = :eid LIMIT 1");
+        $tenantStmt->execute([':eid' => $entityId]);
+        $tenantId = $tenantStmt->fetchColumn();
+        if ($tenantId === false) {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare("
+            SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status,
+                   pt.name AS product_name, NULL AS variant_id
+            FROM products p
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
+            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
+            WHERE p.sku = :sku
+              AND p.tenant_id = :tenant_id
+            LIMIT 1
+        ");
+        $stmt->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) return $row;
+
+        $stmt2 = $this->pdo->prepare("
+            SELECT p.id, pv.sku, pv.barcode, pv.stock_quantity, 'variant' AS stock_status,
+                   pt.name AS product_name, pv.id AS variant_id
+            FROM product_variants pv
+            JOIN products p ON p.id = pv.product_id
+              AND p.tenant_id = :tenant_id
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
+            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
+            WHERE pv.sku = :sku
+            LIMIT 1
+        ");
+        $stmt2->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
+        $row = $stmt2->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    // ================================
+    // Find by ID (with product name)
+    // ================================
+    public function findWithProductName(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT sm.*, pt.name AS product_name
+            FROM product_stock_movements sm
+            LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
+            WHERE sm.id = :id
+        ");
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    // ================================
+    // List with filters, count, and pagination (for route)
+    // ================================
+    public function listPaginated(array $filters, int $limit, int $offset): array
+    {
+        $params = [
+            ':type' => $filters['type'] ?? '',
+            ':has_type' => (isset($filters['type']) && $filters['type'] !== '') ? 1 : 0,
+            ':date_from' => $filters['date_from'] ?? '',
+            ':has_date_from' => (isset($filters['date_from']) && $filters['date_from'] !== '') ? 1 : 0,
+            ':date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? $filters['date_to'] . ' 23:59:59' : '',
+            ':has_date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? 1 : 0,
+            ':search' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_sku' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_barcode' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':has_search' => (isset($filters['search']) && $filters['search'] !== '') ? 1 : 0,
+        ];
+
+        $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm
+                      WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))";
+
+        $countStmt = $this->pdo->prepare($countSql);
+        foreach ($params as $k => $v) {
+            $countStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
+
+        $sql = "SELECT sm.*, pt.name AS product_name
+                FROM product_stock_movements sm
+                LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
+                WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))
+                ORDER BY sm.created_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return ['items' => $items, 'total' => $total, 'limit' => $limit, 'offset' => $offset];
+    }
+
+    // ================================
+    // Get by Product (with product name)
     // ================================
     public function getByProduct(int $productId): array
     {
@@ -340,18 +502,33 @@ final class PdoStockMovementsRepository
     // ================================
     // Lookup by Barcode
     // ================================
-    public function lookupByBarcode(string $barcode): ?array
+    public function lookupByBarcode(string $barcode, ?int $entityId = null): ?array
     {
+        // Multi-tenant safety: require entity scoping to prevent cross-tenant data leakage
+        if ($entityId === null) {
+            return null;
+        }
+
+        // Pre-fetch tenant_id for scoping
+        $tenantStmt = $this->pdo->prepare("SELECT tenant_id FROM entities WHERE id = :eid LIMIT 1");
+        $tenantStmt->execute([':eid' => $entityId]);
+        $tenantId = $tenantStmt->fetchColumn();
+        if ($tenantId === false) {
+            return null;
+        }
+
         // Search in products table
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status, p.manage_stock,
                    pt.name AS product_name, NULL AS variant_id
             FROM products p
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'en'
             WHERE p.barcode = :barcode
+              AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':barcode' => $barcode]);
+        $stmt->execute([':barcode' => $barcode, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
@@ -367,11 +544,13 @@ final class PdoStockMovementsRepository
                    pv.stock_quantity AS variant_stock_quantity
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
+              AND p.tenant_id = :tenant_id
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'en'
             WHERE pv.barcode = :barcode
             LIMIT 1
         ");
-        $stmt->execute([':barcode' => $barcode]);
+        $stmt->execute([':barcode' => $barcode, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;

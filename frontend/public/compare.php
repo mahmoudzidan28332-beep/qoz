@@ -13,10 +13,16 @@ $GLOBALS['PUB_PAGE_TYPE']  = 'products';
 include dirname(__DIR__) . '/partials/header.php';
 ?>
 <main class="pub-container" style="padding:28px 0 48px;">
+    <!-- Breadcrumb -->
+    <nav class="pub-breadcrumb" aria-label="breadcrumb" style="margin-bottom:20px;">
+        <a href="/frontend/public/index.php"><?= e(t('common.home')) ?></a>
+        <span class="pub-breadcrumb-sep"><i class="bi bi-chevron-right"></i></span>
+        <span><?= e(t('products.compare_title', ['default' => 'Compare Products'])) ?></span>
+    </nav>
     <div class="pub-section-head">
-        <h1 class="pub-section-title">⚖️ <?= e(t('products.compare_title', ['default' => 'Compare Products'])) ?></h1>
+        <h1 class="pub-section-title"><i class="bi bi-bar-chart-line"></i> <?= e(t('products.compare_title', ['default' => 'Compare Products'])) ?></h1>
         <button type="button" class="pub-btn pub-btn--ghost pub-btn--sm" onclick="pubClearCompare()">
-            <?= e(t('products.compare_clear', ['default' => 'Clear All'])) ?>
+            <i class="bi bi-trash"></i> <?= e(t('products.compare_clear', ['default' => 'Clear All'])) ?>
         </button>
     </div>
 
@@ -70,23 +76,25 @@ function renderTable(products) {
     }
     var rows = [
         ['', products.map(function(p) {
-            var img = p.image_url ? '<img src="'+p.image_url+'" class="pub-compare-img" alt="">' : '<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:2rem;">🖼️</div>';
+            var img = p.image_url ? '<img src="'+p.image_url+'" class="pub-compare-img" alt="">' : '<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--pub-muted);"><i class="bi bi-image"></i></div>';
             return '<div style="text-align:center;">'
-                + '<button class="pub-compare-remove" onclick="pubRemoveFromCompare('+p.id+')" title="Remove">✕</button>'
+                + '<button class="pub-compare-remove" onclick="pubRemoveFromCompare('+p.id+')" title="Remove"><i class="bi bi-x-lg"></i></button>'
                 + '<a href="/frontend/public/product.php?id='+p.id+'" style="text-decoration:none;">'
                 + img
                 + '<strong style="display:block;font-size:0.9rem;">'+escHtml(p.name||p.slug||'')+'</strong></a></div>';
         })],
         [<?= json_encode(t('products.price',  ['default'=>'Price'])) ?>, products.map(function(p){ return p.price ? parseFloat(p.price).toFixed(2)+' '+(p.currency_code||'') : '—'; })],
-        [<?= json_encode(t('products.in_stock',['default'=>'Stock'])) ?>, products.map(function(p){
+        [
+            <?= json_encode(t('products.in_stock',['default'=>'Stock'])) ?>, products.map(function(p){
             if (!p.stock_status) return '—';
-            return p.stock_status === 'in_stock' ? '<span style="color:var(--pub-success,#10b981);">✅ '+<?= json_encode(t('products.in_stock')) ?>+'</span>'
-                : '<span style="color:var(--pub-error,#ef4444);">❌ '+<?= json_encode(t('products.out_of_stock')) ?>+'</span>';
+            return p.stock_status === 'in_stock'
+                ? '<span style="color:var(--pub-success,#10b981);display:inline-flex;align-items:center;gap:4px;"><i class="bi bi-check-circle-fill"></i> '+<?= json_encode(t('products.in_stock')) ?>+'</span>'
+                : '<span style="color:var(--pub-danger,#ef4444);display:inline-flex;align-items:center;gap:4px;"><i class="bi bi-x-circle-fill"></i> '+<?= json_encode(t('products.out_of_stock')) ?>+'</span>';
         })],
         [<?= json_encode(t('products.sku',['default'=>'SKU'])) ?>, products.map(function(p){ return escHtml(p.sku||'—'); })],
         [<?= json_encode(t('products.brand',['default'=>'Brand'])) ?>, products.map(function(p){ return escHtml(p.brand_name||'—'); })],
         [<?= json_encode(t('products.rating',['default'=>'Rating'])) ?>, products.map(function(p){
-            return p.rating_average ? parseFloat(p.rating_average).toFixed(1)+' ★ ('+p.rating_count+')' : '—';
+            return p.rating_average ? '<span style="display:inline-flex;align-items:center;gap:4px;"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> ' + parseFloat(p.rating_average).toFixed(1)+' ('+p.rating_count+')</span>' : '—';
         })],
         [<?= json_encode(t('products.description',['default'=>'Description'])) ?>, products.map(function(p){
             var d = p.description || '—';

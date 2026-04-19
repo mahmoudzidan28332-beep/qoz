@@ -211,6 +211,128 @@ final class PdoDiscountsRepository
     }
 
     // ================================
+    // Public discount listing methods
+    // ================================
+    public function publicCount(?int $tenantId, ?int $entityId, string $type, bool $activeOnly, bool $expiresToday): int
+    {
+        $where = [];
+        $params = [];
+        $this->buildPublicFilters($where, $params, $tenantId, $entityId, $type, $activeOnly, $expiresToday);
+        $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM discounts d $whereSQL");
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function publicList(
+        ?int $tenantId,
+        ?int $entityId,
+        string $type,
+        bool $activeOnly,
+        bool $expiresToday,
+        string $lang,
+        int $perPage,
+        int $offset
+    ): array {
+        $where = [];
+        $params = [];
+        $this->buildPublicFilters($where, $params, $tenantId, $entityId, $type, $activeOnly, $expiresToday);
+        $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $this->pdo->prepare(
+            "SELECT d.id, d.entity_id, d.code, d.type, d.auto_apply, d.priority,
+                    d.is_stackable, d.currency_code, d.status,
+                    d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
+                    d.starts_at, d.ends_at, d.created_at, d.updated_at,
+                    COALESCE(dt.name, d.code, d.type) AS title,
+                    dt.description, dt.terms_conditions, dt.marketing_badge,
+                    e.id   AS merchant_id,
+                    COALESCE(et.name, e.slug) AS merchant_name
+             FROM discounts d
+             LEFT JOIN discount_translations dt ON dt.discount_id = d.id AND dt.language_code = ?
+             LEFT JOIN entities e ON e.id = d.entity_id
+             LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = ?
+             $whereSQL
+             ORDER BY d.updated_at DESC, d.id DESC
+             LIMIT " . $perPage . " OFFSET " . $offset
+        );
+        $stmt->execute(array_merge([$lang, $lang], $params));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getActionsForIds(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+        $phs = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT discount_id, action_type, action_value
+             FROM discount_actions
+             WHERE discount_id IN ($phs)
+             ORDER BY id ASC"
+        );
+        $stmt->execute($ids);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getScopesForIds(array $ids, string $lang): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+        $phs = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT ds.discount_id, ds.scope_type, 
+                    COALESCE(pt.name, p.slug) as product_name,
+                    COALESCE(ct.name, c.slug) as category_name,
+                    COALESCE(et.name, e.slug) as entity_name
+             FROM discount_scopes ds
+             LEFT JOIN products p ON ds.scope_type = 'product' AND p.id = ds.scope_id
+             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = ?
+             LEFT JOIN categories c ON ds.scope_type = 'category' AND c.id = ds.scope_id
+             LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.language_code = ?
+             LEFT JOIN entities e ON ds.scope_type = 'entity' AND e.id = ds.scope_id
+             LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = ?
+             WHERE ds.discount_id IN ($phs)"
+        );
+        $stmt->execute(array_merge([$lang, $lang, $lang], $ids));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function buildPublicFilters(array &$where, array &$params, ?int $tenantId, ?int $entityId, string $type, bool $activeOnly, bool $expiresToday): void
+    {
+        if ($tenantId) {
+            $where[]  = "(d.entity_id IN (SELECT id FROM entities WHERE tenant_id = ?) 
+                         OR EXISTS (SELECT 1 FROM discount_scopes ds_t 
+                                    LEFT JOIN categories c_t ON ds_t.scope_type = 'category' AND c_t.id = ds_t.scope_id
+                                    LEFT JOIN products p_t ON ds_t.scope_type = 'product' AND p_t.id = ds_t.scope_id
+                                    WHERE ds_t.discount_id = d.id 
+                                      AND (c_t.tenant_id = ? OR p_t.tenant_id = ?)))";
+            $params[] = $tenantId;
+            $params[] = $tenantId;
+            $params[] = $tenantId;
+        }
+        if ($entityId) {
+            $where[]  = 'd.entity_id = ?';
+            $params[] = $entityId;
+        }
+        if ($activeOnly) {
+            $where[]  = "d.status = 'active'";
+            $where[]  = '(d.starts_at IS NULL OR d.starts_at <= NOW())';
+            $where[]  = '(d.ends_at IS NULL OR d.ends_at >= NOW())';
+        }
+        if ($expiresToday) {
+            $where[] = 'd.ends_at IS NOT NULL AND d.ends_at >= NOW() AND d.ends_at <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
+        }
+        if ($type !== '') {
+            $where[]  = 'd.type = ?';
+            $params[] = $type;
+        }
+    }
+
+    // ================================
     // Stats
     // ================================
     /**

@@ -267,29 +267,21 @@ if ($retMethod === 'POST' && $retSub === '') {
     try {
         $pdo->beginTransaction();
 
-        $pdo->prepare(
-            "INSERT INTO returns
-               (tenant_id, user_id, order_id, return_number, reason, status, requested_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'pending', NOW(), NOW(), NOW())"
-        )->execute([$retTenantId, $retUserId, $resolvedOrderId, $returnNumber, $reason]);
-
-        $returnId = (int)$pdo->lastInsertId();
+        $returnsRepo = new PdoReturnsRepository($pdo);
+        $returnsService = new ReturnsService($returnsRepo);
+        $returnId = $returnsRepo->createPublicReturn($retTenantId, $retUserId, $resolvedOrderId, $returnNumber, $reason);
 
         // Insert return items if provided
         if ($returnItems && $returnId) {
-            $riSt = $pdo->prepare(
-                "INSERT INTO return_items
-                   (return_id, order_item_id, quantity, tenant_id, created_at)
-                 VALUES (?, ?, ?, ?, NOW())"
-            );
+            $returnItemsRepo = new PdoReturnItemsRepository($pdo);
             foreach ($returnItems as $ri) {
                 $oiId = isset($ri['order_item_id']) && is_numeric($ri['order_item_id']) ? (int)$ri['order_item_id'] : 0;
                 $qty  = isset($ri['quantity'])      && is_numeric($ri['quantity'])      ? max(1, (int)$ri['quantity']) : 1;
                 if (!$oiId) continue;
                 try {
-                    $riSt->execute([$returnId, $oiId, $qty, $retTenantId]);
+                    $returnItemsRepo->createReturnItem($returnId, $oiId, $qty, $retTenantId);
                 } catch (Throwable $riEx) {
-                    // Continue — items table may not exist in all installations
+                    error_log('[returns] insert return item failed: ' . $riEx->getMessage());
                 }
             }
         }
@@ -302,7 +294,7 @@ if ($retMethod === 'POST' && $retSub === '') {
             'success'       => true,
         ], 'Return request submitted successfully', 201);
     } catch (Throwable $ex) {
-        try { $pdo->rollBack(); } catch (Throwable $rb) {}
+        try { $pdo->rollBack(); } catch (Throwable $rb) { error_log('[returns] rollback failed: ' . $rb->getMessage()); }
         ResponseFormatter::error('Failed to create return request', 500);
     }
     exit;

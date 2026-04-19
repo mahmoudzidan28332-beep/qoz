@@ -57,4 +57,18 @@ final class PdoAuctionWatchersRepository implements AuctionWatchersRepositoryInt
         );
         return $stmt->execute([':auction_id' => $auctionId, ':user_id' => $userId]);
     }
+
+    /** Toggle watch: insert if not exists, delete if exists. Returns true if now watching. */
+    public function toggle(int $auctionId, int $userId): bool
+    {
+        $existing = $this->find($auctionId, $userId);
+        if ($existing) {
+            $this->delete($auctionId, $userId);
+            return false;
+        }
+        $this->pdo->prepare(
+            'INSERT INTO auction_watchers (auction_id, user_id, created_at) VALUES (?,?,NOW())'
+        )->execute([$auctionId, $userId]);
+        return true;
+    }
 }

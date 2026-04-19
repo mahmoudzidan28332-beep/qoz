@@ -1,12 +1,10 @@
 <?php
 /**
- * frontend/partials/store_sections/policies.php
- * Store Policies Section — Refund, Privacy, Shipping, Terms
- *
- * Expected variables:
- *   $entity, $lang, $pdo, $entityId (or $entity['id'])
- *   $sectionSettings — Section JSON settings
+ * frontend/partials/store_sections/policies.php — QOOQZ Public Store Sections
+ * Display entity-specific policies (refund, privacy, etc.)
  */
+
+require_once __DIR__ . '/icons.php';
 
 // Which policy types to show (configurable via section settings)
 $policyTypes = $sectionSettings['types'] ?? ['refund', 'privacy', 'shipping', 'terms'];
@@ -21,10 +19,10 @@ $defaultPolicyTitles = [
 
 // Default policy icons
 $policyIcons = [
-    'refund'   => '↩️',
-    'privacy'  => '🔒',
-    'shipping' => '🚚',
-    'terms'    => '📋',
+    'refund'   => icon('arrow-return', 18),
+    'privacy'  => icon('shield', 18),
+    'shipping' => icon('truck', 18),
+    'terms'    => icon('file-text', 18),
 ];
 
 // Fetch policies from DB
@@ -66,14 +64,14 @@ if (empty($policies)):
             $pol = $policies[$pType];
             $polTitle   = trim($pol['title'] ?? '') ?: ($defaultPolicyTitles[$pType] ?? ucfirst($pType));
             $polContent = trim($pol['content'] ?? '');
-            $polIcon    = $policyIcons[$pType] ?? '📄';
+            $polIcon    = $policyIcons[$pType] ?? icon('file-text', 18);
             if ($polContent === '') continue;
         ?>
         <details class="pub-policy-item" id="policy-<?= e($pType) ?>">
             <summary class="pub-policy-header">
                 <span class="pub-policy-icon"><?= $polIcon ?></span>
                 <span class="pub-policy-title"><?= e($polTitle) ?></span>
-                <span class="pub-policy-chevron">▾</span>
+                <span class="pub-policy-chevron"><?= icon('chevron-down', 14, 'var(--pub-muted)') ?></span>
             </summary>
             <div class="pub-policy-body">
                 <?= nl2br(e($polContent)) ?>

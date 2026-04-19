@@ -3,43 +3,98 @@ declare(strict_types=1);
 
 /**
  * Production API: /api/public/user_devices
+ * Fixed: duplicate named params, path resolution, missing DeviceDetector fallback
  */
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// ==============================
-// Helpers
-// ==============================
-function json(): array {
+require_once dirname(__DIR__, 2) . '/models/notification/repositories/PdoUserDevicesRepository.php';
+require_once dirname(__DIR__, 2) . '/models/notification/services/UserDevicesService.php';
+
+// ── Helpers ──────────────────────────────────────────────
+function ud_json_body(): array {
     $raw = file_get_contents('php://input');
-    return $raw ? json_decode($raw, true) ?? [] : [];
+    return $raw ? (json_decode($raw, true) ?? []) : [];
 }
 
-function user_id(): ?int {
-    if (!empty($_SESSION['user']['id'])) return (int)$_SESSION['user']['id'];
-    if (!empty($_SESSION['user_id'])) return (int)$_SESSION['user_id'];
+function ud_user_id(): ?int {
+    if (!empty($_SESSION['user']['id']))  return (int)$_SESSION['user']['id'];
+    if (!empty($_SESSION['user_id']))     return (int)$_SESSION['user_id'];
     return null;
 }
 
-// ==============================
-// Init
-// ==============================
-$userId = user_id();
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+// ── Database ─────────────────────────────────────────────
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    $pdo = $GLOBALS['pdo'] ?? ($GLOBALS['ADMIN_DB'] ?? null);
+}
+if (!$pdo instanceof PDO && function_exists('pub_get_pdo')) {
+    $pdo = pub_get_pdo();
+}
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
+    exit;
+}
 
-$ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 512);
-$ip = $_SERVER['REMOTE_ADDR'] ?? '';
+// ── DeviceDetector — safe require ─────────────────────────
+// Try multiple possible paths to avoid fatal error
+$detectorPaths = [
+    dirname(__DIR__, 4) . '/shared/helpers/device_detector.php',
+    dirname(__DIR__, 3) . '/shared/helpers/device_detector.php',
+    dirname(__DIR__, 2) . '/shared/helpers/device_detector.php',
+    dirname(__DIR__, 1) . '/helpers/device_detector.php',
+    __DIR__ . '/helpers/device_detector.php',
+];
+$detectorLoaded = false;
+foreach ($detectorPaths as $p) {
+    if (file_exists($p)) {
+        require_once $p;
+        $detectorLoaded = true;
+        break;
+    }
+}
 
-require_once dirname(__DIR__, 3) . '/shared/helpers/device_detector.php';
+// Fallback inline detector if file not found
+if (!$detectorLoaded || !class_exists('DeviceDetector')) {
+    class DeviceDetector {
+        public static function detectType(string $ua): string {
+            $ua = strtolower($ua);
+            if (preg_match('/mobile|android|iphone|ipod|blackberry|opera mini|iemobile/i', $ua)) return 'mobile';
+            if (preg_match('/ipad|tablet|kindle|playbook|silk/i', $ua))                          return 'tablet';
+            return 'desktop';
+        }
+        public static function detectName(string $ua): string {
+            if (preg_match('/iphone/i',  $ua)) return 'iPhone';
+            if (preg_match('/ipad/i',    $ua)) return 'iPad';
+            if (preg_match('/android/i', $ua)) {
+                preg_match('/android[^;]*;\s*([^;)]+)/i', $ua, $m);
+                return trim($m[1] ?? 'Android Device');
+            }
+            if (preg_match('/windows/i', $ua)) return 'Windows PC';
+            if (preg_match('/macintosh|mac os x/i', $ua)) return 'Mac';
+            if (preg_match('/linux/i',   $ua)) return 'Linux PC';
+            return 'Unknown Device';
+        }
+    }
+}
 
-// ==============================
-// MAIN
-// ==============================
+// ── Request info ─────────────────────────────────────────
+$userId = ud_user_id();
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$ua     = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 512);
+$ip     = $_SERVER['REMOTE_ADDR'] ?? '';
+
+// ── CORS / OPTIONS ────────────────────────────────────────
+if ($method === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+// ── MAIN ─────────────────────────────────────────────────
 try {
 
-    // ==========================
-    // GET: list devices
-    // ==========================
+    // ════════════════════════════════════
+    // GET — list user's devices
+    // ════════════════════════════════════
     if ($method === 'GET') {
 
         if (!$userId) {
@@ -47,159 +102,90 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("
-            SELECT id, device_type, device_name, ip, last_seen_at, is_active
-            FROM user_devices
-            WHERE user_id = ?
-            ORDER BY last_seen_at DESC
-        ");
-        $stmt->execute([$userId]);
-
-        ResponseFormatter::success([
-            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ]);
+        $devRepo = new PdoUserDevicesRepository($pdo);
+        $devService = new UserDevicesService($devRepo);
+        ResponseFormatter::success(['items' => $devRepo->listForUser($userId)]);
         exit;
     }
 
-    // ==========================
-    // POST: register/update
-    // ==========================
+    // ════════════════════════════════════
+    // POST — register / update device
+    // ════════════════════════════════════
     if ($method === 'POST') {
 
-        $data = json();
+        $data      = ud_json_body();
+        $anonToken = isset($data['anonymous_token']) ? trim((string)$data['anonymous_token']) : null;
+        $fcmToken  = isset($data['fcm_token'])       ? trim((string)$data['fcm_token'])       : null;
 
-        $anonToken = $data['anonymous_token'] ?? null;
-        $fcmToken  = $data['fcm_token'] ?? null;
+        // Normalize empty strings to null
+        if ($anonToken === '') $anonToken = null;
+        if ($fcmToken  === '') $fcmToken  = null;
 
         if (!$anonToken && !$fcmToken) {
             ResponseFormatter::error('anonymous_token or fcm_token required', 422);
             exit;
         }
 
-        // Detect device
         $deviceType = DeviceDetector::detectType($ua);
         $deviceName = DeviceDetector::detectName($ua);
 
-        // ======================
-        // Find existing device
-        // ======================
-        $stmt = $pdo->prepare("
-            SELECT * FROM user_devices
-            WHERE (anonymous_token = :anon AND :anon IS NOT NULL)
-               OR (fcm_token = :fcm AND :fcm IS NOT NULL)
-            LIMIT 1
-        ");
-        $stmt->execute([
-            ':anon' => $anonToken,
-            ':fcm'  => $fcmToken
-        ]);
+        // ── Find existing device ──
+        // FIX: avoid duplicate named params — use positional params instead
+        $device = null;
 
-        $device = $stmt->fetch(PDO::FETCH_ASSOC);
+        $devRepo = new PdoUserDevicesRepository($pdo);
+        if ($anonToken) {
+            $device = $devRepo->findByAnonymousToken($anonToken);
+        }
 
-        // ======================
-        // UPDATE
-        // ======================
+        if (!$device && $fcmToken) {
+            $device = $devRepo->findByToken($fcmToken);
+        }
+
+        // ── UPDATE ──
         if ($device) {
-
-            $stmt = $pdo->prepare("
-                UPDATE user_devices SET
-                    user_id       = COALESCE(:uid, user_id),
-                    anonymous_token = COALESCE(:anon, anonymous_token),
-                    fcm_token     = COALESCE(:fcm, fcm_token),
-                    device_type   = :type,
-                    device_name   = :name,
-                    ip            = :ip,
-                    last_seen_at  = NOW(),
-                    is_active     = 1,
-                    updated_at    = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-
-            $stmt->execute([
-                ':uid'  => $userId,
-                ':anon' => $anonToken,
-                ':fcm'  => $fcmToken,
-                ':type' => $deviceType,
-                ':name' => $deviceName,
-                ':ip'   => $ip,
-                ':id'   => $device['id']
-            ]);
-
-            ResponseFormatter::success([
-                'id' => (int)$device['id'],
-                'updated' => true
-            ]);
+            $devRepo->updateRegistration((int)$device['id'], $userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ip);
+            ResponseFormatter::success(['id' => (int)$device['id'], 'updated' => true]);
             exit;
         }
 
-        // ======================
-        // INSERT
-        // ======================
-        $stmt = $pdo->prepare("
-            INSERT INTO user_devices (
-                user_id, anonymous_token, fcm_token,
-                device_type, device_name, user_agent,
-                ip, last_seen_at, is_active, created_at
-            ) VALUES (
-                :uid, :anon, :fcm,
-                :type, :name, :ua,
-                :ip, NOW(), 1, CURRENT_TIMESTAMP
-            )
-        ");
-
-        $stmt->execute([
-            ':uid'  => $userId,
-            ':anon' => $anonToken,
-            ':fcm'  => $fcmToken,
-            ':type' => $deviceType,
-            ':name' => $deviceName,
-            ':ua'   => $ua,
-            ':ip'   => $ip
-        ]);
-
-        ResponseFormatter::success([
-            'id' => (int)$pdo->lastInsertId(),
-            'created' => true
-        ], 'Device registered', 201);
-
+        // ── INSERT ──
+        $newDevId = $devRepo->insertRegistration($userId, $anonToken, $fcmToken, $deviceType, $deviceName, $ua, $ip);
+        ResponseFormatter::success(
+            ['id' => $newDevId, 'created' => true],
+            'Device registered',
+            201
+        );
         exit;
     }
 
-    // ==========================
-    // DELETE: logout device
-    // ==========================
+    // ════════════════════════════════════
+    // DELETE — deactivate device
+    // ════════════════════════════════════
     if ($method === 'DELETE') {
 
-        $data = json();
-        $fcmToken = $data['fcm_token'] ?? null;
+        $data     = ud_json_body();
+        $fcmToken = isset($data['fcm_token']) ? trim((string)$data['fcm_token']) : null;
 
         if (!$fcmToken) {
             ResponseFormatter::error('fcm_token required', 422);
             exit;
         }
 
-        $stmt = $pdo->prepare("
-            UPDATE user_devices
-            SET is_active = 0
-            WHERE fcm_token = ?
-        ");
-        $stmt->execute([$fcmToken]);
+        $devRepo = new PdoUserDevicesRepository($pdo);
+        $devRepo->deactivateByFcmTokenOnly($fcmToken);
 
         ResponseFormatter::success(['deleted' => true]);
-        exit;
-    }
-
-    // OPTIONS
-    if ($method === 'OPTIONS') {
-        http_response_code(204);
         exit;
     }
 
     ResponseFormatter::error('Method not allowed', 405);
 
 } catch (Throwable $e) {
-
-    error_log($e->getMessage());
-
-    ResponseFormatter::error('Internal server error', 500);
+    error_log(sprintf(
+        '[UserDevices API] %s in %s:%d | URI: %s',
+        $e->getMessage(), $e->getFile(), $e->getLine(),
+        $_SERVER['REQUEST_URI'] ?? 'n/a'
+    ));
+    ResponseFormatter::error('Internal server error: ' . $e->getMessage(), 500);
 }

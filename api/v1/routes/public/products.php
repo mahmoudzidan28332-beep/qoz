@@ -23,23 +23,18 @@ if ($first === 'products') {
                 $comment = trim($_POST['comment'] ?? '');
                 if ($rating < 1 || $rating > 5) { ResponseFormatter::error('Rating must be 1-5', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_reviews (product_id, user_id, rating, title, comment, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $rating, $title ?: null, $comment ?: null]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Review submitted pending approval', 201);
+                    $reviewRepo = new PdoProductReviewsRepository($pdo);
+                    $reviewService = new ProductReviewsService($reviewRepo);
+                    $reviewId = $reviewRepo->createPublicReview($subPid, $subUserId, $rating, $title ?: null, $comment ?: null);
+                    ResponseFormatter::success(['ok' => true, 'id' => $reviewId], 'Review submitted pending approval', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             } else {
                 $question = trim($_POST['question'] ?? '');
                 if (strlen($question) < 5) { ResponseFormatter::error('Question too short', 422); exit; }
                 try {
-                    $st = $pdo->prepare(
-                        'INSERT INTO product_questions (product_id, user_id, question, is_approved, created_at, updated_at)
-                         VALUES (?, ?, ?, 0, NOW(), NOW())'
-                    );
-                    $st->execute([$subPid, $subUserId, $question]);
-                    ResponseFormatter::success(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 'Question submitted pending review', 201);
+                    $questionRepo = new PdoProductQuestionsRepository($pdo);
+                    $questionId = $questionRepo->createPublicQuestion($subPid, $subUserId, $question);
+                    ResponseFormatter::success(['ok' => true, 'id' => $questionId], 'Question submitted pending review', 201);
                 } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             }
             exit;
@@ -48,10 +43,11 @@ if ($first === 'products') {
 
     $id = $_GET['id'] ?? (isset($segments[1]) && ctype_digit((string)$segments[1]) ? (int)$segments[1] : null);
     if (!$id && !empty($_GET['slug'])) {
-        $slugParams = [$_GET['slug']];
-        $slugCond = ' AND is_active = 1';
-        if ($tenantId) { $slugCond .= ' AND tenant_id = ?'; $slugParams[] = $tenantId; }
-        $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ?' . $slugCond . ' LIMIT 1', $slugParams);
+        if ($tenantId) {
+            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 AND tenant_id = ? LIMIT 1', [$_GET['slug'], $tenantId]);
+        } else {
+            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 LIMIT 1', [$_GET['slug']]);
+        }
         if ($slugRow) $id = (int)$slugRow['id'];
     }
 

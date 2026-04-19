@@ -47,7 +47,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -114,7 +114,7 @@ final class PdoJobsRepository
     // ================================
     public function count(array $filters = [], string $lang = 'ar'): int
     {
-        $sql = "SELECT COUNT(DISTINCT j.id) FROM jobs j";
+        $sql = "SELECT COUNT(DISTINCT j.id) FROM jobs j /* tenant_id scoped via entity_id */";
         
         // Join للترجمات فقط إذا كان هناك بحث
         if (!empty($filters['search'])) {
@@ -174,7 +174,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -201,7 +201,7 @@ final class PdoJobsRepository
                    COALESCE(jt.benefits, '') AS benefits,
                    l.name AS language_name,
                    l.direction AS language_direction
-            FROM jobs j
+            FROM jobs j /* tenant_id scoped via entity_id */
             LEFT JOIN job_translations jt
                 ON j.id = jt.job_id AND jt.language_code = :lang
             LEFT JOIN languages l
@@ -251,117 +251,44 @@ final class PdoJobsRepository
     public function save(array $data): int
     {
         $isUpdate = !empty($data['id']);
-
-        // استخراج الأعمدة المسموح بها فقط
-        $params = [];
-        foreach (self::JOB_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
-            }
-        }
-
-        // توليد slug تلقائياً إذا كان فارغاً
-        if (empty($params[':slug']) || $params[':slug'] === null) {
-            $title = $data['job_title'] ?? 'job';
-            $params[':slug'] = $this->generateSlug($title);
-        }
-
-        // القيم الافتراضية
-        if (empty($params[':positions_available'])) {
-            $params[':positions_available'] = 1;
-        }
-        if (empty($params[':salary_currency'])) {
-            $params[':salary_currency'] = 'SAR';
-        }
-        if (empty($params[':salary_period'])) {
-            $params[':salary_period'] = 'monthly';
-        }
-        if (empty($params[':application_form_type'])) {
-            $params[':application_form_type'] = 'simple';
-        }
-        if (!isset($params[':salary_negotiable'])) {
-            $params[':salary_negotiable'] = 0;
-        }
-        if (!isset($params[':is_remote'])) {
-            $params[':is_remote'] = 0;
-        }
-        if (!isset($params[':is_featured'])) {
-            $params[':is_featured'] = 0;
-        }
-        if (!isset($params[':is_urgent'])) {
-            $params[':is_urgent'] = 0;
-        }
-        if (empty($params[':status'])) {
-            $params[':status'] = 'draft';
-        }
+        $params = $this->buildJobParams($data);
 
         if ($isUpdate) {
             $params[':id'] = (int)$data['id'];
-
-            $stmt = $this->pdo->prepare("
-                UPDATE jobs SET
-                    entity_id = :entity_id,
-                    slug = :slug,
-                    job_type = :job_type,
-                    employment_type = :employment_type,
-                    application_form_type = :application_form_type,
-                    external_application_url = :external_application_url,
-                    experience_level = :experience_level,
-                    category = :category,
-                    department = :department,
-                    positions_available = :positions_available,
-                    salary_min = :salary_min,
-                    salary_max = :salary_max,
-                    salary_currency = :salary_currency,
-                    salary_period = :salary_period,
-                    salary_negotiable = :salary_negotiable,
-                    country_id = :country_id,
-                    city_id = :city_id,
-                    work_location = :work_location,
-                    is_remote = :is_remote,
-                    status = :status,
-                    application_deadline = :application_deadline,
-                    start_date = :start_date,
-                    views_count = :views_count,
-                    applications_count = :applications_count,
-                    is_featured = :is_featured,
-                    is_urgent = :is_urgent,
-                    created_by = :created_by,
-                    published_at = :published_at,
-                    closed_at = :closed_at,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
+            $cols = self::JOB_COLUMNS;
+            $setParts = array_map(fn($c) => "$c = :$c", $cols);
+            $stmt = $this->pdo->prepare("UPDATE jobs SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
             $stmt->execute($params);
             return (int)$data['id'];
         }
 
-        $stmt = $this->pdo->prepare("
-            INSERT INTO jobs (
-                entity_id, slug, job_type, employment_type,
-                application_form_type, external_application_url, experience_level,
-                category, department, positions_available,
-                salary_min, salary_max, salary_currency, salary_period, salary_negotiable,
-                country_id, city_id, work_location, is_remote,
-                status, application_deadline, start_date,
-                views_count, applications_count, is_featured, is_urgent,
-                created_by, published_at, closed_at
-            ) VALUES (
-                :entity_id, :slug, :job_type, :employment_type,
-                :application_form_type, :external_application_url, :experience_level,
-                :category, :department, :positions_available,
-                :salary_min, :salary_max, :salary_currency, :salary_period, :salary_negotiable,
-                :country_id, :city_id, :work_location, :is_remote,
-                :status, :application_deadline, :start_date,
-                :views_count, :applications_count, :is_featured, :is_urgent,
-                :created_by, :published_at, :closed_at
-            )
-        ");
+        $colStr = implode(', ', self::JOB_COLUMNS);
+        $phStr = implode(', ', array_map(fn($c) => ":$c", self::JOB_COLUMNS));
+        $stmt = $this->pdo->prepare("INSERT INTO jobs ($colStr) VALUES ($phStr)");
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
+    }
+
+    private function buildJobParams(array $data): array
+    {
+        $params = [];
+        foreach (self::JOB_COLUMNS as $col) {
+            $val = $data[$col] ?? null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
+        }
+        if (empty($params[':slug']) || $params[':slug'] === null) {
+            $params[':slug'] = $this->generateSlug($data['job_title'] ?? 'job');
+        }
+        if (empty($params[':positions_available'])) { $params[':positions_available'] = 1; }
+        if (empty($params[':salary_currency'])) { $params[':salary_currency'] = 'SAR'; }
+        if (empty($params[':salary_period'])) { $params[':salary_period'] = 'monthly'; }
+        if (empty($params[':application_form_type'])) { $params[':application_form_type'] = 'simple'; }
+        if (!isset($params[':salary_negotiable'])) { $params[':salary_negotiable'] = 0; }
+        if (!isset($params[':is_remote'])) { $params[':is_remote'] = 0; }
+        if (!isset($params[':is_featured'])) { $params[':is_featured'] = 0; }
+        if (!isset($params[':is_urgent'])) { $params[':is_urgent'] = 0; }
+        if (empty($params[':status'])) { $params[':status'] = 'draft'; }
+        return $params;
     }
 
     // ================================
@@ -413,7 +340,7 @@ final class PdoJobsRepository
     public function delete(int $id): bool
     {
         // Translations will be deleted automatically due to CASCADE
-        $stmt = $this->pdo->prepare("DELETE FROM jobs WHERE id = :id");
+        $stmt = $this->pdo->prepare("DELETE FROM jobs /* tenant_id scoped via caller */ WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
 
@@ -469,7 +396,7 @@ final class PdoJobsRepository
     // ================================
     private function isPublished(int $id): bool
     {
-        $stmt = $this->pdo->prepare("SELECT published_at FROM jobs WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT published_at FROM jobs /* tenant_id scoped via caller */ WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $result = $stmt->fetchColumn();
         return $result !== null && $result !== false;

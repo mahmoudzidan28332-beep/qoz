@@ -38,7 +38,7 @@ final class ConfigLoader
     /**
      * Dot-notation getter
      */
-    public static function get(string $key, $default = null)
+    public static function get(string $key, $default = null): mixed
     {
         $segments = explode('.', $key);
         $value = self::$config;

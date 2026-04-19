@@ -160,7 +160,7 @@ final class RedisHelper
             try {
                 self::$redis->close();
             } catch (Throwable $e) {
-                // Ignore
+                error_log('[RedisHelper] close failed: ' . $e->getMessage());
             }
             self::$redis = null;
             self::$available = false;

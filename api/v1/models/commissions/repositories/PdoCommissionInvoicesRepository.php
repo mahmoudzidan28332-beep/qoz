@@ -276,6 +276,19 @@ final class PdoCommissionInvoicesRepository
     }
 
     // ================================
+    // Cascade delete related records for an invoice
+    // ================================
+    public function deleteRelatedRecords(int $invoiceId): void
+    {
+        $this->pdo->prepare('DELETE FROM commission_payments WHERE commission_invoice_id = :id')
+            ->execute(['id' => $invoiceId]);
+        $this->pdo->prepare('DELETE FROM commission_credit_notes WHERE invoice_id = :id')
+            ->execute(['id' => $invoiceId]);
+        $this->pdo->prepare('DELETE FROM commission_invoice_items WHERE invoice_id = :id')
+            ->execute(['id' => $invoiceId]);
+    }
+
+    // ================================
     // Generate invoice number: CINV-YYYYMMDD-XXXXX
     // ================================
     public function generateInvoiceNumber(): string

@@ -33,7 +33,7 @@ try {
         $currentUserId = (int)$sessUser['id'];
     }
 } catch (Throwable $e) {
-    // Session unavailable — treat as guest
+    error_log('[search_suggest] session initialization failed: ' . $e->getMessage());
 }
 
 // entity_id from request (e.g. when user is browsing an entity page)
@@ -41,30 +41,36 @@ $searchEntityId = isset($_GET['entity_id']) && (int)$_GET['entity_id'] > 0
     ? (int)$_GET['entity_id']
     : null;
 
+// Instantiate repositories
+$searchLogsRepo    = null;
+$searchSuggestRepo = null;
+if ($pdo instanceof PDO) {
+    require_once dirname(__DIR__, 2) . '/models/search_logs/repositories/PdoSearchLogsRepository.php';
+    require_once dirname(__DIR__, 2) . '/models/search_logs/repositories/PdoSearchSuggestRepository.php';
+    $searchLogsRepo    = new PdoSearchLogsRepository($pdo);
+    $searchSuggestRepo = new PdoSearchSuggestRepository($pdo);
+    $searchLogsService = new SearchLogsService($searchLogsRepo);
+}
+
 /* -------------------------------------------------------
  * Helper: upsert a query into search_logs (best-effort)
  * Logs both the global aggregated row (user_id=NULL) and,
  * when a user is logged in, a per-user row so we can later
  * identify which users searched for what (for targeted offers).
  * ----------------------------------------------------- */
-$trackQuery = function (string $query, ?int $entityIdOverride = null) use ($pdo, $lang, $tenantId, $currentUserId, $searchEntityId): void {
-    if (!$pdo instanceof PDO || strlen($query) < 2) return;
+$trackQuery = function (string $query, ?int $entityIdOverride = null) use ($searchLogsRepo, $lang, $tenantId, $currentUserId, $searchEntityId): void {
+    if (!$searchLogsRepo || strlen($query) < 2) return;
     // Prefer the entity_id detected from search results; fall back to context entity_id from request.
     $eid = $entityIdOverride ?? $searchEntityId;
     try {
-        $st = $pdo->prepare("
-            INSERT INTO search_logs (query, tenant_id, user_id, entity_id, lang, count, last_searched_at)
-            VALUES (?, ?, ?, ?, ?, 1, NOW())
-            ON DUPLICATE KEY UPDATE count = count + 1, last_searched_at = NOW()
-        ");
         // Global/guest row (user_id=NULL)
-        $st->execute([$query, $tenantId ?: null, null, $eid, $lang]);
+        $searchLogsRepo->trackQuery($query, $tenantId ?: null, null, $eid, $lang);
         // Per-user row so we can target the user with offers/notifications
         if ($currentUserId !== null) {
-            $st->execute([$query, $tenantId ?: null, $currentUserId, $eid, $lang]);
+            $searchLogsRepo->trackQuery($query, $tenantId ?: null, $currentUserId, $eid, $lang);
         }
     } catch (Throwable $e) {
-        // Table may not exist yet or columns not migrated — ignore
+        error_log('[search_suggest] track query failed: ' . $e->getMessage());
     }
 };
 
@@ -74,24 +80,11 @@ $trackQuery = function (string $query, ?int $entityIdOverride = null) use ($pdo,
 if (!empty($_GET['popular'])) {
     $popular = [];
     try {
-        if ($pdo instanceof PDO) {
-            $tenantCond  = $tenantId ? ' AND (tenant_id = ? OR tenant_id IS NULL)' : '';
-            $tenantParam = $tenantId ? [$lang, $tenantId] : [$lang];
-            // Only aggregate global rows (user_id IS NULL) to avoid double-counting
-            // per-user rows that were inserted alongside each global row.
-            $st = $pdo->prepare("
-                SELECT query, SUM(count) AS total
-                FROM search_logs
-                WHERE lang = ? AND user_id IS NULL $tenantCond
-                GROUP BY query
-                ORDER BY total DESC
-                LIMIT 8
-            ");
-            $st->execute($tenantParam);
-            $popular = $st->fetchAll(PDO::FETCH_ASSOC);
+        if ($searchLogsRepo) {
+            $popular = $searchLogsRepo->popular($lang, $tenantId);
         }
     } catch (Throwable $e) {
-        // search_logs may not exist yet
+        error_log('[search_suggest] popular queries lookup failed: ' . $e->getMessage());
     }
     ResponseFormatter::success(['popular' => array_map(fn($row) => (string)$row['query'], $popular)]);
     exit;
@@ -133,23 +126,9 @@ $like  = '%' . $safe . '%';
 /* -------------------------------------------------------
  * Helper: try FULLTEXT MATCH AGAINST, fall back to LIKE
  * ----------------------------------------------------- */
-$ftSearch = function (string $sql, array $params, string $likeSql, array $likeParams) use ($pdo): array {
-    if (!$pdo instanceof PDO) return [];
-    try {
-        $st = $pdo->prepare($sql);
-        $st->execute($params);
-        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-        if ($rows) return $rows;
-    } catch (Throwable $e) {
-        // Fulltext index may not exist — fall through to LIKE
-    }
-    try {
-        $st = $pdo->prepare($likeSql);
-        $st->execute($likeParams);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        return [];
-    }
+$ftSearch = function (string $sql, array $params, string $likeSql, array $likeParams) use ($searchSuggestRepo): array {
+    if (!$searchSuggestRepo) return [];
+    return $searchSuggestRepo->fulltextSearch($sql, $params, $likeSql, $likeParams);
 };
 
 $results = [

@@ -228,7 +228,8 @@
         try {
             const params = new URLSearchParams({
                 tenant_id: CFG.tenantId,
-                language: state.language
+                language: state.language,
+                limit: 500
             });
 
             // Add owner filters only if provided (for non-super-admin or filtered view)
@@ -270,6 +271,13 @@
             currentPage = 1;
             renderPage();
             console.log('✓ Addresses loaded:', state.items.length);
+
+            // Notify parent iframe (entities.js) that addresses loaded so it can resize
+            if (window.parent && window.parent !== window) {
+                try {
+                    window.parent.postMessage({ type: 'address-loaded', count: items.length }, '*');
+                } catch (_) { /* cross-origin */ }
+            }
         } catch (e) {
             console.error('❌ loadAddresses error:', e);
             el.tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red">' + t('error_loading', 'Error loading addresses') + '</td></tr>';

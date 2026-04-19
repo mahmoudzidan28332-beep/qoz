@@ -81,10 +81,8 @@ try {
         'country_id' => isset($_GET['country_id']) ? (int)$_GET['country_id'] : null,
         'is_primary' => isset($_GET['is_primary']) ? (int)$_GET['is_primary'] : null,
         'language'   => $language,
-        // Tenant-wide entity filter: shows all addresses for entities belonging to a tenant
-        'tenant_id'  => isset($_GET['filter_tenant_id']) && is_numeric($_GET['filter_tenant_id'])
-                        ? (int)$_GET['filter_tenant_id']
-                        : null,
+        // Tenant-wide filter: shows all addresses belonging to a tenant (entities + users)
+        'tenant_id'  => $tenantId,
     ];
 
     // ================================
@@ -123,8 +121,8 @@ try {
             $getId = $urlId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
             
             if ($getId) {
-                // Single item
-                $item = $controller->get($getId, $language);
+                // Single item - scoped by tenant_id for multi-tenant safety
+                $item = $controller->get($getId, $language, $tenantId);
                 ResponseFormatter::success($item);
 
             } else {

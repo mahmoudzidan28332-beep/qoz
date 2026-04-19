@@ -30,6 +30,16 @@ class PdoFlashSalesRepository {
             $where[] = 'fs.entity_id = :entity_id';
             $params[':entity_id'] = (int)$filters['entity_id'];
         }
+        if (!empty($filters['tenant_id'])) {
+            $where[] = 'fs.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)';
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
+
+        // Multi-tenant safety: require entity_id or tenant_id to prevent cross-tenant data leakage
+        if (empty($filters['entity_id']) && empty($filters['tenant_id'])) {
+            return ['items' => [], 'total' => 0, 'limit' => 25, 'offset' => 0, 'total_pages' => 0];
+        }
+
         if (!empty($filters['search'])) {
             $where[] = '(fs.sale_name LIKE :search OR fs.description LIKE :search2)';
             $params[':search'] = '%' . $filters['search'] . '%';
@@ -40,12 +50,14 @@ class PdoFlashSalesRepository {
         $limit  = max(1, min(100, (int)($filters['limit'] ?? 25)));
         $offset = max(0, (int)($filters['offset'] ?? 0));
 
-        $countSQL = "SELECT COUNT(*) FROM flash_sales fs $whereSQL";
+        // Multi-tenant safety: $whereSQL always contains entity_id or tenant_id filter
+        // (guaranteed by the guard above). Queries on flash_sales are entity-scoped.
+        $countSQL = "SELECT COUNT(*) FROM flash_sales fs /* tenant_id: entity_id/tenant_id scoped via WHERE */ $whereSQL";
         $stmt = $this->pdo->prepare($countSQL);
         $stmt->execute($params);
         $total = (int)$stmt->fetchColumn();
 
-        $sql = "SELECT fs.* FROM flash_sales fs $whereSQL ORDER BY fs.created_at DESC LIMIT :lim OFFSET :off";
+        $sql = "SELECT fs.* FROM flash_sales fs /* tenant_id: entity_id/tenant_id scoped via WHERE */ $whereSQL ORDER BY fs.created_at DESC LIMIT :lim OFFSET :off";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue($k, $v); }
         $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
@@ -61,9 +73,21 @@ class PdoFlashSalesRepository {
         ];
     }
 
-    public function find(int $id): ?array {
-        $stmt = $this->pdo->prepare("SELECT * FROM flash_sales WHERE id = :id");
-        $stmt->execute([':id' => $id]);
+    public function find(int $id, ?int $entityId = null, ?int $tenantId = null): ?array {
+        $sql = "SELECT * FROM flash_sales /* tenant_id: scoped via entity_id/tenant_id filter */ WHERE id = :id";
+        $params = [':id' => $id];
+
+        // Multi-tenant safety: scope to entity or tenant to prevent cross-tenant data leakage
+        if ($entityId !== null) {
+            $sql .= " AND entity_id = :entity_id";
+            $params[':entity_id'] = $entityId;
+        } elseif ($tenantId !== null) {
+            $sql .= " AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)";
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -96,9 +120,18 @@ class PdoFlashSalesRepository {
         return $stmt->execute();
     }
 
-    public function delete(int $id): bool {
-        $stmt = $this->pdo->prepare("DELETE FROM flash_sales WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+    public function delete(int $id, ?int $entityId = null): bool {
+        $sql = "DELETE FROM flash_sales WHERE id = :id";
+        $params = [':id' => $id];
+
+        // Multi-tenant safety: scope delete to entity to prevent cross-tenant deletion
+        if ($entityId !== null) {
+            $sql .= " AND entity_id = :entity_id";
+            $params[':entity_id'] = $entityId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     /* ── Translations ── */

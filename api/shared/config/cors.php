@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/shared/config/cors.php
 // Returns array for ConfigLoader compatibility
 

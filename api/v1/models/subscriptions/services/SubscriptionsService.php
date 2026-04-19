@@ -15,4 +15,8 @@ class SubscriptionsService {
     public function updateStatus(int $id, string $status): bool { return $this->repo->updateStatus($id, $status); }
     public function delete(int $id): bool { return $this->repo->delete($id); }
     public function stats(): array { return $this->repo->stats(); }
+    public function findActivePlan(int $planId): ?array { return $this->repo->findActivePlan($planId); }
+    public function upgrade(int $tenantId, int $newPlanId, array $planData): array { return $this->repo->upgrade($tenantId, $newPlanId, $planData); }
+    public function hasActiveSubscription(int $tenantId): ?array { return $this->repo->hasActiveSubscription($tenantId); }
+    public function getTenantProductCount(int $tenantId): int { return $this->repo->getTenantProductCount($tenantId); }
 }

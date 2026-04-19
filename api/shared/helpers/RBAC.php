@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../core/repositories/RbacRepository.php';
+
 /**
  * htdocs/api/shared/helpers/RBAC.php
  *
@@ -155,18 +157,15 @@ final class RBAC
         safe_log('audit', $action, array_merge(['tenant_id' => $this->tenantId], $data));
         if ($this->pdo) {
             try {
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO audit_logs (tenant_id, user_id, action, ip_address, user_agent, payload, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())
-                ");
-                $stmt->execute([
+                $repo = new RbacRepository($this->pdo);
+                $repo->insertAuditLog(
                     $this->tenantId,
                     $data['user_id'] ?? null,
                     $action,
                     $_SERVER['REMOTE_ADDR'] ?? null,
                     substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
                     json_encode($data)
-                ]);
+                );
             } catch (Throwable $e) {
                 // do not fail on audit errors
                 safe_log('error', 'RBAC audit failed', ['err' => $e->getMessage()]);
@@ -242,17 +241,8 @@ final class RBAC
         if (!$this->pdo) return ['role_id' => null, 'role_key' => null];
 
         try {
-            $stmt = $this->pdo->prepare("
-                SELECT tu.role_id, r.key_name
-                FROM tenant_users tu
-                LEFT JOIN roles r ON r.id = tu.role_id
-                WHERE tu.user_id = ? AND tu.tenant_id = ? AND tu.is_active = 1
-                LIMIT 1
-            ");
-            $stmt->execute([$userId, $tenantId]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$row) return ['role_id' => null, 'role_key' => null];
-            return ['role_id' => isset($row['role_id']) ? (int)$row['role_id'] : null, 'role_key' => $row['key_name'] ?? null];
+            $repo = new RbacRepository($this->pdo);
+            return $repo->fetchUserRoleInfo($userId, $tenantId);
         } catch (Throwable $e) {
             $this->logError('fetchUserRoleInfo error', ['user_id' => $userId, 'tenant_id' => $tenantId, 'err' => $e->getMessage()]);
             return ['role_id' => null, 'role_key' => null];
@@ -272,19 +262,8 @@ final class RBAC
     {
         if (!$this->pdo) return [];
         try {
-            $stmt = $this->pdo->prepare("
-                SELECT DISTINCT p.key_name
-                FROM tenant_users tu
-                INNER JOIN role_permissions rp ON rp.role_id = tu.role_id AND rp.tenant_id = tu.tenant_id
-                INNER JOIN permissions p ON p.id = rp.permission_id
-                WHERE tu.user_id = ? AND tu.tenant_id = ? AND tu.is_active = 1
-            ");
-            $stmt->execute([$userId, $this->tenantId]);
-            $out = [];
-            while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                if (!empty($r['key_name'])) $out[] = (string)$r['key_name'];
-            }
-            return array_values(array_unique($out));
+            $repo = new RbacRepository($this->pdo);
+            return $repo->fetchPermissions($userId, $this->tenantId);
         } catch (Throwable $e) {
             $this->logError('fetchPermissionsFromDb error', ['err' => $e->getMessage()]);
             return [];
@@ -327,14 +306,10 @@ final class RBAC
             };
 
             $effective = $default;
+            $repo = new RbacRepository($this->pdo);
 
             // 1) global rows
-            $stmt = $this->pdo->prepare("
-                SELECT * FROM resource_permissions
-                WHERE resource_type = :resource AND role_id IS NULL AND tenant_id IS NULL
-            ");
-            $stmt->execute([':resource' => $resourceType]);
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            foreach ($repo->fetchGlobalResourcePermissions($resourceType) as $r) {
                 $applyRow($r, $effective);
             }
 
@@ -345,34 +320,19 @@ final class RBAC
 
             // 2) role-global
             if ($roleId !== null) {
-                $stmt = $this->pdo->prepare("
-                    SELECT * FROM resource_permissions
-                    WHERE resource_type = :resource AND role_id = :role AND tenant_id IS NULL
-                ");
-                $stmt->execute([':resource' => $resourceType, ':role' => $roleId]);
-                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                foreach ($repo->fetchRoleGlobalResourcePermissions($resourceType, $roleId) as $r) {
                     $applyRow($r, $effective);
                 }
             }
 
             // 3) tenant-global (role_id IS NULL, tenant_id = current)
-            $stmt = $this->pdo->prepare("
-                SELECT * FROM resource_permissions
-                WHERE resource_type = :resource AND role_id IS NULL AND tenant_id = :tenant
-            ");
-            $stmt->execute([':resource' => $resourceType, ':tenant' => $tenantId]);
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            foreach ($repo->fetchTenantGlobalResourcePermissions($resourceType, $tenantId) as $r) {
                 $applyRow($r, $effective);
             }
 
             // 4) role+tenant (most specific)
             if ($roleId !== null) {
-                $stmt = $this->pdo->prepare("
-                    SELECT * FROM resource_permissions
-                    WHERE resource_type = :resource AND role_id = :role AND tenant_id = :tenant
-                ");
-                $stmt->execute([':resource' => $resourceType, ':role' => $roleId, ':tenant' => $tenantId]);
-                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                foreach ($repo->fetchRoleTenantResourcePermissions($resourceType, $roleId, $tenantId) as $r) {
                     $applyRow($r, $effective);
                 }
             }

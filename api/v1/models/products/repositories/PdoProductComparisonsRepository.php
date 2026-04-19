@@ -214,6 +214,32 @@ final class PdoProductComparisonsRepository
     }
 
     /**
+     * Get or create the user's active comparison row (for public route).
+     */
+    public function getOrCreateForUser(int $userId): int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM product_comparisons WHERE user_id = ? ORDER BY created_at DESC LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            return (int)$row['id'];
+        }
+        $this->pdo->prepare('INSERT INTO product_comparisons (user_id, created_at) VALUES (?, NOW())')->execute([$userId]);
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Find the latest comparison ID for a user (without creating).
+     */
+    public function findLatestForUser(int $userId): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM product_comparisons WHERE user_id = ? ORDER BY created_at DESC LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (int)$row['id'] : null;
+    }
+
+    /**
      * التحقق من أن المنتج ينتمي للمستأجر
      */
     private function validateProductBelongsToTenant(int $productId, int $tenantId): void

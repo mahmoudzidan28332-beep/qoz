@@ -85,7 +85,8 @@ try {
             ResponseFormatter::success($controller->list($tenantId));
         }
     } elseif ($method === 'POST') {
-        $result = $controller->create($tenantId, $body);
+        $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+        $result = $controller->create($tenantId, $body, $actingUserId);
         ResponseFormatter::success($result, 201);
     } elseif ($method === 'PUT') {
         if ($id === null && !empty($body['id'])) {
@@ -96,7 +97,8 @@ try {
             exit;
         }
         $body['id'] = $id;
-        ResponseFormatter::success($controller->update($tenantId, $body));
+        $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+        ResponseFormatter::success($controller->update($tenantId, $body, $actingUserId));
     } elseif ($method === 'DELETE') {
         if ($id === null && !empty($body['id'])) {
             $id = (int)$body['id'];
@@ -106,7 +108,8 @@ try {
             exit;
         }
         $body['id'] = $id;
-        $controller->delete($tenantId, $body);
+        $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+        $controller->delete($tenantId, $body, $actingUserId);
         ResponseFormatter::success(['deleted' => true]);
     } else {
         ResponseFormatter::error('Method not allowed', 405);

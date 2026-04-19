@@ -20,6 +20,14 @@ final class PdoTenant_usersRepository
         $this->pdo = $pdo;
     }
 
+    public function addUserToTenant(int $tenantId, int $userId): void
+    {
+        $this->pdo->prepare(
+            'INSERT INTO tenant_users (tenant_id, user_id, role_id, is_active, joined_at)
+             VALUES (?, ?, 1, 1, NOW())'
+        )->execute([$tenantId, $userId]);
+    }
+
     /**
      * Get all tenant users with pagination and filters
      *
@@ -37,95 +45,51 @@ final class PdoTenant_usersRepository
     public function all(int $tenantId, int $perPage = 10, int $offset = 0, array $filters = []): array
     {
         $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : $tenantId;
-
         $whereParts = [];
         $params = [];
 
-        // Only filter by tenant_id if > 0 (0 means super admin viewing all tenants)
-        if ($effectiveTenantId > 0) {
-            $whereParts[] = 'tu.tenant_id = :tenantId';
-            $params[':tenantId'] = $effectiveTenantId;
-        }
+        if ($effectiveTenantId > 0) { $whereParts[] = 'tu.tenant_id = :tenantId'; $params[':tenantId'] = $effectiveTenantId; }
 
+        $this->applyAllFilters($filters, $whereParts, $params);
+
+        $whereSql = !empty($whereParts) ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+
+        $sql = "SELECT tu.id, tu.user_id, u.username, u.email, tu.tenant_id, t.name AS tenant_name,
+                tu.role_id, COALESCE(r.display_name, r.key_name, '') AS role_name, tu.entity_id,
+                e.store_name AS entity_name, e.slug AS entity_slug, tu.joined_at, tu.is_active, tu.updated_at
+            FROM tenant_users tu JOIN users u ON tu.user_id = u.id
+            LEFT JOIN roles r ON tu.role_id = r.id JOIN tenants t ON tu.tenant_id = t.id
+            LEFT JOIN entities e ON tu.entity_id = e.id {$whereSql} ORDER BY tu.joined_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', (int)$perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $this->normalizeRows($rows);
+    }
+
+    private function applyAllFilters(array $filters, array &$whereParts, array &$params): void
+    {
         if (!empty($filters['search'])) {
-            // use distinct parameter names for each LIKE occurrence to avoid PDO named-parameter repetition issues
             $whereParts[] = '(u.username LIKE :search_u OR u.email LIKE :search_e OR t.name LIKE :search_t OR e.store_name LIKE :search_e_name)';
             $params[':search_u'] = '%' . $filters['search'] . '%';
             $params[':search_e'] = '%' . $filters['search'] . '%';
             $params[':search_t'] = '%' . $filters['search'] . '%';
             $params[':search_e_name'] = '%' . $filters['search'] . '%';
         }
+        if (isset($filters['is_active'])) { $whereParts[] = 'tu.is_active = :is_active'; $params[':is_active'] = (int)$filters['is_active']; }
+        if (!empty($filters['role_id'])) { $whereParts[] = 'tu.role_id = :role_id'; $params[':role_id'] = (int)$filters['role_id']; }
+        if (!empty($filters['user_id'])) { $whereParts[] = 'tu.user_id = :user_id'; $params[':user_id'] = (int)$filters['user_id']; }
+        if (!empty($filters['entity_id'])) { $whereParts[] = 'tu.entity_id = :entity_id'; $params[':entity_id'] = (int)$filters['entity_id']; }
+    }
 
-        if (isset($filters['is_active'])) {
-            $whereParts[] = 'tu.is_active = :is_active';
-            $params[':is_active'] = (int)$filters['is_active'];
-        }
-
-        if (!empty($filters['role_id'])) {
-            $whereParts[] = 'tu.role_id = :role_id';
-            $params[':role_id'] = (int)$filters['role_id'];
-        }
-
-        if (!empty($filters['user_id'])) {
-            $whereParts[] = 'tu.user_id = :user_id';
-            $params[':user_id'] = (int)$filters['user_id'];
-        }
-
-        if (!empty($filters['entity_id'])) {
-            $whereParts[] = 'tu.entity_id = :entity_id';
-            $params[':entity_id'] = (int)$filters['entity_id'];
-        }
-
-        $whereSql = '';
-        if (!empty($whereParts)) {
-            $whereSql = 'WHERE ' . implode(' AND ', $whereParts);
-        }
-
-        $sql = "
-            SELECT
-                tu.id,
-                tu.user_id,
-                u.username,
-                u.email,
-                tu.tenant_id,
-                t.name AS tenant_name,
-                tu.role_id,
-                COALESCE(r.display_name, r.key_name, '') AS role_name,
-                tu.entity_id,
-                e.store_name AS entity_name,
-                e.slug AS entity_slug,
-                tu.joined_at,
-                tu.is_active,
-                tu.updated_at
-            FROM tenant_users tu
-            JOIN users u ON tu.user_id = u.id
-            LEFT JOIN roles r ON tu.role_id = r.id
-            JOIN tenants t ON tu.tenant_id = t.id
-            LEFT JOIN entities e ON tu.entity_id = e.id
-            {$whereSql}
-            ORDER BY tu.joined_at DESC
-            LIMIT :limit OFFSET :offset
-        ";
-
-        $stmt = $this->pdo->prepare($sql);
-
-        // bind filter params
-        foreach ($params as $key => $value) {
-            if (is_int($value)) {
-                $stmt->bindValue($key, $value, PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue($key, $value, PDO::PARAM_STR);
-            }
-        }
-
-        // bind limit/offset
-        $stmt->bindValue(':limit', (int)$perPage, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // normalize types
+    private function normalizeRows(array $rows): array
+    {
         foreach ($rows as &$r) {
             $r['id'] = isset($r['id']) ? (int)$r['id'] : null;
             $r['user_id'] = isset($r['user_id']) ? (int)$r['user_id'] : null;
@@ -135,7 +99,6 @@ final class PdoTenant_usersRepository
             $r['is_active'] = isset($r['is_active']) ? (int)$r['is_active'] : 0;
         }
         unset($r);
-
         return $rows;
     }
 
@@ -438,11 +401,7 @@ final class PdoTenant_usersRepository
         if (empty($ids)) return 0;
 
         $placeholders = rtrim(str_repeat('?,', count($ids)), ',');
-        $sql = "
-            UPDATE tenant_users
-            SET is_active = ?, updated_at = NOW()
-            WHERE tenant_id = ? AND id IN ({$placeholders})
-        ";
+        $sql = sprintf('UPDATE tenant_users SET is_active = ?, updated_at = NOW() WHERE tenant_id = ? AND id IN (%s)', $placeholders);
         $stmt = $this->pdo->prepare($sql);
         $params = array_merge([(int)$isActive, $tenantId], array_values($ids));
         $stmt->execute($params);
@@ -457,6 +416,39 @@ final class PdoTenant_usersRepository
         }
 
         return (int)$affected;
+    }
+
+    /**
+     * Get all tenants a user belongs to, with role info.
+     */
+    public function getTenantsByUserId(int $userId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT tu.tenant_id, tu.role_id, tu.is_active AS tenant_user_active,
+                   t.name AS tenant_name, t.domain AS tenant_domain,
+                   r.key_name AS role_key, r.display_name AS role_name
+            FROM tenant_users tu
+            JOIN tenants t ON tu.tenant_id = t.id
+            LEFT JOIN roles r ON tu.role_id = r.id
+            WHERE tu.user_id = :uid
+        ");
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get permission key_names for a role within a tenant.
+     */
+    public function getPermissionsByRoleAndTenant(int $roleId, int $tenantId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.key_name
+            FROM role_permissions rp
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE rp.role_id = :role_id AND rp.tenant_id = :tenant_id
+        ");
+        $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
     /**
@@ -492,5 +484,23 @@ final class PdoTenant_usersRepository
             // Do not let logging failures break main flow; record for ops
             error_log('[PdoTenant_usersRepository::logAction] ' . $e->getMessage());
         }
+    }
+
+    // ================================
+    // Get user's entity_id for permission scoping
+    // ================================
+    public function getUserEntityId(int $userId, int $tenantId): ?int
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT entity_id FROM tenant_users WHERE user_id = ? AND tenant_id = ? LIMIT 1");
+            $stmt->execute([$userId, $tenantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && isset($row['entity_id'])) {
+                return (int)$row['entity_id'];
+            }
+        } catch (PDOException $e) {
+            error_log('[PdoTenant_usersRepository::getUserEntityId] ' . $e->getMessage());
+        }
+        return null;
     }
 }

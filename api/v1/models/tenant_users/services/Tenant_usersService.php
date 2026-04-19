@@ -286,4 +286,28 @@ final class Tenant_usersService
             'inactive_users' => $this->repo->count($tenantId, ['is_active' => 0])
         ];
     }
+
+    /**
+     * Get entity ID for a user within a tenant
+     */
+    public function getUserEntityId(int $userId, int $tenantId): ?int
+    {
+        return $this->repo->getUserEntityId($userId, $tenantId);
+    }
+
+    /**
+     * Get all tenants a user belongs to (with role info)
+     */
+    public function getTenantsByUserId(int $userId): array
+    {
+        return $this->repo->getTenantsByUserId($userId);
+    }
+
+    /**
+     * Get permission key_names for a role within a tenant
+     */
+    public function getPermissionsByRoleAndTenant(int $roleId, int $tenantId): array
+    {
+        return $this->repo->getPermissionsByRoleAndTenant($roleId, $tenantId);
+    }
 }

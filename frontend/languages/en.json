@@ -252,7 +252,11 @@
         "total": "Total",
         "remove": "Remove",
         "add": "Add to Cart",
-        "added": "Added!"
+        "added": "Added!",
+        "conflict_title": "Cart Conflict",
+        "conflict_msg": "You cannot add items from different entities into the same cart. Would you like to clear the old cart?",
+        "switch_and_clear": "Clear & Switch",
+        "conflict_error": "Error: Cart holds items from different entities"
     },
     "checkout": {
         "title": "Checkout",
@@ -272,7 +276,31 @@
         "error_fields_required": "Please enter your name and phone number.",
         "secure_transaction": "Your transaction is secure and encrypted",
         "no_payment_methods": "No payment methods available",
-        "cash_on_delivery": "Cash on Delivery"
+        "additional_notes": "Additional Notes",
+        "delivery_info": "Delivery Info",
+        "delivery_merchant": "Store Delivery",
+        "delivery_courier": "Courier",
+        "delivery_pickup": "Pickup",
+        "my_location": "My Location",
+        "map_hint": "Move the pin to set your exact location",
+        "cash_on_delivery": "Cash on Delivery",
+        "no_delivery_zones": "No delivery zones available for this distance",
+        "no_couriers": "No couriers available",
+        "no_pickup_points": "No pickup points available",
+        "standard_delivery": "Standard Delivery"
+    },
+    "checkout_js": {
+        "detecting": "Detecting",
+        "merchant": "Merchant Delivery",
+        "courier": "Courier Delivery",
+        "fees": "Fees",
+        "calculating": "Calculating",
+        "out_of_coverage": "Out of Coverage",
+        "in_coverage": "Within Coverage",
+        "mins": "min",
+        "err_load": "Loading Error",
+        "location_error": "Location Error",
+        "area": "Area"
     },
     "entity": {
         "products_tab": "Products",

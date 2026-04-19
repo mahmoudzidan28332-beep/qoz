@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/utils.php
 // ملف الدوال المساعدة العامة (Utility Functions)
 // دوال عامة تُستخدم في جميع أنحاء التطبيق

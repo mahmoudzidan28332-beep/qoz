@@ -1,15 +1,10 @@
 <?php
 /**
- * frontend/partials/store_sections/products.php
- * Store Products Section — Product grid with categories, search, pagination
- *
- * Expected variables:
- *   $entity, $entityId, $entityTenantId
- *   $products, $productMeta, $productPage, $productLimit
- *   $categories, $categoryTree, $selectedCat, $productSearch
- *   $lang, $_entityProductCardStyle, $_entityProductCardClass, $_entityProductImgStyle
- *   $sectionSettings — Section JSON settings
+ * frontend/partials/store_sections/products.php — QOOQZ Public Store Sections
+ * Grid of products for the entity, with AJAX "Show More"
  */
+
+require_once __DIR__ . '/icons.php';
 
 $showCategories = ($sectionSettings['show_categories'] ?? true);
 $showSearch     = ($sectionSettings['show_search']     ?? true);
@@ -91,22 +86,22 @@ $showCart       = ($sectionSettings['show_cart']        ?? true);
                          class="pub-cat-img" 
                          loading="lazy"
                          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                    <span class="pub-img-placeholder" style="display:none;" aria-hidden="true"><i class="fa fa-image pub-img-placeholder-icon"></i></span>
+                    <span class="pub-img-placeholder" style="display:none;" aria-hidden="true"><?= icon('image', 24, 'var(--pub-muted)') ?></span>
                 <?php else: ?>
-                    <span class="pub-img-placeholder" aria-hidden="true"><i class="fa fa-image pub-img-placeholder-icon"></i></span>
+                    <span class="pub-img-placeholder" aria-hidden="true"><?= icon('image', 24, 'var(--pub-muted)') ?></span>
                 <?php endif; ?>
                 <!-- Hover overlay with action buttons -->
                 <div class="pub-card-overlay">
                     <button class="pub-card-action" type="button" title="<?= e(t('nav.wishlist', 'Wishlist')) ?>"
                             data-product-id="<?= (int)($p['id'] ?? 0) ?>"
                             data-entity-id="<?= $entityId ?>"
-                            onclick="event.preventDefault();event.stopPropagation();if(typeof pubToggleWishlist==='function')pubToggleWishlist(this)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:1.2em;height:1.2em;display:inline-block;vertical-align:middle;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg></button>
+                            onclick="event.preventDefault();event.stopPropagation();if(typeof pubToggleWishlist==='function')pubToggleWishlist(this)"><?= icon('heart', 16) ?></button>
                     <button class="pub-card-action" type="button" title="<?= e(t('nav.compare', 'Compare')) ?>"
                             data-product-id="<?= (int)($p['id'] ?? 0) ?>"
-                            onclick="event.preventDefault();event.stopPropagation();if(typeof pubCompare==='function')pubCompare(this)"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:1.2em;height:1.2em;display:inline-block;vertical-align:middle;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg></button>
+                            onclick="event.preventDefault();event.stopPropagation();if(typeof pubCompare==='function')pubCompare(this)"><?= icon('arrow-left-right', 16) ?></button>
                     <a class="pub-card-action" href="/frontend/public/product.php?id=<?= (int)($p['id'] ?? 0) ?>"
                        title="<?= e(t('products.view_product', 'Quick View')) ?>"
-                       onclick="event.stopPropagation()"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:1.2em;height:1.2em;display:inline-block;vertical-align:middle;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></a>
+                       onclick="event.stopPropagation()"><?= icon('eye', 16) ?></a>
                 </div>
             </div>
             <div class="pub-product-card-body">
@@ -124,11 +119,11 @@ $showCart       = ($sectionSettings['show_cart']        ?? true);
                 $pRating = round((float)($p['rating_average'] ?? 0), 1);
                 $pRatingCount = (int)($p['rating_count'] ?? 0);
                 if ($pRating > 0): ?>
-                <div class="pub-stars" style="font-size:0.85rem;margin:3px 0;" title="<?= $pRating ?>/5">
+                <div class="pub-stars" style="font-size:0.85rem;margin:3px 0;display:flex;gap:2px;" title="<?= $pRating ?>/5">
                     <?php for ($s = 1; $s <= 5; $s++):
-                        if ($s <= $pRating) echo '<span class="pub-star--full">★</span>';
-                        elseif ($s - 0.5 <= $pRating) echo '<span class="pub-star--half">★</span>';
-                        else echo '<span class="pub-star--empty">☆</span>';
+                        if ($s <= $pRating) echo icon('star', 13, '#f59e0b');
+                        elseif ($s - 0.5 <= $pRating) echo icon('star-half', 13, '#f59e0b');
+                        else echo icon('star-outline', 13, '#f59e0b');
                     endfor; ?>
                     <?php if ($pRatingCount > 0): ?>
                         <span class="pub-rating-count">(<?= $pRatingCount ?>)</span>
@@ -139,7 +134,7 @@ $showCart       = ($sectionSettings['show_cart']        ?? true);
                     <small style="color:var(--pub-muted);font-size:0.76rem;"><?= e($p['sku']) ?></small>
                 <?php endif; ?>
                 <?php if (isset($p['price'])): ?>
-                    <p class="pub-product-price"><?= number_format((float)$p['price'], 2) ?> <small><?= e($p['currency_code'] ?? t('common.currency')) ?></small></p>
+                    <p class="pub-product-price"><?= number_format((float)$p['price'], 2) ?> <small><?= e($p['currency_code'] ?? '') ?></small></p>
                 <?php endif; ?>
                 <?php
                 $pStock = $p['stock_status'] ?? '';
@@ -166,9 +161,10 @@ $showCart       = ($sectionSettings['show_cart']        ?? true);
                         data-product-image="<?= e($pAllImgs[0] ?? ($p['image_url'] ?? '')) ?>"
                         data-product-sku="<?= e($p['sku'] ?? '') ?>"
                         data-currency="<?= e($p['currency_code'] ?? '') ?>"
-                        data-added-text="✅ <?= e(t('cart.added')) ?>"
-                        onclick="pubAddToCart(this)">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:1.2em;height:1.2em;display:inline-block;vertical-align:middle;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        data-entity-id="<?= $entityId ?>"
+                        data-added-text="<?= e(t('cart.added')) ?>"
+                        onclick="event.stopPropagation();pubAddToCart(this)">
+                    <?= icon('cart-plus', 16) ?>
                 </button>
             </div>
             <?php endif; ?>
@@ -194,8 +190,8 @@ $showCart       = ($sectionSettings['show_cart']        ?? true);
     </nav>
     <?php endif; ?>
     <?php else: ?>
-    <div class="pub-empty" style="margin-top:40px;">
-        <div class="pub-empty-icon">🛍️</div>
+    <div class="pub-empty" style="text-align:center; padding: 60px 20px; opacity: 0.5;">
+        <div class="pub-empty-icon" style="margin-bottom: 20px;"><?= icon('bag', 52, 'var(--pub-muted)') ?></div>
         <p class="pub-empty-msg"><?= e(t('entity.no_products')) ?></p>
     </div>
     <?php endif; ?>

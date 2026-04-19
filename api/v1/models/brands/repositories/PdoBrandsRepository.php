@@ -285,15 +285,18 @@ final class PdoBrandsRepository
      */
     private function deleteTranslations(int $brandId, array $deletedTranslations): void
     {
-        $stmt = $this->pdo->prepare("
-            DELETE FROM brand_translations
-            WHERE brand_id = :brand_id AND language_code = :lang
-        ");
-        foreach ($deletedTranslations as $del) {
-            if (isset($del['language_code'])) {
-                $stmt->execute([':brand_id' => $brandId, ':lang' => $del['language_code']]);
-            }
+        $langs = array_filter(array_column($deletedTranslations, 'language_code'));
+        if (empty($langs)) return;
+
+        $placeholders = [];
+        $params = [':brand_id' => $brandId];
+        foreach ($langs as $i => $lang) {
+            $placeholders[] = ":lang_{$i}";
+            $params[":lang_{$i}"] = $lang;
         }
+
+        $sql = "DELETE FROM brand_translations WHERE brand_id = :brand_id AND language_code IN (" . implode(',', $placeholders) . ")";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     /**
@@ -395,26 +398,26 @@ final class PdoBrandsRepository
      */
     public function saveTranslations(int $brandId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO brand_translations (brand_id, language_code, name, description, meta_title, meta_description)
-            VALUES (:brand_id, :lang, :name, :description, :meta_title, :meta_description)
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                description = VALUES(description),
-                meta_title = VALUES(meta_title),
-                meta_description = VALUES(meta_description)
-        ");
+        if (empty($translations)) return;
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $data) {
-            $stmt->execute([
-                ':brand_id'          => $brandId,
-                ':lang'              => $lang,
-                ':name'              => $data['name']              ?? null,
-                ':description'       => $data['description']       ?? null,
-                ':meta_title'        => $data['meta_title']        ?? null,
-                ':meta_description'  => $data['meta_description']  ?? null
-            ]);
+            $values[] = "(:brand_id_{$i}, :lang_{$i}, :name_{$i}, :description_{$i}, :meta_title_{$i}, :meta_description_{$i})";
+            $params[":brand_id_{$i}"]         = $brandId;
+            $params[":lang_{$i}"]             = $lang;
+            $params[":name_{$i}"]             = $data['name']             ?? null;
+            $params[":description_{$i}"]      = $data['description']      ?? null;
+            $params[":meta_title_{$i}"]       = $data['meta_title']       ?? null;
+            $params[":meta_description_{$i}"] = $data['meta_description'] ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO brand_translations (brand_id, language_code, name, description, meta_title, meta_description) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), meta_title = VALUES(meta_title), meta_description = VALUES(meta_description)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     /**

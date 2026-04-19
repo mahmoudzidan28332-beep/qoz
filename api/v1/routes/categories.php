@@ -38,6 +38,9 @@ $repo = new PdoCategoriesRepository($pdo);
 $validator = new CategoriesValidator();
 $service = new CategoriesService($repo, $validator);
 $controller = new CategoriesController($service);
+// Pass acting user ID from session to controller
+$_catUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+$controller->setActingUserId($_catUserId);
 
 // دالة لتحديد الحد الأقصى
 function clampLimit(int $val, int $max = 1000): int {
@@ -77,21 +80,21 @@ try {
 
     /* ===================== GET ACTIVE ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/active')) {
-        $data = $controller->getActive($tenantId, $lang);
+        $data = $controller->getActive($tenantId);
         ResponseFormatter::success($data);
         return;
     }
 
     /* ===================== GET FEATURED ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/featured')) {
-        $data = $controller->getFeatured($tenantId, $lang);
+        $data = $controller->getFeatured($tenantId);
         ResponseFormatter::success($data);
         return;
     }
 
     /* ===================== GET TREE ===================== */
     if ($method === 'GET' && str_contains($uri, '/categories/tree')) {
-        $data = $controller->tree($tenantId, $lang);
+        $data = $controller->tree($tenantId);
         ResponseFormatter::success($data);
         return;
     }
@@ -104,14 +107,14 @@ try {
         if (isset($_GET['slug'])) {
             $data = ['slug' => $_GET['slug']];
             // البحث عن الفئة باستخدام slug
-            $categoryId = $repo->findIdBySlug($tenantId, $_GET['slug']);
+            $categoryId = $controller->findIdBySlug($tenantId, $_GET['slug']);
             if ($categoryId) {
                 $id = $categoryId;
             }
         }
         
         try {
-            $row = $controller->getById($tenantId, $id, $lang);
+            $row = $controller->getById($tenantId, $id);
             ResponseFormatter::success($row);
         } catch (RuntimeException $e) {
             ResponseFormatter::error($e->getMessage(), 404);
@@ -176,7 +179,7 @@ try {
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break category creation
+            error_log('[categories] SEO sync on create failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($created, 'Category created successfully', 201);
@@ -201,7 +204,7 @@ try {
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
         } catch (\Throwable $e) {
-            // SEO sync failure should not break category update
+            error_log('[categories] SEO sync on update failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success($updated, 'Category updated successfully', 200);
@@ -223,18 +226,13 @@ try {
         $id = (int) $matches[1];
         $data = ['id' => $id];
         
-        // إضافة user_id إذا كان موجوداً في الجلسة
-        if (isset($_SESSION['user_id'])) {
-            $data['user_id'] = $_SESSION['user_id'];
-        }
-        
         $controller->delete($tenantId, $data);
 
         // Auto-delete SEO meta
         try {
             SeoAutoManager::delete($pdo, 'category', $id);
         } catch (\Throwable $e) {
-            // SEO delete failure should not break category deletion
+            error_log('[categories] SEO delete failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success(['deleted' => true], 'Category deleted successfully', 200);
@@ -253,7 +251,7 @@ try {
                 SeoAutoManager::delete($pdo, 'category', (int)$delId);
             }
         } catch (\Throwable $e) {
-            // SEO delete failure should not break category deletion
+            error_log('[categories] SEO delete on bulk delete failed: ' . $e->getMessage());
         }
 
         ResponseFormatter::success(['deleted' => true], 'Category deleted successfully', 200);

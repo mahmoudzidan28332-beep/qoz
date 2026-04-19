@@ -23,101 +23,60 @@ final class PdoCountriesRepository
         $perPage = max(1, min(100, (int)($filters['per_page'] ?? 50)));
         $offset = ($page - 1) * $perPage;
 
-        $where = [];
-        $selectParams = [];
-        $countParams = [];
-
-        if (!empty($filters['id'])) {
-            $where[] = 'c.id = :id';
-            $selectParams[':id'] = (int)$filters['id'];
-            $countParams[':id'] = (int)$filters['id'];
-        }
-        if (!empty($filters['iso2'])) {
-            $where[] = 'c.iso2 = :iso2';
-            $selectParams[':iso2'] = $filters['iso2'];
-            $countParams[':iso2'] = $filters['iso2'];
-        }
-        if (!empty($filters['iso3'])) {
-            $where[] = 'c.iso3 = :iso3';
-            $selectParams[':iso3'] = $filters['iso3'];
-            $countParams[':iso3'] = $filters['iso3'];
-        }
-        if (!empty($filters['currency_code'])) {
-            $where[] = 'c.currency_code = :currency_code';
-            $selectParams[':currency_code'] = $filters['currency_code'];
-            $countParams[':currency_code'] = $filters['currency_code'];
-        }
-
-        $nameSearch = null;
-        if (!empty($filters['name'])) {
-            $nameSearch = trim($filters['name']);
-            if ($lang) {
-                $where[] = '(c.name LIKE :name OR ct.name LIKE :name)';
-            } else {
-                $where[] = 'c.name LIKE :name';
-            }
-            $selectParams[':name'] = '%' . $nameSearch . '%';
-            $countParams[':name'] = '%' . $nameSearch . '%';
-        }
-
+        $where = []; $selectParams = []; $countParams = [];
+        $this->applyCountryFilters($filters, $lang, $where, $selectParams, $countParams);
         $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-        // Count total
+        $total = $this->countCountries($lang, $whereSql, $countParams);
+
+        $items = $this->fetchCountries($lang, $whereSql, $selectParams, $perPage, $offset);
+
+        $meta = ['total' => $total, 'page' => $page, 'per_page' => $perPage, 'pages' => $perPage > 0 ? (int)ceil($total / $perPage) : 0];
+        return ['items' => $items, 'meta' => $meta];
+    }
+
+    private function applyCountryFilters(array $filters, ?string $lang, array &$where, array &$selectParams, array &$countParams): void
+    {
+        if (!empty($filters['id'])) { $where[] = 'c.id = :id'; $selectParams[':id'] = (int)$filters['id']; $countParams[':id'] = (int)$filters['id']; }
+        if (!empty($filters['iso2'])) { $where[] = 'c.iso2 = :iso2'; $selectParams[':iso2'] = $filters['iso2']; $countParams[':iso2'] = $filters['iso2']; }
+        if (!empty($filters['iso3'])) { $where[] = 'c.iso3 = :iso3'; $selectParams[':iso3'] = $filters['iso3']; $countParams[':iso3'] = $filters['iso3']; }
+        if (!empty($filters['currency_code'])) { $where[] = 'c.currency_code = :currency_code'; $selectParams[':currency_code'] = $filters['currency_code']; $countParams[':currency_code'] = $filters['currency_code']; }
+        if (!empty($filters['name'])) {
+            $where[] = $lang ? '(c.name LIKE :name OR ct.name LIKE :name)' : 'c.name LIKE :name';
+            $selectParams[':name'] = '%' . trim($filters['name']) . '%';
+            $countParams[':name'] = '%' . trim($filters['name']) . '%';
+        }
+    }
+
+    private function countCountries(?string $lang, string $whereSql, array $countParams): int
+    {
         if ($lang) {
-            $countSql = "SELECT COUNT(DISTINCT c.id) as total FROM countries c
-                LEFT JOIN country_translations ct ON ct.country_id = c.id AND ct.language_code = :_count_lang
-                {$whereSql}";
             $countParams[':_count_lang'] = $lang;
-            $stmt = $this->pdo->prepare($countSql);
+            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT c.id) as total FROM countries c LEFT JOIN country_translations ct ON ct.country_id = c.id AND ct.language_code = :_count_lang {$whereSql}");
             $stmt->execute($countParams);
         } else {
-            $countSql = "SELECT COUNT(*) as total FROM countries c {$whereSql}";
-            $stmt = $this->pdo->prepare($countSql);
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM countries c {$whereSql}");
             $stmt->execute($countParams);
         }
+        return (int)$stmt->fetchColumn();
+    }
 
-        $total = (int)$stmt->fetchColumn();
-
-        // Main select
+    private function fetchCountries(?string $lang, string $whereSql, array $selectParams, int $perPage, int $offset): array
+    {
         $select = "SELECT c.id, c.iso2, c.iso3, c.name as base_name, c.currency_code";
-        if ($lang) {
-            $select .= ", ct.name AS translated_name";
-        }
+        if ($lang) { $select .= ", ct.name AS translated_name"; }
         $sql = $select . " FROM countries c ";
-        if ($lang) {
-            $sql .= " LEFT JOIN country_translations ct ON ct.country_id = c.id AND ct.language_code = :lang ";
-            $selectParams[':lang'] = $lang;
-        }
+        if ($lang) { $sql .= " LEFT JOIN country_translations ct ON ct.country_id = c.id AND ct.language_code = :lang "; $selectParams[':lang'] = $lang; }
         $sql .= " {$whereSql} ORDER BY COALESCE(ct.name, c.name) ASC LIMIT :limit OFFSET :offset";
-
+        $selectParams[':limit'] = $perPage; $selectParams[':offset'] = $offset;
         $stmt = $this->pdo->prepare($sql);
-
-        // Merge limit/offset into params for execute
-        $selectParams[':limit'] = $perPage;
-        $selectParams[':offset'] = $offset;
-
-        // Execute with execute($params) to avoid binding non-existing params
         $stmt->execute($selectParams);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Normalize name: prefer translated_name if present
         foreach ($items as &$it) {
-            if (!empty($it['translated_name'])) {
-                $it['name'] = $it['translated_name'];
-            } else {
-                $it['name'] = $it['base_name'];
-            }
+            $it['name'] = !empty($it['translated_name']) ? $it['translated_name'] : $it['base_name'];
             unset($it['base_name'], $it['translated_name']);
         }
-
-        $meta = [
-            'total' => $total,
-            'page' => $page,
-            'per_page' => $perPage,
-            'pages' => $perPage > 0 ? (int)ceil($total / $perPage) : 0
-        ];
-
-        return ['items' => $items, 'meta' => $meta];
+        return $items;
     }
 
     /**

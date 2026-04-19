@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
 
-$segments = $_GET['segments'] ?? [];
-$first = strtolower($segments[0] ?? '');
+$segments = isset($_GET['segments']) && is_array($_GET['segments']) ? $_GET['segments'] : [];
+$first = strtolower(trim((string)($segments[0] ?? '')));
 
 $mobileUser = $GLOBALS['MOBILE_USER'] ?? $_SESSION['mobile_user'] ?? $GLOBALS['ADMIN_USER'] ?? $_SESSION['user'] ?? null;
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;

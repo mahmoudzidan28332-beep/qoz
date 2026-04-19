@@ -130,20 +130,35 @@ if ($pdo && $userId) {
 
 $totalPages = $notifTotal > 0 ? (int)ceil($notifTotal / $perPage) : 0;
 
-// Type → emoji icon
+// Type → Bootstrap Icon
 function notif_icon(string $code): string {
     $icons = [
-        'order' => '📦', 'payment' => '💳', 'shipment' => '🚚', 'return' => '↩️',
-        'review' => '⭐', 'promotion' => '🎉', 'system' => '⚙️', 'entities' => '🏢',
-        'support' => '🆘', 'wallet' => '💰', 'loyalty' => '🏅',
-        'audit_completed' => '✅', 'audit_rejected' => '❌',
+        'order'           => '<i class="bi bi-box-seam"></i>',
+        'payment'         => '<i class="bi bi-credit-card"></i>',
+        'shipment'        => '<i class="bi bi-truck"></i>',
+        'return'          => '<i class="bi bi-arrow-counterclockwise"></i>',
+        'review'          => '<i class="bi bi-star"></i>',
+        'promotion'       => '<i class="bi bi-tag"></i>',
+        'system'          => '<i class="bi bi-gear"></i>',
+        'entities'        => '<i class="bi bi-shop"></i>',
+        'support'         => '<i class="bi bi-headset"></i>',
+        'wallet'          => '<i class="bi bi-wallet2"></i>',
+        'loyalty'         => '<i class="bi bi-award"></i>',
+        'audit_completed' => '<i class="bi bi-patch-check-fill"></i>',
+        'audit_rejected'  => '<i class="bi bi-x-circle-fill"></i>',
     ];
-    return $icons[$code] ?? '🔔';
+    return $icons[$code] ?? '<i class="bi bi-bell"></i>';
 }
 
 // Priority dot
 function notif_priority_label(string $p): string {
-    return ['low' => '🔵', 'normal' => '⚪', 'high' => '🟠', 'urgent' => '🔴'][$p] ?? '';
+    $map = [
+        'low'    => '<i class="bi bi-circle-fill" style="color:#6b7280;font-size:0.5rem;"></i>',
+        'normal' => '<i class="bi bi-circle-fill" style="color:#9ca3af;font-size:0.5rem;"></i>',
+        'high'   => '<i class="bi bi-circle-fill" style="color:#f97316;font-size:0.5rem;"></i>',
+        'urgent' => '<i class="bi bi-circle-fill" style="color:#ef4444;font-size:0.5rem;"></i>',
+    ];
+    return $map[$p] ?? '';
 }
 
 // Build filter query string preserving current filters
@@ -164,16 +179,20 @@ function notif_filter_qs(array $extra = []): string {
     <!-- Page header -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
         <div>
-            <h1 style="margin:0;font-size:1.4rem;">🔔 <?= e(t('notifications.page_title', ['default' => 'My Notifications'])) ?></h1>
+            <h1 style="margin:0;font-size:1.4rem;display:flex;align-items:center;gap:10px;">
+                <i class="bi bi-bell-fill" style="color:var(--pub-primary);"></i>
+                <?= e(t('notifications.page_title', ['default' => 'My Notifications'])) ?>
+            </h1>
             <?php if ($unreadCount > 0): ?>
             <p style="color:var(--pub-muted);font-size:0.85rem;margin:4px 0 0;">
-                <?= $unreadCount ?> <?= e(t('notifications.unread_count', ['default' => 'unread'])) ?>
+                <span class="qz-status-badge qz-status-badge--warning" style="vertical-align:middle;"><?= $unreadCount ?></span>
+                <?= e(t('notifications.unread_count', ['default' => 'unread'])) ?>
             </p>
             <?php endif; ?>
         </div>
         <?php if ($unreadCount > 0): ?>
         <button type="button" class="pub-btn pub-btn--primary pub-btn--sm" id="pubMarkAllReadBtn">
-            ✓ <?= e(t('notifications.mark_all_read', ['default' => 'Mark all as read'])) ?>
+            <i class="bi bi-check2-all"></i> <?= e(t('notifications.mark_all_read', ['default' => 'Mark all as read'])) ?>
         </button>
         <?php endif; ?>
     </div>
@@ -226,13 +245,13 @@ function notif_filter_qs(array $extra = []): string {
 
         <!-- Explicit submit button so filters work without JavaScript -->
         <button type="submit" class="pub-btn pub-btn--primary pub-btn--sm" style="align-self:flex-end;">
-            🔍 <?= e(t('notifications.apply_filters', ['default' => 'Apply'])) ?>
+            <i class="bi bi-funnel-fill"></i> <?= e(t('notifications.apply_filters', ['default' => 'Apply'])) ?>
         </button>
 
         <?php if ($typeCodeFilter || $priorityFilter || $unreadOnly): ?>
         <a href="<?= notif_filter_qs(['type_code' => null, 'priority' => null, 'unread' => null, 'page' => null]) ?>"
            class="pub-btn pub-btn--ghost pub-btn--sm" style="align-self:flex-end;">
-            ✕ <?= e(t('notifications.reset_filters', ['default' => 'Reset'])) ?>
+            <i class="bi bi-x-lg"></i> <?= e(t('notifications.reset_filters', ['default' => 'Reset'])) ?>
         </a>
         <?php endif; ?>
     </form>
@@ -242,9 +261,9 @@ function notif_filter_qs(array $extra = []): string {
         ⚠️ <?= e(t('notifications.load_error', ['default' => 'Could not load notifications. Please try again.'])) ?>
     </div>
     <?php elseif (empty($notifItems)): ?>
-    <div style="text-align:center;padding:60px 20px;">
-        <div style="font-size:3rem;margin-bottom:16px;">🔔</div>
-        <p style="color:var(--pub-muted);font-size:1rem;">
+    <div style="text-align:center;padding:80px 20px;">
+        <div class="qz-icon-empty"><i class="bi bi-bell-slash"></i></div>
+        <p style="font-weight:500;font-size:1.1rem;color:var(--pub-text);">
             <?= e(t('notifications.empty', ['default' => 'No notifications yet'])) ?>
         </p>
     </div>
@@ -292,14 +311,14 @@ function notif_filter_qs(array $extra = []): string {
             <!-- Card footer: timestamp + per-item mark-as-read button -->
             <div class="pub-notif-card-footer">
                 <?php if ($nTime): ?>
-                <span class="pub-notif-card-time">🕐 <?= e($nTime) ?></span>
+            <span class="pub-notif-card-time"><i class="bi bi-clock" style="font-size:0.7rem;"></i> <?= e($nTime) ?></span>
                 <?php endif; ?>
                 <?php if (!$nRead): ?>
                 <button type="button"
                         class="pub-btn pub-btn--ghost pub-btn--xs pub-notif-mark-read-btn"
                         data-id="<?= $nId ?>"
                         aria-label="<?= e(t('notifications.mark_read', ['default' => 'Mark as read'])) ?>">
-                    ✓ <?= e(t('notifications.mark_read', ['default' => 'Mark as read'])) ?>
+                    <i class="bi bi-check2"></i> <?= e(t('notifications.mark_read', ['default' => 'Mark as read'])) ?>
                 </button>
                 <?php endif; ?>
             </div>
@@ -344,17 +363,16 @@ function notif_filter_qs(array $extra = []): string {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    /* CSS fallback for when DB card_styles has no 'notification' entry */
-    background-color: #fffbe6;
-    border: 1px solid #f59e0b;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(245,158,11,0.2);
-    padding: 14px;
-    transition: transform 0.15s, box-shadow 0.15s;
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-glass-border);
+    border-radius: var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    padding: 16px;
+    transition: transform var(--pub-transition), box-shadow var(--pub-transition);
 }
 .pub-notif-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important;
+    transform: translateY(-3px);
+    box-shadow: var(--pub-shadow-hover) !important;
 }
 .pub-notif-card.pub-notif-unread { border-inline-start-width: 3px !important; }
 .pub-notif-card[data-priority="urgent"] { border-inline-start-color: #ef4444 !important; }

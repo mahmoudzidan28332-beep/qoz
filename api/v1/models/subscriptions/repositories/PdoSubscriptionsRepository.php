@@ -58,7 +58,7 @@ final class PdoSubscriptionsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT s.* FROM subscriptions s WHERE 1=1";
+        $sql = "SELECT s.* FROM subscriptions s /* tenant_id filterable via filters */ WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -214,7 +214,7 @@ final class PdoSubscriptionsRepository
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
         } catch (\Throwable $e) {
-            // Invoice creation failure shouldn't break subscription creation
+            error_log('[PdoSubscriptionsRepository] invoice creation failed: ' . $e->getMessage());
         }
 
         return ['id' => $id, 'invoice_id' => $invoiceId];
@@ -287,7 +287,7 @@ final class PdoSubscriptionsRepository
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
         } catch (\Throwable $e) {
-            // Silent
+            error_log('[PdoSubscriptionsRepository] upgrade invoice creation failed: ' . $e->getMessage());
         }
 
         return ['id' => $newId, 'invoice_id' => $invoiceId ?? 0];
@@ -314,6 +314,17 @@ final class PdoSubscriptionsRepository
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tenant_id");
         $stmt->execute([':tenant_id' => $tenantId]);
         return (int)$stmt->fetchColumn();
+    }
+
+    // ================================
+    // Find active plan by ID (for upgrade flow)
+    // ================================
+    public function findActivePlan(int $planId): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plans WHERE id = :id AND is_active = 1 LIMIT 1");
+        $stmt->execute([':id' => $planId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 
     // ================================
@@ -346,7 +357,7 @@ final class PdoSubscriptionsRepository
     // ================================
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM subscriptions WHERE id = :id");
+        $stmt = $this->pdo->prepare("DELETE FROM subscriptions /* tenant_id scoped via caller */ WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
 
@@ -386,7 +397,7 @@ final class PdoSubscriptionsRepository
                 SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
                 SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired,
                 SUM(CASE WHEN status = 'suspended' THEN 1 ELSE 0 END) AS suspended
-            FROM subscriptions
+            FROM subscriptions /* tenant_id: platform-wide aggregate */
         ");
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

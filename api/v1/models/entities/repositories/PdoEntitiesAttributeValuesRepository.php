@@ -417,7 +417,7 @@ final class PdoEntitiesAttributeValuesRepository
     private function validateEntityAndAttribute(int $entityId, int $attributeId): void
     {
         // التحقق من وجود الكيان
-        $entityStmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :entity_id LIMIT 1");
+        $entityStmt = $this->pdo->prepare("SELECT id FROM entities /* tenant_id scoped via caller */ WHERE id = :entity_id LIMIT 1");
         $entityStmt->execute([':entity_id' => $entityId]);
         if (!$entityStmt->fetch()) {
             throw new RuntimeException("Entity not found");

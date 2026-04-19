@@ -15,38 +15,187 @@ declare(strict_types=1);
 
 // ── Security / output ────────────────────────────────────────────────────────
 ini_set('display_errors', '0');
-error_reporting(E_ALL);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+
+// Local file logger — works even when php error_log = /dev/null
+function _auth_log(string $msg): void
+{
+    static $logFile = null;
+    if ($logFile === null) {
+        $dir = dirname(__DIR__) . '/logs';
+        if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
+        $logFile = is_writable($dir) ? $dir . '/auth_errors.log' : false;
+    }
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n";
+    if ($logFile) {
+        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+    }
+    error_log($msg); // also try system log (may be /dev/null)
+}
+
+// Global error handler — prevents bare 500 responses
+set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    // Respect @ operator — error_reporting() returns 0 when @ is active
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
+    _auth_log("[api/auth.php] PHP Error #{$errno}: {$errstr} in {$errfile}:{$errline}");
+    return false; // let PHP handle it as well
+});
+set_exception_handler(function (Throwable $e): void {
+    _auth_log('[api/auth.php] Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString());
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['success' => false, 'message' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+// Catch fatal errors (out-of-memory, timeout, etc.)
+register_shutdown_function(function (): void {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        _auth_log("[api/auth.php] FATAL: {$err['message']} in {$err['file']}:{$err['line']}");
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode(['success' => false, 'message' => 'Internal server error', 'hint' => 'Check logs/auth_errors.log'], JSON_UNESCAPED_UNICODE);
+    }
+});
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('Content-Security-Policy: default-src \'none\'');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+// ── Early global per-IP rate limiter (auth endpoint) ────────────────────────
+// Protects /api/auth from burst attacks (tighter than global: 5 req/min for auth)
+(function () {
+    $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $dir = sys_get_temp_dir() . '/security_middleware/rate';
+    if (!is_dir($dir)) { @mkdir($dir, 0750, true); }
+    $file = $dir . '/' . hash('sha256', "failsafe:auth:ip:{$ip}") . '.json';
+    $now  = time();
+    $max  = 5;
+    $win  = 60;
+
+    $fh = @fopen($file, 'c+');
+    if (!$fh) return;
+
+    flock($fh, LOCK_EX);
+    $raw  = stream_get_contents($fh);
+    $data = ($raw !== '' && $raw !== false) ? @json_decode($raw, true) : null;
+    if (!is_array($data) || !isset($data['window_start'])) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    if ($data['window_start'] + $win <= $now) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    $data['count']++;
+    fseek($fh, 0);
+    ftruncate($fh, 0);
+    fwrite($fh, json_encode($data));
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    if ($data['count'] > $max) {
+        $retryAfter = max(1, ($data['window_start'] + $win) - $now);
+        http_response_code(429);
+        header('Retry-After: ' . $retryAfter);
+        header('X-RateLimit-Limit: ' . $max);
+        header('X-RateLimit-Remaining: 0');
+        header('X-RateLimit-Reset: ' . ($now + $retryAfter));
+        echo json_encode(['success' => false, 'message' => 'Too many requests. Please try again later.']);
+        exit;
+    }
+})();
 
 // ── Path root ────────────────────────────────────────────────────────────────
 // Correct base for this file: the api/ directory itself.
 // Do NOT use dirname(__DIR__, 2) — that would escape above the project root.
 $baseDir = __DIR__;
 
+// ── Login rate limiter (file-based, no Redis needed) ────────────────────────
+$_authRateLimiterDir = sys_get_temp_dir() . '/security_middleware/rate';
+@mkdir($_authRateLimiterDir, 0750, true);
+
+/**
+ * Check if a key has exceeded the allowed number of requests in a time window.
+ * Uses flock() for atomic read-modify-write under concurrent requests.
+ * Returns ['allowed' => bool, 'current' => int, 'reset_in' => int].
+ */
+function _auth_rate_check(string $key, int $max, int $windowSeconds): array
+{
+    global $_authRateLimiterDir;
+    $file = $_authRateLimiterDir . '/' . hash('sha256', 'auth:' . $key) . '.json';
+    $now  = time();
+
+    // Atomic read-modify-write with exclusive lock
+    $fh = @fopen($file, 'c+');
+    if (!$fh) {
+        return ['allowed' => true, 'current' => 0, 'reset_in' => $windowSeconds];
+    }
+
+    flock($fh, LOCK_EX);
+
+    $content = stream_get_contents($fh);
+    $data = ($content !== '' && $content !== false) ? @json_decode($content, true) : null;
+    if (!is_array($data) || !isset($data['window_start'])) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    if ($data['window_start'] + $windowSeconds <= $now) {
+        $data = ['window_start' => $now, 'count' => 0];
+    }
+    $data['count']++;
+
+    fseek($fh, 0);
+    ftruncate($fh, 0);
+    fwrite($fh, json_encode($data));
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    $resetIn = max(0, ($data['window_start'] + $windowSeconds) - $now);
+    return ['allowed' => $data['count'] <= $max, 'current' => $data['count'], 'reset_in' => $resetIn];
+}
+
 // ── Session — match APP_SESSID used by bootstrap_admin_ui.php ───────────────
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    if (session_name() !== 'APP_SESSID') {
-        session_name('APP_SESSID');
+    try {
+        if (session_name() !== 'APP_SESSID') {
+            session_name('APP_SESSID');
+        }
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        // Extract hostname without port for cookie domain
+        $cookieDomain = '';
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $cookieDomain = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST']);
+        }
+        if (PHP_VERSION_ID >= 70300) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path'     => '/',
+                'domain'   => $cookieDomain,
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        } else {
+            session_set_cookie_params(0, '/', $cookieDomain, $secure, true);
+        }
+        if (!@session_start(['use_strict_mode' => true])) {
+            _auth_log('[api/auth.php] session_start() failed — continuing without session');
+        }
+    } catch (Throwable $e) {
+        _auth_log('[api/auth.php] Session init error: ' . $e->getMessage());
     }
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    if (PHP_VERSION_ID >= 70300) {
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path'     => '/',
-            'domain'   => $_SERVER['HTTP_HOST'] ?? '',
-            'secure'   => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-    } else {
-        session_set_cookie_params(0, '/', $_SERVER['HTTP_HOST'] ?? '', $secure, true);
-    }
-    session_start(['use_strict_mode' => true]);
 }
 
 // ── JSON helper ──────────────────────────────────────────────────────────────
@@ -80,10 +229,11 @@ if (!$pdo instanceof PDO) {
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES   => false,
+                    PDO::ATTR_TIMEOUT            => 5,
                 ]);
                 $GLOBALS['ADMIN_DB'] = $pdo;
             } catch (Throwable $e) {
-                error_log('[api/auth.php] DB connect failed: ' . $e->getMessage());
+                _auth_log('[api/auth.php] DB connect failed: ' . $e->getMessage());
             }
         }
     }
@@ -101,7 +251,7 @@ if (!$pdo instanceof PDO) {
                     $GLOBALS['ADMIN_DB'] = $pdo;
                 }
             } catch (Throwable $e) {
-                error_log('[api/auth.php] DatabaseConnection failed: ' . $e->getMessage());
+                _auth_log('[api/auth.php] DatabaseConnection failed: ' . $e->getMessage());
             }
         }
     }
@@ -196,7 +346,7 @@ function _auth_rbac(PDO $pdo, int $userId, ?int $roleId): array
             }
         }
     } catch (Throwable $e) {
-        error_log('[api/auth.php] RBAC error: ' . $e->getMessage());
+        _auth_log('[api/auth.php] RBAC error: ' . $e->getMessage());
     }
     return [
         'roles'       => array_values(array_unique($roles)),
@@ -308,11 +458,20 @@ if ($method === 'POST') {
             _auth_json(true, 'Registration successful', ['user' => $user]);
         } catch (Throwable $e) {
             error_log('[api/auth.php] Register error: ' . $e->getMessage());
+            _auth_log('[api/auth.php] Register error: ' . $e->getMessage());
             _auth_json(false, 'Registration failed', [], 500);
         }
     }
 
     // ── LOGIN ─────────────────────────────────────────────────────────────────
+    // Rate-limit login attempts per IP (10 attempts per 60 seconds)
+    $loginIp  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $rateResult = _auth_rate_check('login:' . $loginIp, 5, 60);
+    if (!$rateResult['allowed']) {
+        header('Retry-After: ' . $rateResult['reset_in']);
+        _auth_json(false, 'Too many login attempts. Please try again later.', [], 429);
+    }
+
     $identifier = trim((string)($payload['username'] ?? $payload['email'] ?? $payload['identifier'] ?? ''));
     $password   = (string)($payload['password'] ?? '');
 
@@ -356,7 +515,7 @@ if ($method === 'POST') {
                 $tuStmt->execute([$dbUserId]);
                 $tenantRow = $tuStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             } catch (Throwable $e) {
-                error_log('[api/auth.php] tenant_users lookup error: ' . $e->getMessage());
+                _auth_log('[api/auth.php] tenant_users lookup error: ' . $e->getMessage());
             }
         }
 
@@ -389,7 +548,7 @@ if ($method === 'POST') {
         _auth_json(true, 'Login successful', ['user' => $user]);
 
     } catch (Throwable $e) {
-        error_log('[api/auth.php] Login error: ' . $e->getMessage());
+        _auth_log('[api/auth.php] Login error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         _auth_json(false, 'Authentication failed', [], 500);
     }
 }

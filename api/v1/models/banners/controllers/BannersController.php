@@ -40,27 +40,24 @@ final class BannersController
         return $this->service->get($tenantId, $id, $lang, $allTranslations);
     }
 
-    public function create(int $tenantId, array $data): array
+    public function create(int $tenantId, array $data, ?int $actingUserId = null): array
     {
-        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-        return $this->service->save($tenantId, $data, $userId);
+        return $this->service->save($tenantId, $data, $actingUserId);
     }
 
-    public function update(int $tenantId, array $data): array
+    public function update(int $tenantId, array $data, ?int $actingUserId = null): array
     {
         if (empty($data['id'])) {
             throw new InvalidArgumentException('ID is required');
         }
-        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-        return $this->service->save($tenantId, $data, $userId);
+        return $this->service->save($tenantId, $data, $actingUserId);
     }
 
-    public function delete(int $tenantId, array $data): void
+    public function delete(int $tenantId, array $data, ?int $actingUserId = null): void
     {
         if (empty($data['id'])) {
             throw new InvalidArgumentException('ID is required');
         }
-        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-        $this->service->delete($tenantId, (int)$data['id'], $userId);
+        $this->service->delete($tenantId, (int)$data['id'], $actingUserId);
     }
 }

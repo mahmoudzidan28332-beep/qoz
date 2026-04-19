@@ -347,30 +347,31 @@ final class PdoStorePagesRepository
 
     public function saveSectionTranslations(int $sectionId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO store_section_translations (section_id, language_code, title, content)
-            VALUES (:section_id, :lang, :title, :content)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content)
-        ");
+        if (empty($translations)) {
+            return;
+        }
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $data) {
-            // Prepare content value: always JSON-encode for the JSON column
             $contentValue = null;
             if (isset($data['content']) && $data['content'] !== '' && $data['content'] !== null) {
                 $encoded = json_encode($data['content']);
-                // Only use encoded value if json_encode succeeded
                 if ($encoded !== false) {
                     $contentValue = $encoded;
                 }
             }
 
-            $stmt->execute([
-                ':section_id' => $sectionId,
-                ':lang'       => $lang,
-                ':title'      => $data['title'] ?? null,
-                ':content'    => $contentValue,
-            ]);
+            $values[] = "(:section_id_{$i}, :lang_{$i}, :title_{$i}, :content_{$i})";
+            $params[":section_id_{$i}"] = $sectionId;
+            $params[":lang_{$i}"] = $lang;
+            $params[":title_{$i}"] = $data['title'] ?? null;
+            $params[":content_{$i}"] = $contentValue;
+            $i++;
         }
+        $sql = "INSERT INTO store_section_translations (section_id, language_code, title, content) VALUES " . implode(', ', $values) . " ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getSectionTranslations(int $sectionId): array
@@ -409,20 +410,30 @@ final class PdoStorePagesRepository
 
     public function reorderSections(int $pageId, array $positions): void
     {
-        $stmt = $this->pdo->prepare("
-            UPDATE store_sections
-            SET position   = :position,
-                updated_at = NOW()
-            WHERE page_id = :pageId AND id = :id
-        ");
-
-        foreach ($positions as $item) {
-            $stmt->execute([
-                ':position' => (int)$item['position'],
-                ':pageId'   => $pageId,
-                ':id'       => (int)$item['id'],
-            ]);
+        if (empty($positions)) {
+            return;
         }
+
+        $ids    = [];
+        $cases  = [];
+        $params = [':pageId' => $pageId];
+
+        foreach ($positions as $i => $item) {
+            $idParam  = ":id_{$i}";
+            $posParam = ":pos_{$i}";
+            $ids[]    = $idParam;
+            $cases[]  = "WHEN id = {$idParam} THEN {$posParam}";
+            $params[$idParam]  = (int)$item['id'];
+            $params[$posParam] = (int)$item['position'];
+        }
+
+        $sql = "UPDATE store_sections
+                SET position   = CASE " . implode(' ', $cases) . " END,
+                    updated_at = NOW()
+                WHERE page_id = :pageId AND id IN (" . implode(', ', $ids) . ")";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
     }
 
     // =========================================================

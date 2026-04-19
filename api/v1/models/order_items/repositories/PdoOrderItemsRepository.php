@@ -81,9 +81,30 @@ final class PdoOrderItemsRepository
         return (int)$this->pdo->lastInsertId();
     }
 
+    public function createPublicItem(
+        int $tenantId,
+        int $orderId,
+        int $entityId,
+        int $productId,
+        string $productName,
+        string $sku,
+        int $quantity,
+        float $unitPrice,
+        float $subtotal,
+        float $total
+    ): void {
+        $this->pdo->prepare(
+            "INSERT INTO order_items
+               (tenant_id, order_id, entity_id, product_id, product_name, sku,
+                quantity, unit_price, subtotal, total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )->execute([$tenantId, $orderId, $entityId, $productId, $productName, $sku,
+                    $quantity, $unitPrice, $subtotal, $total]);
+    }
+
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM order_items WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        $stmt = $this->pdo->prepare("DELETE FROM order_items WHERE id = :id AND tenant_id = :tenant_id");
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 }

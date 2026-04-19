@@ -53,18 +53,13 @@ if ($first === 'register') {
             }
             $regTenantId = (int)($_POST['tenant_id'] ?? 0)
                 ?: ($tenantId ?? (int)($_SESSION['pub_tenant_id'] ?? $_SESSION['tenant_id'] ?? 1));
-            $st = $pdo->prepare(
-                'INSERT INTO entities
-                    (parent_id, tenant_id, user_id, store_name, slug, vendor_type, store_type,
-                     phone, email, website_url, status, is_verified, joined_at, created_at, updated_at)
-                 VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", 0, NOW(), NOW(), NOW())'
-            );
-            $st->execute([
+            $entitiesRepo = new PdoEntitiesRepository($pdo);
+            $entitiesService = new EntitiesService($entitiesRepo);
+            $newEntityId = $entitiesRepo->createPublic(
                 $regTenantId, $regUserId, $storeName, $slug,
                 $vendorType, $storeType, $phone, $email,
-                $websiteUrl ?: null,
-            ]);
-            $newEntityId = (int)$pdo->lastInsertId();
+                $websiteUrl ?: null
+            );
             ResponseFormatter::success(['ok' => true, 'id' => $newEntityId, 'slug' => $slug, 'status' => 'pending'],
                 'Application submitted — pending review', 201);
         } catch (Throwable $ex) {
@@ -84,18 +79,12 @@ if ($first === 'register') {
                 $existing = $pdoOne('SELECT id FROM tenants WHERE domain = ? LIMIT 1', [$tDomain]);
                 if ($existing) { ResponseFormatter::error('Domain already in use', 409); exit; }
             }
-            $st = $pdo->prepare(
-                'INSERT INTO tenants (name, domain, owner_user_id, status, created_at)
-                 VALUES (?, ?, ?, "suspended", NOW())'
-            );
-            $st->execute([$tName, $tDomain, $regUserId]);
-            $newTenantId = (int)$pdo->lastInsertId();
+            $tenantsRepo = new PdoTenantsRepository($pdo);
+            $newTenantId = $tenantsRepo->createTenantPublic($tName, $tDomain, $regUserId);
             // Link the user as owner in tenant_users
             try {
-                $pdo->prepare(
-                    'INSERT INTO tenant_users (tenant_id, user_id, role_id, is_active, joined_at)
-                     VALUES (?, ?, 1, 1, NOW())'
-                )->execute([$newTenantId, $regUserId]);
+                $tenantUsersRepo = new PdoTenant_usersRepository($pdo);
+                $tenantUsersRepo->addUserToTenant($newTenantId, $regUserId);
             } catch (Throwable $_) { /* tenant_users is optional */ }
             ResponseFormatter::success(['ok' => true, 'id' => $newTenantId], 'Tenant created', 201);
         } catch (Throwable $ex) {

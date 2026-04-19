@@ -212,24 +212,25 @@ final class PdoBannersRepository
     // ─────────────────────────────────────────────────────
     public function saveTranslations(int $bannerId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO banner_translations (banner_id, language_code, title, subtitle, link_text)
-            VALUES (:banner_id, :lang, :title, :subtitle, :link_text)
-            ON DUPLICATE KEY UPDATE
-                title     = VALUES(title),
-                subtitle  = VALUES(subtitle),
-                link_text = VALUES(link_text)
-        ");
+        if (empty($translations)) return;
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $t) {
-            $stmt->execute([
-                ':banner_id' => $bannerId,
-                ':lang'      => $lang,
-                ':title'     => $t['title']     ?? null,
-                ':subtitle'  => $t['subtitle']  ?? null,
-                ':link_text' => $t['link_text'] ?? null,
-            ]);
+            $values[] = "(:banner_id_{$i}, :lang_{$i}, :title_{$i}, :subtitle_{$i}, :link_text_{$i})";
+            $params[":banner_id_{$i}"] = $bannerId;
+            $params[":lang_{$i}"]      = $lang;
+            $params[":title_{$i}"]     = $t['title']     ?? null;
+            $params[":subtitle_{$i}"]  = $t['subtitle']  ?? null;
+            $params[":link_text_{$i}"] = $t['link_text'] ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO banner_translations (banner_id, language_code, title, subtitle, link_text) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle), link_text = VALUES(link_text)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $bannerId): array
