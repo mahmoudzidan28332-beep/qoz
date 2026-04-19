@@ -1,5 +1,5 @@
 🏗️ Architecture & Performance Report
-v3.0 — Generated: 2026-04-19 03:07:17 — Total analysis time: 1181.4 ms
+v3.0 — Generated: 2026-04-19 03:27:33 — Total analysis time: 1301.6 ms
 
 Score
 90
@@ -13,22 +13,17 @@ Critical
 Warnings
 0
 Info
-610
+582
 Module	Time (ms)	Tests	Findings
-Architecture Validation	170.9	7	1
-Performance Validation	101	6	79
-Multi-Tenant Safety	7.8	2	80
-Security Validation	224	5	0
-Type Safety	51.9	4	77
-Configuration Safety	457.8	4	0
-Exception Handling	31.6	3	305
-Code Quality	123.2	4	66
-Runtime Simulation	13.2	2	2
-[Namespace Consistency]
-Module: Architecture Validation
-Declared namespace 'Shared\Infrastructure\Persistence' may not match file location
-📁 api/shared/application/Repositories/PdoUserRepository.php
-💡 Ensure the namespace mirrors the directory structure (PSR-4).
+Architecture Validation	181.3	7	0
+Performance Validation	107.9	6	79
+Multi-Tenant Safety	6.9	2	80
+Security Validation	178	5	0
+Type Safety	73.5	4	60
+Configuration Safety	551.2	4	0
+Exception Handling	32.6	3	298
+Code Quality	152.3	4	63
+Runtime Simulation	17.9	2	2
 [Performance]
 Module: Performance Validation
 SELECT * found 1 time(s) — fetches unnecessary columns
@@ -832,26 +827,6 @@ Missing declare(strict_types=1)
 [Type Safety]
 Module: Type Safety
 Missing declare(strict_types=1)
-📁 api/services/OrderService.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/services/PaymentService.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/services/ShippingService.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/services/TaxService.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
 📁 api/shared/config/constants.php:1
 💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
 [Type Safety]
@@ -942,11 +917,6 @@ Missing declare(strict_types=1)
 [Type Safety]
 Module: Type Safety
 Missing declare(strict_types=1)
-📁 api/shared/helpers/session_debug.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
 📁 api/shared/helpers/sms.php:1
 💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
 [Type Safety]
@@ -994,26 +964,6 @@ Module: Type Safety
 Missing declare(strict_types=1)
 📁 api/v1/routes/wallet.php:1
 💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: generateOrderNumber, calculateTotals, create +10 more
-📁 api/services/OrderService.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: create, findById, findByOrder +4 more
-📁 api/services/PaymentService.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: listMethods, createMethod, updateMethod +16 more
-📁 api/services/ShippingService.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: calculate, getApplicableTaxRate, listRules +6 more
-📁 api/services/TaxService.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
 [Type Safety]
 Module: Type Safety
 Public method(s) missing return type: get
@@ -1084,26 +1034,6 @@ Module: Type Safety
 Public method(s) missing return type: count
 📁 api/v1/models/tenant_users/services/Tenant_usersService.php
 💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Untyped parameter(s) in public method(s): calculateTotals, getById, getByOrderNumber
-📁 api/services/OrderService.php
-💡 Add type declarations to all method parameters.
-[Type Safety]
-Module: Type Safety
-Untyped parameter(s) in public method(s): findById, findByOrder, capturePayment
-📁 api/services/PaymentService.php
-💡 Add type declarations to all method parameters.
-[Type Safety]
-Module: Type Safety
-Untyped parameter(s) in public method(s): listMethods, updateMethod, deleteMethod
-📁 api/services/ShippingService.php
-💡 Add type declarations to all method parameters.
-[Type Safety]
-Module: Type Safety
-Untyped parameter(s) in public method(s): getApplicableTaxRate, listRules, getRuleById
-📁 api/services/TaxService.php
-💡 Add type declarations to all method parameters.
 [Type Safety]
 Module: Type Safety
 Untyped parameter(s) in public method(s): get, set
@@ -1189,26 +1119,6 @@ Module: Type Safety
 Untyped parameter(s) in public method(s): list, count
 📁 api/v1/models/tenant_users/services/Tenant_usersService.php
 💡 Add type declarations to all method parameters.
-[Type Safety]
-Module: Type Safety
-Untyped class properties: $db, productModel
-📁 api/services/OrderService.php
-💡 Declare explicit types on all class properties (PHP 7.4+).
-[Type Safety]
-Module: Type Safety
-Untyped class properties: $db, paymentModel, orderService
-📁 api/services/PaymentService.php
-💡 Declare explicit types on all class properties (PHP 7.4+).
-[Type Safety]
-Module: Type Safety
-Untyped class properties: $db
-📁 api/services/ShippingService.php
-💡 Declare explicit types on all class properties (PHP 7.4+).
-[Type Safety]
-Module: Type Safety
-Untyped class properties: $db
-📁 api/services/TaxService.php
-💡 Declare explicit types on all class properties (PHP 7.4+).
 [Exception Handling]
 Module: Exception Handling
 Over-broad catch(Exception) or catch(Throwable) detected
@@ -1243,36 +1153,6 @@ Over-broad catch(Exception) or catch(Throwable) detected
 Module: Exception Handling
 Over-broad catch(Exception) or catch(Throwable) detected
 📁 api/scripts/archive_queues.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/services/IndependentDriverService.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/services/OrderService.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/services/PaymentService.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/services/ShippingService.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/services/TaxService.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/shared/application/Repositories/PdoUserRepository.php
 💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
 [Exception Handling]
 Module: Exception Handling
@@ -2717,11 +2597,6 @@ Generic Exception thrown — consider domain-specific exception classes
 [Exception Handling]
 Module: Exception Handling
 Generic Exception thrown — consider domain-specific exception classes
-📁 api/services/OrderService.php
-💡 Create descriptive exception classes (e.g. NotFoundException, ValidationException).
-[Exception Handling]
-Module: Exception Handling
-Generic Exception thrown — consider domain-specific exception classes
 📁 api/shared/helpers/RedisHelper.php
 💡 Create descriptive exception classes (e.g. NotFoundException, ValidationException).
 [Exception Handling]
@@ -2734,21 +2609,6 @@ Module: Exception Handling
 Generic Exception thrown — consider domain-specific exception classes
 📁 api/v1/routes/queues.php
 💡 Create descriptive exception classes (e.g. NotFoundException, ValidationException).
-[Large Method]
-Module: Code Quality
-Method 'create()' has ~51 LOC (threshold: 50)
-📁 api/services/PaymentService.php:41
-💡 Consider breaking this method into smaller parts.
-[Large Method]
-Module: Code Quality
-Method 'handleWebhook()' has ~75 LOC (threshold: 50)
-📁 api/services/PaymentService.php:303
-💡 Consider breaking this method into smaller parts.
-[Large Method]
-Module: Code Quality
-Method 'getApplicableTaxRate()' has ~79 LOC (threshold: 50)
-📁 api/services/TaxService.php:123
-💡 Consider breaking this method into smaller parts.
 [Large Method]
 Module: Code Quality
 Method 'getConnection()' has ~54 LOC (threshold: 50)
@@ -3070,4 +2930,4 @@ Large file (55.4 KB) — may slow autoload/include
 💡 Split into smaller, lazily-loaded modules.
 [Runtime Summary]
 Module: Runtime Simulation
-Simulation: 1000 requests in 0.006s (avg 0.0064 ms/req, 202 route files)
+Simulation: 1000 requests in 0.011s (avg 0.0111 ms/req, 202 route files)
