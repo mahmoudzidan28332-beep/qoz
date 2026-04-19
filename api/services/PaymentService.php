@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // htdocs/api/services/PaymentService.php
 // Service layer for Payments - handles creation of payment records, refunds, gateway webhook handling,
 // simple gateway placeholders (capture/refund), idempotency, and payment-related statistics.
@@ -73,24 +74,10 @@ class PaymentService
             return ['success' => false, 'message' => 'DB prepare failed (payments insert)'];
         }
 
-        $stmt->bind_param('siidsssd', $clientRef, $orderId, $userId, $amount, $currency, $gateway, $status, $meta);
-        // Note: binding types are best-effort; some drivers may need different types for meta (string)
-        // We'll coerce meta to string earlier.
+        $metaStr = $meta !== null ? (string)$meta : null;
+        $stmt->bind_param('siidssss', $clientRef, $orderId, $userId, $amount, $currency, $gateway, $status, $metaStr);
 
-        // If bind_param types cause issues, fall back to a safer approach
-        try {
-            $execOk = $stmt->execute();
-        } catch (Throwable $e) {
-            // Attempt a manual query fallback
-            $stmt->close();
-            $clientRefEsc = $this->db->real_escape_string($clientRef);
-            $metaEsc = $this->db->real_escape_string((string)$meta);
-            $gatewayEsc = $this->db->real_escape_string($gateway);
-            $currencyEsc = $this->db->real_escape_string($currency);
-            $sql = "INSERT INTO payments (client_reference, order_id, user_id, amount, currency, gateway, status, meta, created_at)
-                    VALUES ('{$clientRefEsc}', {$orderId}, {$userId}, {$amount}, '{$currencyEsc}', '{$gatewayEsc}', '{$status}', '{$metaEsc}', NOW())";
-            $execOk = $this->db->query($sql);
-        }
+        $execOk = $stmt->execute();
 
         if (!$execOk) {
             $err = $this->db->error;
@@ -378,9 +365,7 @@ class PaymentService
                 $stmt->execute();
                 $stmt->close();
             } else {
-                // fallback simple update
-                $metaEsc = $this->db->real_escape_string(json_encode(['webhook' => $payload]));
-                $this->db->query("UPDATE payments SET status = '{$lower}', meta = '{$metaEsc}', updated_at = NOW() WHERE id = {$payment['id']}");
+                return ['success' => false, 'message' => 'DB prepare failed (payment status update)'];
             }
             return ['success' => true, 'message' => 'Payment marked as failed'];
         }

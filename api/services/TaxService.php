@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // htdocs/api/services/TaxService.php
 // Service layer for Tax calculations and rules management.
 // - Calculate taxes for cart/order lines

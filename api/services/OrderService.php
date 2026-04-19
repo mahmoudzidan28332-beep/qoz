@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // htdocs/api/services/OrderService.php
 // Service layer for Orders - handles complex business logic (creation, totals, stock reservation,
 // payment state transitions, refunds, cancellations, vendor-splitting, invoices, webhooks, stats)

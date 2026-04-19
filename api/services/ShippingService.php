@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // htdocs/api/services/ShippingService.php
 // Service layer for Shipping - handles shipping methods, zones, rates, calculation, and carrier webhooks.
 // Designed to be called by controllers; returns structured arrays and does not emit HTTP responses directly.
