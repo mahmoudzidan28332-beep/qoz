@@ -1746,9 +1746,27 @@
         const iframe = document.createElement('iframe');
         iframe.id = 'addressFrame';
         iframe.dataset.ownerId = String(ownerId);
-        iframe.style.cssText = 'width:100%; height:500px; border:none;';
+        iframe.style.cssText = 'width:100%; min-height:500px; border:none; background:transparent; color-scheme:normal;';
+        iframe.setAttribute('allowtransparency', 'true');
+
+        // Auto-resize iframe to fit its content
+        function resizeIframe() {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                if (doc && doc.body) {
+                    const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 500);
+                    iframe.style.height = h + 'px';
+                }
+            } catch (_) { /* cross-origin */ }
+        }
+
         iframe.onload = () => {
             document.getElementById('addressLoading')?.remove();
+            resizeIframe();
+
+            // Re-measure after content settles (images, async renders)
+            setTimeout(resizeIframe, 500);
+            setTimeout(resizeIframe, 1500);
 
             try {
                 iframe.contentWindow.postMessage({
@@ -1817,6 +1835,19 @@
 
             case 'address-loaded':
                 console.log('[Entities] Address data loaded in iframe');
+                // Auto-resize iframe after content loads
+                {
+                    const frame = document.getElementById('addressFrame');
+                    if (frame) {
+                        try {
+                            const doc = frame.contentDocument || frame.contentWindow.document;
+                            if (doc && doc.body) {
+                                const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 500);
+                                frame.style.height = h + 'px';
+                            }
+                        } catch (_) { /* cross-origin */ }
+                    }
+                }
                 break;
 
             case 'error':
