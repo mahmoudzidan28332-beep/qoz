@@ -421,6 +421,7 @@
         checkedIds:  new Set(),  // category_ids currently checked in UI
         nodeIndex:   {},      // { id: node } for fast lookup
     };
+    let _treeClickHandler = null;  // stored ref so we can removeEventListener before re-adding
 
     // ── Build flat→tree index ──────────────────────────────
     function _buildNodeIndex(items) {
@@ -626,8 +627,12 @@
     }
 
     function _attachTreeEvents(container) {
+        // Remove previous listener to avoid duplicate handlers after tree reload
+        if (_treeClickHandler) {
+            container.removeEventListener('click', _treeClickHandler);
+        }
         // Use event delegation – single listener for thousands of nodes
-        container.addEventListener('click', e => {
+        _treeClickHandler = e => {
             const cb     = e.target.closest('.cat-tree-cb');
             const toggle = e.target.closest('.cat-tree-toggle:not(.leaf)');
 
@@ -647,7 +652,8 @@
                 const cb2 = node.querySelector('.cat-tree-cb');
                 if (cb2) { cb2.checked = !cb2.checked; _onCbClick(parseInt(cb2.dataset.cb, 10), cb2.checked); }
             }
-        }, { passive: true });
+        };
+        container.addEventListener('click', _treeClickHandler, { passive: true });
     }
 
     // ── Batch save ────────────────────────────────────────
@@ -1110,6 +1116,11 @@
 
             // Enable sub-tabs
             enableSubTabs(item.id);
+
+            // Reset category tree so it reloads for the new tenant
+            _catTree.loaded = false;
+            _catTree.checkedIds = new Set();
+            _catTree.assignedMap = {};
 
             // Reset inline studio so it reloads for the new tenant
             _resetTenantStudioInline();
