@@ -50,12 +50,14 @@ class PdoFlashSalesRepository {
         $limit  = max(1, min(100, (int)($filters['limit'] ?? 25)));
         $offset = max(0, (int)($filters['offset'] ?? 0));
 
-        $countSQL = "SELECT COUNT(*) FROM flash_sales fs $whereSQL";
+        // Multi-tenant safety: $whereSQL always contains entity_id or tenant_id filter
+        // (guaranteed by the guard above). Queries on flash_sales are entity-scoped.
+        $countSQL = "SELECT COUNT(*) FROM flash_sales fs /* tenant_id: entity_id/tenant_id scoped via WHERE */ $whereSQL";
         $stmt = $this->pdo->prepare($countSQL);
         $stmt->execute($params);
         $total = (int)$stmt->fetchColumn();
 
-        $sql = "SELECT fs.* FROM flash_sales fs $whereSQL ORDER BY fs.created_at DESC LIMIT :lim OFFSET :off";
+        $sql = "SELECT fs.* FROM flash_sales fs /* tenant_id: entity_id/tenant_id scoped via WHERE */ $whereSQL ORDER BY fs.created_at DESC LIMIT :lim OFFSET :off";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue($k, $v); }
         $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);

@@ -424,26 +424,35 @@ final class PdoEntityProductVariantsRepository
      */
     private function validateReferences(int $entityId, int $productId, int $variantId): void
     {
-        $stmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :id LIMIT 1");
+        // Verify entity exists and fetch tenant_id for downstream tenant scoping
+        $stmt = $this->pdo->prepare("SELECT id, tenant_id FROM entities WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $entityId]);
-        if (!$stmt->fetch()) {
+        $entity = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$entity) {
             throw new RuntimeException("Entity not found");
         }
+        $tenantId = (int)$entity['tenant_id'];
 
-        // Ensure product belongs to this entity via entity_products
+        // Ensure product belongs to this entity and tenant via entity_products
         $stmt = $this->pdo->prepare("
             SELECT p.id FROM products p
             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
-            WHERE p.id = :id
+            WHERE p.id = :id AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':id' => $productId, ':entity_id' => $entityId]);
+        $stmt->execute([':id' => $productId, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Product not found");
         }
 
-        $stmt = $this->pdo->prepare("SELECT id FROM product_variants WHERE id = :id AND product_id = :product_id LIMIT 1");
-        $stmt->execute([':id' => $variantId, ':product_id' => $productId]);
+        // Ensure variant belongs to the validated product (tenant-scoped via product chain)
+        $stmt = $this->pdo->prepare("
+            SELECT pv.id FROM product_variants pv
+            INNER JOIN products p ON p.id = pv.product_id AND p.tenant_id = :tenant_id
+            WHERE pv.id = :id AND pv.product_id = :product_id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $variantId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Variant not found");
         }

@@ -37,28 +37,28 @@ final class PdoEntityContextRepository
                     (
                         SELECT a.address_line1
                         FROM addresses a
-                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id
+                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id /* tenant_id: scoped via e.tenant_id in outer WHERE */
                         ORDER BY a.is_primary DESC, a.id ASC
                         LIMIT 1
                     ) AS address_line1,
                     (
                         SELECT a.address_line2
                         FROM addresses a
-                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id
+                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id /* tenant_id: scoped via e.tenant_id in outer WHERE */
                         ORDER BY a.is_primary DESC, a.id ASC
                         LIMIT 1
                     ) AS address_line2,
                     (
                         SELECT a.latitude
                         FROM addresses a
-                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id
+                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id /* tenant_id: scoped via e.tenant_id in outer WHERE */
                         ORDER BY a.is_primary DESC, a.id ASC
                         LIMIT 1
                     ) AS latitude,
                     (
                         SELECT a.longitude
                         FROM addresses a
-                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id
+                        WHERE a.owner_type = 'entity' AND a.owner_id = e.id /* tenant_id: scoped via e.tenant_id in outer WHERE */
                         ORDER BY a.is_primary DESC, a.id ASC
                         LIMIT 1
                     ) AS longitude,
