@@ -37,8 +37,10 @@ final class PdoAddressesRepository
 
         // Multi-tenant: always apply tenant_id filter when provided
         if (isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '') {
-            $where[] = "(a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))";
+            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))
+                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :filter_tenant_id_usr)))";
             $params['filter_tenant_id'] = (int)$filters['tenant_id'];
+            $params['filter_tenant_id_usr'] = (int)$filters['tenant_id'];
         }
 
         // Apply individual field filters alongside tenant_id (not exclusively)
@@ -134,10 +136,11 @@ final class PdoAddressesRepository
         $params = [];
 
         if ($tenantId !== null) {
-            // Multi-tenant safety: scope address to entities owned by the given tenant
-            $where[] = "a.owner_type = 'entity'";
-            $where[] = "a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)";
+            // Multi-tenant safety: scope address to entities or users belonging to the given tenant
+            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))
+                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :tenant_id_usr)))";
             $params[':tenant_id'] = $tenantId;
+            $params[':tenant_id_usr'] = $tenantId;
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -162,6 +165,7 @@ final class PdoAddressesRepository
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         if ($tenantId !== null) {
             $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $stmt->bindValue(':tenant_id_usr', $tenantId, PDO::PARAM_INT);
         }
         $stmt->execute();
 
