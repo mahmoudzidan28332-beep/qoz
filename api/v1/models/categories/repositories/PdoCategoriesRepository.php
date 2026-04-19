@@ -243,8 +243,16 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         }
         if (isset($data['translations']) && is_array($data['translations'])) { $this->saveTranslations($categoryId, $data['translations']); }
         if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
-            foreach ($data['deleted_translations'] as $translation) {
-                if (!empty($translation['language_code'])) { $this->deleteTranslation($categoryId, $translation['language_code']); }
+            $langs = array_filter(array_column($data['deleted_translations'], 'language_code'));
+            if (!empty($langs)) {
+                $placeholders = [];
+                $params = [':cat_id' => $categoryId];
+                foreach ($langs as $i => $lang) {
+                    $placeholders[] = ":lang_{$i}";
+                    $params[":lang_{$i}"] = $lang;
+                }
+                $sql = "DELETE FROM category_translations WHERE category_id = :cat_id AND language_code IN (" . implode(',', $placeholders) . ")";
+                $this->pdo->prepare($sql)->execute($params);
             }
         }
     }
@@ -331,37 +339,26 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             return;
         }
 
-        $stmt = $this->pdo->prepare("
-            INSERT INTO category_translations
-                (category_id, language_code, name, description, slug,
-                 meta_title, meta_description, meta_keywords)
-            VALUES
-                (:category_id, :lang, :name, :description, :slug,
-                 :meta_title, :meta_description, :meta_keywords)
-            ON DUPLICATE KEY UPDATE
-                name             = VALUES(name),
-                description      = VALUES(description),
-                slug             = VALUES(slug),
-                meta_title       = VALUES(meta_title),
-                meta_description = VALUES(meta_description),
-                meta_keywords    = VALUES(meta_keywords)
-        ");
-
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $trans) {
-            $lang = $trans['language_code'] ?? null;
-            if (!$lang) continue;
-
-            $stmt->execute([
-                ':category_id'      => $categoryId,
-                ':lang'             => $lang,
-                ':name'             => $trans['name']             ?? null,
-                ':description'      => $trans['description']      ?? null,
-                ':slug'             => $trans['slug']             ?? null,
-                ':meta_title'       => $trans['meta_title']       ?? null,
-                ':meta_description' => $trans['meta_description'] ?? null,
-                ':meta_keywords'    => $trans['meta_keywords']    ?? null,
-            ]);
+            $values[] = "(:category_id_{$i}, :lang_{$i}, :name_{$i}, :description_{$i}, :slug_{$i}, :meta_title_{$i}, :meta_description_{$i}, :meta_keywords_{$i})";
+            $params[":category_id_{$i}"]      = $categoryId;
+            $params[":lang_{$i}"]             = $trans['language_code'];
+            $params[":name_{$i}"]             = $trans['name']             ?? null;
+            $params[":description_{$i}"]      = $trans['description']      ?? null;
+            $params[":slug_{$i}"]             = $trans['slug']             ?? null;
+            $params[":meta_title_{$i}"]       = $trans['meta_title']       ?? null;
+            $params[":meta_description_{$i}"] = $trans['meta_description'] ?? null;
+            $params[":meta_keywords_{$i}"]    = $trans['meta_keywords']    ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO category_translations (category_id, language_code, name, description, slug, meta_title, meta_description, meta_keywords) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), slug = VALUES(slug), meta_title = VALUES(meta_title), meta_description = VALUES(meta_description), meta_keywords = VALUES(meta_keywords)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $categoryId): array

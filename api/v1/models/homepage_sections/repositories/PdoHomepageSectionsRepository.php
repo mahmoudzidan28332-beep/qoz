@@ -255,20 +255,24 @@ final class PdoHomepageSectionsRepository
 
     public function saveTranslations(int $sectionId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO homepage_section_translations (section_id, language_code, title, subtitle)
-            VALUES (:section_id, :lang, :title, :subtitle)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle)
-        ");
+        if (empty($translations)) return;
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $data) {
-            $stmt->execute([
-                ':section_id' => $sectionId,
-                ':lang'       => $lang,
-                ':title'      => $data['title'] ?? null,
-                ':subtitle'   => $data['subtitle'] ?? null
-            ]);
+            $values[] = "(:section_id_{$i}, :lang_{$i}, :title_{$i}, :subtitle_{$i})";
+            $params[":section_id_{$i}"] = $sectionId;
+            $params[":lang_{$i}"]       = $lang;
+            $params[":title_{$i}"]      = $data['title']    ?? null;
+            $params[":subtitle_{$i}"]   = $data['subtitle'] ?? null;
+            $i++;
         }
+
+        $sql = "INSERT INTO homepage_section_translations (section_id, language_code, title, subtitle) VALUES "
+             . implode(', ', $values)
+             . " ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $sectionId): array
