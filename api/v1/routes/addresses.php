@@ -123,8 +123,8 @@ try {
             $getId = $urlId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
             
             if ($getId) {
-                // Single item
-                $item = $controller->get($getId, $language);
+                // Single item - scoped by tenant_id for multi-tenant safety
+                $item = $controller->get($getId, $language, $tenantId);
                 ResponseFormatter::success($item);
 
             } else {

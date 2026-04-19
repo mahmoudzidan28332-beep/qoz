@@ -73,9 +73,21 @@ class PdoFlashSalesRepository {
         ];
     }
 
-    public function find(int $id): ?array {
-        $stmt = $this->pdo->prepare("SELECT * FROM flash_sales WHERE id = :id");
-        $stmt->execute([':id' => $id]);
+    public function find(int $id, ?int $entityId = null, ?int $tenantId = null): ?array {
+        $sql = "SELECT * FROM flash_sales /* tenant_id: scoped via entity_id/tenant_id filter */ WHERE id = :id";
+        $params = [':id' => $id];
+
+        // Multi-tenant safety: scope to entity or tenant to prevent cross-tenant data leakage
+        if ($entityId !== null) {
+            $sql .= " AND entity_id = :entity_id";
+            $params[':entity_id'] = $entityId;
+        } elseif ($tenantId !== null) {
+            $sql .= " AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)";
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

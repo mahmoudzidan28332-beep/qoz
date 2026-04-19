@@ -258,7 +258,8 @@ final class PdoEntityProductVariantsRepository
         $this->validateReferences(
             (int)$params[':entity_id'],
             (int)$params[':product_id'],
-            (int)$params[':variant_id']
+            (int)$params[':variant_id'],
+            isset($params[':tenant_id']) ? (int)$params[':tenant_id'] : null
         );
 
         if ($isUpdate) {
@@ -422,11 +423,18 @@ final class PdoEntityProductVariantsRepository
     /**
      * Validate entity, product, and variant exist
      */
-    private function validateReferences(int $entityId, int $productId, int $variantId): void
+    private function validateReferences(int $entityId, int $productId, int $variantId, ?int $expectedTenantId = null): void
     {
-        // Verify entity exists and fetch tenant_id for downstream tenant scoping
-        $stmt = $this->pdo->prepare("SELECT id, tenant_id FROM entities WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $entityId]);
+        // Multi-tenant safety: verify entity exists and optionally confirm tenant_id matches
+        $sql = "SELECT id, tenant_id FROM entities WHERE id = :id";
+        $params = [':id' => $entityId];
+        if ($expectedTenantId !== null) {
+            $sql .= " AND tenant_id = :tenant_id";
+            $params[':tenant_id'] = $expectedTenantId;
+        }
+        $sql .= " LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $entity = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$entity) {
             throw new RuntimeException("Entity not found");

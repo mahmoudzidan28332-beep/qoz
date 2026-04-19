@@ -126,8 +126,17 @@ final class PdoAddressesRepository
     // ================================
     // GET
     // ================================
-    public function find(int $id, string $language = 'ar'): ?array
+    public function find(int $id, string $language = 'ar', ?int $tenantId = null): ?array
     {
+        $tenantFilter = '';
+        $params = [];
+
+        if ($tenantId !== null) {
+            // Multi-tenant safety: scope address to entities owned by the given tenant
+            $tenantFilter = " AND (a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))";
+            $params[':tenant_id'] = $tenantId;
+        }
+
         $sql = "
             SELECT 
                 a.*,
@@ -137,16 +146,18 @@ final class PdoAddressesRepository
             LEFT JOIN countries c ON a.country_id = c.id
             LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
             LEFT JOIN cities ci ON a.city_id = ci.id
-            LEFT JOIN city_translations cit ON ci.id = cit.city_id AND ct.language_code = :lang_city
-            WHERE a.id = :id
+            LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
+            WHERE a.id = :id{$tenantFilter}
             LIMIT 1
         ";
 
         $stmt = $this->pdo->prepare($sql);
-        // Fix: Bind language parameters separately here too for consistency
         $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
         $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        if ($tenantId !== null) {
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        }
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

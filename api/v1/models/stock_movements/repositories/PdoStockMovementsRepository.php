@@ -343,9 +343,10 @@ final class PdoStockMovementsRepository
             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE p.sku = :sku
+              AND p.tenant_id = (SELECT tenant_id FROM entities WHERE id = :entity_id2 LIMIT 1)
             LIMIT 1
         ");
-        $stmt->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId]);
+        $stmt->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':entity_id2' => $entityId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) return $row;
 
@@ -354,12 +355,13 @@ final class PdoStockMovementsRepository
                    pt.name AS product_name, pv.id AS variant_id
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
+              AND p.tenant_id = (SELECT tenant_id FROM entities WHERE id = :entity_id2 LIMIT 1)
             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE pv.sku = :sku
             LIMIT 1
         ");
-        $stmt2->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId]);
+        $stmt2->execute([':sku' => $sku, ':lang' => $lang, ':entity_id' => $entityId, ':entity_id2' => $entityId]);
         $row = $stmt2->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

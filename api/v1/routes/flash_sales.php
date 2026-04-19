@@ -55,7 +55,9 @@ try {
                 break;
             }
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
-                $item = $controller->find((int)$_GET['id']);
+                $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
+                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+                $item = $controller->find((int)$_GET['id'], $entityId, $tenantId);
                 if (!$item) { ResponseFormatter::error('Flash sale not found', 404); break; }
                 ResponseFormatter::success($item);
             } else {
