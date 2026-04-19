@@ -104,7 +104,7 @@ final class PdoOrderItemsRepository
 
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM order_items WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        $stmt = $this->pdo->prepare("DELETE FROM order_items WHERE id = :id AND tenant_id = :tenant_id");
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 }

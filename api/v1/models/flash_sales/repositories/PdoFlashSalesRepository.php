@@ -30,6 +30,10 @@ class PdoFlashSalesRepository {
             $where[] = 'fs.entity_id = :entity_id';
             $params[':entity_id'] = (int)$filters['entity_id'];
         }
+        if (!empty($filters['tenant_id'])) {
+            $where[] = 'fs.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)';
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
         if (!empty($filters['search'])) {
             $where[] = '(fs.sale_name LIKE :search OR fs.description LIKE :search2)';
             $params[':search'] = '%' . $filters['search'] . '%';

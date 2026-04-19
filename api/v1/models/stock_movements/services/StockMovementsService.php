@@ -62,9 +62,9 @@ final class StockMovementsService
         return $this->movements->lookupByBarcode($barcode);
     }
 
-    public function lookupBySku(string $sku, string $lang): ?array
+    public function lookupBySku(string $sku, string $lang, ?int $entityId = null): ?array
     {
-        return $this->movements->lookupBySku($sku, $lang);
+        return $this->movements->lookupBySku($sku, $lang, $entityId);
     }
 
     public function findWithProductName(int $id): ?array

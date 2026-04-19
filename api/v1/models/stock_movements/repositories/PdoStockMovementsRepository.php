@@ -329,30 +329,40 @@ final class PdoStockMovementsRepository
     // ================================
     // Lookup by SKU
     // ================================
-    public function lookupBySku(string $sku, string $lang): ?array
+    public function lookupBySku(string $sku, string $lang, ?int $entityId = null): ?array
     {
+        $entityFilter = $entityId !== null
+            ? 'AND p.id IN (SELECT product_id FROM entity_products WHERE entity_id = :entity_id)'
+            : '';
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.sku, p.barcode, p.stock_quantity, p.stock_status,
                    pt.name AS product_name, NULL AS variant_id
-            FROM products p /* tenant_id scoped via sku lookup */
+            FROM products p
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
-            WHERE p.sku = :sku
+            WHERE p.sku = :sku $entityFilter
             LIMIT 1
         ");
-        $stmt->execute([':sku' => $sku, ':lang' => $lang]);
+        $params = [':sku' => $sku, ':lang' => $lang];
+        if ($entityId !== null) $params[':entity_id'] = $entityId;
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) return $row;
 
+        $entityFilter2 = $entityId !== null
+            ? 'AND p.id IN (SELECT product_id FROM entity_products WHERE entity_id = :entity_id)'
+            : '';
         $stmt2 = $this->pdo->prepare("
             SELECT p.id, pv.sku, pv.barcode, pv.stock_quantity, 'variant' AS stock_status,
                    pt.name AS product_name, pv.id AS variant_id
             FROM product_variants pv
-            JOIN products p ON p.id = pv.product_id
+            JOIN products p ON p.id = pv.product_id $entityFilter2
             LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = :lang
             WHERE pv.sku = :sku
             LIMIT 1
         ");
-        $stmt2->execute([':sku' => $sku, ':lang' => $lang]);
+        $params2 = [':sku' => $sku, ':lang' => $lang];
+        if ($entityId !== null) $params2[':entity_id'] = $entityId;
+        $stmt2->execute($params2);
         $row = $stmt2->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

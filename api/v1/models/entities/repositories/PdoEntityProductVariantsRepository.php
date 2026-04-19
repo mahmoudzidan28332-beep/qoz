@@ -436,8 +436,8 @@ final class PdoEntityProductVariantsRepository
             throw new RuntimeException("Product not found");
         }
 
-        $stmt = $this->pdo->prepare("SELECT id FROM product_variants WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $variantId]);
+        $stmt = $this->pdo->prepare("SELECT id FROM product_variants WHERE id = :id AND product_id = :product_id LIMIT 1");
+        $stmt->execute([':id' => $variantId, ':product_id' => $productId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Variant not found");
         }
