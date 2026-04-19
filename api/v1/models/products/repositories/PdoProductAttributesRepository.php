@@ -239,20 +239,23 @@ final class PdoProductAttributesRepository
 
     public function saveTranslations(int $attributeId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO product_attribute_translations (attribute_id, language_code, name, description)
-            VALUES (:attribute_id, :lang, :name, :description)
-            ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)
-        ");
-
-        foreach ($translations as $lang => $data) {
-            $stmt->execute([
-                ':attribute_id' => $attributeId,
-                ':lang'         => $lang,
-                ':name'         => $data['name'] ?? null,
-                ':description'  => $data['description'] ?? null
-            ]);
+        if (empty($translations)) {
+            return;
         }
+
+        $values = [];
+        $params = [];
+        $i = 0;
+        foreach ($translations as $lang => $data) {
+            $values[] = "(:attribute_id_{$i}, :lang_{$i}, :name_{$i}, :description_{$i})";
+            $params[":attribute_id_{$i}"] = $attributeId;
+            $params[":lang_{$i}"] = $lang;
+            $params[":name_{$i}"] = $data['name'] ?? null;
+            $params[":description_{$i}"] = $data['description'] ?? null;
+            $i++;
+        }
+        $sql = "INSERT INTO product_attribute_translations (attribute_id, language_code, name, description) VALUES " . implode(', ', $values) . " ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getTranslations(int $attributeId): array

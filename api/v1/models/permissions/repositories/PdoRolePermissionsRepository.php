@@ -164,18 +164,20 @@ final class PdoRolePermissionsRepository
 
         // Insert new
         if (!empty($permissionIds)) {
-            $stmt = $this->pdo->prepare("
-                INSERT INTO role_permissions (tenant_id, role_id, permission_id, created_at)
-                VALUES (:tenant_id, :role_id, :permission_id, NOW())
-            ");
-
+            $values = [];
+            $params = [];
+            $now = date('Y-m-d H:i:s');
+            $i = 0;
             foreach ($permissionIds as $permId) {
-                $stmt->execute([
-                    ':tenant_id' => $tenantId,
-                    ':role_id' => $roleId,
-                    ':permission_id' => (int)$permId
-                ]);
+                $values[] = "(:tenant_id_{$i}, :role_id_{$i}, :permission_id_{$i}, :created_at_{$i})";
+                $params[":tenant_id_{$i}"] = $tenantId;
+                $params[":role_id_{$i}"] = $roleId;
+                $params[":permission_id_{$i}"] = (int)$permId;
+                $params[":created_at_{$i}"] = $now;
+                $i++;
             }
+            $sql = "INSERT INTO role_permissions (tenant_id, role_id, permission_id, created_at) VALUES " . implode(', ', $values);
+            $this->pdo->prepare($sql)->execute($params);
         }
 
         if ($userId) {

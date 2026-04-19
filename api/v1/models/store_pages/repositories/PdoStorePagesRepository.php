@@ -347,30 +347,31 @@ final class PdoStorePagesRepository
 
     public function saveSectionTranslations(int $sectionId, array $translations): void
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO store_section_translations (section_id, language_code, title, content)
-            VALUES (:section_id, :lang, :title, :content)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content)
-        ");
+        if (empty($translations)) {
+            return;
+        }
 
+        $values = [];
+        $params = [];
+        $i = 0;
         foreach ($translations as $lang => $data) {
-            // Prepare content value: always JSON-encode for the JSON column
             $contentValue = null;
             if (isset($data['content']) && $data['content'] !== '' && $data['content'] !== null) {
                 $encoded = json_encode($data['content']);
-                // Only use encoded value if json_encode succeeded
                 if ($encoded !== false) {
                     $contentValue = $encoded;
                 }
             }
 
-            $stmt->execute([
-                ':section_id' => $sectionId,
-                ':lang'       => $lang,
-                ':title'      => $data['title'] ?? null,
-                ':content'    => $contentValue,
-            ]);
+            $values[] = "(:section_id_{$i}, :lang_{$i}, :title_{$i}, :content_{$i})";
+            $params[":section_id_{$i}"] = $sectionId;
+            $params[":lang_{$i}"] = $lang;
+            $params[":title_{$i}"] = $data['title'] ?? null;
+            $params[":content_{$i}"] = $contentValue;
+            $i++;
         }
+        $sql = "INSERT INTO store_section_translations (section_id, language_code, title, content) VALUES " . implode(', ', $values) . " ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content)";
+        $this->pdo->prepare($sql)->execute($params);
     }
 
     public function getSectionTranslations(int $sectionId): array
