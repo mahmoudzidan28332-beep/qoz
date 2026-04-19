@@ -69,7 +69,8 @@ try {
             if (isset($_GET['sku']) && $_GET['sku'] !== '') {
                 $sku = trim($_GET['sku']);
                 $lang = $_GET['lang'] ?? ($_SESSION['user']['preferred_language'] ?? 'ar');
-                $row = $controller->lookupBySku($sku, $lang);
+                $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
+                $row = $controller->lookupBySku($sku, $lang, $entityId);
                 if (!$row) {
                     ResponseFormatter::error('SKU not found', 404);
                     break;

@@ -64,6 +64,7 @@ try {
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))     $filters['search'] = $_GET['search'];
                 if (isset($_GET['entity_id']))  $filters['entity_id'] = $_GET['entity_id'];
+                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
                 if (isset($_GET['limit']))      $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))     $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);

@@ -33,6 +33,7 @@ final class PdoEntityContextRepository
                     COALESCE(es.allow_cod, 0) AS allow_cod,
                     COALESCE(es.is_visible, 1) AS is_visible,
                     COALESCE(es.maintenance_mode, 0) AS maintenance_mode,
+                    /* addresses scoped via a.owner_id = e.id; e.tenant_id filtered in outer WHERE */
                     (
                         SELECT a.address_line1
                         FROM addresses a

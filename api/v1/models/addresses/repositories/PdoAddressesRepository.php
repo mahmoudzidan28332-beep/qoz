@@ -50,6 +50,11 @@ final class PdoAddressesRepository
             }
         }
 
+        // Multi-tenant safety: require at least one scoping filter to prevent cross-tenant data leakage
+        if (empty($where)) {
+            return ['items' => [], 'total' => 0];
+        }
+
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
 
         // ================================

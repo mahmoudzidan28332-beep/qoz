@@ -410,20 +410,30 @@ final class PdoStorePagesRepository
 
     public function reorderSections(int $pageId, array $positions): void
     {
-        $stmt = $this->pdo->prepare("
-            UPDATE store_sections
-            SET position   = :position,
-                updated_at = NOW()
-            WHERE page_id = :pageId AND id = :id
-        ");
-
-        foreach ($positions as $item) {
-            $stmt->execute([
-                ':position' => (int)$item['position'],
-                ':pageId'   => $pageId,
-                ':id'       => (int)$item['id'],
-            ]);
+        if (empty($positions)) {
+            return;
         }
+
+        $ids    = [];
+        $cases  = [];
+        $params = [':pageId' => $pageId];
+
+        foreach ($positions as $i => $item) {
+            $idParam  = ":id_{$i}";
+            $posParam = ":pos_{$i}";
+            $ids[]    = $idParam;
+            $cases[]  = "WHEN id = {$idParam} THEN {$posParam}";
+            $params[$idParam]  = (int)$item['id'];
+            $params[$posParam] = (int)$item['position'];
+        }
+
+        $sql = "UPDATE store_sections
+                SET position   = CASE " . implode(' ', $cases) . " END,
+                    updated_at = NOW()
+                WHERE page_id = :pageId AND id IN (" . implode(', ', $ids) . ")";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
     }
 
     // =========================================================

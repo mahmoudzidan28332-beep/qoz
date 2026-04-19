@@ -34,6 +34,12 @@ class PdoFlashSalesRepository {
             $where[] = 'fs.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)';
             $params[':tenant_id'] = (int)$filters['tenant_id'];
         }
+
+        // Multi-tenant safety: require entity_id or tenant_id to prevent cross-tenant data leakage
+        if (empty($filters['entity_id']) && empty($filters['tenant_id'])) {
+            return ['items' => [], 'total' => 0, 'limit' => 25, 'offset' => 0, 'total_pages' => 0];
+        }
+
         if (!empty($filters['search'])) {
             $where[] = '(fs.sale_name LIKE :search OR fs.description LIKE :search2)';
             $params[':search'] = '%' . $filters['search'] . '%';

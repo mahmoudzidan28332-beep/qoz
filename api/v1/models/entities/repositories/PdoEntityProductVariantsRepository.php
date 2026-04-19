@@ -424,14 +424,20 @@ final class PdoEntityProductVariantsRepository
      */
     private function validateReferences(int $entityId, int $productId, int $variantId): void
     {
-        $stmt = $this->pdo->prepare("SELECT id FROM entities /* tenant_id scoped via caller */ WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $entityId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Entity not found");
         }
 
-        $stmt = $this->pdo->prepare("SELECT id FROM products /* tenant_id scoped via caller */ WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $productId]);
+        // Ensure product belongs to this entity via entity_products
+        $stmt = $this->pdo->prepare("
+            SELECT p.id FROM products p
+            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
+            WHERE p.id = :id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $productId, ':entity_id' => $entityId]);
         if (!$stmt->fetch()) {
             throw new RuntimeException("Product not found");
         }
