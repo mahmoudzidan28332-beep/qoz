@@ -93,14 +93,14 @@
         try {
             const fetchOptions = { credentials: 'same-origin' };
 
-            // بناء URL الفئات: تجاهل فلتر tenant_categories، وإظهار القوائم الرئيسية فقط
+            // بناء URL الفئات: جلب كل الفئات لعرضها كشجرة
             // لا نُمرر tenant_id حتى تظهر كافة الفئات المتاحة في النظام للاختيار منها
             const catParams = new URLSearchParams({
                 format: 'json',
                 limit: 1000,
                 lang: CONFIG.lang || 'ar',
                 skip_tc_filter: 1,
-                parent_id: 0
+                show_all: 1
             });
 
             const promises = [
@@ -119,9 +119,9 @@
                     const items = categoriesData.data.items || categoriesData.data;
                     if (Array.isArray(items)) {
                         state.categories = items;
-                        populateSelect('tenantCategoryCategoryId', state.categories);
-                        populateDatalist('categoriesList', state.categories, 'id', 'name');
-                        populateDatalist('filterCategoriesList', state.categories, 'id', 'name');
+                        populateSelectTree('tenantCategoryCategoryId', state.categories);
+                        populateDatalistTree('categoriesList', state.categories);
+                        populateDatalistTree('filterCategoriesList', state.categories);
                     }
                 }
             }
@@ -171,6 +171,62 @@
             option.setAttribute('data-id', item[valueKey]);
             datalist.appendChild(option);
         });
+    }
+
+    // تعبئة قائمة select بشكل شجري (مع مسافة بادئة للفئات الفرعية)
+    function populateSelectTree(selectId, data) {
+        const select = document.getElementById(selectId);
+        if (!select || !Array.isArray(data)) return;
+        const currentVal = select.value;
+        const placeholder = select.querySelector('option[value=""]');
+        select.innerHTML = '';
+        if (placeholder) select.appendChild(placeholder);
+
+        const isRoot = (cat) => !cat.parent_id || cat.parent_id === 0 || cat.parent_id === '0';
+
+        function addOptions(parentId, depth) {
+            const children = parentId === null
+                ? data.filter(c => isRoot(c))
+                : data.filter(c => String(c.parent_id) === String(parentId));
+
+            children.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                const indent = depth > 0 ? '│ '.repeat(depth - 1) + '├─ ' : '';
+                option.textContent = `${indent}${cat.name || cat.id} (#${cat.id})`;
+                select.appendChild(option);
+                addOptions(cat.id, depth + 1);
+            });
+        }
+
+        addOptions(null, 0);
+        if (currentVal) select.value = currentVal;
+    }
+
+    // تعبئة datalist بشكل شجري
+    function populateDatalistTree(datalistId, data) {
+        const datalist = document.getElementById(datalistId);
+        if (!datalist || !Array.isArray(data)) return;
+        datalist.innerHTML = '';
+
+        const isRoot = (cat) => !cat.parent_id || cat.parent_id === 0 || cat.parent_id === '0';
+
+        function addOptions(parentId, depth) {
+            const children = parentId === null
+                ? data.filter(c => isRoot(c))
+                : data.filter(c => String(c.parent_id) === String(parentId));
+
+            children.forEach(cat => {
+                const option = document.createElement('option');
+                const indent = depth > 0 ? '  '.repeat(depth) + '↳ ' : '';
+                option.value = `${indent}${cat.name || cat.id}`;
+                option.setAttribute('data-id', cat.id);
+                datalist.appendChild(option);
+                addOptions(cat.id, depth + 1);
+            });
+        }
+
+        addOptions(null, 0);
     }
 
     // الحصول على ID من datalist (بالاسم أو الرقم)
@@ -288,13 +344,17 @@
             const statusText = item.is_active ? t('toggle_active') : t('toggle_inactive');
             const createdDate = item.created_at ? new Date(item.created_at).toLocaleDateString() : '-';
 
+            // بناء مسار التصنيف (الشجرة)
+            const categoryPath = getCategoryPath(item.category_id);
+            const categoryDisplay = categoryPath || escapeHtml(item.category_name || '-');
+
             html += `
                 <tr>
                     <td>${item.id}</td>
                     ${state.isSuperAdmin ? `<td>${item.tenant_id}</td>` : ''}
                     <td><strong>${escapeHtml(item.tenant_name || '-')}</strong></td>
                     <td>${item.category_id}</td>
-                    <td><strong>${escapeHtml(item.category_name || '-')}</strong></td>
+                    <td><strong>${categoryDisplay}</strong></td>
                     <td>${item.sort_order ?? 0}</td>
                     ${state.isSuperAdmin ? `<td>
                         <button class="btn btn-sm ${item.is_active ? 'btn-success' : 'btn-danger'}"
@@ -611,6 +671,21 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // بناء مسار التصنيف الكامل (أب ← ابن ← حفيد)
+    function getCategoryPath(categoryId) {
+        if (!categoryId || !state.categories.length) return null;
+        const parts = [];
+        let current = state.categories.find(c => String(c.id) === String(categoryId));
+        const visited = new Set();
+        while (current && !visited.has(current.id)) {
+            visited.add(current.id);
+            parts.unshift(escapeHtml(current.name || `#${current.id}`));
+            if (!current.parent_id || current.parent_id === 0 || current.parent_id === '0') break;
+            current = state.categories.find(c => String(c.id) === String(current.parent_id));
+        }
+        return parts.length > 1 ? parts.join(' → ') : (parts.length === 1 ? parts[0] : null);
     }
 
     // التهيئة
