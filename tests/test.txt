@@ -1,5 +1,5 @@
 🏗️ Architecture & Performance Report
-v3.0 — Generated: 2026-04-19 03:27:33 — Total analysis time: 1301.6 ms
+v3.0 — Generated: 2026-04-19 03:59:25 — Total analysis time: 1028.6 ms
 
 Score
 90
@@ -13,17 +13,17 @@ Critical
 Warnings
 0
 Info
-582
+542
 Module	Time (ms)	Tests	Findings
-Architecture Validation	181.3	7	0
-Performance Validation	107.9	6	79
-Multi-Tenant Safety	6.9	2	80
-Security Validation	178	5	0
-Type Safety	73.5	4	60
-Configuration Safety	551.2	4	0
-Exception Handling	32.6	3	298
-Code Quality	152.3	4	63
-Runtime Simulation	17.9	2	2
+Architecture Validation	148.4	7	0
+Performance Validation	67.7	6	78
+Multi-Tenant Safety	6.8	2	80
+Security Validation	133	5	0
+Type Safety	44.6	4	26
+Configuration Safety	412.7	4	0
+Exception Handling	35.1	3	293
+Code Quality	165.4	4	63
+Runtime Simulation	14.8	2	2
 [Performance]
 Module: Performance Validation
 SELECT * found 1 time(s) — fetches unnecessary columns
@@ -413,11 +413,6 @@ SELECT * found 1 time(s) — fetches unnecessary columns
 Module: Performance Validation
 Function applied to column in WHERE clause — may prevent index usage
 📁 api/shared/core/repositories/AiRepository.php
-💡 Use a virtual/computed column or rewrite to avoid wrapping indexed columns in functions.
-[Index Usage]
-Module: Performance Validation
-Function applied to column in WHERE clause — may prevent index usage
-📁 api/v1/models/pos_sessions/repositories/PdoPosSessionsRepository.php
 💡 Use a virtual/computed column or rewrite to avoid wrapping indexed columns in functions.
 [Multi-Tenant]
 Module: Multi-Tenant Safety
@@ -822,173 +817,8 @@ Repository method 'all()' may lack tenant scoping
 [Type Safety]
 Module: Type Safety
 Missing declare(strict_types=1)
-📁 api/bootstrap_admin_context.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/config/constants.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/config/cors.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/config/crypto_key.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/config/db.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/config/entities.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/CSRF.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/Response.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/SettingsHelper.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/ai.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/auth_helper.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
 📁 api/shared/helpers/color_utils.php:1
 💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/db_utils.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/get_user_permissions.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/i18n.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/jwt.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/mail.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/notification.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/notification_push.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/sms.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/upload.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/shared/helpers/utils.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/coupons.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/diagnostic.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/product_meta.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/reviews.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/services.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/support.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Missing declare(strict_types=1)
-📁 api/v1/routes/wallet.php:1
-💡 Add declare(strict_types=1); at the top of every PHP file for type safety.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: get
-📁 api/shared/core/ConfigLoader.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: get
-📁 api/shared/core/SettingsManager.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: executeQuery
-📁 api/shared/core/repositories/DbUtilsService.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: requireValid
-📁 api/shared/helpers/CSRF.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
-[Type Safety]
-Module: Type Safety
-Public method(s) missing return type: get, set
-📁 api/shared/helpers/SettingsHelper.php
-💡 Add explicit return types (e.g. : array, : string, : void) to all public methods.
 [Type Safety]
 Module: Type Safety
 Public method(s) missing return type: setPDO, setOpenAIKey, getProductRecommendations +2 more
@@ -1043,11 +873,6 @@ Untyped parameter(s) in public method(s): get, set
 Module: Type Safety
 Untyped parameter(s) in public method(s): set
 📁 api/shared/core/SettingsManager.php
-💡 Add type declarations to all method parameters.
-[Type Safety]
-Module: Type Safety
-Untyped parameter(s) in public method(s): get, set
-📁 api/shared/helpers/SettingsHelper.php
 💡 Add type declarations to all method parameters.
 [Type Safety]
 Module: Type Safety
@@ -1147,32 +972,12 @@ Over-broad catch(Exception) or catch(Throwable) detected
 [Exception Handling]
 Module: Exception Handling
 Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/health.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
 📁 api/scripts/archive_queues.php
 💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
 [Exception Handling]
 Module: Exception Handling
 Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/shared/core/CacheManager.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
 📁 api/shared/core/EventDispatcher.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/shared/core/Logger.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/shared/core/PdoQueryHelper.php
 💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
 [Exception Handling]
 Module: Exception Handling
@@ -2581,11 +2386,6 @@ Over-broad catch(Exception) or catch(Throwable) detected
 💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
 [Exception Handling]
 Module: Exception Handling
-Over-broad catch(Exception) or catch(Throwable) detected
-📁 api/v1/routes/wallet.php
-💡 Catch specific exception types (e.g. PDOException, RuntimeException) for clarity.
-[Exception Handling]
-Module: Exception Handling
 Generic Exception thrown — consider domain-specific exception classes
 📁 api/bootstrap_public_ui.php
 💡 Create descriptive exception classes (e.g. NotFoundException, ValidationException).
@@ -2930,4 +2730,4 @@ Large file (55.4 KB) — may slow autoload/include
 💡 Split into smaller, lazily-loaded modules.
 [Runtime Summary]
 Module: Runtime Simulation
-Simulation: 1000 requests in 0.011s (avg 0.0111 ms/req, 202 route files)
+Simulation: 1000 requests in 0.007s (avg 0.0074 ms/req, 201 route files)
