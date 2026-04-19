@@ -112,11 +112,92 @@ $apiBase = '/api';
 
 ?>
 <?php if ($isFragment): ?>
+<?php
+// ── Inject DB-driven theme CSS variables into embedded iframe ──
+$_themePayload = $GLOBALS['ADMIN_UI']['theme'] ?? [];
+$_colorSettings  = $_themePayload['color_settings']  ?? [];
+$_fontSettings   = $_themePayload['font_settings']    ?? [];
+$_designSettings = $_themePayload['design_settings']  ?? [];
+$_generatedCss   = $_themePayload['generated_css']    ?? '';
+
+// Build :root CSS variable block from DB theme
+$_themeCssVars = '';
+$_emittedVars = [];
+foreach ($_colorSettings as $_c) {
+    $_k = htmlspecialchars($_c['setting_key'] ?? '', ENT_QUOTES);
+    $_v = htmlspecialchars($_c['color_value'] ?? '', ENT_QUOTES);
+    if (!$_k || !$_v) continue;
+    $_h = str_replace('_', '-', $_k);
+    $_themeCssVars .= "  --{$_k}: {$_v};\n";
+    $_emittedVars['--' . $_k] = $_v;
+    if ($_h !== $_k) {
+        $_themeCssVars .= "  --{$_h}: {$_v};\n";
+        $_emittedVars['--' . $_h] = $_v;
+    }
+}
+foreach ($_fontSettings as $_f) {
+    $_sk = htmlspecialchars($_f['setting_key'] ?? '', ENT_QUOTES);
+    if (!$_sk) continue;
+    $_sh = str_replace('_', '-', $_sk);
+    if (!empty($_f['font_family'])) {
+        $_fv = htmlspecialchars($_f['font_family'], ENT_QUOTES);
+        $_themeCssVars .= "  --{$_sk}-family: {$_fv};\n";
+        $_themeCssVars .= "  --{$_sh}-family: {$_fv};\n";
+    }
+    if (!empty($_f['font_size']))   $_themeCssVars .= "  --{$_sk}-size: " . htmlspecialchars($_f['font_size'], ENT_QUOTES) . ";\n";
+    if (!empty($_f['font_weight'])) $_themeCssVars .= "  --{$_sk}-weight: " . htmlspecialchars($_f['font_weight'], ENT_QUOTES) . ";\n";
+}
+foreach ($_designSettings as $_d) {
+    $_dk = htmlspecialchars($_d['setting_key'] ?? '', ENT_QUOTES);
+    $_dv = htmlspecialchars($_d['setting_value'] ?? '', ENT_QUOTES);
+    if (!$_dk || !$_dv) continue;
+    $_dh = str_replace('_', '-', $_dk);
+    $_themeCssVars .= "  --{$_dk}: {$_dv};\n";
+    if ($_dh !== $_dk) $_themeCssVars .= "  --{$_dh}: {$_dv};\n";
+}
+
+// Alias vars (card-bg, input-bg, thead-bg, danger-color) — same logic as header.php
+$_bgSecondary = $_emittedVars['--background-secondary'] ?? $_emittedVars['--background_secondary'] ?? null;
+$_bgPrimary   = $_emittedVars['--background-primary']   ?? $_emittedVars['--background_primary']   ?? null;
+$_bgMain      = $_emittedVars['--background-main']       ?? $_emittedVars['--background_main']       ?? null;
+$_bgFallback  = $_bgSecondary ?? $_bgPrimary ?? $_bgMain;
+$_errColor    = $_emittedVars['--error-color'] ?? $_emittedVars['--error_color'] ?? null;
+
+$_aliasVars = [
+    '--card-bg'      => $_emittedVars['--card-bg']      ?? $_emittedVars['--card_bg']      ?? $_bgFallback,
+    '--input-bg'     => $_emittedVars['--input-bg']     ?? $_emittedVars['--input_bg']     ?? $_bgFallback,
+    '--thead-bg'     => $_emittedVars['--thead-bg']     ?? $_emittedVars['--thead_bg']     ?? $_bgFallback,
+    '--danger-color'  => $_emittedVars['--danger-color']  ?? $_emittedVars['--danger_color']  ?? $_errColor,
+];
+foreach ($_aliasVars as $_an => $_av) {
+    if ($_av && empty($_emittedVars[$_an])) {
+        $_themeCssVars .= "  {$_an}: {$_av};\n";
+    }
+}
+
+$_bodyBg    = $_emittedVars['--background_main'] ?? $_emittedVars['--background-main'] ?? '#0a0f1e';
+$_bodyColor = $_emittedVars['--text_primary']    ?? $_emittedVars['--text-primary']    ?? '#ffffff';
+?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($lang) ?>" dir="<?= htmlspecialchars($dir) ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<?php if ($_generatedCss): ?>
+<style id="dynamic-theme-db"><?= $_generatedCss ?></style>
+<?php endif; ?>
+<style id="dynamic-theme-vars">
+:root {
+<?= $_themeCssVars ?>
+}
+body {
+    background: var(--background_main, var(--background-main, <?= htmlspecialchars($_bodyBg) ?>));
+    color: var(--text_primary, var(--text-primary, <?= htmlspecialchars($_bodyColor) ?>));
+    font-family: var(--body_font-family, var(--body-font-family, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial));
+}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="/admin/assets/css/admin_framework.css?v=<?= time() ?>">
 <link rel="stylesheet" href="/admin/assets/css/pages/addresses.css?v=<?= time() ?>">
 </head>
 <body dir="<?= htmlspecialchars($dir) ?>" style="margin:0;padding:0;">
