@@ -54,6 +54,7 @@
     let el = {}; // DOM elements cache
     let translations = {}; // i18n translations
     let _messageListenerAdded = false; // prevent duplicate message listeners
+    let _initialized = false; // prevent double initialization
 
     // ════════════════════════════════════════════════════════════
     // TRANSLATIONS
@@ -355,7 +356,11 @@
                 updatePagination(meta.total !== undefined ? meta : { page, per_page: state.perPage, total: state.total });
                 updateResultsCount(state.total);
 
-                showTable();
+                // Only show table container when there are items to display;
+                // renderTable already called showEmpty() if items were empty.
+                if (state.products.length > 0) {
+                    showTable();
+                }
             } else {
                 throw new Error(result.error || result.message || 'Invalid response format');
             }
@@ -1450,7 +1455,13 @@
 
         const buildTree = (categories, parentId = null) => {
             return categories
-                .filter(cat => cat.parent_id == parentId)
+                .filter(cat => {
+                    // Root detection: parent_id can be null, 0, or "0" in the API response
+                    if (parentId === null) {
+                        return !cat.parent_id || cat.parent_id === 0 || cat.parent_id === '0';
+                    }
+                    return String(cat.parent_id) === String(parentId);
+                })
                 .map(cat => {
                     const isSelected = state.selectedCategories.includes(cat.id);
                     const children = buildTree(categories, cat.id);
@@ -2302,6 +2313,13 @@
     // INITIALIZATION
     // ════════════════════════════════════════════════════════════
     async function init() {
+        // Guard against double initialization (auto-init + fragment polling)
+        if (_initialized) {
+            console.log('[Products] Already initialized, skipping duplicate init');
+            return;
+        }
+        _initialized = true;
+
         console.log('[Products] Initializing...');
 
         // Always use document.getElementById for reliability in fragment mode
