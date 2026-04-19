@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 require_once __DIR__ . '/../core/repositories/JwtRepository.php';
 // htdocs/api/helpers/jwt.php
 // ملف دوال JWT (JSON Web Token)

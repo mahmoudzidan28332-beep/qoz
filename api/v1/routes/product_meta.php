@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // api/routes/product_meta.php
 // Enhanced, defensive product metadata API.
 // GET params: lang=ar

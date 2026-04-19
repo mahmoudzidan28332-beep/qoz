@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/routes/reviews.php
 // Routes for review endpoints (maps HTTP requests to ReviewController methods)
 // Supports: listing, creating reviews (product/service), show by id, update, delete, approve/reject, stats

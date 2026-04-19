@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // helpers/SettingsHelper.php
 
 require_once __DIR__ . '/../core/repositories/SettingsRepository.php';

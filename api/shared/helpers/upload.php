@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 require_once __DIR__ . '/../core/repositories/UploadRepository.php';
 // htdocs/api/helpers/upload.php
 // ملف دوال رفع الملفات (File Upload Helper)

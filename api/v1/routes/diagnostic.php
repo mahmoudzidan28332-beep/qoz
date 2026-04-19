@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // =====================================================
 // diagnostic.php — ضعه في api/routes/ مؤقتاً
 // ثم افتح: https://hcsfcs.top/api/routes/diagnostic.php

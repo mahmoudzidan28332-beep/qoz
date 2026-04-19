@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 require_once __DIR__ . '/../core/repositories/NotificationRepository.php';
 require_once __DIR__ . '/notification_push.php';
 // htdocs/api/shared/helpers/notification.php

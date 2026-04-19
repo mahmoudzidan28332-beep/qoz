@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/routes/support.php
 // Routes for support endpoints (maps HTTP requests to SupportController methods)
 // Supports: tickets CRUD, replies, assign/transfer, close/reopen, categories, stats

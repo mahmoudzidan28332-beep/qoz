@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/CSRF.php
 // Simple CSRF helper: generate token, validate token, and render hidden input.
 // Usage:

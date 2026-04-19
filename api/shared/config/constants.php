@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/shared/config/constants.php
 // Returns array for ConfigLoader compatibility
 

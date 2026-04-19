@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/routes/wallet.php
 // Routes for wallet endpoints (maps HTTP requests to WalletController methods)
 // Supports: wallet CRUD, balance, transactions, top-up, withdraw, transfer, webhooks, stats

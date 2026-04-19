@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // helpers/db_utils.php
 // وظائف مساعدة لـ PDO: ربط معاملات ديناميكية وتنفيذ استعلامات آمنة
 

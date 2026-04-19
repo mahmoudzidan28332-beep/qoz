@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 require_once __DIR__ . '/../core/repositories/MailRepository.php';
 // htdocs/api/helpers/mail.php
 // ملف دوال إرسال البريد الإلكتروني (Email Helper)

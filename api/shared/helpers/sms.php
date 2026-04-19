@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 require_once __DIR__ . '/../core/repositories/SmsRepository.php';
 // htdocs/api/helpers/sms.php
 // ملف دوال إرسال الرسائل النصية SMS (SMS Helper)

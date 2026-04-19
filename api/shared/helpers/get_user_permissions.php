@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/get_user_permissions.php
 // Delegates to repository layer — no direct SQL in helpers.
 header('Content-Type: application/json; charset=utf-8');

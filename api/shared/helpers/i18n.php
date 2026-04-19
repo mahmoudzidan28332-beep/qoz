@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/helpers/i18n.php
 // Global I18n helper with per-scope translations, caching, and PDO support for global languages.
 // Usage:

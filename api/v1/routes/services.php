@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/routes/services.php
 // Routes for service endpoints (maps HTTP requests to ServiceController methods)
 

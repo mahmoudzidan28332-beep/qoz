@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 // htdocs/api/shared/helpers/notification_push.php
 // Push notification methods extracted from NotificationHelper (Firebase FCM)
 
