@@ -397,7 +397,7 @@
 
             // Load categories (fetch ALL for tree - need page & limit)
             try {
-                const categoriesResult = await apiCall(`${API.categories}?page=1&limit=1000&tenant_id=${state.tenantId}&lang=${state.language}&format=json`);
+                const categoriesResult = await apiCall(`${API.categories}?page=1&limit=1000&show_all=1&tenant_id=${state.tenantId}&lang=${state.language}&format=json`);
                 if (categoriesResult.success) {
                     // categories returns { data: { items: [...], meta: {} } }
                     const categoriesData = categoriesResult.data?.items || categoriesResult.data;
