@@ -57,11 +57,23 @@ final class PdoProductsRepository
             FROM products p
             LEFT JOIN product_translations pt
                 ON p.id = pt.product_id AND pt.language_code = :lang
-            LEFT JOIN image_types it ON it.name = 'product'
+               AND pt.id = (
+                   SELECT MIN(pt2.id)
+                   FROM product_translations pt2
+                   WHERE pt2.product_id = p.id
+                     AND pt2.language_code = :lang2
+               )
             LEFT JOIN images i
                 ON i.owner_id = p.id
                AND i.is_main = 1
-               AND i.image_type_id = it.id
+               AND i.image_type_id = (SELECT MIN(it.id) FROM image_types it WHERE it.name = 'product')
+               AND i.id = (
+                   SELECT MIN(i2.id)
+                   FROM images i2
+                   WHERE i2.owner_id = p.id
+                     AND i2.is_main = 1
+                     AND i2.image_type_id = (SELECT MIN(it2.id) FROM image_types it2 WHERE it2.name = 'product')
+               )
             LEFT JOIN product_pricing pp
                 ON pp.product_id = p.id
                AND pp.variant_id IS NULL
@@ -75,7 +87,7 @@ final class PdoProductsRepository
                )
             WHERE p.tenant_id = :tenant_id
         ";
-        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
+        $params = [':tenant_id' => $tenantId, ':lang' => $lang, ':lang2' => $lang];
 
         // تطبيق كل الفلاتر بشكل ديناميكي
         foreach (self::FILTERABLE_COLUMNS as $col) {
