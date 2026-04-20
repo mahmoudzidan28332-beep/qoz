@@ -1,191 +1,36 @@
 🏗️ Architecture + Penetration Test Report
-v5.0 — Generated: 2026-04-20 11:18:00 — Total: 1794.7 ms + Penetration Testing Module
+v5.0 — Generated: 2026-04-20 11:55:24 — Total: 1520.9 ms + Penetration Testing Module
 
 🌙 Toggle Theme
 Score
-60
+88
 Grade
-C
-Fair
+B
+Good
 Tests Run
 51
 Critical
 0
 Warnings
-32
+1
 Info
 489
 Module	Time (ms)	Tests	Findings
-Architecture Validation	204.4	7	0
-Performance Validation	130	7	79
-Multi-Tenant Safety	22.1	4	50
-Security Validation	321.3	6	0
-Penetration Testing	332.2	8	33
-Type Safety	73.3	4	27
-Configuration Safety	427.5	4	0
-Exception Handling	38.3	3	260
-Code Quality	226.6	6	70
-Runtime Simulation	19	2	2
+Architecture Validation	205.1	7	0
+Performance Validation	78.4	7	79
+Multi-Tenant Safety	12.3	4	50
+Security Validation	169.7	6	0
+Penetration Testing	205.4	8	2
+Type Safety	66.7	4	27
+Configuration Safety	451.5	4	0
+Exception Handling	42.5	3	260
+Code Quality	269	6	70
+Runtime Simulation	20.2	2	2
 [Multi-Tenant] CVSS 6.5 CWE-284
 Module: Multi-Tenant Safety
 Query on 'addresses' may be missing a tenant_id filter
-📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php:73
+📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php:72
 💡 All queries on 'addresses' must include a tenant_id condition to prevent data leakage.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/attribute_types.php:62
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/auction_bids.php:80
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/auction_translations.php:63
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/auction_watchers.php:63
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/auto_bid_settings.php:79
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/commission_credit_notes.php:82
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/commission_invoice_items.php:71
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/commission_invoices.php:84
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/commission_payments.php:84
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/commission_transactions.php:80
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/country_taxes.php:74
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/currencies.php:57
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/discounts.php:80
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/image-types.php:55
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/payment_methods.php:66
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_attribute_assignments.php:73
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_attribute_translations.php:57
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_attribute_value_translations.php:57
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_attribute_values.php:57
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_attributes.php:57
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_categories.php:65
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_physical_attributes.php:84
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/product_stock_movements.php:107
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/subscription_invoices.php:94
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/subscription_payments.php:87
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/subscription_plans.php:75
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/subscriptions.php:77
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/tenant_domains.php:77
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/units.php:34
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/users.php:123
-💡 Whitelist fields explicitly before writing: only accept known keys.
-[Mass Assignment] CVSS 7.5 CWE-915
-Module: Penetration Testing
-json_decode() result passed to write method without field whitelisting
-📁 api/v1/routes/users_account.php:123
-💡 Whitelist fields explicitly before writing: only accept known keys.
 [Performance]
 Module: Performance Validation
 SELECT * found 1 time(s) — fetches unnecessary columns
@@ -2627,4 +2472,4 @@ Large file (55.4 KB) — may slow autoload/include
 💡 Split into smaller, lazily-loaded modules.
 [Runtime Summary]
 Module: Runtime Simulation
-Simulation: 1000 requests in 0.011s (avg 0.0108 ms/req, 197 route files)
+Simulation: 1000 requests in 0.012s (avg 0.0116 ms/req, 197 route files)
