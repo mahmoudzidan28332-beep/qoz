@@ -37,9 +37,9 @@ final class EntityProductsService
     /**
      * Get a single entity product
      */
-    public function get(int $id): ?array
+    public function get(int $id, ?int $tenantId = null): ?array
     {
-        return $this->repo->find($id);
+        return $this->repo->find($id, $tenantId);
     }
 
     /**
@@ -53,9 +53,9 @@ final class EntityProductsService
     /**
      * Get all products for an entity
      */
-    public function getEntityProducts(int $entityId): array
+    public function getEntityProducts(int $entityId, int $tenantId): array
     {
-        return $this->repo->getEntityProducts($entityId);
+        return $this->repo->getEntityProducts($entityId, 'ar', $tenantId);
     }
 
     /**
@@ -93,21 +93,21 @@ final class EntityProductsService
     /**
      * Delete an entity product
      */
-    public function delete(int $id): void
+    public function delete(int $id, ?int $tenantId = null): void
     {
-        if (!$this->repo->find($id)) {
+        if (!$this->repo->find($id, $tenantId)) {
             throw new RuntimeException("Entity product not found");
         }
 
-        $this->repo->delete($id);
+        $this->repo->delete($id, $tenantId);
     }
 
     /**
      * Delete all products for an entity
      */
-    public function deleteEntityProducts(int $entityId): void
+    public function deleteEntityProducts(int $entityId, int $tenantId): void
     {
-        $this->repo->deleteEntityProducts($entityId);
+        $this->repo->deleteEntityProducts($entityId, $tenantId);
     }
 
     /**

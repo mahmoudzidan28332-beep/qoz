@@ -187,10 +187,14 @@ final class PdoEntityProductVariantsRepository
     }
 
     /**
-     * Get all variants for an entity (with pricing)
+     * Get all variants for an entity (with pricing, tenant-scoped)
      */
-    public function getEntityVariants(int $entityId): array
+    public function getEntityVariants(int $entityId, int $tenantId = 0): array
     {
+        if ($tenantId <= 0) {
+            return [];
+        }
+
         $stmt = $this->pdo->prepare("
             SELECT epv.*,
                    COALESCE(pt.name, '') as product_name,
@@ -209,18 +213,22 @@ final class PdoEntityProductVariantsRepository
                 AND pp.variant_id = epv.variant_id
                 AND pp.entity_id = epv.entity_id
                 AND pp.is_active = 1
-            WHERE epv.entity_id = :entity_id
+            WHERE epv.entity_id = :entity_id AND epv.tenant_id = :tenant_id
             ORDER BY epv.product_id, epv.id DESC
         ");
-        $stmt->execute([':entity_id' => $entityId]);
+        $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
-     * Get variants for a specific entity product
+     * Get variants for a specific entity product (tenant-scoped)
      */
-    public function getEntityProductVariants(int $entityId, int $productId): array
+    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId = 0): array
     {
+        if ($tenantId <= 0) {
+            return [];
+        }
+
         $stmt = $this->pdo->prepare("
             SELECT epv.*,
                    COALESCE(pt.name, '') as product_name,
@@ -234,10 +242,10 @@ final class PdoEntityProductVariantsRepository
                 AND pp_v.variant_id = epv.variant_id
                 AND pp_v.entity_id IS NULL
                 AND pp_v.is_active = 1
-            WHERE epv.entity_id = :entity_id AND epv.product_id = :product_id
+            WHERE epv.entity_id = :entity_id AND epv.product_id = :product_id AND epv.tenant_id = :tenant_id
             ORDER BY epv.id DESC
         ");
-        $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId]);
+        $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -390,23 +398,23 @@ final class PdoEntityProductVariantsRepository
     }
 
     /**
-     * Delete all variants for an entity
+     * Delete all variants for an entity (tenant-scoped)
      */
-    public function deleteEntityVariants(int $entityId): bool
+    public function deleteEntityVariants(int $entityId, int $tenantId): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE entity_id = :entity_id");
-        return $stmt->execute([':entity_id' => $entityId]);
+        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND tenant_id = :tenant_id");
+        return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
     }
 
     /**
-     * Delete all variants for a specific entity product
+     * Delete all variants for a specific entity product (tenant-scoped)
      */
-    public function deleteEntityProductVariants(int $entityId, int $productId): bool
+    public function deleteEntityProductVariants(int $entityId, int $productId, int $tenantId): bool
     {
         $stmt = $this->pdo->prepare(
-            "DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND product_id = :product_id"
+            "DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND product_id = :product_id AND tenant_id = :tenant_id"
         );
-        return $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId]);
+        return $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
     }
 
     /**

@@ -21,6 +21,18 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+// ================================
+// Tenant & Auth check
+// ================================
+$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
+    ? (int)$_GET['tenant_id']
+    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+
+if ($tenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
+
  $repo = new PdoEntityProductsRepository($pdo);
  $service = new EntityProductsService($repo);
  $controller = new EntityProductsController($service);
@@ -39,8 +51,8 @@ try {
     $orderBy  = $_GET['order_by'] ?? 'id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
 
-    // Collect filters
-    $filters = [];
+    // Collect filters — tenant_id is always forced from session
+    $filters = ['tenant_id' => $tenantId];
 
     if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id'])) {
         $filters['entity_id'] = (int)$_GET['entity_id'];
@@ -48,10 +60,6 @@ try {
 
     if (isset($_GET['product_id']) && is_numeric($_GET['product_id'])) {
         $filters['product_id'] = (int)$_GET['product_id'];
-    }
-
-    if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
-        $filters['tenant_id'] = (int)$_GET['tenant_id'];
     }
 
     if (isset($_GET['is_active']) && in_array($_GET['is_active'], ['0', '1'])) {
@@ -96,14 +104,14 @@ try {
 
             // GET /api/entity_products?action=entity&entity_id={id}
             if (isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) {
-                $products = $controller->getEntityProducts((int)$_GET['entity_id']);
+                $products = $controller->getEntityProducts((int)$_GET['entity_id'], $tenantId);
                 ResponseFormatter::success($products);
                 exit;
             }
 
             // GET /api/entity_products?id={id}
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get((int)$_GET['id']);
+                $item = $controller->get((int)$_GET['id'], $tenantId);
                 if ($item) {
                     ResponseFormatter::success($item);
                 } else {
@@ -161,7 +169,7 @@ try {
         case 'DELETE':
             // DELETE /api/entity_products?action=entity&entity_id={id}
             if ((isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) || (isset($_GET['entity_id']) && !isset($_GET['id']))) {
-                $controller->deleteEntityProducts((int)$_GET['entity_id']);
+                $controller->deleteEntityProducts((int)$_GET['entity_id'], $tenantId);
                 ResponseFormatter::success(null, 'All entity products deleted successfully');
                 exit;
             }
@@ -179,9 +187,9 @@ try {
                 exit;
             }
 
-            $controller->delete($deleteId);
-            ResponseFormatter::success(null, 'Deleted successfully');
-            break;
+            $controller->delete($deleteId, $tenantId);
+                ResponseFormatter::success(null, 'Deleted successfully');
+                break;
 
         default:
             ResponseFormatter::error('Method not allowed', 405);

@@ -205,10 +205,15 @@ final class PdoEntityProductsRepository
      *      يمنع تكرار الصفوف إذا كان المنتج عنده أكثر من سعر نشط
      *
      * @param int    $entityId
-     * @param string $lang  رمز اللغة المطلوبة (fallback: ar ثم en ثم 'Product #id')
+     * @param string $lang     رمز اللغة المطلوبة (fallback: ar ثم en ثم 'Product #id')
+     * @param int    $tenantId required for multi-tenant safety
      */
-    public function getEntityProducts(int $entityId, string $lang = 'ar'): array
+    public function getEntityProducts(int $entityId, string $lang = 'ar', int $tenantId = 0): array
     {
+        if ($tenantId <= 0) {
+            return [];
+        }
+
         // Step 1: Get min pricing IDs for this entity's products
         $minStmt = $this->pdo->prepare("
             SELECT product_id, entity_id, MIN(id) AS min_id
@@ -240,10 +245,10 @@ final class PdoEntityProductsRepository
                    ON pt_ar.product_id   = p.id AND pt_ar.language_code   = 'ar'
             LEFT JOIN product_translations pt_en
                    ON pt_en.product_id   = p.id AND pt_en.language_code   = 'en'
-            WHERE ep.entity_id = :entity_id
+            WHERE ep.entity_id = :entity_id AND ep.tenant_id = :tenant_id
             ORDER BY ep.is_featured DESC, ep.id DESC
         ");
-        $stmt->execute([':entity_id' => $entityId, ':lang' => $lang]);
+        $stmt->execute([':entity_id' => $entityId, ':lang' => $lang, ':tenant_id' => $tenantId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Step 3: Fetch pricing rows in bulk if any
@@ -443,12 +448,12 @@ final class PdoEntityProductsRepository
     }
 
     /**
-     * Delete all products for an entity
+     * Delete all products for an entity (tenant-scoped)
      */
-    public function deleteEntityProducts(int $entityId): bool
+    public function deleteEntityProducts(int $entityId, int $tenantId): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM entity_products WHERE entity_id = :entity_id");
-        return $stmt->execute([':entity_id' => $entityId]);
+        $stmt = $this->pdo->prepare("DELETE FROM entity_products WHERE entity_id = :entity_id AND tenant_id = :tenant_id");
+        return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
     }
 
     /**

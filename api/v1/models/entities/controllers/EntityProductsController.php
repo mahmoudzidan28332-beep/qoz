@@ -20,9 +20,9 @@ final class EntityProductsController
         return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function get(int $id): ?array
+    public function get(int $id, ?int $tenantId = null): ?array
     {
-        return $this->service->get($id);
+        return $this->service->get($id, $tenantId);
     }
 
     public function getByEntityAndProduct(int $entityId, int $productId): ?array
@@ -30,9 +30,9 @@ final class EntityProductsController
         return $this->service->getByEntityAndProduct($entityId, $productId);
     }
 
-    public function getEntityProducts(int $entityId): array
+    public function getEntityProducts(int $entityId, int $tenantId): array
     {
-        return $this->service->getEntityProducts($entityId);
+        return $this->service->getEntityProducts($entityId, $tenantId);
     }
 
     public function create(array $data): int
@@ -50,14 +50,14 @@ final class EntityProductsController
         return $this->service->saveEntityProducts($entityId, $tenantId, $products);
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, ?int $tenantId = null): void
     {
-        $this->service->delete($id);
+        $this->service->delete($id, $tenantId);
     }
 
-    public function deleteEntityProducts(int $entityId): void
+    public function deleteEntityProducts(int $entityId, int $tenantId): void
     {
-        $this->service->deleteEntityProducts($entityId);
+        $this->service->deleteEntityProducts($entityId, $tenantId);
     }
 
     public function getStatistics(): array

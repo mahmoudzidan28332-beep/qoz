@@ -20,9 +20,9 @@ final class EntityProductVariantsController
         return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function get(int $id): ?array
+    public function get(int $id, ?int $tenantId = null): ?array
     {
-        return $this->service->get($id);
+        return $this->service->get($id, $tenantId);
     }
 
     public function getByEntityAndVariant(int $entityId, int $variantId): ?array
@@ -30,14 +30,14 @@ final class EntityProductVariantsController
         return $this->service->getByEntityAndVariant($entityId, $variantId);
     }
 
-    public function getEntityVariants(int $entityId): array
+    public function getEntityVariants(int $entityId, int $tenantId): array
     {
-        return $this->service->getEntityVariants($entityId);
+        return $this->service->getEntityVariants($entityId, $tenantId);
     }
 
-    public function getEntityProductVariants(int $entityId, int $productId): array
+    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId): array
     {
-        return $this->service->getEntityProductVariants($entityId, $productId);
+        return $this->service->getEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     public function create(array $data): int
@@ -55,19 +55,19 @@ final class EntityProductVariantsController
         return $this->service->saveEntityVariants($entityId, $tenantId, $variants);
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, ?int $tenantId = null): void
     {
-        $this->service->delete($id);
+        $this->service->delete($id, $tenantId);
     }
 
-    public function deleteEntityVariants(int $entityId): void
+    public function deleteEntityVariants(int $entityId, int $tenantId): void
     {
-        $this->service->deleteEntityVariants($entityId);
+        $this->service->deleteEntityVariants($entityId, $tenantId);
     }
 
-    public function deleteEntityProductVariants(int $entityId, int $productId): void
+    public function deleteEntityProductVariants(int $entityId, int $productId, int $tenantId): void
     {
-        $this->service->deleteEntityProductVariants($entityId, $productId);
+        $this->service->deleteEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     public function getStatistics(): array

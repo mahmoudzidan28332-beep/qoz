@@ -37,9 +37,9 @@ final class EntityProductVariantsService
     /**
      * Get a single entity product variant
      */
-    public function get(int $id): ?array
+    public function get(int $id, ?int $tenantId = null): ?array
     {
-        return $this->repo->find($id);
+        return $this->repo->find($id, $tenantId);
     }
 
     /**
@@ -53,17 +53,17 @@ final class EntityProductVariantsService
     /**
      * Get all variants for an entity
      */
-    public function getEntityVariants(int $entityId): array
+    public function getEntityVariants(int $entityId, int $tenantId): array
     {
-        return $this->repo->getEntityVariants($entityId);
+        return $this->repo->getEntityVariants($entityId, $tenantId);
     }
 
     /**
      * Get variants for a specific entity product
      */
-    public function getEntityProductVariants(int $entityId, int $productId): array
+    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId): array
     {
-        return $this->repo->getEntityProductVariants($entityId, $productId);
+        return $this->repo->getEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     /**
@@ -101,29 +101,29 @@ final class EntityProductVariantsService
     /**
      * Delete an entity product variant
      */
-    public function delete(int $id): void
+    public function delete(int $id, ?int $tenantId = null): void
     {
-        if (!$this->repo->find($id)) {
+        if (!$this->repo->find($id, $tenantId)) {
             throw new RuntimeException("Entity product variant not found");
         }
 
-        $this->repo->delete($id);
+        $this->repo->delete($id, $tenantId);
     }
 
     /**
      * Delete all variants for an entity
      */
-    public function deleteEntityVariants(int $entityId): void
+    public function deleteEntityVariants(int $entityId, int $tenantId): void
     {
-        $this->repo->deleteEntityVariants($entityId);
+        $this->repo->deleteEntityVariants($entityId, $tenantId);
     }
 
     /**
      * Delete all variants for a specific entity product
      */
-    public function deleteEntityProductVariants(int $entityId, int $productId): void
+    public function deleteEntityProductVariants(int $entityId, int $productId, int $tenantId): void
     {
-        $this->repo->deleteEntityProductVariants($entityId, $productId);
+        $this->repo->deleteEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     /**
