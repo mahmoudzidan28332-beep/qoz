@@ -1,5 +1,5 @@
 🏗️ Architecture + Penetration Test Report
-v5.0 — Generated: 2026-04-20 11:55:24 — Total: 1520.9 ms + Penetration Testing Module
+v5.0 — Generated: 2026-04-20 12:42:43 — Total: 1675.7 ms + Penetration Testing Module
 
 🌙 Toggle Theme
 Score
@@ -12,26 +12,23 @@ Tests Run
 Critical
 0
 Warnings
-1
+0
 Info
-489
+490
 Module	Time (ms)	Tests	Findings
-Architecture Validation	205.1	7	0
-Performance Validation	78.4	7	79
-Multi-Tenant Safety	12.3	4	50
-Security Validation	169.7	6	0
-Penetration Testing	205.4	8	2
-Type Safety	66.7	4	27
-Configuration Safety	451.5	4	0
-Exception Handling	42.5	3	260
-Code Quality	269	6	70
-Runtime Simulation	20.2	2	2
+Architecture Validation	201.5	7	1
+Performance Validation	99.2	7	79
+Multi-Tenant Safety	17.5	4	50
+Security Validation	175.5	6	0
+Penetration Testing	292.1	8	2
+Type Safety	51.4	4	27
+Configuration Safety	575.9	4	0
+Exception Handling	53.1	3	260
+Code Quality	196.4	6	70
+Runtime Simulation	13.3	2	2
 [Multi-Tenant] CVSS 6.5 CWE-284
 Module: Multi-Tenant Safety
-Query on 'addresses' may be missing a tenant_id filter
-📁 api/v1/models/addresses/repositories/PdoAddressesRepository.php:72
-💡 All queries on 'addresses' must include a tenant_id condition to prevent data leakage.
-[Performance]
+
 Module: Performance Validation
 SELECT * found 1 time(s) — fetches unnecessary columns
 📁 api/shared/core/repositories/AuthRepository.php:15
@@ -2472,4 +2469,4 @@ Large file (55.4 KB) — may slow autoload/include
 💡 Split into smaller, lazily-loaded modules.
 [Runtime Summary]
 Module: Runtime Simulation
-Simulation: 1000 requests in 0.012s (avg 0.0116 ms/req, 197 route files)
+Simulation: 1000 requests in 0.006s (avg 0.0064 ms/req, 197 route files)
