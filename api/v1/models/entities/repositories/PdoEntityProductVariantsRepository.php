@@ -134,13 +134,8 @@ final class PdoEntityProductVariantsRepository
      */
     public function find(int $id, ?int $tenantId = null): ?array
     {
-        $tenantCond = '';
         $params = [':id' => $id];
-        if ($tenantId !== null) {
-            $tenantCond = ' AND epv.tenant_id = :tenant_id';
-            $params[':tenant_id'] = $tenantId;
-        }
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT epv.*,
                    COALESCE(pt.name, '') as product_name,
                    pv.sku as variant_sku,
@@ -153,9 +148,13 @@ final class PdoEntityProductVariantsRepository
                 AND pp_v.variant_id = epv.variant_id
                 AND pp_v.entity_id IS NULL
                 AND pp_v.is_active = 1
-            WHERE epv.id = :id{$tenantCond}
-            LIMIT 1
-        ");
+            WHERE epv.id = :id";
+        if ($tenantId !== null) {
+            $sql .= ' AND epv.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

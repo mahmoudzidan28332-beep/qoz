@@ -139,13 +139,8 @@ final class PdoEntityProductsRepository
      */
     public function find(int $id, ?int $tenantId = null): ?array
     {
-        $tenantCond = '';
         $params = [':id' => $id];
-        if ($tenantId !== null) {
-            $tenantCond = ' AND ep.tenant_id = :tenant_id';
-            $params[':tenant_id'] = $tenantId;
-        }
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT ep.*,
                    e.store_name,
                    e.status AS entity_status,
@@ -167,10 +162,13 @@ final class PdoEntityProductsRepository
                   AND pp.entity_id  = ep.entity_id
                   AND pp.variant_id IS NULL
                   AND pp.is_active  = 1
-            WHERE ep.id = :id{$tenantCond}
-            ORDER BY pp.id ASC
-            LIMIT 1
-        ");
+            WHERE ep.id = :id";
+        if ($tenantId !== null) {
+            $sql .= ' AND ep.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= ' ORDER BY pp.id ASC LIMIT 1';
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
