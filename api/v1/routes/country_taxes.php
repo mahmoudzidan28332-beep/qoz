@@ -72,11 +72,13 @@ try {
         }
     } elseif ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['country_id', 'tax_class_id', 'tax_name', 'tax_name_ar', 'tax_type', 'tax_rate', 'is_inclusive', 'is_active', 'effective_date']));
         ResponseFormatter::success(
             $controller->create($data)
         );
     } elseif ($method === 'PUT') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['country_id', 'tax_class_id', 'tax_name', 'tax_name_ar', 'tax_type', 'tax_rate', 'is_inclusive', 'is_active', 'effective_date'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         ResponseFormatter::success(
             $controller->update($data)
         );

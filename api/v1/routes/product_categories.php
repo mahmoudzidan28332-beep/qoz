@@ -63,11 +63,13 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order']));
             ResponseFormatter::success($controller->create($data));
             break;
 
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             ResponseFormatter::success($controller->update($data));
             break;
 

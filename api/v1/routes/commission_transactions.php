@@ -78,6 +78,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'entity_id', 'order_id', 'order_date', 'transaction_type', 'order_amount', 'commission_amount', 'vat_amount', 'net_commission', 'status', 'is_locked', 'locked_at', 'created_by', 'updated_by', 'cancelled_by']));
             if (empty($data['tenant_id']) && !empty($_SESSION['tenant_id'])) {
                 $data['tenant_id'] = (int)$_SESSION['tenant_id'];
             }

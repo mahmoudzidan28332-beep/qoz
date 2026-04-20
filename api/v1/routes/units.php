@@ -32,11 +32,13 @@ try{
 
         case 'POST':
             $data=json_decode(file_get_contents('php://input'),true)??[];
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'code']));
             ResponseFormatter::success($controller->create($data));
             break;
 
         case 'PUT':
             $data=json_decode(file_get_contents('php://input'),true)??[];
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'code'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             ResponseFormatter::success($controller->update($data));
             break;
 

@@ -77,12 +77,14 @@ try {
 
         case 'POST':
             $data  = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = array_intersect_key($data, array_flip(['auction_id', 'user_id', 'max_bid_amount', 'is_active']));
             $newId = $controller->create($data);
             ResponseFormatter::success(['id' => $newId], 'Auto-bid setting created successfully', 201);
             break;
 
         case 'PUT':
             $data      = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = array_intersect_key($data, array_flip(['auction_id', 'user_id', 'max_bid_amount', 'is_active'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             $updatedId = $controller->update($data);
             ResponseFormatter::success(['id' => $updatedId], 'Auto-bid setting updated successfully');
             break;

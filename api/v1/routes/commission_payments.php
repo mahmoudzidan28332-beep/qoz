@@ -82,6 +82,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'entity_id', 'commission_invoice_id', 'payment_number', 'payment_method', 'amount_paid', 'paid_at', 'is_cancelled', 'cancelled_at', 'cancellation_reason', 'created_by', 'cancelled_by']));
             if (empty($data['tenant_id'])) {
                 $data['tenant_id'] = $_SESSION['tenant_id'] ?? 1;
             }

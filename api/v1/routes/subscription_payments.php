@@ -85,6 +85,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['payment_number', 'invoice_id', 'subscription_id', 'tenant_id', 'amount', 'currency_code', 'payment_gateway', 'gateway_transaction_id', 'gateway_response', 'status', 'paid_at', 'refunded_at', 'mark_success', 'mark_refunded', 'id']));
             if (isset($data['mark_success']) && isset($data['id'])) {
                 $controller->markSuccess((int)$data['id'], $data['gateway_transaction_id'] ?? '', $data['gateway_response'] ?? '');
                 AuditLogger::log('payment_marked_success', 'subscription_payment', (int)$data['id']);

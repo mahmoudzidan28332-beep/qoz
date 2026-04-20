@@ -61,6 +61,7 @@ try {
         case 'POST':
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = array_intersect_key($data, array_flip(['auction_id', 'user_id', 'notify_before_end', 'notify_on_outbid', 'notify_on_winner'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             $id   = $controller->save($data);
             ResponseFormatter::success(['id' => $id], 'Watcher saved successfully', $method === 'POST' ? 201 : 200);
             break;

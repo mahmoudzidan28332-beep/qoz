@@ -121,10 +121,12 @@ try {
         return;
     } elseif ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['username', 'email', 'password', 'preferred_language', 'phone', 'is_active']));
         ResponseFormatter::success($controller->create($data));
         return;
     } elseif ($method === 'PUT') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['username', 'email', 'password', 'preferred_language', 'phone', 'is_active'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         ResponseFormatter::success($controller->update($data));
         return;
     } elseif ($method === 'DELETE') {

@@ -64,12 +64,14 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['method_key', 'method_name', 'description', 'gateway_name', 'icon_url', 'config']));
             $id = $controller->create($data);
             ResponseFormatter::success(['id' => $id], 'Created');
             break;
 
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['method_key', 'method_name', 'description', 'gateway_name', 'icon_url', 'config'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             $id   = (int)($data['id'] ?? $_GET['id'] ?? 0);
             if (!$id) {
                 ResponseFormatter::error('ID is required', 400);

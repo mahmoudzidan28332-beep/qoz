@@ -61,6 +61,7 @@ try {
         case 'POST':
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = array_intersect_key($data, array_flip(['auction_id', 'language_code', 'title', 'description', 'terms_conditions'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             $id   = $controller->save($data);
             ResponseFormatter::success(['id' => $id], 'Translation saved successfully', $method === 'POST' ? 201 : 200);
             break;

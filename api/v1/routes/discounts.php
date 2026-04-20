@@ -78,6 +78,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['entity_id', 'type', 'code', 'auto_apply', 'priority', 'is_stackable', 'currency_code', 'max_redemptions', 'max_redemptions_per_user', 'current_redemptions', 'starts_at', 'ends_at', 'status', 'created_by']));
 
             $validation = DiscountsValidator::validateCreate($data);
             if (!$validation['valid']) {

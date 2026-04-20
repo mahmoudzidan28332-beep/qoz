@@ -75,6 +75,7 @@ try {
     // ── POST /{id}/ssl ───────────────────────────────────────
     if ($method === 'POST' && $id && $action === 'ssl') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['tenant_id', 'domain', 'type', 'is_verified', 'verification_token', 'verified_at', 'ssl_status', 'ssl_expires_at', 'redirect_to_primary', 'meta']));
         ResponseFormatter::success(
             $controller->updateSslStatus($id, $data),
             'SSL status updated'
@@ -109,6 +110,7 @@ try {
     // ── POST create ──────────────────────────────────────────
     if ($method === 'POST' && !$id) {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['tenant_id', 'domain', 'type', 'is_verified', 'verification_token', 'verified_at', 'ssl_status', 'ssl_expires_at', 'redirect_to_primary', 'meta']));
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new InvalidArgumentException('Invalid JSON: ' . json_last_error_msg());
         }

@@ -105,6 +105,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes']));
 
             $validation = StockMovementsValidator::validateCreate($data);
             if (!$validation['valid']) {

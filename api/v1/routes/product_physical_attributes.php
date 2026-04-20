@@ -82,6 +82,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'weight', 'weight_unit', 'length', 'width', 'height', 'dimension_unit']));
             $id = $controller->create($data);
             ResponseFormatter::success(['id' => $id], 'Created successfully');
             break;
