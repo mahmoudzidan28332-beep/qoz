@@ -77,6 +77,15 @@ final class PdoEntityTypesRepository
     // =========================
     // Find
     // =========================
+    public function existsByCode(string $code): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM entity_types WHERE code = :code LIMIT 1"
+        );
+        $stmt->execute([':code' => $code]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(

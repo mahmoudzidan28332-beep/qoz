@@ -10,6 +10,7 @@ require_once $baseDir . '/shared/config/db.php';
 
 $modelsPath = API_VERSION_PATH . '/models/entities';
 require_once $modelsPath . '/repositories/PdoEntitiesRepository.php';
+require_once $modelsPath . '/repositories/PdoEntityTypesRepository.php';
 require_once $modelsPath . '/validators/EntitiesValidator.php';
 require_once $modelsPath . '/services/EntitiesService.php';
 require_once $modelsPath . '/controllers/EntitiesController.php';
@@ -24,10 +25,15 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+// Load valid vendor_type codes from entity_types table
+$entityTypesRepo = new PdoEntityTypesRepository($pdo);
+$allEntityTypes  = $entityTypesRepo->all(null, null, [], 'code', 'ASC');
+$validVendorTypeCodes = array_column($allEntityTypes, 'code');
+
 $repo       = new PdoEntitiesRepository($pdo);
 $service    = new EntitiesService($repo);
 $controller = new EntitiesController($service);
-$validator  = new EntitiesValidator();
+$validator  = new EntitiesValidator($validVendorTypeCodes);
 
 // ================================
 // Tenant & Auth check
