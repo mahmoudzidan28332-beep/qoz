@@ -274,9 +274,7 @@ $apiBase = '/api';
                                 <?= __t('form.fields.vendor_type.label', 'Vendor Type') ?>
                             </label>
                             <select id="entityVendorType" name="vendor_type" class="form-control">
-                                <option value="product_seller" data-i18n="form.fields.vendor_type.product_seller">Product Seller</option>
-                                <option value="service_provider" data-i18n="form.fields.vendor_type.service_provider">Service Provider</option>
-                                <option value="both" data-i18n="form.fields.vendor_type.both">Both</option>
+                                <!-- populated dynamically from /api/entity_types -->
                             </select>
                         </div>
 
@@ -735,9 +733,7 @@ $apiBase = '/api';
                     <label for="vendorTypeFilter" data-i18n="filters.vendor_type">Vendor Type</label>
                     <select id="vendorTypeFilter" class="form-control">
                         <option value="">All Types</option>
-                        <option value="product_seller">Product Seller</option>
-                        <option value="service_provider">Service Provider</option>
-                        <option value="both">Both</option>
+                        <!-- populated dynamically from /api/entity_types -->
                     </select>
                 </div>
 

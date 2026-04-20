@@ -498,6 +498,18 @@
             } catch (entErr) {
                 console.warn('[Entities] Failed to load parent entities list:', entErr);
             }
+
+            // Load entity types (vendor_type options)
+            try {
+                const entityTypesResult = await apiCall(`${API.entityTypes}?limit=100&format=json`);
+                if (entityTypesResult.success) {
+                    const typesData = entityTypesResult.data?.items || entityTypesResult.data || [];
+                    state.entityTypes = Array.isArray(typesData) ? typesData : [];
+                    populateEntityTypeDropdowns(state.entityTypes);
+                }
+            } catch (etErr) {
+                console.warn('[Entities] Failed to load entity types:', etErr);
+            }
         } catch (err) {
             console.warn('[Entities] Failed to load dropdown data:', err);
         }
@@ -580,6 +592,35 @@
             })
             : state.allEntities;
         populateParentEntitySelect(filtered);
+    }
+
+    function populateEntityTypeDropdowns(entityTypes) {
+        // Populate vendor_type form select (use code as value, name as label)
+        if (el.entityVendorType) {
+            const current = el.entityVendorType.value;
+            el.entityVendorType.innerHTML = '';
+            entityTypes.forEach(function (et) {
+                const opt = document.createElement('option');
+                opt.value = et.code;
+                opt.textContent = et.name;
+                el.entityVendorType.appendChild(opt);
+            });
+            if (current) el.entityVendorType.value = current;
+        }
+
+        // Populate vendor_type filter select
+        if (el.vendorTypeFilter) {
+            const current = el.vendorTypeFilter.value;
+            // Keep first "All Types" option, remove the rest
+            while (el.vendorTypeFilter.options.length > 1) el.vendorTypeFilter.remove(1);
+            entityTypes.forEach(function (et) {
+                const opt = document.createElement('option');
+                opt.value = et.code;
+                opt.textContent = et.name;
+                el.vendorTypeFilter.appendChild(opt);
+            });
+            if (current) el.vendorTypeFilter.value = current;
+        }
     }
 
     // ════════════════════════════════════════════════════════════
@@ -710,7 +751,14 @@
                 validateParentId(entity.parent_id);
             }
             if (el.entityBranchCode) el.entityBranchCode.value = entity.branch_code || '';
-            if (el.entityVendorType) el.entityVendorType.value = entity.vendor_type || 'product_seller';
+            if (el.entityVendorType) {
+                const vt = entity.vendor_type || 'product_seller';
+                if (state.entityTypes.length > 0) {
+                    el.entityVendorType.value = vt;
+                } else {
+                    setTimeout(() => { if (el.entityVendorType) el.entityVendorType.value = vt; }, 600);
+                }
+            }
             if (el.entityStoreType) el.entityStoreType.value = entity.store_type || 'individual';
             if (el.entityRegistrationNumber) el.entityRegistrationNumber.value = entity.registration_number || '';
             if (el.entityTaxNumber) el.entityTaxNumber.value = entity.tax_number || '';

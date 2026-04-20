@@ -38,6 +38,12 @@ if (!defined('JWT_SECRET')) {
 if (!defined('JWT_EXPIRY')) {
     define('JWT_EXPIRY', (int)(getenv('JWT_EXPIRY') ?: 3600));
 }
+if (!defined('JWT_PRIVATE_KEY_PATH')) {
+    define('JWT_PRIVATE_KEY_PATH', getenv('JWT_PRIVATE_KEY_PATH') ?: '');
+}
+if (!defined('JWT_PUBLIC_KEY_PATH')) {
+    define('JWT_PUBLIC_KEY_PATH', getenv('JWT_PUBLIC_KEY_PATH') ?: '');
+}
 
 // ---------------------------
 // 3. إعدادات ConfigLoader-compatible array
