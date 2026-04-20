@@ -188,8 +188,8 @@ try {
             }
 
             $controller->delete($deleteId, $tenantId);
-                ResponseFormatter::success(null, 'Deleted successfully');
-                break;
+            ResponseFormatter::success(null, 'Deleted successfully');
+            break;
 
         default:
             ResponseFormatter::error('Method not allowed', 405);
