@@ -10,13 +10,24 @@ final class PdoEntityTranslationsRepository
         $this->pdo = $pdo;
     }
 
-    public function getByEntity(int $entityId): array
+    public function getByEntity(int $entityId, ?int $tenantId = null): array
     {
-        $stmt = $this->pdo->prepare("
-            SELECT * FROM entity_translations
-            WHERE entity_id = :entity_id
-        ");
-        $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+        // Multi-tenant safety: optionally verify entity belongs to tenant
+        if ($tenantId !== null) {
+            $stmt = $this->pdo->prepare("
+                SELECT et.* FROM entity_translations et
+                INNER JOIN entities e ON e.id = et.entity_id AND e.tenant_id = :tenant_id
+                WHERE et.entity_id = :entity_id
+            ");
+            $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        } else {
+            $stmt = $this->pdo->prepare("
+                SELECT * FROM entity_translations
+                WHERE entity_id = :entity_id
+            ");
+            $stmt->bindValue(':entity_id', $entityId, PDO::PARAM_INT);
+        }
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

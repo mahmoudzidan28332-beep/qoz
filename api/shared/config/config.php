@@ -19,7 +19,28 @@ if (file_exists($envFile)) {
 }
 
 // ---------------------------
-// 2. إعدادات ConfigLoader-compatible array
+// 2. Define JWT constants (like db.php pattern)
+//    HS256 security: secret MUST have ≥ 256 bits (32 bytes) entropy.
+//    If the env var is missing or uses the insecure default, generate a per-process fallback
+//    and log a warning so operators fix their deployment.
+// ---------------------------
+if (!defined('JWT_SECRET')) {
+    $jwtSecret = getenv('JWT_SECRET') ?: '';
+    // Reject known-insecure defaults and secrets shorter than 32 bytes (256 bits)
+    if ($jwtSecret === '' || $jwtSecret === 'your_default_jwt_secret_change_this' || strlen($jwtSecret) < 32) {
+        // Generate a cryptographically secure ephemeral secret for this process.
+        // WARNING: tokens signed with this won't survive process restarts.
+        $jwtSecret = bin2hex(random_bytes(32)); // 64 hex chars = 256 bits
+        error_log('[SECURITY] JWT_SECRET env var is missing or too short (<32 bytes). Using ephemeral secret. Set a strong JWT_SECRET in .env for production.');
+    }
+    define('JWT_SECRET', $jwtSecret);
+}
+if (!defined('JWT_EXPIRY')) {
+    define('JWT_EXPIRY', (int)(getenv('JWT_EXPIRY') ?: 3600));
+}
+
+// ---------------------------
+// 3. إعدادات ConfigLoader-compatible array
 // ---------------------------
 return [
     'app' => [
@@ -43,8 +64,8 @@ return [
     ],
     'api' => [
         'version' => getenv('API_VERSION') ?: 'v1',
-        'jwt_secret' => getenv('JWT_SECRET') ?: 'your_default_jwt_secret_change_this',
-        'jwt_expiry' => (int)(getenv('JWT_EXPIRY') ?: 3600),
+        'jwt_secret' => JWT_SECRET,
+        'jwt_expiry' => JWT_EXPIRY,
         'rate_limit' => (int)(getenv('API_RATE_LIMIT') ?: 1000),
         'allowed_origins' => getenv('ALLOWED_ORIGINS') ? explode(',', getenv('ALLOWED_ORIGINS')) : ['*'],
     ],

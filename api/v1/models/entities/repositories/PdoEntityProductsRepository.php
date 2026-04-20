@@ -135,10 +135,16 @@ final class PdoEntityProductsRepository
     }
 
     /**
-     * Find by ID
+     * Find by ID (with optional tenant_id for multi-tenant safety)
      */
-    public function find(int $id): ?array
+    public function find(int $id, ?int $tenantId = null): ?array
     {
+        $tenantCond = '';
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $tenantCond = ' AND ep.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
         $stmt = $this->pdo->prepare("
             SELECT ep.*,
                    e.store_name,
@@ -161,11 +167,11 @@ final class PdoEntityProductsRepository
                   AND pp.entity_id  = ep.entity_id
                   AND pp.variant_id IS NULL
                   AND pp.is_active  = 1
-            WHERE ep.id = :id
+            WHERE ep.id = :id{$tenantCond}
             ORDER BY pp.id ASC
             LIMIT 1
         ");
-        $stmt->execute([':id' => $id]);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -424,12 +430,18 @@ final class PdoEntityProductsRepository
     }
 
     /**
-     * Delete
+     * Delete (with optional tenant_id for multi-tenant safety)
      */
-    public function delete(int $id): bool
+    public function delete(int $id, ?int $tenantId = null): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM entity_products WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        $tenantCond = '';
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $tenantCond = ' AND tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare("DELETE FROM entity_products WHERE id = :id{$tenantCond}");
+        return $stmt->execute($params);
     }
 
     /**

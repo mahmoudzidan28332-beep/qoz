@@ -130,10 +130,16 @@ final class PdoEntityProductVariantsRepository
     }
 
     /**
-     * Find by ID
+     * Find by ID (with optional tenant_id for multi-tenant safety)
      */
-    public function find(int $id): ?array
+    public function find(int $id, ?int $tenantId = null): ?array
     {
+        $tenantCond = '';
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $tenantCond = ' AND epv.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
         $stmt = $this->pdo->prepare("
             SELECT epv.*,
                    COALESCE(pt.name, '') as product_name,
@@ -147,10 +153,10 @@ final class PdoEntityProductVariantsRepository
                 AND pp_v.variant_id = epv.variant_id
                 AND pp_v.entity_id IS NULL
                 AND pp_v.is_active = 1
-            WHERE epv.id = :id
+            WHERE epv.id = :id{$tenantCond}
             LIMIT 1
         ");
-        $stmt->execute([':id' => $id]);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -370,12 +376,18 @@ final class PdoEntityProductVariantsRepository
     }
 
     /**
-     * Delete
+     * Delete (with optional tenant_id for multi-tenant safety)
      */
-    public function delete(int $id): bool
+    public function delete(int $id, ?int $tenantId = null): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        $tenantCond = '';
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $tenantCond = ' AND tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE id = :id{$tenantCond}");
+        return $stmt->execute($params);
     }
 
     /**
