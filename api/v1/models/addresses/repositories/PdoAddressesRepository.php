@@ -130,17 +130,20 @@ final class PdoAddressesRepository
     // ================================
     // GET
     // ================================
-    public function find(int $id, string $language = 'ar', ?int $tenantId = null): ?array
+    public function find(int $id, string $language = 'ar', int $tenantId = 0): ?array
     {
         $where  = ['a.id = :id'];
         $params = [];
 
-        if ($tenantId !== null) {
+        if ($tenantId > 0) {
             // Multi-tenant safety: scope address to entities or users belonging to the given tenant
             $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))
                 OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :tenant_id_usr)))";
             $params[':tenant_id'] = $tenantId;
             $params[':tenant_id_usr'] = $tenantId;
+        } else {
+            // Multi-tenant safety: reject queries without tenant scoping
+            return null;
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -163,7 +166,7 @@ final class PdoAddressesRepository
         $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
         $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-        if ($tenantId !== null) {
+        if ($tenantId > 0) {
             $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
             $stmt->bindValue(':tenant_id_usr', $tenantId, PDO::PARAM_INT);
         }

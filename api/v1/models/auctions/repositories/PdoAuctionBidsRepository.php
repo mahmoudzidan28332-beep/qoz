@@ -6,6 +6,10 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
     private PDO $pdo;
     private const TABLE = 'auction_bids';
     private const ALLOWED_ORDER_BY = ['id', 'bid_amount', 'bid_type', 'is_winning', 'created_at'];
+    private const ALLOWED_COLUMNS = [
+        'auction_id', 'user_id', 'bid_amount', 'max_auto_bid',
+        'bid_type', 'is_winning', 'is_auto_outbid', 'ip_address', 'user_agent'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -88,6 +92,7 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
 
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             INSERT INTO " . self::TABLE . " (auction_id, user_id, bid_amount, max_auto_bid, bid_type, is_winning, is_auto_outbid, ip_address, user_agent)
             VALUES (:auction_id, :user_id, :bid_amount, :max_auto_bid, :bid_type, :is_winning, :is_auto_outbid, :ip_address, :user_agent)

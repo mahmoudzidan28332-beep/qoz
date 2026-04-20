@@ -6,6 +6,9 @@ final class PdoProduct_categoriesRepository
     private PDO $pdo;
     private const TABLE = 'product_categories';
     private const ALLOWED_ORDER_BY = ['id', 'product_id', 'category_id', 'is_primary', 'sort_order'];
+    private const ALLOWED_COLUMNS = [
+        'product_id', 'category_id', 'is_primary', 'sort_order'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -113,6 +116,7 @@ final class PdoProduct_categoriesRepository
      * ===================================================== */
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
 
         if ($isUpdate) {

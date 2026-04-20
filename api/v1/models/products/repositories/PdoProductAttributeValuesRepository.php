@@ -7,6 +7,10 @@ final class PdoProductAttributeValuesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'attribute_id', 'value', 'slug', 'sort_order', 'is_active'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -97,6 +101,7 @@ final class PdoProductAttributeValuesRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []) + (isset($data['translations']) ? ['translations' => $data['translations']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->findById((int)$data['id']) : null;
 

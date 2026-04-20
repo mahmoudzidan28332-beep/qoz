@@ -5,6 +5,10 @@ final class PdoCurrenciesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'code', 'name', 'symbol', 'symbol_position', 'decimal_places', 'is_active'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -72,6 +76,7 @@ final class PdoCurrenciesRepository
 
     public function save(array $data): string
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $existing = $this->findByCode($data['code']);
 
         if ($existing) {

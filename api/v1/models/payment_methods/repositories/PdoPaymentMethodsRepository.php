@@ -6,6 +6,9 @@ final class PdoPaymentMethodsRepository
     private PDO $pdo;
 
     private const ALLOWED_ORDER_BY = ['id', 'method_key', 'method_name', 'gateway_name', 'created_at'];
+    private const ALLOWED_COLUMNS = [
+        'method_key', 'method_name', 'description', 'gateway_name', 'icon_url', 'config'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -81,6 +84,7 @@ final class PdoPaymentMethodsRepository
 
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare('
             INSERT INTO payment_methods (method_key, method_name, description, gateway_name, icon_url, config)
             VALUES (:method_key, :method_name, :description, :gateway_name, :icon_url, :config)
@@ -98,6 +102,7 @@ final class PdoPaymentMethodsRepository
 
     public function update(int $id, array $data): bool
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare('
             UPDATE payment_methods SET
                 method_key   = :method_key,

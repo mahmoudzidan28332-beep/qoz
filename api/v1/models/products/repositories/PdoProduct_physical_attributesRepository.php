@@ -17,6 +17,11 @@ final class PdoProductPhysicalAttributesRepository
         'updated_at'
     ];
 
+    private const ALLOWED_COLUMNS = [
+        'product_id', 'variant_id', 'weight', 'weight_unit',
+        'length', 'width', 'height', 'dimension_unit'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -145,6 +150,7 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $isProduct = !empty($data['product_id']);
         $isVariant = !empty($data['variant_id']);
 

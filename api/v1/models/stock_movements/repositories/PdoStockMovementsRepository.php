@@ -9,6 +9,9 @@ final class PdoStockMovementsRepository
     private PDO $pdo;
 
     private const ALLOWED_ORDER_BY = ['id', 'product_id', 'variant_id', 'type', 'change_quantity', 'created_at'];
+    private const ALLOWED_COLUMNS = [
+        'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -161,6 +164,7 @@ final class PdoStockMovementsRepository
     // ================================
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $this->pdo->beginTransaction();
         try {
             $stmt = $this->pdo->prepare("

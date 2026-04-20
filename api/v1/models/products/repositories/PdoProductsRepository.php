@@ -62,17 +62,13 @@ final class PdoProductsRepository
                 ON i.owner_id = p.id
                AND i.is_main = 1
                AND i.image_type_id = it.id
-            LEFT JOIN product_pricing pp
-                ON pp.product_id = p.id
-               AND pp.variant_id IS NULL
-               AND pp.is_active = 1
-               AND pp.id = (
-                   SELECT MIN(pp2.id)
-                   FROM product_pricing pp2
-                   WHERE pp2.product_id = p.id
-                     AND pp2.variant_id IS NULL
-                     AND pp2.is_active = 1
-               )
+            LEFT JOIN (
+                SELECT product_id, MIN(id) AS min_id
+                FROM product_pricing
+                WHERE variant_id IS NULL AND is_active = 1
+                GROUP BY product_id
+            ) pp_min ON pp_min.product_id = p.id
+            LEFT JOIN product_pricing pp ON pp.id = pp_min.min_id
             WHERE p.tenant_id = :tenant_id
         ";
         $params = [':tenant_id' => $tenantId, ':lang' => $lang];
