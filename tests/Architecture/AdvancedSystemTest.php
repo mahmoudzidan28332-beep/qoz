@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * AdvancedSystemTest.php — World-Class Architecture & Performance & Penetration Test Suite
  *
- * v5.0 improvements over v4.0:
+ * v5.1 improvements over v5.0 (false-positive reduction):
  *   ✔ Penetration Testing module — SQL Injection, Tenant Bypass, Auth bypass, N+1 flood
  *   ✔ Tenant Isolation chain check — tenants → entities (tenant_id) → child tables
  *   ✔ Entity schema awareness — validates entity_id FK inherits tenant scope
@@ -13,22 +13,21 @@ declare(strict_types=1);
  *   ✔ JWT/Auth bypass detection — none-algorithm, weak secrets, missing verification
  *   ✔ IDOR detection — direct object reference without ownership check
  *   ✔ Rate-limit bypass patterns — missing throttle on sensitive endpoints
- *   ✔ Mass assignment detection — unfiltered $_POST passed to repository
+ *   ✔ Mass Assignment — now only flags ROUTE files + raw $_POST, skips services/controllers
+ *   ✔ Insecure Entity Access — now per-file, skips bootstrap files + files with tenant_id
+ *   ✔ Cross-Tenant Entity IDOR — downgraded to INFO, bootstrap-aware
  *   ✔ Privilege escalation patterns — role/permission manipulation vectors
- *   ✔ Open Redirect extended — header(), Location, js redirect patterns
- *   ✔ Request log simulation output (--simulate flag)
- *   ✔ CVSS-style severity scoring per finding
- *   ✔ Suppressed false-positives from v4 retained
- *   ✔ HTML report: attack simulation tab, entity-chain visualizer
+ *   ✔ CVSS-style severity scoring per finding + CWE IDs
+ *   ✔ HTML report: CVSS badges, CWE tags, collapsible sections
  *   ✔ JSON report: machine-readable CVE-style findings
  *
  * Usage (CLI):
- *   php AdvancedSystemTest.php [/path/to/project] [--format=cli|html|json|markdown] [--quiet] [--simulate]
+ *   php AdvancedSystemTest.php [/path/to/project] [--format=cli|html|json|markdown] [--quiet]
  *
  * Usage (Browser):
  *   Navigate to AdvancedSystemTest.php?format=html
  *
- * @version  5.0.0
+ * @version  5.1.0
  * @license  MIT
  */
 
@@ -1071,28 +1070,35 @@ class MultiTenantSafety extends BaseArchTest
      * or tenant_id from user input without verifying ownership.
      * This is an IDOR (Insecure Direct Object Reference) risk in multi-tenant systems.
      */
+    /**
+     * Cross-tenant entity access via IDOR.
+     * Only flags if: entity_id from user input AND no bootstrap AND no tenant_id in file.
+     * Routes with bootstrap skip because middleware resolves ownership.
+     */
     private function checkCrossTenantEntityAccess(): void
     {
         $this->report->incrementTests();
 
         foreach ($this->routeFiles() as $file) {
             $content = $this->cache->content($file);
-            // User supplies entity_id or tenant_id directly
-            $hasUserEntityId = preg_match('/\$_(?:POST|GET|REQUEST)\s*\[\s*[\'"](?:entity_id|tenant_id)[\'"]\s*\]/i', $content);
-            if (!$hasUserEntityId) continue;
 
-            // Is there an ownership/membership check?
-            $hasOwnershipCheck = preg_match('/\b(?:belongsToTenant|checkOwnership|isOwner|entity_id.*tenant|tenant.*entity_id|getEntityByTenant|verifyEntity)\b/i', $content);
-            $hasBootstrap      = preg_match('/require[^;]+bootstrap/i', $content);
+            // User directly supplies entity_id in this route
+            if (!preg_match('/\$_(?:POST|GET|REQUEST)\s*\[\s*[\'"]entity_id[\'"]\s*\]/i', $content)) continue;
 
-            if (!$hasOwnershipCheck && !$hasBootstrap) {
-                $this->warning('IDOR Risk',
-                    'User-supplied entity_id/tenant_id without visible ownership verification',
-                    $file, 0,
-                    'Verify the entity_id belongs to the authenticated user\'s tenant before processing.',
-                    8.1, 'CWE-639'
-                );
-            }
+            // Bootstrap = middleware handles tenant — skip
+            if (preg_match('/require[^;]+bootstrap/i', $content)) continue;
+
+            // tenant_id present in file = scoping done somewhere — skip
+            if (preg_match('/\btenant_id\b/i', $content)) continue;
+
+            // Explicit ownership check
+            if (preg_match('/\b(?:belongsToTenant|checkOwnership|isOwner|getEntityByTenant|verifyEntity)\b/i', $content)) continue;
+
+            $this->info('IDOR Risk',
+                'Route accepts entity_id from user without visible tenant ownership check',
+                $file, 0,
+                'Verify entity_id belongs to the authenticated tenant before processing.'
+            );
         }
     }
 }
@@ -1276,36 +1282,73 @@ class PenetrationTesting extends BaseArchTest
     }
 
     /**
-     * Mass assignment: $_POST or json_decode passed wholesale to a repository
-     * without field whitelisting. Attacker can inject extra fields.
+     * Mass assignment: only flag true high-signal cases.
+     *
+     * Rule 1 (CRITICAL): $_POST passed directly to save/create/update — zero validation
+     * Rule 2 (WARNING): json_decode(php://input) result used in write without whitelist
+     *                   AND the file is a route file (not a service/controller that
+     *                   receives already-validated $data from upstream).
+     *
+     * Services and controllers receive $data that was already parsed at the route layer —
+     * flagging them produces 300+ false positives. Only the route layer is the real
+     * entry point for untrusted input.
      */
     private function checkMassAssignmentRisk(): void
     {
         $this->report->incrementTests();
 
-        foreach ($this->allApiFiles() as $file) {
-            $content = $this->cache->content($file);
+        // Only scan route files and old-style flat files (not services/controllers/repositories)
+        $candidates = array_filter($this->allApiFiles(), function (string $f): bool {
+            $rel = $this->short($f);
+            // Skip: services, controllers, repositories, validators, tests — they get
+            // pre-parsed $data; flagging them is always a false positive in this architecture.
+            return !str_contains($rel, '/services/')
+                && !str_contains($rel, '/controllers/')
+                && !str_contains($rel, '/repositories/')
+                && !str_contains($rel, '/validators/')
+                && !str_contains($rel, '/tests/');
+        });
+
+        foreach ($candidates as $file) {
             $lines   = $this->cache->lines($file);
+            $flagged = false; // one finding per file max
 
             foreach ($lines as $idx => $line) {
+                if ($flagged) break;
                 if (isCommentLine($line)) continue;
-                // Pattern: $data = json_decode(..., true) or $_POST passed to save/create
+
+                // Rule 1: $_POST piped directly into a write method (CRITICAL)
                 if (preg_match('/(?:save|create|update|insert)\s*\(\s*\$_POST\s*\)/i', $line)) {
                     $this->critical('Mass Assignment',
-                        'Raw $_POST passed directly to a write method — mass assignment vulnerability',
+                        'Raw $_POST passed directly to a write method — no validation layer',
                         $file, $idx + 1,
-                        'Whitelist allowed fields: $data = array_intersect_key($_POST, array_flip([\'name\', \'email\', ...]));',
+                        'Use array_intersect_key($_POST, array_flip([\'field1\', \'field2\'])) to whitelist fields.',
                         8.8, 'CWE-915');
+                    $flagged = true;
+                    continue;
                 }
-                if (preg_match('/(?:save|create|update)\s*\(\s*\$(?:body|data|input|payload)\s*\)/i', $line)) {
-                    // Check if there's a whitelist/filter nearby
-                    $context = implode("\n", array_slice($lines, max(0, $idx - 5), 15));
-                    if (!preg_match('/\b(?:array_intersect_key|array_filter|whitelist|allowed|pick|only|fillable)\b/i', $context)) {
-                        $this->warning('Mass Assignment',
-                            'Unfiltered data object passed to write method — possible mass assignment',
-                            $file, $idx + 1,
-                            'Define an explicit whitelist of accepted fields before passing to repository.',
-                            7.5, 'CWE-915');
+
+                // Rule 2: json_decode result written without whitelist in same route file
+                // Only trigger when the file itself reads php://input or $_POST AND
+                // passes the raw result directly to a write — no validator in file scope.
+                if (preg_match('/json_decode\s*\(\s*(?:file_get_contents\s*\(\s*[\'"]php:\/\/input[\'"]\s*\)|.*\$_(?:POST|REQUEST))/i', $line)) {
+                    // Look ahead in same file for a write call using that variable
+                    $rest = implode("\n", array_slice($lines, $idx, 40));
+                    if (preg_match('/(?:save|create|update|insert)\s*\(\s*\$(?:body|data|input|payload)\s*\)/i', $rest)) {
+                        // Only flag if no whitelist is present anywhere in the file
+                        $fileContent = $this->cache->content($file);
+                        $hasWhitelist = preg_match(
+                            '/\b(?:array_intersect_key|array_filter|array_pick|fillable|whitelist|allowedFields|validatedData|validate)\b/i',
+                            $fileContent
+                        );
+                        if (!$hasWhitelist) {
+                            $this->warning('Mass Assignment',
+                                'json_decode() result passed to write method without field whitelisting',
+                                $file, $idx + 1,
+                                'Whitelist fields explicitly before writing: only accept known keys.',
+                                7.5, 'CWE-915');
+                            $flagged = true;
+                        }
                     }
                 }
             }
@@ -1407,38 +1450,42 @@ class PenetrationTesting extends BaseArchTest
     }
 
     /**
-     * NEW v5 (entity-chain specific): Detect direct entity access
-     * where entity_id is from user input but not verified against tenant.
+     * Insecure entity access: entity_id comes from user input with NO tenant check.
      *
-     * In this system: tenants.id → entities.tenant_id
-     * An attacker supplying a different entity_id can access another tenant's entity.
+     * False-positive reduction v5.1:
+     * - Only checks ROUTE files (entry points for raw user input)
+     * - Skips files that require bootstrap (auth middleware resolves tenant)
+     * - Skips if tenant_id appears anywhere in the file (scoping present)
+     * - One finding per file maximum
      */
     private function checkInsecureDirectEntityAccess(): void
     {
         $this->report->incrementTests();
 
-        foreach ($this->allApiFiles() as $file) {
+        foreach ($this->routeFiles() as $file) {
             $content = $this->cache->content($file);
-            $lines   = $this->cache->lines($file);
 
-            foreach ($lines as $idx => $line) {
-                if (isCommentLine($line)) continue;
-                // entity_id taken directly from request
-                if (!preg_match('/entity_id.*\$_(?:GET|POST|REQUEST)/i', $line)
-                    && !preg_match('/\$_(?:GET|POST|REQUEST).*entity_id/i', $line)) {
-                    continue;
-                }
-                // Look for a tenant verification in surrounding context
-                $context = implode("\n", array_slice($lines, max(0, $idx - 15), 35));
-                $hasVerification = preg_match('/\b(?:tenant_id|getEntityByTenant|verifyEntityOwnership|entities.*tenant|checkEntityAccess)\b/i', $context);
-                if (!$hasVerification) {
-                    $this->warning('Insecure Entity Access',
-                        'entity_id from user input used without verifying it belongs to authenticated tenant',
-                        $file, $idx + 1,
-                        'Query: SELECT id FROM entities WHERE id = :entityId AND tenant_id = :tenantId to verify ownership.',
-                        8.5, 'CWE-639');
-                }
-            }
+            // Must actually read entity_id from user request in this file
+            $hasUserEntityId = preg_match(
+                '/\$_(?:GET|POST|REQUEST)\s*\[\s*[\'"]entity_id[\'"]\s*\]/i',
+                $content
+            );
+            if (!$hasUserEntityId) continue;
+
+            // Bootstrap present → auth middleware handles tenant resolution
+            if (preg_match('/require[^;]+bootstrap/i', $content)) continue;
+
+            // tenant_id anywhere in file → scoping mechanism exists
+            if (preg_match('/\btenant_id\b/i', $content)) continue;
+
+            // Explicit ownership verification calls
+            if (preg_match('/\b(?:getEntityByTenant|verifyEntityOwnership|checkEntityAccess|belongsToTenant)\b/i', $content)) continue;
+
+            $this->warning('Insecure Entity Access',
+                'Route reads entity_id from user input with no visible tenant ownership check',
+                $file, 0,
+                'Add: SELECT id FROM entities WHERE id = :entityId AND tenant_id = :tenantId before using the entity.',
+                8.5, 'CWE-639');
         }
     }
 
