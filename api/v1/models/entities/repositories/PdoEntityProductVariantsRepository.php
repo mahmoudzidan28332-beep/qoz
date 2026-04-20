@@ -379,13 +379,13 @@ final class PdoEntityProductVariantsRepository
      */
     public function delete(int $id, ?int $tenantId = null): bool
     {
-        $tenantCond = '';
         $params = [':id' => $id];
+        $sql = 'DELETE FROM entity_product_variants WHERE id = :id';
         if ($tenantId !== null) {
-            $tenantCond = ' AND tenant_id = :tenant_id';
+            $sql .= ' AND tenant_id = :tenant_id';
             $params[':tenant_id'] = $tenantId;
         }
-        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE id = :id{$tenantCond}");
+        $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
     }
 
