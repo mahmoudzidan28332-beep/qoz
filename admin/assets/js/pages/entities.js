@@ -59,6 +59,7 @@
     let _messageListenerAdded = false; // prevent duplicate message listeners
     let _addressMessageListenerAdded = false; // prevent duplicate address message listeners
     let _currentImageType = null; // track current image type for media studio
+    let _pendingVendorType = null; // deferred vendor_type value applied once entity types load
 
     // Days of week configuration
     const DAYS_OF_WEEK = [
@@ -605,7 +606,10 @@
                 opt.textContent = et.name;
                 el.entityVendorType.appendChild(opt);
             });
-            if (current) el.entityVendorType.value = current;
+            // Apply deferred value set from showForm(), or restore previous selection
+            const target = _pendingVendorType || current;
+            if (target) el.entityVendorType.value = target;
+            _pendingVendorType = null;
         }
 
         // Populate vendor_type filter select
@@ -756,7 +760,8 @@
                 if (state.entityTypes.length > 0) {
                     el.entityVendorType.value = vt;
                 } else {
-                    setTimeout(() => { if (el.entityVendorType) el.entityVendorType.value = vt; }, 600);
+                    // entity types not loaded yet; defer until populateEntityTypeDropdowns runs
+                    _pendingVendorType = vt;
                 }
             }
             if (el.entityStoreType) el.entityStoreType.value = entity.store_type || 'individual';
