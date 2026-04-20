@@ -35,14 +35,16 @@ final class PdoAddressesRepository
         $params = [];
         $language = $filters['language'] ?? 'ar';
 
-        // Multi-tenant: always apply tenant_id filter when provided
-        // addresses.tenant_id is nullable (NULL for regular users without tenant)
-        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '') {
-            $where[] = "a.tenant_id = :filter_tenant_id";
-            $params['filter_tenant_id'] = (int)$filters['tenant_id'];
+        // Multi-tenant safety: tenant_id is ALWAYS required to prevent cross-tenant data leakage
+        if (!isset($filters['tenant_id']) || $filters['tenant_id'] === null || $filters['tenant_id'] === '') {
+            return ['items' => [], 'total' => 0];
         }
 
-        // Apply individual field filters alongside tenant_id (not exclusively)
+        // Always include tenant_id filter in query (addresses.tenant_id is nullable - NULL for regular users)
+        $where[] = "a.tenant_id = :filter_tenant_id";
+        $params['filter_tenant_id'] = (int)$filters['tenant_id'];
+
+        // Apply individual field filters alongside tenant_id
         foreach ([
             'id','owner_type','owner_id','city_id','country_id','is_primary'
         ] as $field) {
@@ -50,13 +52,6 @@ final class PdoAddressesRepository
                 $where[] = "a.$field = :filter_$field";
                 $params["filter_$field"] = $filters[$field];
             }
-        }
-
-        // Multi-tenant safety: require tenant_id or owner scoping to prevent cross-tenant data leakage
-        $hasTenantScope = isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '';
-        $hasOwnerScope  = (isset($filters['owner_type']) && $filters['owner_type'] !== '') && (isset($filters['owner_id']) && $filters['owner_id'] !== '');
-        if (!$hasTenantScope && !$hasOwnerScope) {
-            return ['items' => [], 'total' => 0];
         }
 
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
