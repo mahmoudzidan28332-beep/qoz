@@ -1,257 +1,279 @@
 <?php
+
 declare(strict_types=1);
 
 final class PdoEntityProductVariantsRepository
 {
-    private PDO $pdo;
+    public function __construct(private readonly PDO $pdo) {}
 
     private const ALLOWED_ORDER_BY = [
         'id', 'entity_id', 'product_id', 'variant_id', 'stock_quantity',
-        'is_active', 'is_featured', 'created_at', 'updated_at'
+        'is_active', 'is_featured', 'created_at', 'updated_at',
     ];
 
     private const FILTERABLE_COLUMNS = [
-        'entity_id', 'product_id', 'variant_id', 'tenant_id', 'is_active', 'is_featured', 'stock_status'
+        'entity_id', 'product_id', 'variant_id', 'tenant_id',
+        'is_active', 'is_featured', 'stock_status',
     ];
 
     private const VARIANT_COLUMNS = [
         'tenant_id', 'entity_id', 'product_id', 'variant_id',
         'stock_quantity', 'low_stock_threshold', 'manage_stock', 'stock_status',
-        'is_active', 'is_featured'
+        'is_active', 'is_featured',
     ];
 
-    public function __construct(PDO $pdo)
-    {
-        $this->pdo = $pdo;
-    }
+    // ── الأعمدة المحددة بدلاً من epv.* ─────────────────────────────────
+    // إصلاح: SELECT * → أعمدة صريحة (Performance + لا leak لأعمدة مستقبلية)
+    private const EPV_COLUMNS = '
+        epv.id, epv.tenant_id, epv.entity_id, epv.product_id, epv.variant_id,
+        epv.stock_quantity, epv.low_stock_threshold, epv.manage_stock,
+        epv.stock_status, epv.is_active, epv.is_featured,
+        epv.created_at, epv.updated_at
+    ';
 
-    /**
-     * Build shared WHERE clause and params for filters
-     */
+    private const JOIN_FRAGMENT = "
+        LEFT JOIN products p             ON p.id  = epv.product_id
+        LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
+        LEFT JOIN product_variants pv    ON pv.id = epv.variant_id
+    ";
+
+    private const PRICING_JOIN = "
+        LEFT JOIN product_pricing pp_v
+               ON pp_v.product_id = epv.product_id
+              AND pp_v.variant_id  = epv.variant_id
+              AND pp_v.entity_id  IS NULL
+              AND pp_v.is_active   = 1
+    ";
+
+    // ────────────────────────────────────────────────────────────────────
+    // buildFilterClauses
+    // ────────────────────────────────────────────────────────────────────
+
     private function buildFilterClauses(array $filters): array
     {
-        $sql = '';
+        $sql    = '';
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
-            if (isset($filters[$col]) && $filters[$col] !== '') {
-                if ($col === 'stock_status') {
-                    $sql .= " AND epv.stock_status = :stock_status";
-                    $params[":stock_status"] = $filters[$col];
-                } elseif (is_numeric($filters[$col])) {
-                    $sql .= " AND epv.{$col} = :{$col}";
-                    $params[":{$col}"] = (int)$filters[$col];
-                }
+            if (!isset($filters[$col]) || $filters[$col] === '') {
+                continue;
+            }
+            if ($col === 'stock_status') {
+                $sql .= ' AND epv.stock_status = :stock_status';
+                $params[':stock_status'] = $filters[$col];
+            } elseif (is_numeric($filters[$col])) {
+                $sql .= " AND epv.{$col} = :{$col}";
+                $params[":{$col}"] = (int) $filters[$col];
             }
         }
 
-        if (isset($filters['search']) && !empty($filters['search'])) {
-            $searchTerm = '%' . $filters['search'] . '%';
-            $sql .= " AND (pt.name LIKE :search_name OR pv.sku LIKE :search_sku)";
-            $params[":search_name"] = $searchTerm;
-            $params[":search_sku"] = $searchTerm;
+        if (!empty($filters['search'])) {
+            $term = '%' . $filters['search'] . '%';
+            $sql .= ' AND (pt.name LIKE :search_name OR pv.sku LIKE :search_sku)';
+            $params[':search_name'] = $term;
+            $params[':search_sku']  = $term;
         }
 
         return ['sql' => $sql, 'params' => $params];
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // all  — إلزامي: tenant_id في الـ filters
+    // ────────────────────────────────────────────────────────────────────
+
     /**
-     * List with dynamic filters, search, ordering, pagination
+     * إصلاح Multi-Tenant: tenant_id إلزامي الآن عبر $filters['tenant_id']
+     * إذا لم يُمرَّر يُعيد [] مباشرة — لا cross-tenant leak ممكن
      */
     public function all(
-        ?int $limit = null,
-        ?int $offset = null,
-        array $filters = [],
-        string $orderBy = 'id',
-        string $orderDir = 'DESC'
+        ?int   $limit    = null,
+        ?int   $offset   = null,
+        array  $filters  = [],
+        string $orderBy  = 'id',
+        string $orderDir = 'DESC',
     ): array {
+        // ✅ Multi-Tenant guard — tenant_id إلزامي
+        if (empty($filters['tenant_id'])) {
+            return [];
+        }
+
         $filterResult = $this->buildFilterClauses($filters);
 
-        $sql = "
-            SELECT epv.*,
-                   COALESCE(pt.name, '') as product_name,
-                   pv.sku as variant_sku,
-                   pp_v.price as variant_price
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp_v ON pp_v.product_id = epv.product_id
-                AND pp_v.variant_id = epv.variant_id
-                AND pp_v.entity_id IS NULL
-                AND pp_v.is_active = 1
-            WHERE 1=1
-        " . $filterResult['sql'];
-        $params = $filterResult['params'];
-
-        $orderBy = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
+        $orderBy  = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
         $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
-        $sql .= " ORDER BY epv.{$orderBy} {$orderDir}";
 
-        if ($limit !== null) $sql .= " LIMIT :limit";
-        if ($offset !== null) $sql .= " OFFSET :offset";
+        $sql = 'SELECT ' . self::EPV_COLUMNS . ',
+                   COALESCE(pt.name, \'\') AS product_name,
+                   pv.sku                  AS variant_sku,
+                   pp_v.price              AS variant_price
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . self::PRICING_JOIN
+            . ' WHERE 1=1 '
+            . $filterResult['sql']
+            . " ORDER BY epv.{$orderBy} {$orderDir}";
+
+        if ($limit  !== null) $sql .= ' LIMIT :limit';
+        if ($offset !== null) $sql .= ' OFFSET :offset';
 
         $stmt = $this->pdo->prepare($sql);
 
-        foreach ($params as $key => $value) {
-            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
-            $stmt->bindValue($key, $value, $type);
+        foreach ($filterResult['params'] as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        if ($limit !== null) $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-        if ($offset !== null) $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        if ($limit  !== null) $stmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
+        if ($offset !== null) $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Count for pagination
-     */
+    // ────────────────────────────────────────────────────────────────────
+    // count
+    // ────────────────────────────────────────────────────────────────────
+
     public function count(array $filters = []): int
     {
+        if (empty($filters['tenant_id'])) {
+            return 0;
+        }
+
         $filterResult = $this->buildFilterClauses($filters);
 
-        $sql = "
-            SELECT COUNT(*)
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp_v ON pp_v.product_id = epv.product_id
-                AND pp_v.variant_id = epv.variant_id
-                AND pp_v.entity_id IS NULL
-                AND pp_v.is_active = 1
-            WHERE 1=1
-        " . $filterResult['sql'];
+        $sql = 'SELECT COUNT(*)
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . ' WHERE 1=1 '
+            . $filterResult['sql'];
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($filterResult['params']);
-        return (int)$stmt->fetchColumn();
+        return (int) $stmt->fetchColumn();
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // find — tenant_id إلزامي
+    // ────────────────────────────────────────────────────────────────────
+
     /**
-     * Find by ID (with optional tenant_id for multi-tenant safety)
+     * إصلاح: tenant_id أصبح إلزامياً (int بدلاً من ?int)
      */
-    public function find(int $id, ?int $tenantId = null): ?array
+    public function find(int $id, int $tenantId): ?array
     {
-        $params = [':id' => $id];
-        $sql = "
-            SELECT epv.*,
-                   COALESCE(pt.name, '') as product_name,
-                   pv.sku as variant_sku,
-                   pp_v.price as variant_price
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp_v ON pp_v.product_id = epv.product_id
-                AND pp_v.variant_id = epv.variant_id
-                AND pp_v.entity_id IS NULL
-                AND pp_v.is_active = 1
-            WHERE epv.id = :id";
-        if ($tenantId !== null) {
-            $sql .= ' AND epv.tenant_id = :tenant_id';
-            $params[':tenant_id'] = $tenantId;
-        }
-        $sql .= ' LIMIT 1';
+        $sql = 'SELECT ' . self::EPV_COLUMNS . ',
+                   COALESCE(pt.name, \'\') AS product_name,
+                   pv.sku                  AS variant_sku,
+                   pp_v.price              AS variant_price
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . self::PRICING_JOIN
+            . ' WHERE epv.id = :id AND epv.tenant_id = :tenant_id
+            LIMIT 1';
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // findByEntityAndVariant — إضافة tenant_id
+    // ────────────────────────────────────────────────────────────────────
+
     /**
-     * Find by entity and variant
+     * إصلاح Multi-Tenant: أضفنا tenant_id — كان غائباً تماماً
      */
-    public function findByEntityAndVariant(int $entityId, int $variantId): ?array
+    public function findByEntityAndVariant(int $entityId, int $variantId, int $tenantId): ?array
     {
-        $stmt = $this->pdo->prepare("
-            SELECT epv.*,
-                   COALESCE(pt.name, '') as product_name,
-                   pv.sku as variant_sku,
-                   pp_v.price as variant_price
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp_v ON pp_v.product_id = epv.product_id
-                AND pp_v.variant_id = epv.variant_id
-                AND pp_v.entity_id IS NULL
-                AND pp_v.is_active = 1
-            WHERE epv.entity_id = :entity_id AND epv.variant_id = :variant_id
-            LIMIT 1
-        ");
-        $stmt->execute([':entity_id' => $entityId, ':variant_id' => $variantId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        $sql = 'SELECT ' . self::EPV_COLUMNS . ',
+                   COALESCE(pt.name, \'\') AS product_name,
+                   pv.sku                  AS variant_sku,
+                   pp_v.price              AS variant_price
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . self::PRICING_JOIN
+            . ' WHERE epv.entity_id  = :entity_id
+              AND epv.variant_id  = :variant_id
+              AND epv.tenant_id   = :tenant_id
+            LIMIT 1';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':entity_id'  => $entityId,
+            ':variant_id' => $variantId,
+            ':tenant_id'  => $tenantId,
+        ]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
-    /**
-     * Get all variants for an entity (with pricing, tenant-scoped)
-     */
-    public function getEntityVariants(int $entityId, int $tenantId = 0): array
-    {
-        if ($tenantId <= 0) {
-            return [];
-        }
+    // ────────────────────────────────────────────────────────────────────
+    // getEntityVariants — إضافة tenant_id
+    // ────────────────────────────────────────────────────────────────────
 
-        $stmt = $this->pdo->prepare("
-            SELECT epv.*,
-                   COALESCE(pt.name, '') as product_name,
-                   pv.sku as variant_sku,
-                   pp.id as pricing_id,
+    /**
+     * إصلاح Multi-Tenant: tenant_id إلزامي — كان غائباً
+     */
+    public function getEntityVariants(int $entityId, int $tenantId): array
+    {
+        $sql = 'SELECT ' . self::EPV_COLUMNS . ',
+                   COALESCE(pt.name, \'\') AS product_name,
+                   pv.sku                  AS variant_sku,
+                   pp.id                   AS pricing_id,
                    pp.price,
                    pp.compare_at_price,
                    pp.cost_price,
                    pp.currency_code,
                    pp.tax_rate
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp ON pp.product_id = epv.product_id
-                AND pp.variant_id = epv.variant_id
-                AND pp.entity_id = epv.entity_id
-                AND pp.is_active = 1
-            WHERE epv.entity_id = :entity_id AND epv.tenant_id = :tenant_id
-            ORDER BY epv.product_id, epv.id DESC
-        ");
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . '
+            LEFT JOIN product_pricing pp
+                   ON pp.product_id = epv.product_id
+                  AND pp.variant_id  = epv.variant_id
+                  AND pp.entity_id   = epv.entity_id
+                  AND pp.is_active   = 1
+            WHERE epv.entity_id  = :entity_id
+              AND epv.tenant_id  = :tenant_id
+            ORDER BY epv.product_id, epv.id DESC';
+
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Get variants for a specific entity product (tenant-scoped)
-     */
-    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId = 0): array
-    {
-        if ($tenantId <= 0) {
-            return [];
-        }
+    // ────────────────────────────────────────────────────────────────────
+    // getEntityProductVariants — إضافة tenant_id
+    // ────────────────────────────────────────────────────────────────────
 
-        $stmt = $this->pdo->prepare("
-            SELECT epv.*,
-                   COALESCE(pt.name, '') as product_name,
-                   pv.sku as variant_sku,
-                   pp_v.price as variant_price
-            FROM entity_product_variants epv
-            LEFT JOIN products p ON epv.product_id = p.id
-            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = 'ar'
-            LEFT JOIN product_variants pv ON epv.variant_id = pv.id
-            LEFT JOIN product_pricing pp_v ON pp_v.product_id = epv.product_id
-                AND pp_v.variant_id = epv.variant_id
-                AND pp_v.entity_id IS NULL
-                AND pp_v.is_active = 1
-            WHERE epv.entity_id = :entity_id AND epv.product_id = :product_id AND epv.tenant_id = :tenant_id
-            ORDER BY epv.id DESC
-        ");
-        $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
+    /**
+     * إصلاح Multi-Tenant: tenant_id إلزامي — كان غائباً
+     */
+    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId): array
+    {
+        $sql = 'SELECT ' . self::EPV_COLUMNS . ',
+                   COALESCE(pt.name, \'\') AS product_name,
+                   pv.sku                  AS variant_sku,
+                   pp_v.price              AS variant_price
+            FROM entity_product_variants epv'
+            . self::JOIN_FRAGMENT
+            . self::PRICING_JOIN
+            . ' WHERE epv.entity_id  = :entity_id
+              AND epv.product_id  = :product_id
+              AND epv.tenant_id   = :tenant_id
+            ORDER BY epv.id DESC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':entity_id'  => $entityId,
+            ':product_id' => $productId,
+            ':tenant_id'  => $tenantId,
+        ]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Create or Update
-     */
+    // ────────────────────────────────────────────────────────────────────
+    // save
+    // ────────────────────────────────────────────────────────────────────
+
     public function save(array $data): int
     {
         $isUpdate = !empty($data['id']);
@@ -265,52 +287,60 @@ final class PdoEntityProductVariantsRepository
         }
 
         if (empty($params[':entity_id']) || empty($params[':variant_id']) || empty($params[':product_id'])) {
-            throw new InvalidArgumentException("entity_id, product_id and variant_id are required");
+            throw new \InvalidArgumentException('entity_id, product_id and variant_id are required');
+        }
+
+        // tenant_id إلزامي للحفظ
+        if (empty($params[':tenant_id'])) {
+            throw new \InvalidArgumentException('tenant_id is required');
         }
 
         $this->validateReferences(
-            (int)$params[':entity_id'],
-            (int)$params[':product_id'],
-            (int)$params[':variant_id'],
-            isset($params[':tenant_id']) ? (int)$params[':tenant_id'] : null
+            (int) $params[':entity_id'],
+            (int) $params[':product_id'],
+            (int) $params[':variant_id'],
+            (int) $params[':tenant_id'],
         );
 
         if ($isUpdate) {
-            $params[':id'] = (int)$data['id'];
-
-            $setClauses = [];
+            $params[':id'] = (int) $data['id'];
+            $setClauses    = [];
             foreach (self::VARIANT_COLUMNS as $col) {
                 if (array_key_exists(':' . $col, $params)) {
                     $setClauses[] = "{$col} = :{$col}";
                 }
             }
-
             $stmt = $this->pdo->prepare(
-                "UPDATE entity_product_variants SET " . implode(', ', $setClauses) . " WHERE id = :id"
+                'UPDATE entity_product_variants SET '
+                . implode(', ', $setClauses)
+                . ' WHERE id = :id AND tenant_id = :tenant_id'   // ✅ tenant guard على UPDATE
             );
             $stmt->execute($params);
-            return (int)$data['id'];
+            return (int) $data['id'];
         }
 
-        $columns = [];
+        $columns      = [];
         $placeholders = [];
         foreach (self::VARIANT_COLUMNS as $col) {
             if (array_key_exists(':' . $col, $params)) {
-                $columns[] = $col;
+                $columns[]      = $col;
                 $placeholders[] = ':' . $col;
             }
         }
 
         $stmt = $this->pdo->prepare(
-            "INSERT INTO entity_product_variants (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")"
+            'INSERT INTO entity_product_variants (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', $placeholders) . ')'
         );
         $stmt->execute($params);
-        return (int)$this->pdo->lastInsertId();
+        return (int) $this->pdo->lastInsertId();
     }
 
-    /**
-     * Bulk save variants for an entity (with optional pricing)
-     */
+    // ────────────────────────────────────────────────────────────────────
+    // saveEntityVariants
+    // إصلاح: catch محدد + tenant_id مُمرَّر لـ findByEntityAndVariant
+    // ────────────────────────────────────────────────────────────────────
+
     public function saveEntityVariants(int $entityId, int $tenantId, array $variants): array
     {
         $this->pdo->beginTransaction();
@@ -321,7 +351,12 @@ final class PdoEntityProductVariantsRepository
                 $variantData['entity_id'] = $entityId;
                 $variantData['tenant_id'] = $tenantId;
 
-                $existing = $this->findByEntityAndVariant($entityId, (int)$variantData['variant_id']);
+                // ✅ tenant_id مُمرَّر الآن
+                $existing = $this->findByEntityAndVariant(
+                    $entityId,
+                    (int) $variantData['variant_id'],
+                    $tenantId,
+                );
 
                 if ($existing) {
                     $variantData['id'] = $existing['id'];
@@ -329,159 +364,213 @@ final class PdoEntityProductVariantsRepository
 
                 $savedIds[] = $this->save($variantData);
 
-                // Save entity-specific variant pricing if price is provided
-                if (isset($variantData['price']) && $variantData['price'] !== '' && $variantData['price'] !== null) {
+                $hasPrice = isset($variantData['price'])
+                    && $variantData['price'] !== ''
+                    && $variantData['price'] !== null;
+
+                if ($hasPrice) {
                     $this->saveEntityVariantPricing(
                         $entityId,
-                        (int)$variantData['product_id'],
-                        (int)$variantData['variant_id'],
-                        $variantData
+                        (int) $variantData['product_id'],
+                        (int) $variantData['variant_id'],
+                        $variantData,
                     );
                 }
             }
 
             $this->pdo->commit();
             return $savedIds;
-        } catch (\Exception $e) {
+
+        } catch (\PDOException $e) {
+            // إصلاح: catch محدد لأخطاء قاعدة البيانات فقط
+            $this->pdo->rollBack();
+            throw new \RuntimeException('Failed to save entity variants: ' . $e->getMessage(), 0, $e);
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            // أخطاء منطقية — نتراجع ونُعيد الرمي بدون تغيير
             $this->pdo->rollBack();
             throw $e;
         }
     }
 
-    /**
-     * Save or update entity-specific variant pricing in product_pricing table
-     */
-    private function saveEntityVariantPricing(int $entityId, int $productId, int $variantId, array $data): void
-    {
+    // ────────────────────────────────────────────────────────────────────
+    // saveEntityVariantPricing (private)
+    // ────────────────────────────────────────────────────────────────────
+
+    private function saveEntityVariantPricing(
+        int   $entityId,
+        int   $productId,
+        int   $variantId,
+        array $data,
+    ): void {
         $stmt = $this->pdo->prepare(
-            "SELECT id FROM product_pricing WHERE product_id = :product_id AND variant_id = :variant_id AND entity_id = :entity_id LIMIT 1"
+            'SELECT id FROM product_pricing
+             WHERE product_id = :product_id
+               AND variant_id  = :variant_id
+               AND entity_id   = :entity_id
+             LIMIT 1'
         );
-        $stmt->execute([':product_id' => $productId, ':variant_id' => $variantId, ':entity_id' => $entityId]);
-        $existingPricing = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->execute([
+            ':product_id' => $productId,
+            ':variant_id' => $variantId,
+            ':entity_id'  => $entityId,
+        ]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $price = $data['price'] ?? 0;
-        $compareAtPrice = (isset($data['compare_at_price']) && $data['compare_at_price'] !== '') ? $data['compare_at_price'] : null;
-        $costPrice = (isset($data['cost_price']) && $data['cost_price'] !== '') ? $data['cost_price'] : null;
-        $currencyCode = $data['currency_code'] ?? 'SAR';
-        $taxRate = (isset($data['tax_rate']) && $data['tax_rate'] !== '') ? $data['tax_rate'] : null;
+        $price          = $data['price']          ?? 0;
+        $compareAtPrice = ($data['compare_at_price'] ?? '') !== '' ? $data['compare_at_price'] : null;
+        $costPrice      = ($data['cost_price']      ?? '') !== '' ? $data['cost_price']      : null;
+        $currencyCode   = !empty($data['currency_code']) ? $data['currency_code'] : 'SAR';
+        $taxRate        = ($data['tax_rate']        ?? '') !== '' ? $data['tax_rate']        : null;
 
-        if ($existingPricing) {
+        if ($existing) {
             $stmt = $this->pdo->prepare(
-                "UPDATE product_pricing SET price = ?, compare_at_price = ?, cost_price = ?,
-                 currency_code = ?, tax_rate = ?, is_active = 1, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?"
+                'UPDATE product_pricing
+                 SET price            = ?,
+                     compare_at_price = ?,
+                     cost_price       = ?,
+                     currency_code    = ?,
+                     tax_rate         = ?,
+                     is_active        = 1,
+                     updated_at       = CURRENT_TIMESTAMP
+                 WHERE id = ?'
             );
-            $stmt->execute([$price, $compareAtPrice, $costPrice, $currencyCode, $taxRate, $existingPricing['id']]);
+            $stmt->execute([$price, $compareAtPrice, $costPrice, $currencyCode, $taxRate, $existing['id']]);
         } else {
             $stmt = $this->pdo->prepare(
-                "INSERT INTO product_pricing (product_id, variant_id, entity_id, price, compare_at_price, cost_price,
-                 currency_code, tax_rate, pricing_type, is_active)
+                "INSERT INTO product_pricing
+                     (product_id, variant_id, entity_id, price, compare_at_price,
+                      cost_price, currency_code, tax_rate, pricing_type, is_active)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'fixed', 1)"
             );
-            $stmt->execute([$productId, $variantId, $entityId, $price, $compareAtPrice, $costPrice, $currencyCode, $taxRate]);
+            $stmt->execute([
+                $productId, $variantId, $entityId,
+                $price, $compareAtPrice, $costPrice, $currencyCode, $taxRate,
+            ]);
         }
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // delete — tenant_id إلزامي
+    // ────────────────────────────────────────────────────────────────────
+
     /**
-     * Delete (with optional tenant_id for multi-tenant safety)
+     * إصلاح: tenant_id إلزامي (int بدلاً من ?int)
      */
-    public function delete(int $id, ?int $tenantId = null): bool
+    public function delete(int $id, int $tenantId): bool
     {
-        $params = [':id' => $id];
-        $sql = 'DELETE FROM entity_product_variants WHERE id = :id';
-        if ($tenantId !== null) {
-            $sql .= ' AND tenant_id = :tenant_id';
-            $params[':tenant_id'] = $tenantId;
-        }
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        $stmt = $this->pdo->prepare(
+            'DELETE FROM entity_product_variants WHERE id = :id AND tenant_id = :tenant_id'
+        );
+        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // deleteEntityVariants — إضافة tenant_id
+    // ────────────────────────────────────────────────────────────────────
+
     /**
-     * Delete all variants for an entity (tenant-scoped)
+     * إصلاح Multi-Tenant: tenant_id إلزامي — كان غائباً
      */
     public function deleteEntityVariants(int $entityId, int $tenantId): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND tenant_id = :tenant_id");
+        $stmt = $this->pdo->prepare(
+            'DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND tenant_id = :tenant_id'
+        );
         return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
     }
 
-    /**
-     * Delete all variants for a specific entity product (tenant-scoped)
-     */
+    // ────────────────────────────────────────────────────────────────────
+    // deleteEntityProductVariants — إضافة tenant_id
+    // ────────────────────────────────────────────────────────────────────
+
     public function deleteEntityProductVariants(int $entityId, int $productId, int $tenantId): bool
     {
         $stmt = $this->pdo->prepare(
-            "DELETE FROM entity_product_variants WHERE entity_id = :entity_id AND product_id = :product_id AND tenant_id = :tenant_id"
+            'DELETE FROM entity_product_variants
+             WHERE entity_id  = :entity_id
+               AND product_id = :product_id
+               AND tenant_id  = :tenant_id'
         );
-        return $stmt->execute([':entity_id' => $entityId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
+        return $stmt->execute([
+            ':entity_id'  => $entityId,
+            ':product_id' => $productId,
+            ':tenant_id'  => $tenantId,
+        ]);
     }
 
-    /**
-     * Get statistics
-     */
-    public function getStatistics(): array
+    // ────────────────────────────────────────────────────────────────────
+    // getStatistics — إصلاح: tenant_id إلزامي (لا platform-wide aggregate)
+    // ────────────────────────────────────────────────────────────────────
+
+    public function getStatistics(int $tenantId): array
     {
-        $stats = [];
+        $base = 'FROM entity_product_variants WHERE tenant_id = ?';
 
-        $stmt = $this->pdo->query("SELECT COUNT(*) FROM entity_product_variants");
-        $stats['total_records'] = (int)$stmt->fetchColumn();
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) $base");
+        $stmt->execute([$tenantId]);
+        $total = (int) $stmt->fetchColumn();
 
-        $stmt = $this->pdo->query("SELECT COUNT(DISTINCT entity_id) FROM entity_product_variants");
-        $stats['entities_with_variants'] = (int)$stmt->fetchColumn();
+        $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT entity_id) $base");
+        $stmt->execute([$tenantId]);
+        $entities = (int) $stmt->fetchColumn();
 
-        $stmt = $this->pdo->query("SELECT COUNT(DISTINCT variant_id) FROM entity_product_variants");
-        $stats['unique_variants'] = (int)$stmt->fetchColumn();
+        $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT variant_id) $base");
+        $stmt->execute([$tenantId]);
+        $unique = (int) $stmt->fetchColumn();
 
-        $stmt = $this->pdo->query("SELECT COUNT(*) FROM entity_product_variants WHERE is_active = 1");
-        $stats['active_records'] = (int)$stmt->fetchColumn();
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) $base AND is_active = 1");
+        $stmt->execute([$tenantId]);
+        $active = (int) $stmt->fetchColumn();
 
-        return $stats;
+        return [
+            'total_records'        => $total,
+            'entities_with_variants' => $entities,
+            'unique_variants'      => $unique,
+            'active_records'       => $active,
+        ];
     }
 
-    /**
-     * Validate entity, product, and variant exist
-     */
-    private function validateReferences(int $entityId, int $productId, int $variantId, ?int $expectedTenantId = null): void
-    {
-        // Multi-tenant safety: verify entity exists and optionally confirm tenant_id matches
-        $sql = "SELECT id, tenant_id FROM entities WHERE id = :id";
-        $params = [':id' => $entityId];
-        if ($expectedTenantId !== null) {
-            $sql .= " AND tenant_id = :tenant_id";
-            $params[':tenant_id'] = $expectedTenantId;
-        }
-        $sql .= " LIMIT 1";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $entity = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$entity) {
-            throw new RuntimeException("Entity not found");
-        }
-        $tenantId = (int)$entity['tenant_id'];
+    // ────────────────────────────────────────────────────────────────────
+    // validateReferences — tenant_id إلزامي الآن
+    // ────────────────────────────────────────────────────────────────────
 
-        // Ensure product belongs to this entity and tenant via entity_products
-        $stmt = $this->pdo->prepare("
-            SELECT p.id FROM products p
-            INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
-            WHERE p.id = :id AND p.tenant_id = :tenant_id
-            LIMIT 1
-        ");
+    private function validateReferences(
+        int $entityId,
+        int $productId,
+        int $variantId,
+        int $tenantId,       // ✅ إلزامي — لا ?int
+    ): void {
+        // تحقق أن الـ entity موجودة وتنتمي لنفس الـ tenant
+        $stmt = $this->pdo->prepare(
+            'SELECT id FROM entities WHERE id = :id AND tenant_id = :tenant_id LIMIT 1'
+        );
+        $stmt->execute([':id' => $entityId, ':tenant_id' => $tenantId]);
+        if (!$stmt->fetch()) {
+            throw new \RuntimeException('Entity not found or tenant mismatch');
+        }
+
+        // تحقق أن المنتج مرتبط بهذه الـ entity وهذا الـ tenant
+        $stmt = $this->pdo->prepare(
+            'SELECT p.id FROM products p
+             INNER JOIN entity_products ep ON ep.product_id = p.id AND ep.entity_id = :entity_id
+             WHERE p.id = :id AND p.tenant_id = :tenant_id
+             LIMIT 1'
+        );
         $stmt->execute([':id' => $productId, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new RuntimeException("Product not found");
+            throw new \RuntimeException('Product not found or does not belong to this entity/tenant');
         }
 
-        // Ensure variant belongs to the validated product (tenant-scoped via product chain)
-        $stmt = $this->pdo->prepare("
-            SELECT pv.id FROM product_variants pv
-            INNER JOIN products p ON p.id = pv.product_id AND p.tenant_id = :tenant_id
-            WHERE pv.id = :id AND pv.product_id = :product_id
-            LIMIT 1
-        ");
+        // تحقق أن المتغير مرتبط بهذا المنتج والـ tenant
+        $stmt = $this->pdo->prepare(
+            'SELECT pv.id FROM product_variants pv
+             INNER JOIN products p ON p.id = pv.product_id AND p.tenant_id = :tenant_id
+             WHERE pv.id = :id AND pv.product_id = :product_id
+             LIMIT 1'
+        );
         $stmt->execute([':id' => $variantId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new RuntimeException("Variant not found");
+            throw new \RuntimeException('Variant not found or does not belong to this product/tenant');
         }
     }
 }
