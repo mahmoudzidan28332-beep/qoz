@@ -25,9 +25,8 @@ if ($first === 'addresses') {
         $addrRow = $pdoOne('SELECT id FROM addresses WHERE id = ? AND owner_id = ? AND owner_type = "user" LIMIT 1', [$addrId, $addrSessUserId]);
         if (!$addrRow) { ResponseFormatter::notFound('Address not found'); exit; }
         try {
-            $addrRepo = new PdoAddressesRepository($pdo);
-            $addrService = new AddressesService($addrRepo);
-            $addrRepo->deleteById($addrId);
+            // Public route: ownership already verified above, delete directly
+            $pdo->prepare("DELETE FROM addresses WHERE id = ? AND owner_id = ? AND owner_type = 'user'")->execute([$addrId, $addrSessUserId]);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $_) { ResponseFormatter::error('Delete failed', 500); }
         exit;
@@ -45,9 +44,11 @@ if ($first === 'addresses') {
         try {
             $addrRepo = new PdoAddressesRepository($pdo);
             if ($isPrimary) {
-                $addrRepo->resetPrimary($addrSessUserId);
+                // Public route: regular user addresses have no tenant, reset by owner
+                $pdo->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')->execute([$addrSessUserId]);
             }
-            $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary);
+            // tenant_id = null for regular user addresses
+            $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary, null);
             ResponseFormatter::success(['ok' => true, 'id' => $newAddrId], 'Address added', 201);
         } catch (Throwable $_) { ResponseFormatter::error('Failed to save address', 500); }
         exit;

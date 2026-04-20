@@ -188,7 +188,7 @@ try {
 
             $validator->validateUpdate($data);
 
-            $controller->update($updateId, $data);
+            $controller->update($updateId, $data, $tenantId);
 
             ResponseFormatter::success(
                 ['id' => $updateId],
@@ -207,7 +207,7 @@ try {
                 exit;
             }
 
-            $deleted = $controller->delete($deleteId);
+            $deleted = $controller->delete($deleteId, $tenantId);
 
             ResponseFormatter::success(
                 ['deleted' => $deleted],

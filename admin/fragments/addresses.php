@@ -341,6 +341,9 @@ body {
                 <thead>
                     <tr>
                         <th>ID</th>
+                        <?php if ($isSuperAdmin): ?>
+                        <th><?= __t('tenant_id', 'Tenant') ?></th>
+                        <?php endif; ?>
                         <th><?= __t('country', 'Country') ?></th>
                         <th><?= __t('city', 'City') ?></th>
                         <th><?= __t('address', 'Address') ?></th>
@@ -350,7 +353,7 @@ body {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="7" style="text-align:center"><?= __t('loading', 'Loading...') ?></td></tr>
+                    <tr><td colspan="<?= $isSuperAdmin ? '8' : '7' ?>" style="text-align:center"><?= __t('loading', 'Loading...') ?></td></tr>
                 </tbody>
             </table>
 

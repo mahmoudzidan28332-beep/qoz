@@ -223,7 +223,7 @@
     async function loadAddresses() {
         if (!el.tbody) return;
 
-        el.tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">' + t('loading', 'Loading...') + '</td></tr>';
+        el.tbody.innerHTML = '<tr><td colspan="' + (CFG.isSuperAdmin ? 8 : 7) + '" style="text-align:center">' + t('loading', 'Loading...') + '</td></tr>';
 
         try {
             const params = new URLSearchParams({
@@ -280,7 +280,7 @@
             }
         } catch (e) {
             console.error('❌ loadAddresses error:', e);
-            el.tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red">' + t('error_loading', 'Error loading addresses') + '</td></tr>';
+            el.tbody.innerHTML = '<tr><td colspan="' + (CFG.isSuperAdmin ? 8 : 7) + '" style="text-align:center;color:red">' + t('error_loading', 'Error loading addresses') + '</td></tr>';
             showMessage(t('failed_load_list', 'Failed to load addresses'), 'error');
         }
     }
@@ -356,10 +356,11 @@
     function renderTable(items) {
         if (!el.tbody) return;
 
+        const colSpan = CFG.isSuperAdmin ? 8 : 7;
         console.log('🎨 Rendering table with items:', items);
 
         if (!items || items.length === 0) {
-            el.tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">' + t('no_addresses', 'No addresses found') + '</td></tr>';
+            el.tbody.innerHTML = '<tr><td colspan="' + colSpan + '" style="text-align:center;color:#888">' + t('no_addresses', 'No addresses found') + '</td></tr>';
             return;
         }
 
@@ -369,6 +370,7 @@
             const addressLine = addr.address_line1 || addr.address_line || '';
             const postalCode = addr.postal_code || '';
             const isPrimary = addr.is_primary || addr.is_default || false;
+            const tenantDisplay = addr.tenant_id ? addr.tenant_id : '—';
 
             const editBtn = CFG.permissions.canEdit 
                 ? `<button class="btn btn-sm btn-secondary btnEdit" data-id="${addr.id}">${t('edit', 'Edit')}</button>` 
@@ -377,9 +379,12 @@
                 ? `<button class="btn btn-sm btn-danger btnDelete" data-id="${addr.id}">${t('delete', 'Delete')}</button>` 
                 : '';
 
+            const tenantCol = CFG.isSuperAdmin ? `<td>${esc(String(tenantDisplay))}</td>` : '';
+
             return `
                 <tr>
                     <td>${addr.id}</td>
+                    ${tenantCol}
                     <td>${esc(countryName)}</td>
                     <td>${esc(cityName)}</td>
                     <td>${esc(addressLine)}</td>

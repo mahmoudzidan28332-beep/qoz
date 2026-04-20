@@ -34,7 +34,7 @@ final class AddressesService
     // ================================
     public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
     {
-        $item = $this->repo->find($id, $language, $tenantId);
+        $item = $this->repo->find($id, $language, $tenantId ?? 0);
         if (!$item) {
             throw new RuntimeException('Address not found', 404);
         }
@@ -51,19 +51,19 @@ final class AddressesService
     }
 
     // ================================
-    // UPDATE
+    // UPDATE (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function update(int $id, array $data): bool
+    public function update(int $id, array $data, int $tenantId = 0): bool
     {
         AddressesValidator::validateUpdate($data);
-        return $this->repo->update($id, $data);
+        return $this->repo->update($id, $data, $tenantId);
     }
 
     // ================================
-    // DELETE
+    // DELETE (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function delete(int $id): bool
+    public function delete(int $id, int $tenantId = 0): bool
     {
-        return $this->repo->delete($id);
+        return $this->repo->delete($id, $tenantId);
     }
 }

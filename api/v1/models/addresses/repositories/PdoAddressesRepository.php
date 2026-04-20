@@ -172,9 +172,11 @@ final class PdoAddressesRepository
     // ================================
     public function create(array $data): int
     {
+        $tenantId = isset($data['tenant_id']) && $data['tenant_id'] !== '' ? (int)$data['tenant_id'] : null;
+
         // If setting as primary, unset other primary addresses for this owner
-        if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
-            $this->unsetPrimaryAddresses($data['owner_type'], (int)$data['owner_id']);
+        if (isset($data['is_primary']) && (int)$data['is_primary'] === 1 && $tenantId !== null && $tenantId > 0) {
+            $this->unsetPrimaryAddresses($data['owner_type'], (int)$data['owner_id'], $tenantId);
         }
 
         $sql = "
@@ -221,8 +223,13 @@ final class PdoAddressesRepository
     // ================================
     // UPDATE
     // ================================
-    public function update(int $id, array $data): bool
+    public function update(int $id, array $data, int $tenantId = 0): bool
     {
+        // Multi-tenant safety: require tenant_id to prevent cross-tenant updates
+        if ($tenantId <= 0) {
+            return false;
+        }
+
         unset($data['id']);
         unset($data['csrf_token']);
         unset($data['tenant_id']);
@@ -233,10 +240,10 @@ final class PdoAddressesRepository
 
         // If setting as primary, unset other primary addresses for this owner
         if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
-            // Get current address to find owner
-            $current = $this->find($id);
+            // Get current address to find owner (scoped by tenant)
+            $current = $this->find($id, 'ar', $tenantId);
             if ($current) {
-                $this->unsetPrimaryAddresses($current['owner_type'], (int)$current['owner_id'], $id);
+                $this->unsetPrimaryAddresses($current['owner_type'], (int)$current['owner_id'], $tenantId, $id);
             }
         }
 
@@ -248,10 +255,11 @@ final class PdoAddressesRepository
         $sql = "
             UPDATE addresses
             SET ".implode(', ', $sets)."
-            WHERE id = :id
+            WHERE id = :id AND tenant_id = :tenant_id
         ";
 
         $data['id'] = $id;
+        $data['tenant_id'] = $tenantId;
 
         return $this->pdo->prepare($sql)->execute($data);
     }
@@ -259,18 +267,20 @@ final class PdoAddressesRepository
     // ================================
     // UNSET PRIMARY ADDRESSES
     // ================================
-    private function unsetPrimaryAddresses(string $ownerType, int $ownerId, ?int $excludeId = null): void
+    private function unsetPrimaryAddresses(string $ownerType, int $ownerId, int $tenantId, ?int $excludeId = null): void
     {
         $sql = "
             UPDATE addresses
             SET is_primary = 0
             WHERE owner_type = :owner_type
             AND owner_id = :owner_id
+            AND tenant_id = :tenant_id
         ";
 
         $params = [
             'owner_type' => $ownerType,
             'owner_id'   => $ownerId,
+            'tenant_id'  => $tenantId,
         ];
 
         if ($excludeId !== null) {
@@ -282,45 +292,54 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // DELETE BY ID (simple, no owner check - caller must verify ownership)
+    // DELETE BY ID (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function deleteById(int $id): bool
+    public function deleteById(int $id, int $tenantId = 0): bool
     {
+        if ($tenantId <= 0) {
+            return false;
+        }
         return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = ?")
-            ->execute([$id]);
+            ->prepare("DELETE FROM addresses WHERE id = ? AND tenant_id = ?")
+            ->execute([$id, $tenantId]);
     }
 
     // ================================
-    // RESET PRIMARY (set is_primary = 0 for all addresses of a user)
+    // RESET PRIMARY (set is_primary = 0 for all addresses of a user, scoped by tenant)
     // ================================
-    public function resetPrimary(int $ownerId): bool
+    public function resetPrimary(int $ownerId, int $tenantId = 0): bool
     {
+        if ($tenantId <= 0) {
+            return false;
+        }
         return $this->pdo
-            ->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')
-            ->execute([$ownerId]);
+            ->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user" AND tenant_id = ?')
+            ->execute([$ownerId, $tenantId]);
     }
 
     // ================================
     // CREATE ADDRESS (simplified public route version)
     // ================================
-    public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary): int
+    public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary, ?int $tenantId = null): int
     {
         $st = $this->pdo->prepare(
-            'INSERT INTO addresses (owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
-             VALUES ("user", ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO addresses (tenant_id, owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
+             VALUES (?, "user", ?, ?, ?, ?, ?, ?, ?)'
         );
-        $st->execute([$ownerId, $addressLine1, $addressLine2, $cityId, $countryId, $postalCode, $isPrimary]);
+        $st->execute([$tenantId, $ownerId, $addressLine1, $addressLine2, $cityId, $countryId, $postalCode, $isPrimary]);
         return (int)$this->pdo->lastInsertId();
     }
 
     // ================================
-    // DELETE
+    // DELETE (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function delete(int $id): bool
+    public function delete(int $id, int $tenantId = 0): bool
     {
+        if ($tenantId <= 0) {
+            return false;
+        }
         return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = :id")
-            ->execute(['id' => $id]);
+            ->prepare("DELETE FROM addresses WHERE id = :id AND tenant_id = :tenant_id")
+            ->execute(['id' => $id, 'tenant_id' => $tenantId]);
     }
 }

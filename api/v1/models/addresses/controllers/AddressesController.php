@@ -46,18 +46,18 @@ final class AddressesController
     }
 
     // ================================
-    // UPDATE
+    // UPDATE (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function update(int $id, array $data): bool
+    public function update(int $id, array $data, int $tenantId = 0): bool
     {
-        return $this->service->update($id, $data);
+        return $this->service->update($id, $data, $tenantId);
     }
 
     // ================================
-    // DELETE
+    // DELETE (scoped by tenant_id for multi-tenant safety)
     // ================================
-    public function delete(int $id): bool
+    public function delete(int $id, int $tenantId = 0): bool
     {
-        return $this->service->delete($id);
+        return $this->service->delete($id, $tenantId);
     }
 }
