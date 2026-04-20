@@ -342,4 +342,30 @@ final class PdoAddressesRepository
             ->prepare("DELETE FROM addresses WHERE id = :id AND tenant_id = :tenant_id")
             ->execute(['id' => $id, 'tenant_id' => $tenantId]);
     }
+
+    // ================================
+    // DELETE BY OWNER (for public user routes — tenant_id is NULL)
+    // ================================
+    public function deleteByOwner(int $id, int $ownerId): bool
+    {
+        if ($ownerId <= 0) {
+            return false;
+        }
+        return $this->pdo
+            ->prepare("DELETE FROM addresses WHERE id = :id AND owner_id = :owner_id AND owner_type = 'user'")
+            ->execute(['id' => $id, 'owner_id' => $ownerId]);
+    }
+
+    // ================================
+    // RESET PRIMARY BY OWNER (for public user routes — tenant_id is NULL)
+    // ================================
+    public function resetPrimaryByOwner(int $ownerId): bool
+    {
+        if ($ownerId <= 0) {
+            return false;
+        }
+        return $this->pdo
+            ->prepare("UPDATE addresses SET is_primary = 0 WHERE owner_id = :owner_id AND owner_type = 'user'")
+            ->execute(['owner_id' => $ownerId]);
+    }
 }
