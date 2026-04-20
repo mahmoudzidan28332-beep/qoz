@@ -25,9 +25,9 @@ final class EntityProductsController
         return $this->service->get($id, $tenantId);
     }
 
-    public function getByEntityAndProduct(int $entityId, int $productId): ?array
+    public function getByEntityAndProduct(int $entityId, int $productId, ?int $tenantId = null): ?array
     {
-        return $this->service->getByEntityAndProduct($entityId, $productId);
+        return $this->service->getByEntityAndProduct($entityId, $productId, $tenantId);
     }
 
     public function getEntityProducts(int $entityId, int $tenantId): array
@@ -40,9 +40,9 @@ final class EntityProductsController
         return $this->service->create($data);
     }
 
-    public function update(int $id, array $data): void
+    public function update(int $id, array $data, ?int $tenantId = null): void
     {
-        $this->service->update($id, $data);
+        $this->service->update($id, $data, $tenantId);
     }
 
     public function saveEntityProducts(int $entityId, int $tenantId, array $products): array
@@ -60,8 +60,8 @@ final class EntityProductsController
         $this->service->deleteEntityProducts($entityId, $tenantId);
     }
 
-    public function getStatistics(): array
+    public function getStatistics(?int $tenantId = null): array
     {
-        return $this->service->getStatistics();
+        return $this->service->getStatistics($tenantId);
     }
 }

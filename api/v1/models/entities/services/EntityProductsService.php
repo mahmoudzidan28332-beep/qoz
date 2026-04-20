@@ -45,9 +45,9 @@ final class EntityProductsService
     /**
      * Get by entity and product
      */
-    public function getByEntityAndProduct(int $entityId, int $productId): ?array
+    public function getByEntityAndProduct(int $entityId, int $productId, ?int $tenantId = null): ?array
     {
-        return $this->repo->findByEntityAndProduct($entityId, $productId);
+        return $this->repo->findByEntityAndProduct($entityId, $productId, $tenantId);
     }
 
     /**
@@ -70,9 +70,9 @@ final class EntityProductsService
     /**
      * Update an existing entity product
      */
-    public function update(int $id, array $data): void
+    public function update(int $id, array $data, ?int $tenantId = null): void
     {
-        $existing = $this->repo->find($id);
+        $existing = $this->repo->find($id, $tenantId);
         if (!$existing) {
             throw new RuntimeException("Entity product not found");
         }
@@ -113,8 +113,8 @@ final class EntityProductsService
     /**
      * Get statistics
      */
-    public function getStatistics(): array
+    public function getStatistics(?int $tenantId = null): array
     {
-        return $this->repo->getStatistics();
+        return $this->repo->getStatistics($tenantId);
     }
 }

@@ -157,7 +157,7 @@ final class PdoEntityProductsRepository
     // find — tenant_id إلزامي
     // ────────────────────────────────────────────────────────────────────
 
-    public function find(int $id, int $tenantId): ?array
+    public function find(int $id, ?int $tenantId = null): ?array
     {
         $sql = 'SELECT ' . self::EP_COLUMNS . ",
                    e.store_name,
@@ -180,13 +180,18 @@ final class PdoEntityProductsRepository
                   AND pp.entity_id  = ep.entity_id
                   AND pp.variant_id IS NULL
                   AND pp.is_active  = 1
-            WHERE ep.id        = :id
-              AND ep.tenant_id = :tenant_id
+            WHERE ep.id = :id'
+            . ($tenantId !== null ? ' AND ep.tenant_id = :tenant_id' : '')
+            . '
             ORDER BY pp.id ASC
             LIMIT 1';
 
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $params[':tenant_id'] = $tenantId;
+        }
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        $stmt->execute($params);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -194,7 +199,7 @@ final class PdoEntityProductsRepository
     // findByEntityAndProduct — إضافة tenant_id
     // ────────────────────────────────────────────────────────────────────
 
-    public function findByEntityAndProduct(int $entityId, int $productId, int $tenantId): ?array
+    public function findByEntityAndProduct(int $entityId, int $productId, ?int $tenantId = null): ?array
     {
         $sql = 'SELECT ' . self::EP_COLUMNS . ",
                    e.store_name,
@@ -206,16 +211,16 @@ final class PdoEntityProductsRepository
             LEFT JOIN products p ON p.id = ep.product_id"
             . self::TRANSLATION_JOINS
             . ' WHERE ep.entity_id  = :entity_id
-              AND ep.product_id  = :product_id
-              AND ep.tenant_id   = :tenant_id
-            LIMIT 1';
+              AND ep.product_id  = :product_id'
+            . ($tenantId !== null ? ' AND ep.tenant_id = :tenant_id' : '')
+            . ' LIMIT 1';
 
+        $params = [':entity_id' => $entityId, ':product_id' => $productId];
+        if ($tenantId !== null) {
+            $params[':tenant_id'] = $tenantId;
+        }
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            ':entity_id'  => $entityId,
-            ':product_id' => $productId,
-            ':tenant_id'  => $tenantId,
-        ]);
+        $stmt->execute($params);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -223,9 +228,9 @@ final class PdoEntityProductsRepository
     // getEntityProducts — tenant_id إلزامي + مُمرَّر للاستعلامات
     // ────────────────────────────────────────────────────────────────────
 
-    public function getEntityProducts(int $entityId, string $lang = 'ar', int $tenantId = 0): array
+    public function getEntityProducts(int $entityId, string $lang = 'ar', ?int $tenantId = null): array
     {
-        if ($tenantId <= 0) {
+        if ($tenantId === null || $tenantId <= 0) {
             return [];
         }
 
@@ -463,12 +468,16 @@ final class PdoEntityProductsRepository
     // delete — tenant_id إلزامي
     // ────────────────────────────────────────────────────────────────────
 
-    public function delete(int $id, int $tenantId): bool
+    public function delete(int $id, ?int $tenantId = null): bool
     {
-        $stmt = $this->pdo->prepare(
-            'DELETE FROM entity_products WHERE id = :id AND tenant_id = :tenant_id'
-        );
-        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        $sql = 'DELETE FROM entity_products WHERE id = :id'
+            . ($tenantId !== null ? ' AND tenant_id = :tenant_id' : '');
+        $params = [':id' => $id];
+        if ($tenantId !== null) {
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -487,28 +496,30 @@ final class PdoEntityProductsRepository
     // getStatistics — tenant_id إلزامي
     // ────────────────────────────────────────────────────────────────────
 
-    public function getStatistics(int $tenantId): array
+    public function getStatistics(?int $tenantId = null): array
     {
-        $base = 'FROM entity_products WHERE tenant_id = ?';
+        $where = $tenantId !== null ? 'WHERE tenant_id = ?' : 'WHERE 1=1';
+        $args  = $tenantId !== null ? [$tenantId] : [];
+        $base  = "FROM entity_products $where";
 
         $stmt = $this->pdo->prepare("SELECT COUNT(*) $base");
-        $stmt->execute([$tenantId]);
+        $stmt->execute($args);
         $total = (int) $stmt->fetchColumn();
 
         $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT entity_id) $base");
-        $stmt->execute([$tenantId]);
+        $stmt->execute($args);
         $entities = (int) $stmt->fetchColumn();
 
         $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT product_id) $base");
-        $stmt->execute([$tenantId]);
+        $stmt->execute($args);
         $unique = (int) $stmt->fetchColumn();
 
         $stmt = $this->pdo->prepare("SELECT COUNT(*) $base AND is_active = 1");
-        $stmt->execute([$tenantId]);
+        $stmt->execute($args);
         $active = (int) $stmt->fetchColumn();
 
         $stmt = $this->pdo->prepare("SELECT COUNT(*) $base AND is_featured = 1");
-        $stmt->execute([$tenantId]);
+        $stmt->execute($args);
         $featured = (int) $stmt->fetchColumn();
 
         return [

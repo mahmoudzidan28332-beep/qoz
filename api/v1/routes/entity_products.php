@@ -97,7 +97,7 @@ try {
         case 'GET':
             // GET /api/entity_products?action=statistics
             if (isset($_GET['action']) && $_GET['action'] === 'statistics') {
-                $statistics = $controller->getStatistics();
+                $statistics = $controller->getStatistics($tenantId);
                 ResponseFormatter::success($statistics);
                 exit;
             }
@@ -162,7 +162,7 @@ try {
                 exit;
             }
 
-            $controller->update((int)$data['id'], $data);
+            $controller->update((int)$data['id'], $data, $tenantId);
             ResponseFormatter::success(['id' => (int)$data['id']], 'Updated successfully');
             break;
 
