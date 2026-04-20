@@ -5,6 +5,10 @@ final class PdoUsersRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'username', 'email', 'password', 'preferred_language', 'phone', 'is_active'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -109,6 +113,12 @@ final class PdoUsersRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $id = $data['id'] ?? null;
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
+        if ($id !== null) {
+            $data['id'] = $id;
+        }
+
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 

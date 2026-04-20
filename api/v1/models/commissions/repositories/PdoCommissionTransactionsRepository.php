@@ -153,6 +153,8 @@ final class PdoCommissionTransactionsRepository
     // ================================
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
+
         $stmt = $this->pdo->prepare("
             INSERT INTO commission_transactions
                 (tenant_id, entity_id, order_id, order_date, transaction_type,

@@ -153,6 +153,8 @@ final class PdoCommissionInvoicesRepository
     // ================================
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
+
         $stmt = $this->pdo->prepare("
             INSERT INTO commission_invoices
                 (tenant_id, entity_id, invoice_number, invoice_type,

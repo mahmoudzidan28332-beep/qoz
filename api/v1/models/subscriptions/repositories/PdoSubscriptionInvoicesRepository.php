@@ -174,6 +174,8 @@ final class PdoSubscriptionInvoicesRepository
     // ================================
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
+
         $stmt = $this->pdo->prepare("
             INSERT INTO subscription_invoices
                 (invoice_number, subscription_id, tenant_id, amount, tax_amount,
