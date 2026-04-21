@@ -46,6 +46,7 @@ try {
     $service    = new EntityFinancialBalancesService($repo);
     $controller = new EntityFinancialBalancesController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':

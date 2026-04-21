@@ -46,11 +46,11 @@ try {
     $service    = new CommissionTransactionsService($repo);
     $controller = new CommissionTransactionsController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $tenantId = resolve_tenant_id();
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
                 $stats = $controller->stats($tenantId, $entityId);
                 ResponseFormatter::success($stats);

@@ -46,6 +46,7 @@ try {
     $service    = new FlashSalesService($repo);
     $controller = new FlashSalesController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
@@ -56,7 +57,6 @@ try {
             }
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
-                $tenantId = resolve_tenant_id();
                 $item = $controller->find((int)$_GET['id'], $entityId, $tenantId);
                 if (!$item) { ResponseFormatter::error('Flash sale not found', 404); break; }
                 ResponseFormatter::success($item);
