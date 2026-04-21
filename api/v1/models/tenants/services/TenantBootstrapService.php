@@ -195,7 +195,7 @@ final class TenantBootstrapService
             return (int)$existing;
         }
 
-        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
 
         $stmt = $this->pdo->prepare(
             'INSERT INTO users (username, email, password_hash, phone, preferred_language, is_active, created_at)
@@ -260,8 +260,15 @@ final class TenantBootstrapService
             $i++;
         }
 
-        $sql = 'INSERT IGNORE INTO permissions (tenant_id, key_name, display_name, module, description, created_at, is_active)
-                VALUES ' . implode(', ', $valueParts);
+        // ON DUPLICATE KEY UPDATE makes the upsert explicit; avoids silently
+        // swallowing real constraint violations unrelated to the key duplicate.
+        $sql = 'INSERT INTO permissions (tenant_id, key_name, display_name, module, description, created_at, is_active)
+                VALUES ' . implode(', ', $valueParts) . '
+                ON DUPLICATE KEY UPDATE
+                    display_name = VALUES(display_name),
+                    module       = VALUES(module),
+                    description  = VALUES(description),
+                    updated_at   = NOW()';
         $this->pdo->prepare($sql)->execute($params);
 
         // Fetch the IDs (whether just inserted or pre-existing)
