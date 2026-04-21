@@ -39,6 +39,39 @@ if (!function_exists('resolve_tenant_id')) {
     }
 }
 
+if (!function_exists('admin_tenant_id')) {
+    /**
+     * Return the tenant_id that an admin/super-admin wants to act upon.
+     *
+     * Rules (mirrors resolve_tenant_id but named to make intent explicit):
+     *  - Super-admins may pass ?tenant_id=X as a GET parameter.
+     *    If absent, their own session tenant is used.
+     *  - All other roles always receive their session tenant_id.
+     *  - Returns null when no tenant can be established.
+     *
+     * This is the ONLY approved way to obtain a tenant_id for TenantContext::set().
+     * Never read $_GET['tenant_id'] or $_POST['tenant_id'] directly in route files.
+     */
+    function admin_tenant_id(): ?int
+    {
+        return resolve_tenant_id();
+    }
+}
+
+if (!function_exists('is_super_admin')) {
+    /**
+     * Returns true when the current session user has the 'super_admin' role.
+     */
+    function is_super_admin(): bool
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $roles = $_SESSION['user']['roles'] ?? [];
+        return in_array('super_admin', (array)$roles, true);
+    }
+}
+
 if (!function_exists('safe_htmlspecialchars')) {
     /**
      * Convert input to string safely and call htmlspecialchars with UTF-8.
