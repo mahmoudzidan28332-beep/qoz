@@ -7,7 +7,10 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
-
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';   // أو مساره الصحيح
+require_once $sharedPath . '/QueryGuard.php';
 $modelsPath = API_VERSION_PATH . '/models/products';
 require_once $modelsPath . '/repositories/PdoProductsRepository.php';
 require_once $modelsPath . '/services/ProductsService.php';
