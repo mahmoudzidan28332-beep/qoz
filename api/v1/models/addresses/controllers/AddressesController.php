@@ -30,11 +30,11 @@ final class AddressesController
     }
 
     // ================================
-    // GET
+    // GET - Supports both tenant users and regular users
     // ================================
-    public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
+    public function get(int $id, string $language = 'ar', ?int $tenantId = null, ?int $ownerId = null): array
     {
-        return $this->service->get($id, $language, $tenantId);
+        return $this->service->get($id, $language, $tenantId, $ownerId);
     }
 
     // ================================
@@ -46,18 +46,34 @@ final class AddressesController
     }
 
     // ================================
-    // UPDATE (scoped by tenant_id for multi-tenant safety)
+    // UPDATE - Supports both tenant users and regular users
     // ================================
-    public function update(int $id, array $data, int $tenantId = 0): bool
+    public function update(int $id, array $data, ?int $tenantId = null, ?int $ownerId = null): bool
     {
-        return $this->service->update($id, $data, $tenantId);
+        return $this->service->update($id, $data, $tenantId, $ownerId);
     }
 
     // ================================
-    // DELETE (scoped by tenant_id for multi-tenant safety)
+    // DELETE - Supports both tenant users and regular users
     // ================================
-    public function delete(int $id, int $tenantId = 0): bool
+    public function delete(int $id, ?int $tenantId = null, ?int $ownerId = null): bool
     {
-        return $this->service->delete($id, $tenantId);
+        return $this->service->delete($id, $tenantId, $ownerId);
+    }
+
+    // ================================
+    // GET BY OWNER
+    // ================================
+    public function getByOwner(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): array
+    {
+        return $this->service->getByOwner($ownerId, $ownerType, $tenantId);
+    }
+
+    // ================================
+    // GET PRIMARY ADDRESS
+    // ================================
+    public function getPrimaryAddress(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): ?array
+    {
+        return $this->service->getPrimaryAddress($ownerId, $ownerType, $tenantId);
     }
 }
