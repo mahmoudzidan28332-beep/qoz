@@ -66,11 +66,15 @@ final class SecurityValidator
         // 3. AuditContext must be booted.
         if (!class_exists('AuditContext', false)) {
             $failures[] = 'AuditContext class is not loaded — require api/shared/core/AuditContext.php at bootstrap.';
+        } elseif (!AuditContext::isBooted()) {
+            $failures[] = 'AuditContext::boot() has not been called — call AuditContext::boot() at the API entry-point after session_start().';
         }
 
-        // 4. PlatformContext must be loaded.
+        // 4. PlatformContext must be loaded and booted.
         if (!class_exists('PlatformContext', false)) {
             $failures[] = 'PlatformContext class is not loaded — require api/shared/core/PlatformContext.php at bootstrap.';
+        } elseif (!PlatformContext::isBooted()) {
+            $failures[] = 'PlatformContext::boot() has not been called — call PlatformContext::boot() or PlatformContext::bootSuperAdmin() at the API entry-point.';
         }
 
         // 5. All TenantScopedInterface implementors must extend BaseRepository.

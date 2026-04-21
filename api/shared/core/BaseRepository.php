@@ -118,6 +118,30 @@ abstract class BaseRepository
     // =========================================================================
 
     /**
+     * Tables that are security-sensitive and require SELECT audit logging.
+     *
+     * READ operations on these tables are automatically captured in AuditContext
+     * so that any access to personal, financial, or privilege data is traceable.
+     *
+     * @var string[]
+     */
+    private const SENSITIVE_AUDIT_TABLES = [
+        'users',
+        'user_roles',
+        'roles',
+        'permissions',
+        'role_permissions',
+        'audit_logs',
+        'sessions',
+        'password_reset_tokens',
+        'addresses',
+        'payment_methods',
+        'orders',
+        'invoices',
+        'tenant_users',
+    ];
+
+    /**
      * Execute a tenant-scoped SQL query through the full security pipeline.
      *
      * ALL tenant-scoped queries MUST go through this method.  It:
@@ -126,6 +150,11 @@ abstract class BaseRepository
      *   3. Auto-appends a WHERE tenant_id = :tenant_id clause when the SQL
      *      contains no tenant_id condition (last-resort safety net).
      *   4. Prepares and executes the statement, returning the PDOStatement.
+     *   5. Auto-audits INSERT/UPDATE/DELETE operations via AuditContext.
+     *   6. Auto-audits SELECT operations on sensitive tables.
+     *
+     * IMPORTANT: If AuditContext is available and an audit write fails,
+     * the exception propagates upward — the request is blocked (fail-fast).
      *
      * EXAMPLE:
      *
@@ -158,6 +187,10 @@ abstract class BaseRepository
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
+
+        // Auto-audit the DML operation (or sensitive SELECT) via AuditContext.
+        $this->autoAudit($sql, $table);
+
         return $stmt;
     }
 
@@ -240,6 +273,50 @@ abstract class BaseRepository
         }
 
         return [$sql, $params];
+    }
+
+    /**
+     * Auto-audit a SQL operation when AuditContext is available.
+     *
+     * Audits:
+     *  - INSERT, UPDATE, DELETE on any table (mandatory DML audit).
+     *  - SELECT on tables listed in SENSITIVE_AUDIT_TABLES.
+     *
+     * If AuditContext is loaded and its capture() call throws, the exception
+     * propagates (fail-fast / block request) — audit failure is never silent.
+     *
+     * @param  string $sql    The SQL string that was just executed.
+     * @param  string $table  Table name hint (may be empty string).
+     */
+    private function autoAudit(string $sql, string $table): void
+    {
+        if (!class_exists('AuditContext', false)) {
+            return;
+        }
+
+        $sqlLower = strtolower(ltrim($sql));
+
+        if (str_starts_with($sqlLower, 'insert')) {
+            $event = 'data_create';
+        } elseif (str_starts_with($sqlLower, 'update')) {
+            $event = 'data_update';
+        } elseif (str_starts_with($sqlLower, 'delete')) {
+            $event = 'data_delete';
+        } elseif (str_starts_with($sqlLower, 'select')) {
+            // Only audit SELECT on explicitly sensitive tables.
+            if ($table === '' || !in_array(strtolower($table), self::SENSITIVE_AUDIT_TABLES, true)) {
+                return;
+            }
+            $event = 'data_select';
+        } else {
+            return; // DDL or other statements — not audited here.
+        }
+
+        // AuditContext::capture() is allowed to throw; we let it propagate
+        // so the request is blocked when audit infrastructure is unavailable.
+        AuditContext::capture($event, $table ?: 'unknown', null, [
+            'auto_audited' => true,
+        ]);
     }
 
     // =========================================================================

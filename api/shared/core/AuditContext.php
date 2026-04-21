@@ -200,6 +200,14 @@ final class AuditContext
         return self::$requestId;
     }
 
+    /**
+     * Return true when boot() has been called for this request.
+     */
+    public static function isBooted(): bool
+    {
+        return self::$booted;
+    }
+
     // =========================================================================
     // Reset (test/CLI use only)
     // =========================================================================

@@ -161,4 +161,50 @@ abstract class BaseService
     {
         TenantContext::require();
     }
+
+    // =========================================================================
+    // Service-layer SQL ban
+    // =========================================================================
+
+    /**
+     * Assert that no direct PDO or raw SQL access is occurring in this call stack.
+     *
+     * Service classes MUST NOT access the database directly.  All persistence
+     * MUST go through repository classes that extend BaseRepository.
+     *
+     * Call this at the top of any service method as a defence-in-depth guard.
+     * It scans the backtrace for PDO class frames and throws immediately if found.
+     *
+     * @throws \RuntimeException  When a PDO call is detected in the call stack.
+     */
+    protected function assertNoPdoAccess(): void
+    {
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $frame) {
+            $class = $frame['class'] ?? '';
+            if ($class === 'PDO' || $class === 'PDOStatement') {
+                throw new \RuntimeException(
+                    'SecurityException: Direct database access (PDO) detected inside a Service class. '
+                    . 'Services MUST only call repositories. Move all SQL into a BaseRepository subclass.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Prevent service subclasses from directly using a PDO instance.
+     *
+     * This method is intentionally declared to throw, providing a clear error
+     * if a service attempts to accept or store a PDO object.
+     *
+     * @throws \RuntimeException  Always.
+     *
+     * @internal
+     */
+    final protected function forbidDirectDb(): never
+    {
+        throw new \RuntimeException(
+            'SecurityException: Services MUST NOT access PDO directly. '
+            . 'Inject a repository (extends BaseRepository) instead.'
+        );
+    }
 }

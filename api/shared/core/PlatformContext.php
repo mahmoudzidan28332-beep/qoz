@@ -38,6 +38,9 @@ final class PlatformContext
     /** Whether boot() has been called this request. */
     private static bool $booted = false;
 
+    /** Explicitly set user ID for super-admin session (when bootSuperAdmin() is used). */
+    private static ?int $superAdminUserId = null;
+
     private function __construct() {}
 
     // =========================================================================
@@ -54,6 +57,52 @@ final class PlatformContext
     {
         self::$superAdmin = function_exists('is_super_admin') && is_super_admin();
         self::$booted     = true;
+    }
+
+    /**
+     * Explicitly boot as super-admin (Platform Owner mode).
+     *
+     * Use this instead of boot() when programmatic super-admin context is needed
+     * (e.g. CLI scripts, impersonation flows, background jobs running as platform).
+     *
+     * SECURITY: This method must ONLY be called after verifying the identity via
+     * a trusted source (session, signed token, etc.).  Never call it based on
+     * untrusted user input.
+     *
+     * Every subsequent cross-tenant action will be audited with $userId as actor.
+     *
+     * @param  int|null $userId  The super-admin's user ID (null = resolve from session).
+     */
+    public static function bootSuperAdmin(?int $userId = null): void
+    {
+        self::$superAdmin       = true;
+        self::$booted           = true;
+        self::$superAdminUserId = $userId;
+
+        // Audit the explicit super-admin boot for traceability.
+        $resolvedUserId = $userId ?? self::resolveSessionUserId();
+        if (class_exists('AuditContext', false)) {
+            AuditContext::capture('super_admin_boot', 'platform', $resolvedUserId, [
+                'user_id' => $resolvedUserId,
+                'reason'  => 'Explicit super-admin mode activated via bootSuperAdmin()',
+            ]);
+        } elseif (function_exists('audit_log')) {
+            audit_log([
+                'action'  => 'super_admin_boot',
+                'user_id' => $resolvedUserId,
+                'reason'  => 'Explicit super-admin mode activated via bootSuperAdmin()',
+            ]);
+        } else {
+            error_log('[PlatformContext] super_admin_boot: userId=' . $resolvedUserId);
+        }
+    }
+
+    /**
+     * Return true when boot() or bootSuperAdmin() has been called this request.
+     */
+    public static function isBooted(): bool
+    {
+        return self::$booted;
     }
 
     // =========================================================================
@@ -197,7 +246,29 @@ final class PlatformContext
      */
     public static function reset(): void
     {
-        self::$superAdmin = false;
-        self::$booted     = false;
+        self::$superAdmin       = false;
+        self::$booted           = false;
+        self::$superAdminUserId = null;
+    }
+
+    // =========================================================================
+    // Private helpers
+    // =========================================================================
+
+    /**
+     * Resolve the current user ID from the session.
+     */
+    private static function resolveSessionUserId(): ?int
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+        if (isset($_SESSION['user']['id'])) {
+            return (int)$_SESSION['user']['id'];
+        }
+        if (isset($_SESSION['user_id'])) {
+            return (int)$_SESSION['user_id'];
+        }
+        return null;
     }
 }
