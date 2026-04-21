@@ -1,10 +1,8 @@
 <?php
 declare(strict_types=1);
 
-final class PdoAddressesRepository
+final class PdoAddressesRepository extends BaseRepository
 {
-    private PDO $pdo;
-
     private const ALLOWED_ORDER_BY = [
         'id','owner_type','owner_id','city_id','country_id',
         'is_primary','created_at','updated_at'
@@ -12,7 +10,7 @@ final class PdoAddressesRepository
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     // ================================

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-final class AddressesController
+final class AddressesController extends BaseController
 {
     private AddressesService $service;
 

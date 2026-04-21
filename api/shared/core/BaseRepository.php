@@ -55,7 +55,26 @@ abstract class BaseRepository
      */
     protected function getTenantId(): int
     {
-        return TenantContext::getId();
+        return TenantContext::require();
+    }
+
+    /**
+     * Assert that the tenant context has been initialised.
+     *
+     * Call this at the top of any repository method that MUST be tenant-scoped.
+     * It surfaces a loud, descriptive error instead of a silent data leak.
+     *
+     *   public function findAll(): array
+     *   {
+     *       $this->assertTenantContext();
+     *       // ... tenant-scoped query ...
+     *   }
+     *
+     * @throws \RuntimeException  If TenantContext is not set.
+     */
+    protected function assertTenantContext(): void
+    {
+        TenantContext::require();
     }
 
     /**

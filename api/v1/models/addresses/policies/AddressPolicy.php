@@ -38,7 +38,7 @@ declare(strict_types=1);
  *  Copy this file, rename the class, adjust the ownership column name in
  *  _isOwner() if necessary, and add any resource-specific logic.
  */
-final class AddressPolicy
+final class AddressPolicy implements BasePolicy
 {
     // Roles allowed to access ALL records within the tenant (not just their own).
     private const ELEVATED_ROLES = ['admin', 'manager', 'super_admin'];

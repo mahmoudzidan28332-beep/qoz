@@ -79,6 +79,29 @@ final class TenantContext
     }
 
     /**
+     * Require an active tenant ID — throws a descriptive exception if missing.
+     *
+     * Use this at the start of any method that MUST run inside a tenant scope
+     * (e.g. the top of BaseRepository methods, BaseService mutations, etc.)
+     * to produce a fail-fast exception instead of a silent security bypass.
+     *
+     *   TenantContext::require();  // explodes early if no tenant is bound
+     *
+     * @throws \RuntimeException  If called before TenantContext::set().
+     */
+    public static function require(): int
+    {
+        if (self::$tenantId === null) {
+            throw new \RuntimeException(
+                'TenantContext::require() — tenant scope is not initialised. '
+                . 'The API entry-point MUST call TenantContext::set(resolve_tenant_id()) '
+                . 'before any tenant-scoped operation is attempted.'
+            );
+        }
+        return self::$tenantId;
+    }
+
+    /**
      * Clear the stored tenant ID.
      *
      * Intended for:
