@@ -24,57 +24,105 @@ if ($isFragment) {
 }
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 // AUTH
 // ════════════════════════════════════════════════════════════
 if (!is_admin_logged_in()) {
-    if ($isFragment) {
+    if ($isFragment ?? false) {
         http_response_code(401);
         echo json_encode(['error' => 'Not authenticated']);
         exit;
     }
+
     header('Location: /admin/login.php');
     exit;
 }
 
 // ════════════════════════════════════════════════════════════
-// USER CONTEXT
+// USER CONTEXT (SECURE - IDENTITY IS SYSTEM CONTROLLED)
 // ════════════════════════════════════════════════════════════
-$user      = admin_user();
-$isSuperAdmin = function_exists('is_super_admin') && is_super_admin();
-$lang      = $_GET['lang'] ?? (function_exists('admin_lang') ? admin_lang() : 'ar');
-$dir       = in_array($lang, ['ar', 'he', 'fa', 'ur']) ? 'rtl' : 'ltr';
-$csrf      = function_exists('admin_csrf') ? admin_csrf() : bin2hex(random_bytes(16));
-$tenantId  = (int)($_GET['tenant_id'] ?? (function_exists('admin_tenant_id') ? admin_tenant_id() : 1));
+$user = admin_user();
 
-// owner context with fallback to current user (unless super admin viewing all)
-// Super Admin can view all addresses without owner filter, or filter by specific owner
-if ($isSuperAdmin && !isset($_GET['owner_type']) && !isset($_GET['owner_id'])) {
-    // Super Admin viewing all addresses
-    $ownerType = null;
-    $ownerId   = null;
-    $showAllAddresses = true;
-} else {
-    // Normal user or Super Admin filtering by owner
-    $ownerType = $_GET['owner_type'] ?? 'user';
-    $ownerId   = isset($_GET['owner_id']) ? (int)$_GET['owner_id'] : (int)($user['id'] ?? 1);
-    $showAllAddresses = false;
+if (!$user) {
+    http_response_code(401);
+    echo 'Unauthorized';
+    exit;
+}
+
+$isSuperAdmin = function_exists('is_super_admin') && is_super_admin();
+
+// Language (safe fallback only)
+$lang = $_GET['lang'] ?? (function_exists('admin_lang') ? admin_lang() : 'ar');
+$dir  = in_array($lang, ['ar','he','fa','ur'], true) ? 'rtl' : 'ltr';
+
+// CSRF
+$csrf = function_exists('admin_csrf')
+    ? admin_csrf()
+    : bin2hex(random_bytes(16));
+
+/**
+ * IMPORTANT:
+ * Tenant identity MUST NEVER come from request.
+ * It is strictly bound to authenticated session.
+ */
+$tenantId = (int) admin_tenant_id();
+
+if ($tenantId <= 0) {
+    http_response_code(401);
+    echo 'Invalid tenant context';
+    exit;
 }
 
 // ════════════════════════════════════════════════════════════
-// PERMISSIONS
+// OWNER CONTEXT (IDENTITY vs FILTER SEPARATION)
+// ════════════════════════════════════════════════════════════
+
+// Default identity scope (always safe fallback)
+$ownerType = 'user';
+$ownerId   = (int) $user['id'];
+
+/**
+ * Filter mode (ONLY for Super Admin)
+ * This does NOT change identity, only query filtering
+ */
+$filterOwnerId   = null;
+$filterOwnerType = null;
+$showAll         = false;
+
+if ($isSuperAdmin) {
+
+    // If no filters → show all data inside tenant scope
+    if (!isset($_GET['owner_id']) && !isset($_GET['owner_type'])) {
+        $showAll = true;
+    }
+
+    // Apply filters safely (ONLY filtering, never identity override)
+    if (isset($_GET['owner_id']) && is_numeric($_GET['owner_id'])) {
+        $filterOwnerId = (int) $_GET['owner_id'];
+    }
+
+    if (isset($_GET['owner_type']) && in_array($_GET['owner_type'], ['user', 'vendor'], true)) {
+        $filterOwnerType = $_GET['owner_type'];
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+// PERMISSIONS (STRICT RBAC)
 // ════════════════════════════════════════════════════════════
 $canView   = $isSuperAdmin || (function_exists('can') && can('manage_addresses'));
-$canCreate = $isSuperAdmin || (function_exists('can') && can('manage_addresses'));
-$canEdit   = $isSuperAdmin || (function_exists('can') && can('manage_addresses'));
-$canDelete = $isSuperAdmin || (function_exists('can') && can('manage_addresses'));
-$canEditAllFields = $isSuperAdmin; // Super Admin can edit owner_type, owner_id, etc.
+$canCreate = $canView;
+$canEdit   = $canView;
+$canDelete = $canView;
+
+// Only Super Admin can modify ownership metadata
+$canEditAllFields = $isSuperAdmin;
 
 if (!$canView) {
     http_response_code(403);
     echo 'Access denied';
     exit;
 }
-
 // ════════════════════════════════════════════════════════════
 // TRANSLATION HELPER
 // ════════════════════════════════════════════════════════════
