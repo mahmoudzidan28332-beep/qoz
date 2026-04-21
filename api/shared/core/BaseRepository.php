@@ -114,6 +114,59 @@ abstract class BaseRepository
     }
 
     // =========================================================================
+    // QueryGuard integration
+    // =========================================================================
+
+    /**
+     * Prepare a PDO statement after asserting that the SQL is tenant-scoped.
+     *
+     * Drop-in replacement for $this->pdo->prepare() when you want QueryGuard
+     * enforcement baked in:
+     *
+     *   $stmt = $this->guardedQuery(
+     *       'SELECT * FROM products WHERE ' . $this->tenantCondition('p'),
+     *       'products'
+     *   );
+     *   $stmt->execute($this->tenantParam());
+     *
+     * @param  string $sql    SQL string to validate and prepare.
+     * @param  string $table  Optional table name for whitelist check.
+     *
+     * @throws \RuntimeException  Via QueryGuard::validate() when tenant isolation is missing.
+     * @return \PDOStatement
+     */
+    protected function guardedQuery(string $sql, string $table = ''): \PDOStatement
+    {
+        QueryGuard::validate($sql, $table);
+        return $this->pdo->prepare($sql);
+    }
+
+    /**
+     * Prepare a PDO statement for a global (non-tenant-scoped) query.
+     *
+     * Use ONLY for tables listed in QueryGuard::getGlobalTables() — e.g. audit_logs,
+     * system_settings, countries.  The call is itself audited when audit_log() is
+     * available.
+     *
+     * @param  string $sql    SQL string for the global query.
+     * @param  string $table  Table name (must be whitelisted in QueryGuard).
+     *
+     * @throws \RuntimeException  When $table is NOT in the global whitelist.
+     * @return \PDOStatement
+     */
+    protected function globalQuery(string $sql, string $table): \PDOStatement
+    {
+        if (!QueryGuard::isGlobal($table)) {
+            throw new \RuntimeException(
+                "BaseRepository::globalQuery() called for table '{$table}' which is not "
+                . 'in the QueryGuard global whitelist. Either add a tenant_id condition and '
+                . 'use guardedQuery(), or whitelist the table with QueryGuard::allowGlobal().'
+            );
+        }
+        return $this->pdo->prepare($sql);
+    }
+
+    // =========================================================================
     // Ownership helpers
     // =========================================================================
 

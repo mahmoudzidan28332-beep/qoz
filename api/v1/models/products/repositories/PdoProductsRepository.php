@@ -1,10 +1,8 @@
 <?php
 declare(strict_types=1);
 
-final class PdoProductsRepository
+final class PdoProductsRepository extends BaseRepository
 {
-    private PDO $pdo;
-
     // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
         'id','sku','slug','barcode','brand_id','is_active',
@@ -22,7 +20,7 @@ final class PdoProductsRepository
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     // ================================
