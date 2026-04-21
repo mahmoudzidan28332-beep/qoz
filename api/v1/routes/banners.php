@@ -29,15 +29,8 @@ $validator  = new BannersValidator();
 $service    = new BannersService($repo, $validator);
 $controller = new BannersController($service);
 
-// Resolve tenantId — from query param or session
-$tenantId = null;
-if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
-    $tenantId = (int)$_GET['tenant_id'];
-} elseif (isset($_SESSION['tenant_id'])) {
-    $tenantId = (int)$_SESSION['tenant_id'];
-} elseif (isset($GLOBALS['ADMIN_UI']['user']['tenant_id'])) {
-    $tenantId = (int)$GLOBALS['ADMIN_UI']['user']['tenant_id'];
-}
+// Resolve tenantId — always from session/role, never raw GET
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('tenant_id required', 401);

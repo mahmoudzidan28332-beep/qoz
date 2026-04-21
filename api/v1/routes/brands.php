@@ -30,9 +30,7 @@ $validator  = new BrandsValidator();
 $service    = new BrandsService($repo, $validator);
 $controller = new BrandsController($service);
 
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('tenant_id required', 401);

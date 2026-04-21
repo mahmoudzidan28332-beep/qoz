@@ -55,7 +55,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id'])) $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['limit']))     $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))    $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);

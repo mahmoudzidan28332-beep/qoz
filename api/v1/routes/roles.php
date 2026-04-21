@@ -29,9 +29,7 @@ if (!$pdo instanceof PDO) {
 }
 
 // ===== احصل على tenantId =====
-$tenantId = isset($_GET['tenant_id']) 
-    ? (int)$_GET['tenant_id'] 
-    : ($_SESSION['tenant_id'] ?? 1);
+$tenantId = resolve_tenant_id();
 
 // ===== تحميل بيانات المستخدم الحالي =====
 $user = $_SESSION['user'] ?? [];

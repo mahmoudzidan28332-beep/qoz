@@ -63,7 +63,7 @@ try {
             } else {
                 $filters = [];
                 if (isset($_GET['subscription_id'])) $filters['subscription_id'] = $_GET['subscription_id'];
-                if (isset($_GET['tenant_id']))       $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['status']))          $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))          $filters['search'] = $_GET['search'];
                 if (isset($_GET['date_from']))       $filters['date_from'] = $_GET['date_from'];

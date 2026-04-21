@@ -27,9 +27,7 @@ $controller = new CartEventsController($cartEventsService);
 // Tenant & Auth check
 // ================================
 $user = $_SESSION['user'] ?? [];
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);

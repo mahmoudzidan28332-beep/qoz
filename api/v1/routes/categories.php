@@ -70,10 +70,8 @@ try {
     $uri = $_SERVER['REQUEST_URI'] ?? '';
     $method = $_SERVER['REQUEST_METHOD'];
 
-    // Resolve tenant_id for this request
-    $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-        ? (int)$_GET['tenant_id']
-        : ($isSuperAdmin ? null : ($_sessionTenantId ?? $defaultTenantId));
+    // Resolve tenant_id for this request (never trust GET for regular users)
+    $tenantId = resolve_tenant_id();
 
     $format = strtolower($_GET['format'] ?? 'json');
     $lang = $_GET['lang'] ?? 'ar';

@@ -24,9 +24,7 @@ if (!$pdo instanceof PDO) {
 // ================================
 // Tenant & Auth check
 // ================================
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
@@ -141,7 +139,7 @@ try {
             // POST /api/entity_products?action=bulk&entity_id={id}&tenant_id={id}
             if (isset($_GET['action']) && $_GET['action'] === 'bulk' && isset($_GET['entity_id'])) {
                 $entityId = (int)$_GET['entity_id'];
-                $tenantId = (int)($_GET['tenant_id'] ?? ($data['tenant_id'] ?? 0));
+                $tenantId = resolve_tenant_id() ?? (int)($data['tenant_id'] ?? 0);
                 if ($tenantId <= 0) {
                     ResponseFormatter::error('tenant_id is required for bulk save', 400);
                     exit;

@@ -15,7 +15,7 @@ if (!$pdo instanceof PDO) { ResponseFormatter::error('Database not initialized',
 $repo = new PdoOrderItemsRepository($pdo);
 $service = new OrderItemsService($repo);
 $controller = new OrderItemsController($service);
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 if ($tenantId === null) { ResponseFormatter::error('Unauthorized: tenant not found', 401); exit; }
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

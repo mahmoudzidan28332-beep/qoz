@@ -36,7 +36,7 @@ $controller = new \App\Models\Permissions\Controllers\ResourcePermissionsControl
 $user = $_SESSION['user'] ?? [];
 $roles = $user['roles'] ?? ($_SESSION['roles'] ?? []);
 $isSuperAdmin = in_array('super_admin', $roles, true) || in_array('SUPER_ADMIN', $roles, true);
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 $roleId = isset($_GET['role_id']) && is_numeric($_GET['role_id']) ? (int)$_GET['role_id'] : null;
 
 if (!$isSuperAdmin && ($tenantId === null || $tenantId !== (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null))) {

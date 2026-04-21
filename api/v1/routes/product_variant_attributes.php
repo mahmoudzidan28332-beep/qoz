@@ -3,9 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../bootstrap.php';
 require_once __DIR__ . '/../../shared/core/ResponseFormatter.php';
+require_once __DIR__ . '/../../shared/helpers/safe_helpers.php';
 require_once __DIR__ . '/../../shared/config/db.php';
-
-$path = API_VERSION_PATH.'/models/product_variants';
 require_once $path.'/repositories/PdoProductVariantAttributesRepository.php';
 require_once $path.'/validators/ProductVariantAttributesValidator.php';
 require_once $path.'/services/ProductVariantAttributesService.php';
@@ -25,7 +24,7 @@ $user = $_SESSION['user'] ?? [];
 $roles = $user['roles'] ?? ($_SESSION['roles'] ?? []);
 $isSuperAdmin = in_array('super_admin',$roles,true);
 $sessionTenantId = isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null;
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : $sessionTenantId;
+$tenantId = resolve_tenant_id();
 if(!$isSuperAdmin && ($tenantId===null || $tenantId !== $sessionTenantId)) {
     ResponseFormatter::error('Unauthorized',403);
 }

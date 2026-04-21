@@ -25,7 +25,7 @@ if (!$pdo instanceof PDO) {
 }
 
 // ===== احصل على tenantId و roleId من query string =====
-$tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : ($_SESSION['tenant_id'] ?? 1);
+$tenantId = resolve_tenant_id();
 $roleId = isset($_GET['role_id']) ? (int)$_GET['role_id'] : null;
 
 // ===== تحميل بيانات المستخدم الحالي =====

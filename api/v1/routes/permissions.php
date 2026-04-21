@@ -11,6 +11,9 @@ $baseDir = dirname(__DIR__, 2);
 // ===== تحميل ResponseFormatter =====
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 
+// ===== تحميل helpers =====
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+
 // ===== تحميل قاعدة البيانات =====
 require_once $baseDir . '/shared/config/db.php';
 
@@ -28,9 +31,7 @@ if (!$pdo instanceof PDO) {
 }
 
 // ===== احصل على tenantId =====
-$tenantId = isset($_GET['tenant_id']) 
-    ? (int)$_GET['tenant_id'] 
-    : ($_SESSION['tenant_id'] ?? 1);
+$tenantId = resolve_tenant_id();
 
 // ===== تحميل بيانات المستخدم الحالي =====
 $user = $_SESSION['user'] ?? [];

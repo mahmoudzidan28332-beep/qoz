@@ -62,7 +62,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id'])) $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['plan_id']))   $filters['plan_id'] = $_GET['plan_id'];
                 if (isset($_GET['status']))    $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))    $filters['search'] = $_GET['search'];

@@ -50,7 +50,7 @@ try {
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $stats = $controller->stats($tenantId);
                 ResponseFormatter::success($stats);
                 break;
@@ -66,7 +66,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['invoice_id'])) $filters['invoice_id'] = $_GET['invoice_id'];
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['date_from']))  $filters['date_from'] = $_GET['date_from'];

@@ -56,7 +56,7 @@ try {
             }
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $item = $controller->find((int)$_GET['id'], $entityId, $tenantId);
                 if (!$item) { ResponseFormatter::error('Flash sale not found', 404); break; }
                 ResponseFormatter::success($item);
@@ -66,7 +66,7 @@ try {
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))     $filters['search'] = $_GET['search'];
                 if (isset($_GET['entity_id']))  $filters['entity_id'] = $_GET['entity_id'];
-                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['limit']))      $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))     $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);

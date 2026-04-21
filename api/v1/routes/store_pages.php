@@ -42,7 +42,7 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     // Tenant + User
-    $tenantId = (int)($_SESSION['tenant_id'] ?? $_GET['tenant_id'] ?? 0);
+    $tenantId = resolve_tenant_id();
     $userId   = isset($_SESSION['user_id'])
         ? (int)$_SESSION['user_id']
         : (isset($_GET['user_id']) ? (int)$_GET['user_id'] : null);

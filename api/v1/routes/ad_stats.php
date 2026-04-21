@@ -32,9 +32,7 @@ try {
     $data   = $raw ? json_decode($raw, true) : [];
     $action = $_GET['action'] ?? '';
 
-    $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-        ? (int) $_GET['tenant_id']
-        : (isset($_SESSION['tenant_id']) ? (int) $_SESSION['tenant_id'] : null);
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'OPTIONS':

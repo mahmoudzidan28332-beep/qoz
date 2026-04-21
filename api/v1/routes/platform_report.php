@@ -53,8 +53,7 @@ try {
 
             // GET /api/platform_report?action=dashboard&tenant_id=X
             if ($action === 'dashboard') {
-                $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-                    ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $summary = $controller->getDashboardSummary($tenantId);
                 ResponseFormatter::success($summary);
                 exit;
@@ -66,7 +65,7 @@ try {
                     'report_type' => $_GET['report_type'] ?? '',
                     'start_date'  => $_GET['start_date'] ?? '',
                     'end_date'    => $_GET['end_date'] ?? '',
-                    'tenant_id'   => $_GET['tenant_id'] ?? '',
+                    'tenant_id'   => $tenantId ?? '',
                     'entity_id'   => $_GET['entity_id'] ?? '',
                     'period_type' => $_GET['period_type'] ?? 'daily',
                     'group_by'    => $_GET['group_by'] ?? 'day',
@@ -82,8 +81,7 @@ try {
 
             // GET /api/platform_report?action=exports&tenant_id=X
             if ($action === 'exports') {
-                $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-                    ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $exports = $controller->listExports($tenantId);
                 ResponseFormatter::success($exports);
                 exit;
@@ -91,8 +89,7 @@ try {
 
             // GET /api/platform_report?action=schedules&tenant_id=X
             if ($action === 'schedules') {
-                $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-                    ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $schedules = $controller->listSchedules($tenantId);
                 ResponseFormatter::success($schedules);
                 exit;
