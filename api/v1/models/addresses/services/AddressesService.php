@@ -30,11 +30,11 @@ final class AddressesService
     }
 
     // ================================
-    // GET
+    // GET - Supports both tenant users and regular users
     // ================================
-    public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
+    public function get(int $id, string $language = 'ar', ?int $tenantId = null, ?int $ownerId = null): array
     {
-        $item = $this->repo->find($id, $language, $tenantId ?? 0);
+        $item = $this->repo->find($id, $language, $tenantId, $ownerId);
         if (!$item) {
             throw new RuntimeException('Address not found', 404);
         }
@@ -51,19 +51,35 @@ final class AddressesService
     }
 
     // ================================
-    // UPDATE (scoped by tenant_id for multi-tenant safety)
+    // UPDATE - Supports both tenant users and regular users
     // ================================
-    public function update(int $id, array $data, int $tenantId = 0): bool
+    public function update(int $id, array $data, ?int $tenantId = null, ?int $ownerId = null): bool
     {
         AddressesValidator::validateUpdate($data);
-        return $this->repo->update($id, $data, $tenantId);
+        return $this->repo->update($id, $data, $tenantId, $ownerId);
     }
 
     // ================================
-    // DELETE (scoped by tenant_id for multi-tenant safety)
+    // DELETE - Supports both tenant users and regular users
     // ================================
-    public function delete(int $id, int $tenantId = 0): bool
+    public function delete(int $id, ?int $tenantId = null, ?int $ownerId = null): bool
     {
-        return $this->repo->delete($id, $tenantId);
+        return $this->repo->delete($id, $tenantId, $ownerId);
+    }
+
+    // ================================
+    // GET BY OWNER
+    // ================================
+    public function getByOwner(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): array
+    {
+        return $this->repo->getByOwner($ownerId, $ownerType, $tenantId);
+    }
+
+    // ================================
+    // GET PRIMARY ADDRESS
+    // ================================
+    public function getPrimaryAddress(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): ?array
+    {
+        return $this->repo->getPrimaryAddress($ownerId, $ownerType, $tenantId);
     }
 }
