@@ -16,7 +16,7 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // LIST
+    // LIST - Supports both tenant users and regular users
     // ================================
     public function list(
         int $limit,
@@ -35,16 +35,25 @@ final class PdoAddressesRepository
         $params = [];
         $language = $filters['language'] ?? 'ar';
 
-        // Multi-tenant safety: tenant_id is ALWAYS required to prevent cross-tenant data leakage
-        if (!isset($filters['tenant_id']) || $filters['tenant_id'] === null || $filters['tenant_id'] === '') {
-            return ['items' => [], 'total' => 0];
+        // ============================================================
+        // MULTI-TENANT SAFETY:
+        // - If tenant_id is provided (tenant user/admin): filter by that tenant
+        // - If no tenant_id (regular user): only show addresses with NULL tenant_id
+        // - Also ensure owner_id is provided for regular users to prevent data leakage
+        // ============================================================
+        
+        $hasTenantId = isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '';
+        
+        if ($hasTenantId) {
+            // Tenant user or admin: filter by specific tenant
+            $where[] = "a.tenant_id = :filter_tenant_id";
+            $params['filter_tenant_id'] = (int)$filters['tenant_id'];
+        } else {
+            // Regular user: only show addresses with NULL tenant_id
+            $where[] = "a.tenant_id IS NULL";
         }
 
-        // Always include tenant_id filter in query (addresses.tenant_id is nullable - NULL for regular users)
-        $where[] = "a.tenant_id = :filter_tenant_id";
-        $params['filter_tenant_id'] = (int)$filters['tenant_id'];
-
-        // Apply individual field filters alongside tenant_id
+        // Apply individual field filters
         foreach ([
             'id','owner_type','owner_id','city_id','country_id','is_primary'
         ] as $field) {
@@ -52,6 +61,16 @@ final class PdoAddressesRepository
                 $where[] = "a.$field = :filter_$field";
                 $params["filter_$field"] = $filters[$field];
             }
+        }
+
+        // Security: For regular users (no tenant_id), we MUST have owner_id to prevent data leakage
+        if (!$hasTenantId) {
+            if (!isset($filters['owner_id']) || $filters['owner_id'] === null || $filters['owner_id'] === '') {
+                // Regular user without owner_id - return empty for safety
+                return ['items' => [], 'total' => 0];
+            }
+            // Ensure owner_type is 'user' for regular users
+            $where[] = "a.owner_type = 'user'";
         }
 
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
@@ -76,7 +95,7 @@ final class PdoAddressesRepository
 
         $stmt = $this->pdo->prepare($sql);
 
-        // Fix: Bind language parameters separately for both joins
+        // Bind language parameters
         $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
         $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
         
@@ -122,20 +141,35 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // GET
+    // FIND - Supports both tenant users and regular users
     // ================================
-    public function find(int $id, string $language = 'ar', int $tenantId = 0): ?array
+    public function find(int $id, string $language = 'ar', ?int $tenantId = null, ?int $ownerId = null): ?array
     {
         $where  = ['a.id = :id'];
-        $params = [];
+        $params = [':id' => $id];
+        $hasTenantId = $tenantId !== null && $tenantId > 0;
 
-        if ($tenantId > 0) {
-            // Multi-tenant safety: scope address to the given tenant (tenant_id is nullable for regular users)
+        // ============================================================
+        // MULTI-TENANT SAFETY:
+        // - If tenant_id provided: filter by tenant_id
+        // - If no tenant_id: filter by NULL tenant_id AND owner_id
+        // ============================================================
+        
+        if ($hasTenantId) {
+            // Tenant user or admin: filter by specific tenant
             $where[] = "a.tenant_id = :tenant_id";
             $params[':tenant_id'] = $tenantId;
         } else {
-            // Multi-tenant safety: reject queries without tenant scoping
-            return null;
+            // Regular user: only addresses with NULL tenant_id
+            $where[] = "a.tenant_id IS NULL";
+            
+            // Regular user MUST provide owner_id for security
+            if ($ownerId === null || $ownerId <= 0) {
+                return null;
+            }
+            $where[] = "a.owner_id = :owner_id";
+            $where[] = "a.owner_type = 'user'";
+            $params[':owner_id'] = $ownerId;
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -158,9 +192,14 @@ final class PdoAddressesRepository
         $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
         $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-        if ($tenantId > 0) {
+        
+        if ($hasTenantId) {
             $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
         }
+        if (!$hasTenantId && $ownerId !== null) {
+            $stmt->bindValue(':owner_id', $ownerId, PDO::PARAM_INT);
+        }
+        
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -168,15 +207,20 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // CREATE
+    // CREATE - Supports both tenant users and regular users
     // ================================
     public function create(array $data): int
     {
+        // Handle tenant_id (can be NULL for regular users)
         $tenantId = isset($data['tenant_id']) && $data['tenant_id'] !== '' ? (int)$data['tenant_id'] : null;
 
         // If setting as primary, unset other primary addresses for this owner
-        if (isset($data['is_primary']) && (int)$data['is_primary'] === 1 && $tenantId !== null && $tenantId > 0) {
-            $this->unsetPrimaryAddresses($data['owner_type'], (int)$data['owner_id'], $tenantId);
+        if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
+            $this->unsetPrimaryAddresses(
+                $data['owner_type'], 
+                (int)$data['owner_id'], 
+                $tenantId
+            );
         }
 
         $sql = "
@@ -192,7 +236,7 @@ final class PdoAddressesRepository
         ";
 
         $params = [
-            'tenant_id'     => isset($data['tenant_id']) && $data['tenant_id'] !== '' ? (int)$data['tenant_id'] : null,
+            'tenant_id'     => $tenantId,
             'owner_type'    => $data['owner_type'] ?? null,
             'owner_id'      => $data['owner_id'] ?? null,
             'address_line1' => $data['address_line1'] ?? null,
@@ -210,10 +254,7 @@ final class PdoAddressesRepository
             $stmt->execute($params);
             return (int)$this->pdo->lastInsertId();
         } catch (\PDOException $e) {
-            // If it's a duplicate entry error on entity_address key
             if ($e->getCode() == 23000 && strpos($e->getMessage(), 'entity_address') !== false) {
-                // This means there's already a non-primary address, which shouldn't be unique
-                // We need to handle this by modifying our approach
                 throw new \RuntimeException('An address already exists. If you have a UNIQUE constraint on entity_address, please modify it to only apply when is_primary = 1', 400);
             }
             throw $e;
@@ -221,15 +262,10 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // UPDATE
+    // UPDATE - Supports both tenant users and regular users
     // ================================
-    public function update(int $id, array $data, int $tenantId = 0): bool
+    public function update(int $id, array $data, ?int $tenantId = null, ?int $ownerId = null): bool
     {
-        // Multi-tenant safety: require tenant_id to prevent cross-tenant updates
-        if ($tenantId <= 0) {
-            return false;
-        }
-
         unset($data['id']);
         unset($data['csrf_token']);
         unset($data['tenant_id']);
@@ -238,50 +274,73 @@ final class PdoAddressesRepository
             return false;
         }
 
+        $hasTenantId = $tenantId !== null && $tenantId > 0;
+
+        // ============================================================
+        // Build WHERE clause based on user type
+        // ============================================================
+        $whereClause = "id = :id";
+        $params = ['id' => $id];
+
+        if ($hasTenantId) {
+            // Tenant user: filter by tenant_id
+            $whereClause .= " AND tenant_id = :tenant_id";
+            $params['tenant_id'] = $tenantId;
+        } else {
+            // Regular user: filter by NULL tenant_id AND owner_id
+            $whereClause .= " AND tenant_id IS NULL";
+            
+            if ($ownerId === null || $ownerId <= 0) {
+                return false;
+            }
+            $whereClause .= " AND owner_id = :owner_id AND owner_type = 'user'";
+            $params['owner_id'] = $ownerId;
+        }
+
         // If setting as primary, unset other primary addresses for this owner
         if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
-            // Get current address to find owner (scoped by tenant)
-            $current = $this->find($id, 'ar', $tenantId);
+            // Get current address to find owner
+            $current = $this->find($id, 'ar', $tenantId, $ownerId);
             if ($current) {
-                $this->unsetPrimaryAddresses($current['owner_type'], (int)$current['owner_id'], $tenantId, $id);
+                $this->unsetPrimaryAddresses(
+                    $current['owner_type'], 
+                    (int)$current['owner_id'], 
+                    $tenantId,
+                    $id
+                );
             }
         }
 
         $sets = [];
-        foreach ($data as $key => $_) {
+        foreach ($data as $key => $value) {
             $sets[] = "$key = :$key";
+            $params[$key] = $value;
         }
 
-        $sql = "
-            UPDATE addresses
-            SET ".implode(', ', $sets)."
-            WHERE id = :id AND tenant_id = :tenant_id
-        ";
-
-        $data['id'] = $id;
-        $data['tenant_id'] = $tenantId;
-
-        return $this->pdo->prepare($sql)->execute($data);
+        $sql = "UPDATE addresses SET ".implode(', ', $sets)." WHERE $whereClause";
+        
+        return $this->pdo->prepare($sql)->execute($params);
     }
 
     // ================================
-    // UNSET PRIMARY ADDRESSES
+    // UNSET PRIMARY ADDRESSES - Supports both tenant users and regular users
     // ================================
-    private function unsetPrimaryAddresses(string $ownerType, int $ownerId, int $tenantId, ?int $excludeId = null): void
+    private function unsetPrimaryAddresses(string $ownerType, int $ownerId, ?int $tenantId = null, ?int $excludeId = null): void
     {
-        $sql = "
-            UPDATE addresses
-            SET is_primary = 0
-            WHERE owner_type = :owner_type
-            AND owner_id = :owner_id
-            AND tenant_id = :tenant_id
-        ";
-
+        $sql = "UPDATE addresses SET is_primary = 0 WHERE owner_type = :owner_type AND owner_id = :owner_id";
         $params = [
             'owner_type' => $ownerType,
             'owner_id'   => $ownerId,
-            'tenant_id'  => $tenantId,
         ];
+
+        $hasTenantId = $tenantId !== null && $tenantId > 0;
+        
+        if ($hasTenantId) {
+            $sql .= " AND tenant_id = :tenant_id";
+            $params['tenant_id'] = $tenantId;
+        } else {
+            $sql .= " AND tenant_id IS NULL";
+        }
 
         if ($excludeId !== null) {
             $sql .= " AND id != :exclude_id";
@@ -292,20 +351,53 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // DELETE BY ID (scoped by tenant_id for multi-tenant safety)
+    // DELETE - Supports both tenant users and regular users
     // ================================
-    public function deleteById(int $id, int $tenantId = 0): bool
+    public function delete(int $id, ?int $tenantId = null, ?int $ownerId = null): bool
     {
-        if ($tenantId <= 0) {
-            return false;
+        $hasTenantId = $tenantId !== null && $tenantId > 0;
+        
+        // ============================================================
+        // Build WHERE clause based on user type
+        // ============================================================
+        $whereClause = "id = :id";
+        $params = ['id' => $id];
+
+        if ($hasTenantId) {
+            // Tenant user: filter by tenant_id
+            $whereClause .= " AND tenant_id = :tenant_id";
+            $params['tenant_id'] = $tenantId;
+        } else {
+            // Regular user: filter by NULL tenant_id AND owner_id
+            $whereClause .= " AND tenant_id IS NULL";
+            
+            if ($ownerId === null || $ownerId <= 0) {
+                return false;
+            }
+            $whereClause .= " AND owner_id = :owner_id AND owner_type = 'user'";
+            $params['owner_id'] = $ownerId;
         }
+
         return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = ? AND tenant_id = ?")
-            ->execute([$id, $tenantId]);
+            ->prepare("DELETE FROM addresses WHERE $whereClause")
+            ->execute($params);
     }
 
     // ================================
-    // RESET PRIMARY (set is_primary = 0 for all addresses of a user, scoped by tenant)
+    // DELETE BY OWNER (for public user routes — no tenant_id)
+    // ================================
+    public function deleteByOwner(int $id, int $ownerId): bool
+    {
+        if ($ownerId <= 0) {
+            return false;
+        }
+        return $this->pdo
+            ->prepare("DELETE FROM addresses WHERE id = :id AND owner_id = :owner_id AND owner_type = 'user' AND tenant_id IS NULL")
+            ->execute(['id' => $id, 'owner_id' => $ownerId]);
+    }
+
+    // ================================
+    // RESET PRIMARY (for tenant users)
     // ================================
     public function resetPrimary(int $ownerId, int $tenantId = 0): bool
     {
@@ -318,7 +410,20 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // CREATE ADDRESS (simplified public route version)
+    // RESET PRIMARY BY OWNER (for regular users — tenant_id is NULL)
+    // ================================
+    public function resetPrimaryByOwner(int $ownerId): bool
+    {
+        if ($ownerId <= 0) {
+            return false;
+        }
+        return $this->pdo
+            ->prepare("UPDATE addresses SET is_primary = 0 WHERE owner_id = :owner_id AND owner_type = 'user' AND tenant_id IS NULL")
+            ->execute(['owner_id' => $ownerId]);
+    }
+
+    // ================================
+    // CREATE ADDRESS (simplified version for public routes)
     // ================================
     public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary, ?int $tenantId = null): int
     {
@@ -331,41 +436,41 @@ final class PdoAddressesRepository
     }
 
     // ================================
-    // DELETE (scoped by tenant_id for multi-tenant safety)
+    // GET ADDRESSES BY OWNER (with tenant support)
     // ================================
-    public function delete(int $id, int $tenantId = 0): bool
+    public function getByOwner(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): array
     {
-        if ($tenantId <= 0) {
-            return false;
+        $filters = [
+            'owner_id' => $ownerId,
+            'owner_type' => $ownerType,
+            'language' => 'ar'
+        ];
+        
+        if ($tenantId !== null && $tenantId > 0) {
+            $filters['tenant_id'] = $tenantId;
         }
-        return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = :id AND tenant_id = :tenant_id")
-            ->execute(['id' => $id, 'tenant_id' => $tenantId]);
+        
+        $result = $this->list(100, 0, $filters, 'is_primary', 'DESC');
+        return $result['items'];
     }
 
     // ================================
-    // DELETE BY OWNER (for public user routes — tenant_id is NULL)
+    // GET PRIMARY ADDRESS (with tenant support)
     // ================================
-    public function deleteByOwner(int $id, int $ownerId): bool
+    public function getPrimaryAddress(int $ownerId, string $ownerType = 'user', ?int $tenantId = null): ?array
     {
-        if ($ownerId <= 0) {
-            return false;
+        $filters = [
+            'owner_id' => $ownerId,
+            'owner_type' => $ownerType,
+            'is_primary' => 1,
+            'language' => 'ar'
+        ];
+        
+        if ($tenantId !== null && $tenantId > 0) {
+            $filters['tenant_id'] = $tenantId;
         }
-        return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = :id AND owner_id = :owner_id AND owner_type = 'user'")
-            ->execute(['id' => $id, 'owner_id' => $ownerId]);
-    }
-
-    // ================================
-    // RESET PRIMARY BY OWNER (for public user routes — tenant_id is NULL)
-    // ================================
-    public function resetPrimaryByOwner(int $ownerId): bool
-    {
-        if ($ownerId <= 0) {
-            return false;
-        }
-        return $this->pdo
-            ->prepare("UPDATE addresses SET is_primary = 0 WHERE owner_id = :owner_id AND owner_type = 'user'")
-            ->execute(['owner_id' => $ownerId]);
+        
+        $result = $this->list(1, 0, $filters, 'id', 'ASC');
+        return $result['items'][0] ?? null;
     }
 }
