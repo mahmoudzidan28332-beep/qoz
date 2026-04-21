@@ -114,20 +114,143 @@ abstract class BaseRepository
     }
 
     // =========================================================================
-    // QueryGuard integration
+    // Central query execution interceptor
+    // =========================================================================
+
+    /**
+     * Execute a tenant-scoped SQL query through the full security pipeline.
+     *
+     * ALL tenant-scoped queries MUST go through this method.  It:
+     *   1. Calls QueryGuard::validate() to assert tenant isolation.
+     *   2. Auto-injects the tenant_id parameter if it is missing from $params.
+     *   3. Auto-appends a WHERE tenant_id = :tenant_id clause when the SQL
+     *      contains no tenant_id condition (last-resort safety net).
+     *   4. Prepares and executes the statement, returning the PDOStatement.
+     *
+     * EXAMPLE:
+     *
+     *   $stmt = $this->execute(
+     *       'SELECT * FROM products WHERE status = :status',
+     *       [':status' => 'active'],
+     *       'products'
+     *   );
+     *   $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+     *
+     * @param  string $sql    SQL string (SELECT / INSERT / UPDATE / DELETE).
+     * @param  array  $params PDO parameter bindings (':param' => value).
+     * @param  string $table  Table name for QueryGuard whitelist check.
+     *
+     * @throws \RuntimeException  Via QueryGuard when isolation cannot be enforced.
+     * @return \PDOStatement       Already-executed statement ready for fetch.
+     */
+    protected function execute(string $sql, array $params = [], string $table = ''): \PDOStatement
+    {
+        // Skip tenant enforcement for whitelisted global tables.
+        $isGlobal = ($table !== '') && QueryGuard::isGlobal($table);
+
+        if (!$isGlobal) {
+            // Auto-inject WHERE tenant_id if neither SQL nor params carry it.
+            [$sql, $params] = $this->ensureTenantScope($sql, $params);
+
+            // Validate through QueryGuard (will throw if still missing).
+            QueryGuard::validate($sql, $table);
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    }
+
+    /**
+     * Execute a global (non-tenant-scoped) query for whitelisted tables.
+     *
+     * Use ONLY for platform-level tables (audit_logs, system_settings, etc.).
+     *
+     * @param  string $sql    SQL string.
+     * @param  array  $params PDO parameter bindings.
+     * @param  string $table  Table name — MUST be in QueryGuard's global whitelist.
+     *
+     * @throws \RuntimeException  When $table is not whitelisted.
+     * @return \PDOStatement       Already-executed statement ready for fetch.
+     */
+    protected function executeGlobal(string $sql, array $params = [], string $table = ''): \PDOStatement
+    {
+        if ($table !== '' && !QueryGuard::isGlobal($table)) {
+            throw new \RuntimeException(
+                "BaseRepository::executeGlobal() called for table '{$table}' which is not "
+                . 'in the QueryGuard global whitelist. Use execute() with a tenant_id condition, '
+                . 'or whitelist the table with QueryGuard::allowGlobal().'
+            );
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    }
+
+    /**
+     * Ensure the SQL and params carry a tenant_id scope.
+     *
+     * If the SQL already contains "tenant_id" the method is a no-op.
+     * Otherwise it appends "AND tenant_id = :_auto_tenant_id" to an existing
+     * WHERE clause, or adds a brand-new WHERE clause when none is present.
+     *
+     * This is the last-resort safety net — developers should always include
+     * tenant conditions explicitly.  The auto-injection exists to prevent
+     * accidental leaks, not to encourage lazy coding.
+     *
+     * @param  string $sql
+     * @param  array  $params
+     * @return array{0: string, 1: array}  [$rewrittenSql, $enrichedParams]
+     */
+    private function ensureTenantScope(string $sql, array $params): array
+    {
+        if (str_contains(strtolower($sql), 'tenant_id')) {
+            return [$sql, $params]; // Already scoped — nothing to do.
+        }
+
+        // Obtain the tenant ID (fail-fast if TenantContext is not set).
+        $tenantId = TenantContext::require();
+
+        $sqlLower = strtolower(trim($sql));
+        $isSelect = str_starts_with($sqlLower, 'select');
+        $isUpdate = str_starts_with($sqlLower, 'update');
+        $isDelete = str_starts_with($sqlLower, 'delete');
+
+        // Only auto-inject for DML that reads/modifies rows.
+        if ($isSelect || $isUpdate || $isDelete) {
+            if (str_contains($sqlLower, ' where ')) {
+                // Append to existing WHERE.
+                $sql .= ' AND tenant_id = :_auto_tenant_id';
+            } else {
+                // Add a new WHERE clause before ORDER / GROUP / LIMIT / semicolon.
+                $sql = preg_replace(
+                    '/\s+(ORDER\s+BY|GROUP\s+BY|LIMIT|HAVING|;)/i',
+                    ' WHERE tenant_id = :_auto_tenant_id $1',
+                    $sql,
+                    1,
+                    $count
+                );
+                if ($count === 0) {
+                    $sql .= ' WHERE tenant_id = :_auto_tenant_id';
+                }
+            }
+
+            $params[':_auto_tenant_id'] = $tenantId;
+        }
+
+        return [$sql, $params];
+    }
+
+    // =========================================================================
+    // QueryGuard integration (prepare-only helpers — use execute() where possible)
     // =========================================================================
 
     /**
      * Prepare a PDO statement after asserting that the SQL is tenant-scoped.
      *
-     * Drop-in replacement for $this->pdo->prepare() when you want QueryGuard
-     * enforcement baked in:
-     *
-     *   $stmt = $this->guardedQuery(
-     *       'SELECT * FROM products WHERE ' . $this->tenantCondition('p'),
-     *       'products'
-     *   );
-     *   $stmt->execute($this->tenantParam());
+     * Prefer execute() over this method when you can provide params immediately.
+     * This helper exists for callers that need to separate prepare from execute.
      *
      * @param  string $sql    SQL string to validate and prepare.
      * @param  string $table  Optional table name for whitelist check.

@@ -92,12 +92,65 @@ final class PlatformContext
 
         // Super-admin accessing a specific tenant — force audit for traceability.
         if (self::$superAdmin && $tenantId !== null) {
-            if (function_exists('audit_log')) {
-                audit_log([
-                    'action'      => 'super_admin_tenant_access',
-                    'description' => "Super-admin cross-tenant access to tenant_id={$tenantId}",
-                ]);
+            self::logCrossTenantAction(
+                sourceTenant: null,
+                targetTenant: $tenantId,
+                reason:       'assertTenantAccess — super_admin tenant access'
+            );
+        }
+    }
+
+    /**
+     * Log a cross-tenant action performed by a super_admin.
+     *
+     * MANDATORY for every operation where a super_admin accesses, reads, or
+     * mutates data in a tenant that is not their own.  Calling this method is
+     * NOT optional — silently omitting it violates the platform audit contract.
+     *
+     * @param  int|null $sourceTenant  Tenant the actor belongs to (null = platform level).
+     * @param  int      $targetTenant  Tenant being accessed.
+     * @param  int|null $userId        Actor's user ID (null = resolve from session).
+     * @param  string   $reason        Human-readable justification for the access.
+     */
+    public static function logCrossTenantAction(
+        ?int   $sourceTenant = null,
+        int    $targetTenant = 0,
+        ?int   $userId       = null,
+        string $reason       = ''
+    ): void {
+        // Resolve user_id from session when not provided.
+        if ($userId === null) {
+            if (session_status() === PHP_SESSION_NONE) {
+                @session_start();
             }
+            $userId = isset($_SESSION['user']['id'])
+                ? (int)$_SESSION['user']['id']
+                : (isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null);
+        }
+
+        $payload = [
+            'action'        => 'cross_tenant_access',
+            'source_tenant' => $sourceTenant,
+            'target_tenant' => $targetTenant,
+            'user_id'       => $userId,
+            'reason'        => $reason ?: 'no reason provided',
+            'is_super_admin'=> self::$superAdmin,
+            'ip'            => $_SERVER['REMOTE_ADDR'] ?? null,
+            'timestamp'     => date('c'),
+        ];
+
+        // Use AuditContext when available (preferred — richer payload).
+        if (class_exists('AuditContext', false)) {
+            AuditContext::captureCrossTenantAccess(
+                $sourceTenant,
+                $targetTenant,
+                $userId,
+                $reason
+            );
+        } elseif (function_exists('audit_log')) {
+            audit_log(array_merge(['description' => "Cross-tenant access: {$sourceTenant} → {$targetTenant}"], $payload));
+        } else {
+            error_log('[PlatformContext] cross_tenant_access: ' . json_encode($payload, JSON_UNESCAPED_UNICODE));
         }
     }
 
