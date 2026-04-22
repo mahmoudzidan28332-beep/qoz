@@ -7,12 +7,18 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+
 $sharedPath = $baseDir . '/shared/core';
 require_once $sharedPath . '/BaseRepository.php';
-require_once $sharedPath . '/TenantContext.php';   // أو مساره الصحيح
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
 require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 $modelsPath = API_VERSION_PATH . '/models/products';
 require_once $modelsPath . '/repositories/PdoProductsRepository.php';
+require_once $modelsPath . '/validators/ProductsValidator.php';
 require_once $modelsPath . '/services/ProductsService.php';
 require_once $modelsPath . '/controllers/ProductsController.php';
 
@@ -54,26 +60,40 @@ if ($tenantId === null) {
 // Handle request
 // ================================
 try {
-    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $raw = file_get_contents('php://input');
-    $data = $raw ? json_decode($raw, true) : [];
+    $method   = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $raw      = file_get_contents('php://input');
+    $data     = $raw ? (json_decode($raw, true) ?? []) : [];
 
-    $lang    = $_GET['lang'] ?? 'ar';
-    $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $limit   = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
-    $offset  = ($page - 1) * $limit;
-    $orderBy = $_GET['order_by'] ?? 'id';
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
+    $offset   = ($page - 1) * $limit;
+    $orderBy  = $_GET['order_by']  ?? 'id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
 
     // Collect filters
     $filters = [
         'product_type_id' => $_GET['product_type_id'] ?? null,
-        'sku'             => $_GET['sku'] ?? null,
-        'slug'            => $_GET['slug'] ?? null,
-        'barcode'         => $_GET['barcode'] ?? null,
-        'brand_id'        => $_GET['brand_id'] ?? null,
-        'is_active'       => isset($_GET['is_active']) ? (int)$_GET['is_active'] : null
+        'sku'             => $_GET['sku']             ?? null,
+        'slug'            => $_GET['slug']            ?? null,
+        'barcode'         => $_GET['barcode']         ?? null,
+        'brand_id'        => $_GET['brand_id']        ?? null,
+        'is_active'       => isset($_GET['is_active']) ? (int)$_GET['is_active'] : null,
+        'language'        => $language,
+        'tenant_id'       => $tenantId,
     ];
+
+    // Parse RESTful ID from URL
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $pathInfo   = parse_url($requestUri, PHP_URL_PATH);
+    $pathParts  = explode('/', trim($pathInfo, '/'));
+    $urlId      = null;
+    foreach ($pathParts as $i => $part) {
+        if ($part === 'products' && isset($pathParts[$i + 1]) && is_numeric($pathParts[$i + 1])) {
+            $urlId = (int)$pathParts[$i + 1];
+            break;
+        }
+    }
 
     switch ($method) {
         case 'OPTIONS':
@@ -84,14 +104,15 @@ try {
             exit;
 
         case 'GET':
-            if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get($tenantId, (int)$_GET['id'], $lang);
+            $getId = $urlId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
+            if ($getId) {
+                $item = $controller->get($tenantId, $getId, $language);
                 ResponseFormatter::success($item);
             } else {
-                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $language);
                 $total = $result['total'];
                 ResponseFormatter::success([
-                    'items' => $result['items'],
+                    'data'  => $result['items'],
                     'meta'  => [
                         'total'       => $total,
                         'page'        => $page,
@@ -181,6 +202,13 @@ try {
             break;
 
         case 'PUT':
+            $updateId = $urlId ?? (isset($data['id']) ? (int)$data['id'] : null);
+            if (!$updateId) {
+                ResponseFormatter::error('ID is required for update', 400);
+                exit;
+            }
+            $data['id'] = $updateId;
+
             // Bad words check on text fields
             try {
                 $badWordsRepo    = new PdoBadWordsRepository($pdo);
@@ -210,17 +238,11 @@ try {
 
             // Fetch old state for audit diff (best-effort)
             $oldProductState = null;
-            if (!empty($data['id'])) {
-                try {
-                    $oldProductState = $controller->get($tenantId, (int)$data['id'], $lang);
-                } catch (\Throwable $e) {
-                    error_log('[products] fetch old product state failed: ' . $e->getMessage());
-                }
-            }
+            try {
+                $oldProductState = $controller->get($tenantId, $updateId, $language);
+            } catch (\Throwable $e) {}
 
             $updatedId = $controller->update($tenantId, $data);
-
-            // Auto-update SEO meta
             try {
                 SeoAutoManager::sync($pdo, 'product', (int)$updatedId, [
                     'name'          => $data['name'] ?? '',
@@ -249,23 +271,23 @@ try {
             break;
 
         case 'DELETE':
-            if (empty($data['id'])) {
+            $deleteId = $urlId ?? (isset($data['id']) ? (int)$data['id'] : null);
+            if (!$deleteId) {
                 ResponseFormatter::error('Missing product ID for deletion', 400);
+                exit;
             }
 
             // Fetch old state for audit (best-effort)
             $deletedProductState = null;
             try {
-                $deletedProductState = $controller->get($tenantId, (int)$data['id'], $lang);
-            } catch (\Throwable $e) {
-                error_log('[products] fetch deleted product state failed: ' . $e->getMessage());
-            }
+                $deletedProductState = $controller->get($tenantId, $deleteId, $language);
+            } catch (\Throwable $e) {}
 
-            $deleted = $controller->delete($tenantId, (int)$data['id']);
+            $deleted = $controller->delete($tenantId, $deleteId);
 
             // Auto-delete SEO meta
             try {
-                SeoAutoManager::delete($pdo, 'product', (int)$data['id']);
+                SeoAutoManager::delete($pdo, 'product', $deleteId);
             } catch (\Throwable $e) {
                 error_log('[products] SEO delete failed: ' . $e->getMessage());
             }
@@ -274,7 +296,7 @@ try {
             AuditLogsService::log(
                 'product.delete',
                 'product',
-                (int)$data['id'],
+                $deleteId,
                 null,
                 $tenantId,
                 isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null,
@@ -289,12 +311,16 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 } catch (\InvalidArgumentException $e) {
-    safe_log('warning','products.validation', ['error'=>$e->getMessage()]);
+    safe_log('warning', 'products.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (\RuntimeException $e) {
-    safe_log('error','products.runtime', ['error'=>$e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
-    safe_log('critical','products.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    safe_log('error', 'products.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
+    safe_log('critical', 'products.fatal', [
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
     ResponseFormatter::error($e->getMessage(), 500);
 }

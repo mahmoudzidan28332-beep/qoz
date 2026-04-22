@@ -187,11 +187,7 @@ try {
 
             // Fetch old state for audit diff
             $oldState = null;
-            try {
-                $oldState = $controller->get($updateId, $language, $tenantId);
-            } catch (\Throwable $e) {
-                safe_log('warning', 'addresses.fetch_old_state', ['error' => $e->getMessage()]);
-            }
+            try { $oldState = $controller->get($updateId, $language, $tenantId); } catch (\Throwable $e) {}
 
             $controller->update($updateId, $data, $tenantId);
 
@@ -220,11 +216,7 @@ try {
 
             // Fetch old state for audit
             $deletedState = null;
-            try {
-                $deletedState = $controller->get($deleteId, $language, $tenantId);
-            } catch (\Throwable $e) {
-                safe_log('warning', 'addresses.fetch_deleted_state', ['error' => $e->getMessage()]);
-            }
+            try { $deletedState = $controller->get($deleteId, $language, $tenantId); } catch (\Throwable $e) {}
 
             $deleted = $controller->delete($deleteId, $tenantId);
 
@@ -252,8 +244,7 @@ try {
     safe_log('warning', 'addresses.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (\RuntimeException $e) {
-    $code = $e->getCode();
-    $httpCode = in_array($code, [400, 403, 404, 422]) ? $code : 400;
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'addresses.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
 } catch (\Throwable $e) {
