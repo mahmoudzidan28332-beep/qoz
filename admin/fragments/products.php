@@ -44,12 +44,12 @@ $canDeleteAll = can_delete_all('products');
 $canDeleteOwn = can_delete_own('products');
 
 // Combined permissions for UI
-$canView = $canViewAll || $canViewOwn || $canViewTenant;
+$canView = $canViewAll || $canViewOwn || $canViewTenant || $canManageProducts;
 $canEdit = $canEditAll || $canEditOwn || $canManageProducts;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManageProducts;
 $canDuplicate = $canCreate;
 
-if (!$canView && !$isSuperAdmin) {
+if (!$canView && !$isSuperAdmin && !$isPlatformAdmin) {
     if ($isFragment) {
         http_response_code(403);
         header('Content-Type: application/json');

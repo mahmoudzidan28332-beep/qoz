@@ -13,6 +13,7 @@ final class JobsController
     /**
      * List jobs with filters, ordering, and pagination
      *
+     * @param int|null $tenantId
      * @param int|null $limit
      * @param int|null $offset
      * @param array $filters
@@ -22,6 +23,7 @@ final class JobsController
      * @return array
      */
     public function list(
+        ?int $tenantId = null,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -29,8 +31,8 @@ final class JobsController
         string $orderDir = 'DESC',
         string $lang = 'ar'
     ): array {
-        $items = $this->service->list($limit, $offset, $filters, $orderBy, $orderDir, $lang);
-        $total = $this->service->count($filters, $lang);
+        $items = $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+        $total = $this->service->count($tenantId, $filters, $lang);
 
         return [
             'items' => $items,
@@ -212,42 +214,46 @@ final class JobsController
     /**
      * Get featured jobs
      *
+     * @param int|null $tenantId
      * @param int $limit
      * @param string $lang
      * @return array
      */
-    public function getFeatured(int $limit = 10, string $lang = 'ar'): array
+    public function getFeatured(?int $tenantId = null, int $limit = 10, string $lang = 'ar'): array
     {
-        return $this->service->getFeatured($limit, $lang);
+        return $this->service->getFeatured($tenantId, $limit, $lang);
     }
 
     /**
      * Get urgent jobs
      *
+     * @param int|null $tenantId
      * @param int $limit
      * @param string $lang
      * @return array
      */
-    public function getUrgent(int $limit = 10, string $lang = 'ar'): array
+    public function getUrgent(?int $tenantId = null, int $limit = 10, string $lang = 'ar'): array
     {
-        return $this->service->getUrgent($limit, $lang);
+        return $this->service->getUrgent($tenantId, $limit, $lang);
     }
 
     /**
      * Get remote jobs
      *
+     * @param int|null $tenantId
      * @param int $limit
      * @param string $lang
      * @return array
      */
-    public function getRemote(int $limit = 10, string $lang = 'ar'): array
+    public function getRemote(?int $tenantId = null, int $limit = 10, string $lang = 'ar'): array
     {
-        return $this->service->getRemote($limit, $lang);
+        return $this->service->getRemote($tenantId, $limit, $lang);
     }
 
     /**
      * Search jobs by keyword
      *
+     * @param int|null $tenantId
      * @param string $keyword
      * @param int|null $limit
      * @param int|null $offset
@@ -255,13 +261,14 @@ final class JobsController
      * @return array
      */
     public function search(
-        string $keyword,
+        ?int $tenantId = null,
+        string $keyword = '',
         ?int $limit = null,
         ?int $offset = null,
         string $lang = 'ar'
     ): array {
-        $items = $this->service->search($keyword, $limit, $offset, $lang);
-        $total = $this->service->count(['search' => $keyword, 'status' => 'published'], $lang);
+        $items = $this->service->search($tenantId, $keyword, $limit, $offset, $lang);
+        $total = $this->service->count($tenantId, ['search' => $keyword, 'status' => 'published'], $lang);
 
         return [
             'items' => $items,

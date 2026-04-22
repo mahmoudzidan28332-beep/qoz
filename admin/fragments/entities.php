@@ -68,11 +68,11 @@ $canEditOwn = can_edit_own('entities');
 $canDeleteAll = can_delete_all('entities');
 $canDeleteOwn = can_delete_own('entities');
 
-$canView = $canViewAll || $canViewOwn || $canViewTenant;
+$canView = $canViewAll || $canViewOwn || $canViewTenant || $canManageEntities;
 $canEdit = $canEditAll || $canEditOwn || $canManageEntities;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManageEntities;
 
-if (!$canView && !is_super_admin()) {
+if (!$canView && !is_super_admin() && !$isPlatformAdmin) {
     if ($isFragment) {
         http_response_code(403);
         echo json_encode(['error' => 'Access denied']);

@@ -575,6 +575,34 @@ function admin_db(): ?PDO {
     return $GLOBALS['ADMIN_DB'] ?? null;
 }
 
+/**
+ * Return a cache-busting version string for an asset file.
+ *
+ * When a path is supplied the version is the file's mtime (so browsers
+ * re-fetch the file only when it actually changes on disk).
+ * When called without a path a static per-request timestamp is returned,
+ * which is sufficient as a lightweight cache-buster.
+ *
+ * @param string $path Absolute web path to the asset, e.g. '/admin/assets/css/pages/foo.css'
+ * @return string Version string (numeric)
+ */
+function assetVer(string $path = ''): string {
+    static $cache = [];
+    if ($path === '') {
+        // Per-request fallback – avoids stale caches without needing a real path.
+        static $fallback = null;
+        if ($fallback === null) {
+            $fallback = (string)time();
+        }
+        return $fallback;
+    }
+    if (!isset($cache[$path])) {
+        $full = $_SERVER['DOCUMENT_ROOT'] . $path;
+        $cache[$path] = file_exists($full) ? (string)filemtime($full) : '0';
+    }
+    return $cache[$path];
+}
+
 // ════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS - ROLE-BASED PERMISSIONS
 // ════════════════════════════════════════════════════════════
