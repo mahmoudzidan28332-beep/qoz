@@ -320,6 +320,151 @@ abstract class BaseRepository
     }
 
     // =========================================================================
+    // Cross-tenant execution (Platform Admin / Support Mode only)
+    // =========================================================================
+
+    /**
+     * Execute a cross-tenant SQL query for Platform Admin support operations.
+     *
+     * This method is the ONLY approved way for platform admin code to query data
+     * across tenant boundaries.  It INTENTIONALLY bypasses TenantContext so that
+     * super-admins can access any tenant, but enforces ALL other security controls:
+     *
+     *   ✔  Requires PlatformContext::isSuperAdmin() — only super-admins may call this.
+     *   ✔  Requires AuditContext::isBooted()        — audit infrastructure must be active.
+     *   ✔  Requires non-empty $reason               — every cross-tenant action must be justified.
+     *   ✔  QueryGuard::validate() is still called   — SQL must contain tenant_id or table is global.
+     *   ✔  PlatformContext::logCrossTenantAction()  — cross-tenant access is always logged.
+     *   ✔  AuditContext::capturePlatformAdminAction() — rich audit entry is created.
+     *
+     * IMPORTANT: The caller MUST include an explicit tenant_id condition in $sql (e.g.
+     * `WHERE tenant_id = :tenant_id`) and bind `':tenant_id' => $targetTenantId` in $params.
+     * This is intentional — the targeted tenant must be explicit, not injected silently.
+     *
+     * EXAMPLE:
+     *
+     *   $stmt = $this->executeCrossTenant(
+     *       'SELECT * FROM products WHERE tenant_id = :tenant_id AND id = :id',
+     *       [':tenant_id' => $targetTenantId, ':id' => $productId],
+     *       'products',
+     *       $targetTenantId,
+     *       'Support ticket #1234 — customer reported missing product'
+     *   );
+     *
+     * @param  string $sql            SQL string — MUST contain tenant_id condition or be for a global table.
+     * @param  array  $params         PDO parameter bindings including ':tenant_id' => $targetTenantId.
+     * @param  string $table          Table name for QueryGuard whitelist check and audit.
+     * @param  int    $targetTenantId The tenant being accessed (must be > 0).
+     * @param  string $reason         MANDATORY justification for this cross-tenant access.
+     *
+     * @throws \RuntimeException          When actor is not super-admin or AuditContext is not booted.
+     * @throws \InvalidArgumentException  When $reason is empty or $targetTenantId <= 0.
+     * @return \PDOStatement               Already-executed statement ready for fetch.
+     */
+    protected function executeCrossTenant(
+        string $sql,
+        array  $params,
+        string $table,
+        int    $targetTenantId,
+        string $reason
+    ): \PDOStatement {
+        // ── 1. Guard: super-admin identity required ──────────────────────────
+        if (!class_exists('PlatformContext', false) || !PlatformContext::isSuperAdmin()) {
+            throw new \RuntimeException(
+                'BaseRepository::executeCrossTenant() may only be called in Platform Admin '
+                . 'context.  Call PlatformContext::bootSuperAdmin() at the entry-point first.'
+            );
+        }
+
+        // ── 2. Guard: audit infrastructure must be active ────────────────────
+        if (!class_exists('AuditContext', false) || !AuditContext::isBooted()) {
+            throw new \RuntimeException(
+                'BaseRepository::executeCrossTenant() requires AuditContext to be booted. '
+                . 'Call AuditContext::boot() at the API entry-point.'
+            );
+        }
+
+        // ── 3. Guard: reason is mandatory ────────────────────────────────────
+        if (trim($reason) === '') {
+            throw new \InvalidArgumentException(
+                'BaseRepository::executeCrossTenant() requires a non-empty reason. '
+                . 'Every Platform Admin cross-tenant action MUST have a documented justification.'
+            );
+        }
+
+        // ── 4. Guard: targetTenantId must be valid ────────────────────────────
+        if ($targetTenantId <= 0) {
+            throw new \InvalidArgumentException(
+                'BaseRepository::executeCrossTenant() requires a positive target_tenant_id; '
+                . $targetTenantId . ' given.'
+            );
+        }
+
+        // ── 5. QueryGuard validation (still active for platform admin) ────────
+        $isGlobal = ($table !== '') && QueryGuard::isGlobal($table);
+        if (!$isGlobal) {
+            QueryGuard::validate($sql, $table);
+        }
+
+        // ── 6. Log cross-tenant access BEFORE execution ───────────────────────
+        PlatformContext::logCrossTenantAction(
+            sourceTenant: null,
+            targetTenant: $targetTenantId,
+            reason:       trim($reason)
+        );
+
+        // ── 7. Execute the query ──────────────────────────────────────────────
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        // ── 8. Post-execution audit (DML and sensitive SELECTs) ───────────────
+        $this->autoAuditCrossTenant($sql, $table, $targetTenantId, $reason);
+
+        return $stmt;
+    }
+
+    /**
+     * Auto-audit a cross-tenant SQL operation via AuditContext::capturePlatformAdminAction().
+     *
+     * @param  string $sql            The SQL string that was just executed.
+     * @param  string $table          Table name hint.
+     * @param  int    $targetTenantId Target tenant.
+     * @param  string $reason         Reason for the action.
+     */
+    private function autoAuditCrossTenant(string $sql, string $table, int $targetTenantId, string $reason): void
+    {
+        if (!class_exists('AuditContext', false)) {
+            return;
+        }
+
+        $sqlLower = strtolower(ltrim($sql));
+
+        if (str_starts_with($sqlLower, 'insert')) {
+            $action = 'create';
+        } elseif (str_starts_with($sqlLower, 'update')) {
+            $action = 'update';
+        } elseif (str_starts_with($sqlLower, 'delete')) {
+            $action = 'delete';
+        } elseif (str_starts_with($sqlLower, 'select')) {
+            // Only audit SELECT on explicitly sensitive tables.
+            if ($table === '' || !in_array(strtolower($table), self::SENSITIVE_AUDIT_TABLES, true)) {
+                return;
+            }
+            $action = 'view';
+        } else {
+            return;
+        }
+
+        AuditContext::capturePlatformAdminAction(
+            action:       $action,
+            entityType:   $table ?: 'unknown',
+            entityId:     null,
+            targetTenant: $targetTenantId,
+            reason:       $reason
+        );
+    }
+
+    // =========================================================================
     // QueryGuard integration (prepare-only helpers — use execute() where possible)
     // =========================================================================
 

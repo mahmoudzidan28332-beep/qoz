@@ -41,6 +41,12 @@ final class PlatformContext
     /** Explicitly set user ID for super-admin session (when bootSuperAdmin() is used). */
     private static ?int $superAdminUserId = null;
 
+    /** Target tenant ID for the active support session (null = not in support mode). */
+    private static ?int $supportTargetTenantId = null;
+
+    /** Reason captured when a support session was started. */
+    private static string $supportReason = '';
+
     private function __construct() {}
 
     // =========================================================================
@@ -105,6 +111,122 @@ final class PlatformContext
         return self::$booted;
     }
 
+    /**
+     * Begin a Platform Admin support session targeting a specific tenant.
+     *
+     * This method combines bootSuperAdmin() with explicit support-session tracking.
+     * It MUST be called (instead of or after bootSuperAdmin()) when the Platform Admin
+     * is about to perform support operations inside a specific tenant.
+     *
+     * SECURITY REQUIREMENTS:
+     *  - Must be called ONLY after the actor is verified as a super-admin.
+     *  - $reason is MANDATORY and must be non-empty — every support action must
+     *    have a human-readable justification (spec §3, §5).
+     *  - $targetTenantId must be a positive integer identifying the target tenant.
+     *
+     * @param  int         $targetTenantId  Tenant being accessed (must be > 0).
+     * @param  string      $reason          Mandatory justification for this access.
+     * @param  int|null    $userId          The support agent's user ID (null = from session).
+     *
+     * @throws \InvalidArgumentException  When $reason is empty or $targetTenantId <= 0.
+     * @throws \RuntimeException          When the actor is not a super-admin.
+     */
+    public static function beginSupportSession(
+        int    $targetTenantId,
+        string $reason,
+        ?int   $userId = null
+    ): void {
+        if (!self::$superAdmin) {
+            throw new \RuntimeException(
+                'PlatformContext::beginSupportSession() requires super-admin privileges. '
+                . 'Call PlatformContext::bootSuperAdmin() first.'
+            );
+        }
+
+        if ($targetTenantId <= 0) {
+            throw new \InvalidArgumentException(
+                'PlatformContext::beginSupportSession() requires a positive target_tenant_id; '
+                . $targetTenantId . ' given.'
+            );
+        }
+
+        if (trim($reason) === '') {
+            throw new \InvalidArgumentException(
+                'PlatformContext::beginSupportSession() requires a non-empty reason. '
+                . 'Every Platform Admin support action MUST have a documented justification.'
+            );
+        }
+
+        self::$supportTargetTenantId = $targetTenantId;
+        self::$supportReason         = trim($reason);
+
+        $resolvedUserId = $userId ?? self::resolveSessionUserId();
+
+        // Audit the start of the support session.
+        if (class_exists('AuditContext', false)) {
+            AuditContext::capture('support_session_started', 'platform', $targetTenantId, [
+                'user_id'       => $resolvedUserId,
+                'target_tenant' => $targetTenantId,
+                'source_tenant' => null,
+                'reason'        => self::$supportReason,
+            ]);
+        } elseif (function_exists('audit_log')) {
+            audit_log([
+                'action'        => 'support_session_started',
+                'user_id'       => $resolvedUserId,
+                'target_tenant' => $targetTenantId,
+                'reason'        => self::$supportReason,
+            ]);
+        } else {
+            error_log('[PlatformContext] support_session_started: tenant=' . $targetTenantId
+                . ' user=' . $resolvedUserId . ' reason=' . self::$supportReason);
+        }
+    }
+
+    /**
+     * Returns true when a support session has been started for a specific tenant.
+     *
+     * A support session is active when:
+     *  - super-admin context is booted, AND
+     *  - beginSupportSession() has been called with a valid target tenant + reason.
+     */
+    public static function isSupportSessionActive(): bool
+    {
+        return self::$superAdmin && self::$supportTargetTenantId !== null;
+    }
+
+    /**
+     * Return the target tenant ID for the active support session.
+     *
+     * @throws \RuntimeException  When no support session is active.
+     */
+    public static function getTargetTenantId(): int
+    {
+        if (self::$supportTargetTenantId === null) {
+            throw new \RuntimeException(
+                'PlatformContext::getTargetTenantId() — no support session is active. '
+                . 'Call beginSupportSession($targetTenantId, $reason) first.'
+            );
+        }
+        return self::$supportTargetTenantId;
+    }
+
+    /**
+     * Return the mandatory reason recorded for the active support session.
+     *
+     * @throws \RuntimeException  When no support session is active.
+     */
+    public static function getActiveReason(): string
+    {
+        if (self::$supportTargetTenantId === null) {
+            throw new \RuntimeException(
+                'PlatformContext::getActiveReason() — no support session is active. '
+                . 'Call beginSupportSession($targetTenantId, $reason) first.'
+            );
+        }
+        return self::$supportReason;
+    }
+
     // =========================================================================
     // Query helpers
     // =========================================================================
@@ -167,6 +289,14 @@ final class PlatformContext
         ?int   $userId       = null,
         string $reason       = ''
     ): void {
+        // MANDATORY: every cross-tenant action must have a documented reason.
+        if (trim($reason) === '') {
+            throw new \InvalidArgumentException(
+                'PlatformContext::logCrossTenantAction() requires a non-empty reason. '
+                . 'Every Platform Admin cross-tenant action MUST have a documented justification.'
+            );
+        }
+
         // Resolve user_id from session when not provided.
         if ($userId === null) {
             if (session_status() === PHP_SESSION_NONE) {
@@ -182,7 +312,7 @@ final class PlatformContext
             'source_tenant' => $sourceTenant,
             'target_tenant' => $targetTenant,
             'user_id'       => $userId,
-            'reason'        => $reason ?: 'no reason provided',
+            'reason'        => trim($reason),
             'is_super_admin'=> self::$superAdmin,
             'ip'            => $_SERVER['REMOTE_ADDR'] ?? null,
             'timestamp'     => date('c'),
@@ -246,9 +376,11 @@ final class PlatformContext
      */
     public static function reset(): void
     {
-        self::$superAdmin       = false;
-        self::$booted           = false;
-        self::$superAdminUserId = null;
+        self::$superAdmin            = false;
+        self::$booted                = false;
+        self::$superAdminUserId      = null;
+        self::$supportTargetTenantId = null;
+        self::$supportReason         = '';
     }
 
     // =========================================================================

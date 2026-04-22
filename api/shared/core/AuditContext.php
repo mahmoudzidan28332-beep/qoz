@@ -188,6 +188,76 @@ final class AuditContext
         ]);
     }
 
+    /**
+     * Capture a Platform Admin action with the full spec-required audit payload.
+     *
+     * This is the MANDATORY audit method for every action performed in Platform Admin
+     * support mode.  It records all fields required by the Platform Admin spec (§3):
+     *   - user_id        (support agent performing the action)
+     *   - source_tenant  (null = platform level)
+     *   - target_tenant  (the tenant being acted upon — required)
+     *   - action         (create / update / delete / view / impersonate / etc.)
+     *   - entity_type    (which model / table was touched)
+     *   - entity_id      (primary key of the affected record, null for lists)
+     *   - before_state   (snapshot of the row BEFORE mutation — for reversibility)
+     *   - after_state    (snapshot of the row AFTER mutation)
+     *   - reason         (MANDATORY justification — must not be empty)
+     *   - request_id     (automatically attached by AuditContext::boot())
+     *
+     * SECURITY CONTRACT: This method MUST be called for every Platform Admin mutation
+     * (CREATE, UPDATE, DELETE) and for every sensitive READ.  Never call this method
+     * with an empty $reason — throw \InvalidArgumentException if it would be empty.
+     *
+     * @param  string      $action        Operation performed (e.g. 'create', 'update', 'delete', 'view').
+     * @param  string      $entityType    Table / model touched, e.g. 'products', 'orders'.
+     * @param  int|null    $entityId      Primary key of the affected record (null for collection ops).
+     * @param  int         $targetTenant  Tenant being acted upon — required, must be > 0.
+     * @param  string      $reason        Mandatory justification for the action.
+     * @param  array|null  $beforeState   Row snapshot BEFORE mutation (enables reversibility).
+     * @param  array|null  $afterState    Row snapshot AFTER mutation.
+     * @param  int|null    $userId        The support agent's user ID (null = resolved from session).
+     *
+     * @throws \InvalidArgumentException  When $reason is empty or $targetTenant <= 0.
+     */
+    public static function capturePlatformAdminAction(
+        string  $action,
+        string  $entityType,
+        ?int    $entityId,
+        int     $targetTenant,
+        string  $reason,
+        ?array  $beforeState = null,
+        ?array  $afterState  = null,
+        ?int    $userId      = null
+    ): void {
+        if (trim($reason) === '') {
+            throw new \InvalidArgumentException(
+                'AuditContext::capturePlatformAdminAction() requires a non-empty reason. '
+                . 'Every Platform Admin action MUST have a documented justification (spec §3).'
+            );
+        }
+
+        if ($targetTenant <= 0) {
+            throw new \InvalidArgumentException(
+                'AuditContext::capturePlatformAdminAction() requires a positive target_tenant; '
+                . $targetTenant . ' given.'
+            );
+        }
+
+        if ($userId === null) {
+            $userId = self::resolveUserId();
+        }
+
+        self::capture($action, $entityType, $entityId, [
+            'platform_admin_action' => true,
+            'user_id'               => $userId,
+            'source_tenant'         => null,
+            'target_tenant'         => $targetTenant,
+            'reason'                => trim($reason),
+            'before_state'          => $beforeState,
+            'after_state'           => $afterState,
+        ]);
+    }
+
     // =========================================================================
     // Accessors
     // =========================================================================

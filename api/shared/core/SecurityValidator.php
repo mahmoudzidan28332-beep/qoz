@@ -47,15 +47,27 @@ final class SecurityValidator
      * Call this at every API entry-point that handles tenant-scoped data,
      * AFTER TenantContext::set() and PlatformContext::boot() have been called.
      *
+     * For Platform Admin (super-admin) requests, TenantContext is NOT required —
+     * PlatformContext::isSuperAdmin() being true satisfies the tenant-scope invariant.
+     * In that case, use assertPlatformAdminIntegrity() for a stricter platform check.
+     *
      * @throws \RuntimeException  In development mode when any invariant fails.
      */
     public static function assertSystemIntegrity(): void
     {
         $failures = [];
 
-        // 1. TenantContext must be initialised.
-        if (!class_exists('TenantContext', false) || !TenantContext::isSet()) {
-            $failures[] = 'TenantContext is not initialised — call TenantContext::set(resolve_tenant_id()) at the API entry-point.';
+        // Determine whether this request runs in Platform Admin mode.
+        $isPlatformAdmin = class_exists('PlatformContext', false)
+            && PlatformContext::isBooted()
+            && PlatformContext::isSuperAdmin();
+
+        // 1. Tenant scope: either TenantContext is set, OR we are in Platform Admin mode.
+        if (!$isPlatformAdmin) {
+            if (!class_exists('TenantContext', false) || !TenantContext::isSet()) {
+                $failures[] = 'TenantContext is not initialised — call TenantContext::set(resolve_tenant_id()) at the API entry-point, '
+                    . 'or call PlatformContext::bootSuperAdmin() for platform-admin routes.';
+            }
         }
 
         // 2. QueryGuard must be loaded.
@@ -116,6 +128,52 @@ final class SecurityValidator
             $message = 'SecurityValidator: required security classes not loaded: '
                 . implode(', ', $missing);
             self::fail($message);
+        }
+    }
+
+    /**
+     * Assert that Platform Admin (PLATFORM_ADMIN) context is correctly initialised.
+     *
+     * Use this at the start of EVERY platform-admin / support-mode route, in place
+     * of (or in addition to) assertSystemIntegrity().
+     *
+     * Invariants checked:
+     *  1. PlatformContext is booted AND isSuperAdmin().
+     *  2. AuditContext is booted — audit must NEVER be bypassed.
+     *  3. QueryGuard is loaded.
+     *
+     * TenantContext is intentionally NOT required here — Platform Admin operates
+     * at platform level and must NOT be bound to a single tenant_id.
+     *
+     * @throws \RuntimeException  In development mode when any invariant fails.
+     */
+    public static function assertPlatformAdminIntegrity(): void
+    {
+        $failures = [];
+
+        // 1. PlatformContext must be booted and super-admin flag must be set.
+        if (!class_exists('PlatformContext', false)) {
+            $failures[] = 'PlatformContext class is not loaded — require api/shared/core/PlatformContext.php at bootstrap.';
+        } elseif (!PlatformContext::isBooted()) {
+            $failures[] = 'PlatformContext::boot() has not been called — call PlatformContext::bootSuperAdmin() at the platform-admin entry-point.';
+        } elseif (!PlatformContext::isSuperAdmin()) {
+            $failures[] = 'Current actor is NOT a super-admin. Platform Admin routes require PlatformContext::isSuperAdmin() === true.';
+        }
+
+        // 2. AuditContext must be booted — audit MUST never be bypassed.
+        if (!class_exists('AuditContext', false)) {
+            $failures[] = 'AuditContext class is not loaded — require api/shared/core/AuditContext.php at bootstrap.';
+        } elseif (!AuditContext::isBooted()) {
+            $failures[] = 'AuditContext::boot() has not been called — call AuditContext::boot() before any platform-admin operation.';
+        }
+
+        // 3. QueryGuard must be loaded (remains active for platform admin).
+        if (!class_exists('QueryGuard', false)) {
+            $failures[] = 'QueryGuard class is not loaded — require api/shared/core/QueryGuard.php before handling requests.';
+        }
+
+        if (!empty($failures)) {
+            self::handleFailures($failures);
         }
     }
 
