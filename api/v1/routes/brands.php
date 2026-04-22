@@ -10,18 +10,38 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
-$brandsPath = API_VERSION_PATH . '/models/brands';
-require_once $brandsPath . '/repositories/PdoBrandsRepository.php';
-require_once $brandsPath . '/validators/BrandsValidator.php';
-require_once $brandsPath . '/services/BrandsService.php';
-require_once $brandsPath . '/controllers/BrandsController.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
+$modelsPath = API_VERSION_PATH . '/models/brands';
+require_once $modelsPath . '/repositories/PdoBrandsRepository.php';
+require_once $modelsPath . '/validators/BrandsValidator.php';
+require_once $modelsPath . '/services/BrandsService.php';
+require_once $modelsPath . '/controllers/BrandsController.php';
+
+$auditPath = API_VERSION_PATH . '/models/audit_logs';
+require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
+require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
+require_once $auditPath . '/services/AuditLogsService.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-/** @var PDO $pdo */
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
+    exit;
+}
+
+$user     = $_SESSION['user'] ?? [];
+$tenantId = resolve_tenant_id();
+
+if ($tenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
     exit;
 }
 
@@ -30,28 +50,11 @@ $validator  = new BrandsValidator();
 $service    = new BrandsService($repo, $validator);
 $controller = new BrandsController($service);
 
-$tenantId = resolve_tenant_id();
-
-if ($tenantId === null) {
-    ResponseFormatter::error('tenant_id required', 401);
-    exit;
-}
-
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-header('Content-Type: application/json; charset=utf-8');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
 // تحليل المسار للكشف عن slug أو id
-$uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$uri      = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $segments = array_values(array_filter(explode('/', $uri)));
-$slug = null;
-$id = null;
+$slug     = null;
+$id       = null;
 
 if (count($segments) > 0) {
     $last = end($segments);
@@ -65,55 +68,72 @@ if (count($segments) > 0) {
 }
 
 try {
-    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $method  = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
-    $body = ($rawBody !== false && $rawBody !== '') ? (json_decode($rawBody, true) ?? []) : [];
+    $body    = ($rawBody !== false && $rawBody !== '') ? (json_decode($rawBody, true) ?? []) : [];
 
-    if ($method === 'GET') {
-        if ($slug !== null) {
-            // GET /brands/{slug}
-            $result = $controller->get($tenantId, $slug);
-            ResponseFormatter::success($result);
-        } elseif ($id !== null) {
-            // GET /brands/{id}
-            $result = $controller->getById($tenantId, $id);
-            ResponseFormatter::success($result);
-        } elseif (strpos($uri, '/brands/active') !== false) {
-            // GET /brands/active
-            $result = $controller->getActive($tenantId);
-            ResponseFormatter::success($result);
-        } elseif (strpos($uri, '/brands/featured') !== false) {
-            // GET /brands/featured
-            $result = $controller->getFeatured($tenantId);
-            ResponseFormatter::success($result);
-        } else {
-            // GET /brands (قائمة مع فلترة)
-            $result = $controller->list($tenantId);
-            ResponseFormatter::success($result);
-        }
-    } elseif ($method === 'POST') {
-        $result = $controller->create($tenantId, $body);
-        ResponseFormatter::success($result, 'Created successfully', 201);
-    } elseif ($method === 'PUT') {
-        $result = $controller->update($tenantId, $body);
-        ResponseFormatter::success($result, 'Updated successfully');
-    } elseif ($method === 'DELETE') {
-        $controller->delete($tenantId, $body);
-        ResponseFormatter::success(['deleted' => true], 'Deleted successfully');
-    } else {
-        ResponseFormatter::error('Method not allowed', 405);
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
+    $offset   = ($page - 1) * $limit;
+    $orderBy  = $_GET['order_by']  ?? 'id';
+    $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
+
+    $filters = [
+        'id'        => isset($_GET['id']) ? (int)$_GET['id'] : null,
+        'language'  => $language,
+        'tenant_id' => $tenantId,
+    ];
+
+    switch ($method) {
+        case 'OPTIONS':
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+            http_response_code(204);
+            exit;
+
+        case 'GET':
+            if ($slug !== null) {
+                ResponseFormatter::success($controller->get($tenantId, $slug));
+            } elseif ($id !== null) {
+                ResponseFormatter::success($controller->getById($tenantId, $id));
+            } elseif (strpos($uri, '/brands/active') !== false) {
+                ResponseFormatter::success($controller->getActive($tenantId));
+            } elseif (strpos($uri, '/brands/featured') !== false) {
+                ResponseFormatter::success($controller->getFeatured($tenantId));
+            } else {
+                ResponseFormatter::success($controller->list($tenantId));
+            }
+            break;
+
+        case 'POST':
+            ResponseFormatter::success($controller->create($tenantId, $body), 'Created successfully', 201);
+            break;
+
+        case 'PUT':
+            ResponseFormatter::success($controller->update($tenantId, $body), 'Updated successfully');
+            break;
+
+        case 'DELETE':
+            $controller->delete($tenantId, $body);
+            ResponseFormatter::success(['deleted' => true], 'Deleted successfully');
+            break;
+
+        default:
+            ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (InvalidArgumentException $e) {
+} catch (\InvalidArgumentException $e) {
     safe_log('warning', 'brands.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
-    safe_log('warning', 'brands.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    safe_log('error', 'brands.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
     safe_log('critical', 'brands.fatal', [
         'error' => $e->getMessage(),
-        'file'  => $e->getFile(),
-        'line'  => $e->getLine(),
+        'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error('Internal server error', 500);
+    ResponseFormatter::error($e->getMessage(), 500);
 }

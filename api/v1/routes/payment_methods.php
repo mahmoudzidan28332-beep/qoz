@@ -10,35 +10,71 @@ require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
-require_once dirname(__DIR__, 2) . '/v1/models/payment_methods/repositories/PdoPaymentMethodsRepository.php';
-require_once dirname(__DIR__, 2) . '/v1/models/payment_methods/validators/PaymentMethodsValidator.php';
-require_once dirname(__DIR__, 2) . '/v1/models/payment_methods/services/PaymentMethodsService.php';
-require_once dirname(__DIR__, 2) . '/v1/models/payment_methods/controllers/PaymentMethodsController.php';
 
-header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key');
-header('Content-Type: application/json; charset=utf-8');
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+$modelsPath = API_VERSION_PATH . '/models/payment_methods';
+require_once $modelsPath . '/repositories/PdoPaymentMethodsRepository.php';
+require_once $modelsPath . '/validators/PaymentMethodsValidator.php';
+require_once $modelsPath . '/services/PaymentMethodsService.php';
+require_once $modelsPath . '/controllers/PaymentMethodsController.php';
 
-if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-    session_start();
-}
+$auditPath = API_VERSION_PATH . '/models/audit_logs';
+require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
+require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
+require_once $auditPath . '/services/AuditLogsService.php';
 
-if (!isset($GLOBALS['ADMIN_DB']) || !$GLOBALS['ADMIN_DB'] instanceof PDO) {
-    ResponseFormatter::error('Database connection failed', 500);
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
+$user     = $_SESSION['user'] ?? [];
+$tenantId = resolve_tenant_id();
+
+if ($tenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
+
+$service    = new PaymentMethodsService($pdo);
+$controller = new PaymentMethodsController($service);
+
 try {
-    $pdo        = $GLOBALS['ADMIN_DB'];
-    $method     = $_SERVER['REQUEST_METHOD'];
-    $service    = new PaymentMethodsService($pdo);
-    $controller = new PaymentMethodsController($service);
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $raw    = file_get_contents('php://input');
+    $data   = $raw ? (json_decode($raw, true) ?? []) : [];
+
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
+    $offset   = ($page - 1) * $limit;
+    $orderBy  = $_GET['order_by']  ?? 'id';
+    $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
+
+    $filters = [
+        'id'        => isset($_GET['id']) ? (int)$_GET['id'] : null,
+        'language'  => $language,
+        'tenant_id' => $tenantId,
+    ];
 
     switch ($method) {
+        case 'OPTIONS':
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+            http_response_code(204);
+            exit;
+
         case 'GET':
             if (isset($_GET['id'])) {
                 $item = $controller->find((int)$_GET['id']);
@@ -48,13 +84,13 @@ try {
                 }
                 ResponseFormatter::success($item);
             } else {
-                $filters = [];
-                if (!empty($_GET['search'])) $filters['search'] = $_GET['search'];
+                $listFilters = [];
+                if (!empty($_GET['search'])) $listFilters['search'] = $_GET['search'];
 
                 $result = $controller->list(
                     isset($_GET['limit']) ? (int)$_GET['limit'] : 100,
                     isset($_GET['offset']) ? (int)$_GET['offset'] : 0,
-                    $filters,
+                    $listFilters,
                     $_GET['order_by'] ?? 'method_name',
                     $_GET['order_dir'] ?? 'ASC'
                 );
@@ -63,14 +99,12 @@ try {
             break;
 
         case 'POST':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $data = array_intersect_key($data, array_flip(['method_key', 'method_name', 'description', 'gateway_name', 'icon_url', 'config']));
             $id = $controller->create($data);
             ResponseFormatter::success(['id' => $id], 'Created');
             break;
 
         case 'PUT':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $data = array_intersect_key($data, array_flip(['method_key', 'method_name', 'description', 'gateway_name', 'icon_url', 'config'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             $id   = (int)($data['id'] ?? $_GET['id'] ?? 0);
             if (!$id) {
@@ -82,8 +116,7 @@ try {
             break;
 
         case 'DELETE':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
-            $id   = (int)($data['id'] ?? $_GET['id'] ?? 0);
+            $id = (int)($data['id'] ?? $_GET['id'] ?? 0);
             if (!$id) {
                 ResponseFormatter::error('ID is required', 400);
                 exit;
@@ -95,8 +128,19 @@ try {
         default:
             ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (Throwable $e) {
-    ResponseFormatter::error($e->getMessage(), 400);
+} catch (\InvalidArgumentException $e) {
+    safe_log('warning', 'payment_methods.validation', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), 422);
+} catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    safe_log('error', 'payment_methods.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
+    safe_log('critical', 'payment_methods.fatal', [
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
+    ResponseFormatter::error($e->getMessage(), 500);
 }
 
 
