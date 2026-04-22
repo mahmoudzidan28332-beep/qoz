@@ -98,9 +98,14 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
     if ($userId > 0 && $pdo instanceof PDO) {
         
         // Check if we need to reload from database
-        $needsReload = empty($_SESSION['roles']) 
-            || empty($_SESSION['permissions']) 
-            || empty($_SESSION['resource_permissions']);
+        // Platform admin sessions carry their own roles/permissions set by platform_auth.php.
+        // We must NOT overwrite them with tenant-based queries, otherwise the 'super_admin'
+        // role inserted by platform_auth is lost and all permission checks return false (→ HTTP 403).
+        $needsReload = !$isPlatformAdminSession && (
+            empty($_SESSION['roles'])
+            || empty($_SESSION['permissions'])
+            || empty($_SESSION['resource_permissions'])
+        );
         
         if ($needsReload) {
             error_log('[admin_context] Loading user data and permissions from database for user: ' . $userId);
@@ -325,7 +330,8 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
             ) ? 'rtl' : 'ltr',
             'csrf_token' => $_SESSION['csrf_token'] ?? '',
             'tenant_id' => $tenantId,
-            'is_super_admin' => in_array('super_admin', $_SESSION['roles'] ?? [], true),
+            'is_super_admin' => in_array('super_admin', $_SESSION['roles'] ?? [], true)
+                             || ($isPlatformAdminSession && $platformRoleSession === 'super_admin'),
             'is_platform_admin' => $isPlatformAdminSession,
             'platform_role'     => $platformRoleSession,
             'user_type'         => $_userType,
