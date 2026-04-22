@@ -27,7 +27,7 @@ require_once $modelsPath . '/validators/CategoriesValidator.php';
 require_once $modelsPath . '/services/CategoriesService.php';
 require_once $modelsPath . '/controllers/CategoriesController.php';
 
-// ===== تحميل ملفات audit_logs (لتمكين AuditLogsService في المستودع) =====
+// Audit logs
 $auditPath = API_VERSION_PATH . '/models/audit_logs';
 require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
 require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
@@ -272,7 +272,6 @@ try {
     // محاولة فك الترميز إذا كان JSON
     $message = $e->getMessage();
     $decoded = json_decode($message, true);
-
     safe_log('warning', 'categories.validation', ['error' => $message]);
     if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
         ResponseFormatter::error($decoded, 422);
