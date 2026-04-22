@@ -11,7 +11,25 @@ declare(strict_types=1);
 
 // ── Session ───────────────────────────────────────────────────────────────────
 if (session_status() === PHP_SESSION_NONE) {
+    // Use the same session save path as the API bootstrap (api/shared/config/session.php)
+    // so that the CSRF token stored here is visible to api/v1/routes/platform_auth.php.
+    $apiSessionPath = dirname(__DIR__) . '/api/storage/sessions';
+    if (!is_dir($apiSessionPath)) {
+        @mkdir($apiSessionPath, 0700, true);
+    }
+    if (is_dir($apiSessionPath)) {
+        ini_set('session.save_path', $apiSessionPath);
+    }
+
     session_name('APP_SESSID');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
