@@ -45,7 +45,20 @@ if ($dir === 'ltr') {
 $csrf     = admin_csrf();
 $tenantId = admin_tenant_id();
 $userId   = admin_user_id();
-$isSuperAdmin = is_super_admin();
+$isSuperAdmin    = is_super_admin();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
+
+// Platform reports are restricted to platform admin/staff only
+if (!$isPlatformAdmin) {
+    if ($isFragment) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access restricted to platform administrators']);
+        exit;
+    }
+    http_response_code(403);
+    die('Access restricted to platform administrators');
+}
 
 $apiBase = '/api';
 

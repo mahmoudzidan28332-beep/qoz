@@ -36,6 +36,8 @@ $csrf        = $payload['csrf_token'] ?? (function_exists('admin_csrf') ? admin_
 $username    = $user['username'] ?? ($_SESSION['username'] ?? 'unknown');
 
 $isSuperAdmin = in_array('super_admin', $roles, true) || (function_exists('is_super_admin') && is_super_admin());
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $canManage = $isSuperAdmin || in_array('manage_users', $permissions, true);
 $canCreate = $canManage;
 $canEdit   = $canManage;
@@ -253,15 +255,17 @@ if (!function_exists('assetVer')) {
 
 <!-- Page Permissions Data -->
 <script id="pagePermissions" type="application/json">
-<?= json_encode(['canCreate' => $canCreate, 'canEdit' => $canEdit, 'canDelete' => $canDelete]) ?>
+<?= json_encode(['canCreate' => $canCreate, 'canEdit' => $canEdit, 'canDelete' => $canDelete, 'isPlatformAdmin' => $isPlatformAdmin, 'userType' => $userType]) ?>
 </script>
 
 <script>
 window.USER_LANGUAGE = '<?= htmlspecialchars($lang) ?>';
 window.USERS_CONFIG = {
-    lang:    <?= json_encode($_utLangCode) ?>,
-    dir:     <?= json_encode($dir) ?>,
-    strings: <?= json_encode($_utStrings, JSON_UNESCAPED_UNICODE) ?>
+    lang:            <?= json_encode($_utLangCode) ?>,
+    dir:             <?= json_encode($dir) ?>,
+    strings:         <?= json_encode($_utStrings, JSON_UNESCAPED_UNICODE) ?>,
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    userType:        <?= json_encode($userType) ?>
 };
 </script>
 

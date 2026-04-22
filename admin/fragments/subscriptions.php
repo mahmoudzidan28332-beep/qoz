@@ -28,6 +28,8 @@ $userId   = $user['id'] ?? ($_SESSION['user_id'] ?? 0);
 
 // Permissions
 $isSuperAdmin = in_array('super_admin', $roles, true) || (function_exists('is_super_admin') && is_super_admin());
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $canManage = $isSuperAdmin || in_array('manage_subscriptions', $permissions, true);
 $canCreate = $canManage;
 $canEdit   = $canManage;

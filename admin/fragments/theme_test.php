@@ -26,6 +26,8 @@ if (!is_admin_logged_in()) {
 $user = admin_user();
 $lang = admin_lang();
 $dir = admin_dir();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
 // Helper: get computed style of an element (simulate via JS)
 ?>

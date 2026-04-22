@@ -10,28 +10,45 @@ declare(strict_types=1);
  */
 
 // ── Session ───────────────────────────────────────────────────────────────────
+// Use the same session.php that the API bootstrap uses so that the CSRF token
+// stored here is visible to api/v1/routes/platform_auth.php (identical save
+// path, name, and cookie parameters).
+$_sharedSessionCfg = dirname(__DIR__) . '/api/shared/config/session.php';
 if (session_status() === PHP_SESSION_NONE) {
-    // Use the same session save path as the API bootstrap (api/shared/config/session.php)
-    // so that the CSRF token stored here is visible to api/v1/routes/platform_auth.php.
-    $apiSessionPath = dirname(__DIR__) . '/api/storage/sessions';
-    if (!is_dir($apiSessionPath)) {
-        @mkdir($apiSessionPath, 0700, true);
-    }
-    if (is_dir($apiSessionPath)) {
+    if (file_exists($_sharedSessionCfg)) {
+        require_once $_sharedSessionCfg;
+    } else {
+        // Fallback: manual setup that mirrors session.php
+        $apiSessionPath = dirname(__DIR__) . '/api/storage/sessions';
+        if (!is_dir($apiSessionPath)) {
+            @mkdir($apiSessionPath, 0700, true);
+        }
         ini_set('session.save_path', $apiSessionPath);
-    }
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_trans_sid', '0');
 
-    session_name('APP_SESSID');
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'path'     => '/',
-        'domain'   => '',
-        'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-    session_start();
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                   || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+        session_name('APP_SESSID');
+        session_set_cookie_params([
+            'lifetime' => 604800,
+            'path'     => '/',
+            'domain'   => '',
+            'secure'   => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        session_start();
+
+        if (empty($_SESSION['__initiated'])) {
+            session_regenerate_id(true);
+            $_SESSION['__initiated'] = time();
+        }
+    }
 }
+unset($_sharedSessionCfg);
 
 // Already authenticated → redirect straight to dashboard
 if (!empty($_SESSION['platform_admin'])) {

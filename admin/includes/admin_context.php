@@ -73,7 +73,11 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
     $currentUser = $_SESSION['user'] ?? null;
     $userId = 0;
     $tenantId = 1;
-    
+
+    // Platform admin detection (set by api/v1/routes/platform_auth.php)
+    $isPlatformAdminSession = !empty($_SESSION['platform_admin']);
+    $platformRoleSession    = $isPlatformAdminSession ? (string)($_SESSION['platform_role'] ?? '') : null;
+
     // Extract user ID and tenant ID from session
     if (!empty($currentUser) && is_array($currentUser)) {
         $userId = (int)($currentUser['id'] ?? 0);
@@ -279,6 +283,24 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
     // BUILD ADMIN_UI CONTEXT
     // ────────────────────────────────────────────────────────
     $hasUser = ($userId > 0) && !empty($currentUser) && is_array($currentUser);
+
+    // Determine user type
+    // platform_admin  – authenticated via platform_users (role = super_admin equivalent)
+    // platform_staff  – authenticated via platform_users (any other role)
+    // tenant_admin    – tenant super_admin (not a platform user)
+    // tenant_user     – any other authenticated tenant user
+    // guest           – not authenticated
+    if (!$hasUser) {
+        $_userType = 'guest';
+    } elseif ($isPlatformAdminSession && $platformRoleSession === 'super_admin') {
+        $_userType = 'platform_admin';
+    } elseif ($isPlatformAdminSession) {
+        $_userType = 'platform_staff';
+    } elseif (in_array('super_admin', $_SESSION['roles'] ?? [], true)) {
+        $_userType = 'tenant_admin';
+    } else {
+        $_userType = 'tenant_user';
+    }
     
     if ($hasUser) {
         $GLOBALS['ADMIN_UI'] = [
@@ -304,6 +326,9 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
             'csrf_token' => $_SESSION['csrf_token'] ?? '',
             'tenant_id' => $tenantId,
             'is_super_admin' => in_array('super_admin', $_SESSION['roles'] ?? [], true),
+            'is_platform_admin' => $isPlatformAdminSession,
+            'platform_role'     => $platformRoleSession,
+            'user_type'         => $_userType,
             'theme' => [
                 'color_settings' => [],
                 'font_settings' => [],
@@ -393,6 +418,9 @@ if (!isset($GLOBALS['ADMIN_UI'])) {
             'csrf_token' => $_SESSION['csrf_token'] ?? '',
             'tenant_id' => 1,
             'is_super_admin' => false,
+            'is_platform_admin' => false,
+            'platform_role'     => null,
+            'user_type'         => 'guest',
             'theme' => [
                 'color_settings' => [],
                 'font_settings' => [],
@@ -595,6 +623,36 @@ function has_role(string $role): bool {
  */
 function is_super_admin(): bool {
     return $GLOBALS['ADMIN_UI']['is_super_admin'] ?? false;
+}
+
+/**
+ * Check if user is a platform admin (authenticated via platform_users table).
+ * Platform admins have cross-tenant access and manage the platform itself.
+ *
+ * @return bool True if authenticated as a platform admin/staff user
+ */
+function is_platform_admin(): bool {
+    return (bool)($GLOBALS['ADMIN_UI']['is_platform_admin'] ?? false);
+}
+
+/**
+ * Get the platform role key for the current user.
+ * Returns null when the user is not a platform admin.
+ *
+ * @return string|null Role key (e.g. 'super_admin', 'staff') or null
+ */
+function get_platform_role(): ?string {
+    return $GLOBALS['ADMIN_UI']['platform_role'] ?? null;
+}
+
+/**
+ * Get the resolved user type for the current session.
+ * Possible values: 'platform_admin', 'platform_staff', 'tenant_admin', 'tenant_user', 'guest'
+ *
+ * @return string User type
+ */
+function get_user_type(): string {
+    return $GLOBALS['ADMIN_UI']['user_type'] ?? 'guest';
 }
 
 /**
@@ -992,8 +1050,10 @@ function require_resource_permission(string $resourceType, string $action, strin
 error_log('[admin_context] ════════════════════════════════════════════');
 error_log('[admin_context] Initialized for user: ' . admin_username() . ' (ID: ' . admin_user_id() . ')');
 error_log('[admin_context] Tenant: ' . admin_tenant_id());
+error_log('[admin_context] User type: ' . get_user_type());
 error_log('[admin_context] Roles: ' . (empty(admin_roles()) ? 'none' : implode(', ', admin_roles())));
 error_log('[admin_context] Permissions: ' . count(admin_permissions()));
 error_log('[admin_context] Resource Permissions: ' . count(admin_resource_permissions()));
 error_log('[admin_context] Super Admin: ' . (is_super_admin() ? 'YES' : 'NO'));
+error_log('[admin_context] Platform Admin: ' . (is_platform_admin() ? 'YES (role: ' . (get_platform_role() ?? 'n/a') . ')' : 'NO'));
 error_log('[admin_context] ════════════════════════════════════════════');

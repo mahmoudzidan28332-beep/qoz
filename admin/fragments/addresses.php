@@ -51,6 +51,8 @@ if (!$user) {
 }
 
 $isSuperAdmin = function_exists('is_super_admin') && is_super_admin();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
 // Language (safe fallback only)
 $lang = $_GET['lang'] ?? (function_exists('admin_lang') ? admin_lang() : 'ar');

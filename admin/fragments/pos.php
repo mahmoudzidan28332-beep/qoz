@@ -39,6 +39,8 @@ $csrf     = admin_csrf();
 $tenantId = admin_tenant_id();
 
 $isSuperAdmin = is_super_admin();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 // strictly enforce pos permissions; removed fallback allowing any tenant
 $canAccess = $isSuperAdmin || can('pos.access') || can('pos.cashier') || can('manage_pos');
 

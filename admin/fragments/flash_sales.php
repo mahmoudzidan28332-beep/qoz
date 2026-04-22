@@ -23,6 +23,8 @@ $csrf = $payload['csrf_token'] ?? (function_exists('admin_csrf') ? admin_csrf() 
 
 // Permissions (matching categories.php pattern)
 $isSuperAdmin = in_array('super_admin', $roles, true) || (function_exists('is_super_admin') && is_super_admin());
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $canManage = $isSuperAdmin || in_array('manage_flash_sales', $permissions, true) || in_array('manage_settings', $permissions, true);
 $canCreate = $canManage;
 $canEdit   = $canManage;

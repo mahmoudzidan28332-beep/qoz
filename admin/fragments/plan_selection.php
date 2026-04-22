@@ -22,6 +22,8 @@ $csrf = $payload['csrf_token'] ?? (function_exists('admin_csrf') ? admin_csrf() 
 $tenantId = $payload['tenant_id'] ?? ($_SESSION['tenant_id'] ?? 0);
 $userId   = $user['id'] ?? ($_SESSION['user_id'] ?? 0);
 $isSuperAdmin = in_array('super_admin', $roles, true);
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
 // Translation helper
 $_psLangCode = in_array($lang, ['ar','en']) ? $lang : 'en';

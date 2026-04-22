@@ -77,6 +77,8 @@ $canDelete = $canDeleteAll || $canDeleteOwn || $canManagePermissions;
 
 // Super admin always has access
 $isSuperAdmin = is_super_admin();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 if ($isSuperAdmin) {
     $canView = $canEdit = $canDelete = $canCreate = true;
 }

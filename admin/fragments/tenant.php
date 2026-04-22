@@ -55,26 +55,28 @@ $csrf      = admin_csrf();
 $tenantId  = admin_tenant_id();
 $userId    = admin_user_id();
 $apiBase   = '/api';
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
 // Image type ID for tenant logo (mirrors image_types table row id=21)
 define('TENANT_LOGO_IMAGE_TYPE_ID', 21);
 
 // Resource-based permissions
 $canManage     = can('tenants.manage') || can('tenants.create');
-$canViewAll    = can_view_all('tenants')    || is_super_admin();
+$canViewAll    = can_view_all('tenants')    || is_super_admin() || $isPlatformAdmin;
 $canViewOwn    = can_view_own('tenants');
 $canViewTenant = can_view_tenant('tenants');
-$canCreate     = can_create('tenants')     || is_super_admin() || $canManage;
-$canEditAll    = can_edit_all('tenants')   || is_super_admin();
+$canCreate     = can_create('tenants')     || is_super_admin() || $isPlatformAdmin || $canManage;
+$canEditAll    = can_edit_all('tenants')   || is_super_admin() || $isPlatformAdmin;
 $canEditOwn    = can_edit_own('tenants');
-$canDeleteAll  = can_delete_all('tenants') || is_super_admin();
+$canDeleteAll  = can_delete_all('tenants') || is_super_admin() || ($isPlatformAdmin && get_platform_role() === 'super_admin');
 $canDeleteOwn  = can_delete_own('tenants');
 
 $canView   = $canViewAll || $canViewOwn || $canViewTenant;
 $canEdit   = $canEditAll || $canEditOwn  || $canManage;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManage;
 
-if (!$canView && !is_super_admin()) {
+if (!$canView && !is_super_admin() && !$isPlatformAdmin) {
     if ($isFragment) {
         http_response_code(403);
         echo json_encode(['error' => 'Access denied']);

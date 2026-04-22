@@ -45,6 +45,8 @@ $user     = admin_user();
 $lang     = admin_lang();
 $dir      = admin_dir();
 $csrf     = admin_csrf();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $tenantId = admin_tenant_id();
 
 $canCreate = can('returns.manage') || can('returns.create') || is_super_admin();

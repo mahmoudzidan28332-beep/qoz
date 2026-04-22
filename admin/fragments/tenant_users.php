@@ -46,26 +46,28 @@ $lang     = admin_lang();
 $dir      = admin_dir();
 $csrf     = admin_csrf();
 $tenantId = admin_tenant_id();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
 // ════════════════════════════════════════════════════════════
 // CHECK PERMISSIONS
 // ════════════════════════════════════════════════════════════
 $canManageTenantUsers = can('tenant_users.manage') || can('tenant_users.create');
 
-$canViewAll    = can_view_all('tenant_users');
+$canViewAll    = can_view_all('tenant_users')    || $isPlatformAdmin;
 $canViewOwn    = can_view_own('tenant_users');
-$canViewTenant = can_view_tenant('tenant_users');
-$canCreate     = can_create('tenant_users');
-$canEditAll    = can_edit_all('tenant_users');
+$canViewTenant = can_view_tenant('tenant_users') || $isPlatformAdmin;
+$canCreate     = can_create('tenant_users')      || $isPlatformAdmin;
+$canEditAll    = can_edit_all('tenant_users')    || $isPlatformAdmin;
 $canEditOwn    = can_edit_own('tenant_users');
-$canDeleteAll  = can_delete_all('tenant_users');
+$canDeleteAll  = can_delete_all('tenant_users')  || ($isPlatformAdmin && get_platform_role() === 'super_admin');
 $canDeleteOwn  = can_delete_own('tenant_users');
 
 $canView   = $canViewAll || $canViewOwn || $canViewTenant;
 $canEdit   = $canEditAll || $canEditOwn || $canManageTenantUsers;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManageTenantUsers;
 
-if (!$canView && !is_super_admin()) {
+if (!$canView && !is_super_admin() && !$isPlatformAdmin) {
     $resourcePerms       = function_exists('admin_resource_permissions') ? admin_resource_permissions() : [];
     $permissionsConfigured = !empty($resourcePerms);
 

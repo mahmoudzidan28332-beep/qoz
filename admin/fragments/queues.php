@@ -44,6 +44,8 @@ $user     = admin_user();
 $lang     = admin_lang();
 $dir      = admin_dir();
 $csrf     = admin_csrf();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $tenantId = admin_tenant_id();
 $userId   = admin_user_id();
 

@@ -47,6 +47,8 @@ $entityId = $payload['entity_id'] ?? ($_SESSION['entity_id'] ?? 0);
 $userId   = $user['id'] ?? ($_SESSION['user_id'] ?? 0);
 
 $isSuperAdmin = is_super_admin();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $canManage    = $isSuperAdmin ||
                 in_array('manage_stock',    $permissions, true) ||
                 in_array('manage_products', $permissions, true);
