@@ -11,24 +11,33 @@ require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
 
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
+// ===== تحميل ملفات categories =====
+$modelsPath = API_VERSION_PATH . '/models/categories';
+require_once $modelsPath . '/Contracts/CategoriesRepositoryInterface.php';
+require_once $modelsPath . '/repositories/PdoCategoriesRepository.php';
+require_once $modelsPath . '/validators/CategoriesValidator.php';
+require_once $modelsPath . '/services/CategoriesService.php';
+require_once $modelsPath . '/controllers/CategoriesController.php';
+
 // ===== تحميل ملفات audit_logs (لتمكين AuditLogsService في المستودع) =====
 $auditPath = API_VERSION_PATH . '/models/audit_logs';
 require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
 require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
 require_once $auditPath . '/services/AuditLogsService.php';
 
-// ===== تحميل ملفات categories =====
-require_once API_VERSION_PATH . '/models/categories/Contracts/CategoriesRepositoryInterface.php';
-require_once API_VERSION_PATH . '/models/categories/repositories/PdoCategoriesRepository.php';
-require_once API_VERSION_PATH . '/models/categories/validators/CategoriesValidator.php';
-require_once API_VERSION_PATH . '/models/categories/services/CategoriesService.php';
-require_once API_VERSION_PATH . '/models/categories/controllers/CategoriesController.php';
-
 /** @var PDO $pdo */
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
-    return;
+    exit;
 }
 
 $defaultTenantId = 1;
@@ -257,26 +266,27 @@ try {
     }
 
     ResponseFormatter::error('Method not allowed or endpoint not found', 405);
-    return;
+    exit;
 
-} catch (InvalidArgumentException $e) {
+} catch (\InvalidArgumentException $e) {
     // محاولة فك الترميز إذا كان JSON
     $message = $e->getMessage();
     $decoded = json_decode($message, true);
-    
+
+    safe_log('warning', 'categories.validation', ['error' => $message]);
     if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
         ResponseFormatter::error($decoded, 422);
     } else {
         ResponseFormatter::error($message, 422);
     }
-} catch (RuntimeException $e) {
-    ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
-    safe_log('error', 'Categories route failed', [
+} catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    safe_log('error', 'categories.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
+    safe_log('critical', 'categories.fatal', [
         'error' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
         'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error('Internal server error: ' . $e->getMessage(), 500);
+    ResponseFormatter::error($e->getMessage(), 500);
 }

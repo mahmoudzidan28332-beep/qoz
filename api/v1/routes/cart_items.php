@@ -7,10 +7,23 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 $modelsPath = API_VERSION_PATH . '/models/cart_items';
 require_once $modelsPath . '/repositories/PdoCartItemsRepository.php';
 require_once $modelsPath . '/services/CartItemsService.php';
 require_once $modelsPath . '/controllers/CartItemsController.php';
+
+$auditPath = API_VERSION_PATH . '/models/audit_logs';
+require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
+require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
+require_once $auditPath . '/services/AuditLogsService.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -41,9 +54,9 @@ if ($tenantId === null) {
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $raw = file_get_contents('php://input');
-    $data = $raw ? json_decode($raw, true) : [];
+    $data = $raw ? (json_decode($raw, true) ?? []) : [];
 
-    $lang    = $_GET['lang'] ?? 'ar';
+    $language = $_GET['language'] ?? $_GET['lang'] ?? 'ar';
     $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit   = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset  = ($page - 1) * $limit;
@@ -56,7 +69,9 @@ try {
         'product_id'         => isset($_GET['product_id']) ? (int)$_GET['product_id'] : null,
         'product_variant_id' => isset($_GET['product_variant_id']) ? (int)$_GET['product_variant_id'] : null,
         'entity_id'          => isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null,
-        'sku'                => $_GET['sku'] ?? null
+        'sku'                => $_GET['sku'] ?? null,
+        'language'           => $language,
+        'tenant_id'          => $tenantId,
     ];
 
     switch ($method) {
@@ -77,14 +92,14 @@ try {
 
             // Get single item by ID
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get($tenantId, (int)$_GET['id'], $lang);
+                $item = $controller->get($tenantId, (int)$_GET['id'], $language);
                 ResponseFormatter::success($item);
             } else {
                 // List cart items
-                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $language);
                 $total = $result['total'];
                 ResponseFormatter::success([
-                    'items' => $result['items'],
+                    'data'  => $result['items'],
                     'meta'  => [
                         'total'       => $total,
                         'page'        => $page,
@@ -139,10 +154,11 @@ try {
     safe_log('warning', 'cart_items.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'cart_items.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
     safe_log('critical', 'cart_items.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-    ResponseFormatter::error('Internal Server Error', 500);
+    ResponseFormatter::error($e->getMessage(), 500);
 }
 

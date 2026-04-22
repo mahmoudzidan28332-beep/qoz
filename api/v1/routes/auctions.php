@@ -7,6 +7,14 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 $modelsPath = API_VERSION_PATH . '/models/auctions';
 require_once $modelsPath . '/Contracts/AuctionsRepositoryInterface.php';
 require_once $modelsPath . '/repositories/PdoAuctionsRepository.php';
@@ -14,30 +22,22 @@ require_once $modelsPath . '/validators/AuctionsValidator.php';
 require_once $modelsPath . '/services/AuctionsService.php';
 require_once $modelsPath . '/controllers/AuctionsController.php';
 
-header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key');
-header('Content-Type: application/json; charset=utf-8');
+$auditPath = API_VERSION_PATH . '/models/audit_logs';
+require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
+require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
+require_once $auditPath . '/services/AuditLogsService.php';
 
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     session_start();
 }
 
-if (!isset($GLOBALS['ADMIN_DB']) || !$GLOBALS['ADMIN_DB'] instanceof PDO) {
-    ResponseFormatter::error('Database connection failed', 500);
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
-$pdo    = $GLOBALS['ADMIN_DB'];
-$method = $_SERVER['REQUEST_METHOD'];
-
-if ($method === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
-// Tenant resolution
+$user     = $_SESSION['user'] ?? [];
 $tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
@@ -45,17 +45,30 @@ if ($tenantId === null) {
     exit;
 }
 
-try {
-    $repo       = new PdoAuctionsRepository($pdo);
-    $service    = new AuctionsService($repo);
-    $controller = new AuctionsController($service);
+$repo       = new PdoAuctionsRepository($pdo);
+$service    = new AuctionsService($repo);
+$controller = new AuctionsController($service);
 
-    $lang     = $_GET['lang']      ?? 'ar';
-    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])                   : 1;
-    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit']))        : 25;
+try {
+    $method   = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset   = ($page - 1) * $limit;
     $orderBy  = $_GET['order_by']  ?? 'id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
+
+    // URL ID parser
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $pathInfo   = parse_url($requestUri, PHP_URL_PATH);
+    $pathParts  = explode('/', trim($pathInfo, '/'));
+    $urlId      = null;
+    foreach ($pathParts as $i => $part) {
+        if ($part === 'auctions' && isset($pathParts[$i + 1]) && is_numeric($pathParts[$i + 1])) {
+            $urlId = (int)$pathParts[$i + 1];
+            break;
+        }
+    }
 
     $filters = [
         'status'         => $_GET['status']         ?? null,
@@ -66,17 +79,26 @@ try {
         'currency_id'    => isset($_GET['currency_id']) && is_numeric($_GET['currency_id'])
                                 ? (int)$_GET['currency_id'] : null,
         'search'         => $_GET['search']         ?? null,
+        'language'       => $language,
+        'tenant_id'      => $tenantId,
     ];
 
     switch ($method) {
+        case 'OPTIONS':
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+            http_response_code(204);
+            exit;
+
         case 'GET':
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get($tenantId, (int)$_GET['id'], $lang);
+                $item = $controller->get($tenantId, (int)$_GET['id'], $language);
                 ResponseFormatter::success($item);
             } else {
-                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $language);
                 ResponseFormatter::success([
-                    'items' => $result['items'],
+                    'data'  => $result['items'],
                     'meta'  => [
                         'total'       => $result['total'],
                         'page'        => $page,
@@ -119,8 +141,9 @@ try {
     safe_log('warning', 'auctions.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'auctions.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
 } catch (\Throwable $e) {
     safe_log('critical', 'auctions.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error($e->getMessage(), 500);
