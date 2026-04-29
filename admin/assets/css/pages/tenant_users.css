@@ -1,0 +1,702 @@
+/*!
+ * /admin/assets/css/pages/tenant_users.css
+ * Tenant Users Management — Complete Production Stylesheet
+ *
+ * DESIGN SYSTEM
+ * ─────────────
+ * Every colour, font and spacing token is read from CSS variables injected by
+ * the DB theme loader (admin/includes/theme_injector.php). No hard-coded hex
+ * colour values — only var(--xxx) references with structural-only fallbacks.
+ * All selectors are scoped under #tenantUsersPageContainer to prevent
+ * style bleed into the host admin layout.
+ *
+ * DB-DRIVEN CSS VARIABLES (all provided by theme_injector.php)
+ * ─────────────────────────────────────────────────────────────
+ *   --primary-color        Main brand / action colour
+ *   --primary-hover        Darker hover shade of primary
+ *   --secondary-color      Secondary / muted action colour
+ *   --danger-color         Destructive action colour
+ *   --success-color        Positive state colour
+ *   --warning-color        Warning / caution colour
+ *   --background-secondary Page panel / card background
+ *   --background-tertiary  Deeper recessed surface
+ *   --card-bg              Card surface background
+ *   --input-bg             Input field background
+ *   --thead-bg             Table header row background
+ *   --text-primary         High-contrast body text
+ *   --text-secondary       Muted / supporting text
+ *   --text-on-primary      Text on primary backgrounds  (fallback #fff)
+ *   --border-color         Dividers and borders
+ *   --body-font-family     Site body font (from DB font settings)
+ *   --border-radius        Base rounding token
+ */
+
+/* ════════════════════════════════════════════════════════════
+   BOX-SIZING RESET
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer *,
+#tenantUsersPageContainer *::before,
+#tenantUsersPageContainer *::after {
+    box-sizing: border-box;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAGE CONTAINER
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 18px;
+    color: var(--text-primary);
+    font-family: var(--body-font-family);
+    width: 100%;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAGE HEADER
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius, 12px);
+    flex-wrap: wrap;
+}
+
+#tenantUsersPageContainer .page-header-content {
+    flex: 1;
+    min-width: 0;
+}
+
+#tenantUsersPageContainer .page-title {
+    margin: 0 0 4px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+#tenantUsersPageContainer .page-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+#tenantUsersPageContainer .page-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BUTTONS — structural only
+   Colours & hover states are provided by admin_framework.css
+   base + AdminUiThemeLoader::generateCss() DB-driven classes.
+   Page CSS must NOT redefine .btn-primary / .btn-danger / etc.
+   ════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════
+   CARDS
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius, 12px);
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+#tenantUsersPageContainer .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-tertiary, var(--background-secondary));
+}
+
+#tenantUsersPageContainer .card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#tenantUsersPageContainer .card-body {
+    padding: 18px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FORM
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+#tenantUsersPageContainer .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+#tenantUsersPageContainer .form-group label,
+#tenantUsersPageContainer .filter-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+#tenantUsersPageContainer .form-group label.required::after,
+#tenantUsersPageContainer .filter-label.required::after {
+    content: " *";
+    color: var(--danger-color);
+}
+
+#tenantUsersPageContainer .form-control,
+#tenantUsersPageContainer input[type="text"],
+#tenantUsersPageContainer input[type="number"],
+#tenantUsersPageContainer input[type="email"],
+#tenantUsersPageContainer input[type="password"],
+#tenantUsersPageContainer select,
+#tenantUsersPageContainer textarea {
+    padding: 9px 12px;
+    border-radius: var(--border-radius, 8px);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--body-font-family);
+    font-size: 0.9rem;
+    width: 100%;
+    transition: border-color 0.2s;
+}
+
+#tenantUsersPageContainer .form-control:focus,
+#tenantUsersPageContainer select:focus,
+#tenantUsersPageContainer input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+#tenantUsersPageContainer .form-control:disabled,
+#tenantUsersPageContainer select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+#tenantUsersPageContainer .form-control.is-invalid {
+    border-color: var(--danger-color);
+}
+
+#tenantUsersPageContainer .invalid-feedback {
+    display: none;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--danger-color);
+}
+
+#tenantUsersPageContainer .form-control.is-invalid ~ .invalid-feedback {
+    display: block;
+}
+
+#tenantUsersPageContainer .form-text {
+    font-size: 0.78rem;
+    margin-top: 4px;
+    color: var(--text-secondary);
+}
+
+#tenantUsersPageContainer .form-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* ════════════════════════════════════════════════════════════
+   INPUT WITH BUTTON
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .input-with-button {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+}
+
+#tenantUsersPageContainer .input-with-button .form-control {
+    flex: 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   INFO BOXES
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .user-info-box {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--background-tertiary, var(--background-secondary));
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius, 8px);
+}
+
+#tenantUsersPageContainer .user-info-box .info-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+#tenantUsersPageContainer .user-info-box .info-content i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+#tenantUsersPageContainer .user-info-box .info-content i.entity-icon { color: var(--warning-color); }
+#tenantUsersPageContainer .user-info-box .info-content i.tenant-icon { color: var(--primary-color); }
+#tenantUsersPageContainer .user-info-box .info-content i.user-icon   { color: var(--success-color); }
+
+#tenantUsersPageContainer .user-info-box .info-content strong {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+}
+
+#tenantUsersPageContainer .user-info-box .info-content small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    margin-top: 0.2rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FILTERS
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+
+#tenantUsersPageContainer .filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+#tenantUsersPageContainer .filter-group label,
+#tenantUsersPageContainer .filter-group .filter-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Unified filter-buttons row (matches guide pattern) */
+#tenantUsersPageContainer .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Legacy filter-actions alias kept for backward compatibility */
+#tenantUsersPageContainer .filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+/* ════════════════════════════════════════════════════════════
+   DATA TABLE
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#tenantUsersPageContainer .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+#tenantUsersPageContainer .data-table thead {
+    background: var(--thead-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+#tenantUsersPageContainer .data-table th {
+    padding: 12px 14px;
+    text-align: start;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+#tenantUsersPageContainer .data-table td {
+    padding: 12px 14px;
+    text-align: start;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+#tenantUsersPageContainer .data-table tbody tr:hover {
+    background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+}
+
+#tenantUsersPageContainer .data-table td small {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+#tenantUsersPageContainer .data-table td .text-muted {
+    color: var(--text-secondary);
+}
+
+/* ════════════════════════════════════════════════════════════
+   TABLE ACTIONS
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .table-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BADGES — structural only
+   Colour variants (.badge-success, .badge-danger, etc.) are
+   provided by admin_framework.css and use DB-driven CSS variables.
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.73rem;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+/* ════════════════════════════════════════════════════════════
+   LOADING / EMPTY / ERROR STATES
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .loading-state,
+#tenantUsersPageContainer .empty-state,
+#tenantUsersPageContainer .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    gap: 12px;
+    color: var(--text-secondary);
+}
+
+#tenantUsersPageContainer .loading-state p,
+#tenantUsersPageContainer .empty-state  p,
+#tenantUsersPageContainer .error-state  p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+#tenantUsersPageContainer .loading-state h3,
+#tenantUsersPageContainer .empty-state  h3,
+#tenantUsersPageContainer .error-state  h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Spinner */
+#tenantUsersPageContainer .spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: tu-spin 0.9s linear infinite;
+}
+
+@keyframes tu-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* State icons */
+#tenantUsersPageContainer .empty-icon,
+#tenantUsersPageContainer .error-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+#tenantUsersPageContainer .error-icon {
+    color: var(--danger-color);
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAGINATION
+   ════════════════════════════════════════════════════════════ */
+
+#tenantUsersPageContainer .pagination-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border-color);
+}
+
+#tenantUsersPageContainer .pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+#tenantUsersPageContainer .pagination {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#tenantUsersPageContainer .pagination .pagination-ellipsis {
+    padding: 5px 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS  (prefix: tu-)
+   ════════════════════════════════════════════════════════════ */
+
+.tu-notifications {
+    position: fixed;
+    bottom: clamp(12px, 2vw, 20px);
+    right: clamp(12px, 2vw, 20px);
+    z-index: 13000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 360px;
+    width: calc(100vw - 24px);
+    pointer-events: none;
+}
+
+.tu-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--border-radius, 8px);
+    background: var(--card-bg, var(--background-secondary, #1e293b));
+    border: 1px solid var(--border-color, #334155);
+    box-shadow: 0 4px 16px color-mix(in srgb, #000 30%, transparent);
+    pointer-events: auto;
+    animation: tu-toast-in 0.25s ease;
+}
+
+.tu-toast.removing { animation: tu-toast-out 0.25s ease forwards; }
+
+.tu-toast-icon  { font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+.tu-toast-body  { flex: 1; font-size: 0.88rem; color: var(--text-primary, #fff); line-height: 1.4; }
+.tu-toast-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary, #94a3b8); font-size: 0.85rem; padding: 0; line-height: 1;
+}
+.tu-toast-close:hover { color: var(--text-primary, #fff); }
+
+.tu-toast--success .tu-toast-icon { color: var(--success-color, #22c55e); }
+.tu-toast--error   .tu-toast-icon { color: var(--danger-color,  #ef4444); }
+.tu-toast--warning .tu-toast-icon { color: var(--warning-color, #f59e0b); }
+.tu-toast--info    .tu-toast-icon { color: var(--primary-color, #3b82f6); }
+
+@keyframes tu-toast-in  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes tu-toast-out { to   { opacity: 0; transform: translateY(12px); } }
+
+/* ════════════════════════════════════════════════════════════
+   RTL SUPPORT
+   ════════════════════════════════════════════════════════════ */
+
+[dir="rtl"] #tenantUsersPageContainer { direction: rtl; text-align: start; }
+[dir="rtl"] #tenantUsersPageContainer .page-header         { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .page-header-actions { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .card-header         { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .form-actions        { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .filter-buttons      { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .filter-actions      { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .table-actions       { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] #tenantUsersPageContainer .data-table th,
+[dir="rtl"] #tenantUsersPageContainer .data-table td       { text-align: start; }
+[dir="rtl"] #tenantUsersPageContainer .data-table          { direction: rtl; }
+[dir="rtl"] #tenantUsersPageContainer .form-control,
+[dir="rtl"] #tenantUsersPageContainer select,
+[dir="rtl"] #tenantUsersPageContainer input,
+[dir="rtl"] #tenantUsersPageContainer textarea             { text-align: start; direction: rtl; }
+[dir="rtl"] #tenantUsersPageContainer .badge               { margin-left: 0; margin-right: 4px; }
+[dir="rtl"] #tenantUsersPageContainer .pagination-wrapper  { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .pagination          { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .filters-grid        { direction: rtl; }
+[dir="rtl"] #tenantUsersPageContainer .user-info-box .info-content { flex-direction: row-reverse; }
+[dir="rtl"] #tenantUsersPageContainer .input-with-button   { flex-direction: row-reverse; }
+[dir="rtl"] .tu-notifications                              { right: auto; left: clamp(12px, 2vw, 20px); }
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Tablet (≤1024px)
+   ════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+    #tenantUsersPageContainer { padding: 14px; }
+    #tenantUsersPageContainer .form-row    { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    #tenantUsersPageContainer .filters-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile (≤768px)
+   ════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    #tenantUsersPageContainer { padding: 10px; }
+
+    #tenantUsersPageContainer .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    #tenantUsersPageContainer .page-header-actions { justify-content: flex-end; }
+
+    #tenantUsersPageContainer .form-row     { grid-template-columns: 1fr; }
+    #tenantUsersPageContainer .filters-grid { grid-template-columns: 1fr; }
+
+    #tenantUsersPageContainer .form-actions  { flex-direction: column; }
+    #tenantUsersPageContainer .form-actions .btn { width: 100%; justify-content: center; }
+
+    #tenantUsersPageContainer .filter-buttons { flex-direction: column; }
+    #tenantUsersPageContainer .filter-buttons .btn { width: 100%; justify-content: center; }
+    #tenantUsersPageContainer .filter-actions { flex-direction: column; }
+    #tenantUsersPageContainer .filter-actions .btn { width: 100%; justify-content: center; }
+
+    #tenantUsersPageContainer .data-table th,
+    #tenantUsersPageContainer .data-table td { padding: 9px 8px; font-size: 0.82rem; }
+
+    #tenantUsersPageContainer .card-header  { flex-direction: column; align-items: stretch; gap: 8px; }
+    #tenantUsersPageContainer .card-body    { padding: 12px; }
+    #tenantUsersPageContainer .table-actions { justify-content: flex-start; }
+
+    [dir="rtl"] #tenantUsersPageContainer .page-header   { flex-direction: column; }
+    [dir="rtl"] #tenantUsersPageContainer .card-header   { flex-direction: column; }
+    [dir="rtl"] #tenantUsersPageContainer .form-actions  { flex-direction: column; }
+    [dir="rtl"] #tenantUsersPageContainer .filter-buttons { flex-direction: column; }
+    [dir="rtl"] #tenantUsersPageContainer .filter-actions { flex-direction: column; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Small Phone (≤480px)
+   ════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+    #tenantUsersPageContainer { padding: 6px; }
+
+    #tenantUsersPageContainer .page-header {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: var(--border-radius, 8px);
+    }
+
+    #tenantUsersPageContainer .page-title    { font-size: 1.15rem; }
+    #tenantUsersPageContainer .page-subtitle { font-size: 0.8rem;  }
+
+    #tenantUsersPageContainer .card {
+        border-radius: var(--border-radius, 8px);
+        margin-bottom: 10px;
+    }
+
+    #tenantUsersPageContainer .card-header { padding: 10px 12px; }
+    #tenantUsersPageContainer .card-body   { padding: 10px; }
+
+    #tenantUsersPageContainer .data-table th,
+    #tenantUsersPageContainer .data-table td {
+        padding: 7px 6px;
+        font-size: 0.78rem;
+        white-space: nowrap;
+    }
+
+    #tenantUsersPageContainer .btn    { padding: 8px 10px; font-size: 0.82rem; }
+    #tenantUsersPageContainer .btn-sm { padding: 5px 8px;  font-size: 0.75rem; }
+
+    #tenantUsersPageContainer .form-group label,
+    #tenantUsersPageContainer .filter-label { font-size: 0.78rem; }
+
+    #tenantUsersPageContainer .form-control,
+    #tenantUsersPageContainer input,
+    #tenantUsersPageContainer select,
+    #tenantUsersPageContainer textarea {
+        padding: 7px 9px;
+        font-size: 0.82rem;
+    }
+
+    #tenantUsersPageContainer .badge { font-size: 0.68rem; padding: 3px 7px; }
+
+    #tenantUsersPageContainer .loading-state,
+    #tenantUsersPageContainer .empty-state,
+    #tenantUsersPageContainer .error-state { padding: 28px 12px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PRINT
+   ════════════════════════════════════════════════════════════ */
+
+@media print {
+    #tenantUsersPageContainer .form-card,
+    #tenantUsersPageContainer .filter-card,
+    #tenantUsersPageContainer .form-actions,
+    #tenantUsersPageContainer .table-actions,
+    #tenantUsersPageContainer .filter-buttons,
+    #tenantUsersPageContainer .filter-actions,
+    .tu-notifications,
+    #btnAddTenantUser,
+    #btnCloseForm,
+    #btnDeleteTenantUser,
+    #btnExportExcel { display: none !important; }
+
+    #tenantUsersPageContainer .data-table { font-size: 0.82rem; }
+    #tenantUsersPageContainer { max-width: 100%; padding: 0; }
+}
