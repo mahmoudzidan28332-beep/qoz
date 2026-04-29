@@ -117,57 +117,87 @@
     }
 
     // ═══════════════════════════════════════════════════════════
-    // LOAD COUNTRIES
+    // LOAD COUNTRIES (Multilingual Support)
     // ═══════════════════════════════════════════════════════════
     
     async function loadCountries(selectedId = null) {
         try {
-            const url = `${COUNTRIES_API}?language=${encodeURIComponent(state.language)}`;
+            // Use current language from state (defaults to 'ar')
+            const currentLang = state.language;
+            console.log(`🌍 Loading countries in language: ${currentLang}`);
+            
+            const url = `${COUNTRIES_API}?lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
             console.log('📡 Loading countries from:', url);
             
             const result = await apiFetch(url);
             console.log('📦 Countries response:', result);
             
             // Handle different response formats
+            let countriesArray = [];
             if (result.data) {
                 if (Array.isArray(result.data.data)) {
-                    state.countries = result.data.data;
+                    countriesArray = result.data.data;
                 } else if (Array.isArray(result.data)) {
-                    state.countries = result.data;
+                    countriesArray = result.data;
                 }
             } else if (Array.isArray(result)) {
-                state.countries = result;
-            } else {
-                state.countries = [];
+                countriesArray = result;
             }
-
+            
+            // Store in state
+            state.countries = countriesArray;
+            
+            // Populate dropdown with proper ordering
             if (el.country) {
+                // Clear existing options
                 el.country.innerHTML = '<option value="">' + t('select_country', 'Select Country') + '</option>';
-                state.countries.forEach(country => {
+                
+                // Sort countries by name for better UX
+                const sortedCountries = [...state.countries].sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                sortedCountries.forEach(country => {
                     const option = document.createElement('option');
                     option.value = country.id;
-                    option.textContent = country.name;
+                    // Display name in current language (or fallback to English name)
+                    const displayName = country.name || country.english_name || `Country ${country.id}`;
+                    option.textContent = displayName;
+                    
+                    // Optional: Add data attribute for original name if needed
+                    if (country.english_name) {
+                        option.setAttribute('data-english-name', country.english_name);
+                    }
+                    if (country.arabic_name) {
+                        option.setAttribute('data-arabic-name', country.arabic_name);
+                    }
+                    
                     if (selectedId && String(selectedId) === String(country.id)) {
                         option.selected = true;
                     }
                     el.country.appendChild(option);
                 });
-
+                
+                console.log(`✓ ${sortedCountries.length} countries loaded with ${currentLang} names`);
+                
                 // Trigger city load if country selected
                 if (selectedId) {
                     await loadCities(selectedId);
                 }
             }
-
-            console.log('✓ Countries loaded:', state.countries.length);
         } catch (e) {
             console.error('❌ loadCountries error:', e);
             showMessage(t('failed_load_countries', 'Failed to load countries'), 'error');
+            if (el.country) {
+                el.country.innerHTML = '<option value="">' + t('error_loading_countries', 'Error loading countries') + '</option>';
+            }
         }
     }
 
     // ═══════════════════════════════════════════════════════════
-    // LOAD CITIES
+    // LOAD CITIES (Multilingual Support)
     // ═══════════════════════════════════════════════════════════
     
     async function loadCities(countryId, selectedId = null) {
@@ -177,44 +207,58 @@
         el.city.disabled = true;
 
         if (!countryId) {
+            el.city.disabled = false;
             return;
         }
 
         try {
-            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&language=${encodeURIComponent(state.language)}`;
-            console.log('📡 Loading cities from:', url);
+            const currentLang = state.language;
+            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
+            console.log(`📡 Loading cities for country ${countryId} in language: ${currentLang}`);
             
             const result = await apiFetch(url);
             console.log('📦 Cities response:', result);
             
             // Handle different response formats
+            let citiesArray = [];
             if (result.data) {
                 if (Array.isArray(result.data.data)) {
-                    state.cities = result.data.data;
+                    citiesArray = result.data.data;
                 } else if (Array.isArray(result.data)) {
-                    state.cities = result.data;
+                    citiesArray = result.data;
                 }
             } else if (Array.isArray(result)) {
-                state.cities = result;
-            } else {
-                state.cities = [];
+                citiesArray = result;
             }
-
+            
+            state.cities = citiesArray;
             el.city.disabled = false;
-            state.cities.forEach(city => {
+            
+            // Sort cities by name
+            const sortedCities = [...state.cities].sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            sortedCities.forEach(city => {
                 const option = document.createElement('option');
                 option.value = city.id;
-                option.textContent = city.name;
+                const displayName = city.name || city.english_name || `City ${city.id}`;
+                option.textContent = displayName;
+                
                 if (selectedId && String(selectedId) === String(city.id)) {
                     option.selected = true;
                 }
                 el.city.appendChild(option);
             });
-
-            console.log('✓ Cities loaded:', state.cities.length);
+            
+            console.log(`✓ ${sortedCities.length} cities loaded with ${currentLang} names`);
         } catch (e) {
             console.error('❌ loadCities error:', e);
             showMessage(t('failed_load_cities', 'Failed to load cities'), 'error');
+            el.city.innerHTML = '<option value="">' + t('error_loading_cities', 'Error loading cities') + '</option>';
+            el.city.disabled = false;
         }
     }
 
@@ -222,46 +266,43 @@
     // LOAD ENTITIES (tenant-scoped)
     // ═══════════════════════════════════════════════════════════
 
-    // addresses.js — loadEntities()
-async function loadEntities(selectedId = null) {
-    if (!el.ownerEntitySelect) return;
+    async function loadEntities(selectedId = null) {
+        if (!el.ownerEntitySelect) return;
 
-    el.ownerEntitySelect.innerHTML = '<option value="">' + t('select_entity', 'Select entity...') + '</option>';
+        el.ownerEntitySelect.innerHTML = '<option value="">' + t('select_entity', 'Select entity...') + '</option>';
 
-    try {
-        // For Platform Admin, use the tenant currently set in the form field
-        // (not CFG.tenantId which is 0 for platform admins)
-        const formTenantId = document.getElementById('formTenantId');
-        const tenantId = (formTenantId && formTenantId.value)
-            ? parseInt(formTenantId.value, 10)
-            : CFG.tenantId;
+        try {
+            const formTenantId = document.getElementById('formTenantId');
+            const tenantId = (formTenantId && formTenantId.value)
+                ? parseInt(formTenantId.value, 10)
+                : CFG.tenantId;
 
-        const params = new URLSearchParams({ limit: 1000, language: state.language });
-        if (tenantId) params.append('tenant_id', tenantId);
+            const params = new URLSearchParams({ limit: 1000, language: state.language });
+            if (tenantId && tenantId > 0) params.append('tenant_id', tenantId);
 
-        const result = await apiFetch(`${ENTITIES_API}?${params}`);
-        const items = (result.data && result.data.items) || (Array.isArray(result.data) ? result.data : []);
-        state.entities = Array.isArray(items) ? items : [];
+            const result = await apiFetch(`${ENTITIES_API}?${params}`);
+            const items = (result.data && result.data.items) || (Array.isArray(result.data) ? result.data : []);
+            state.entities = Array.isArray(items) ? items : [];
 
-        state.entities.forEach(entity => {
-            const option = document.createElement('option');
-            option.value = entity.id;
-            option.textContent = entity.store_name || entity.name || `#${entity.id}`;
-            if (selectedId && String(selectedId) === String(entity.id)) {
-                option.selected = true;
+            state.entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.store_name || entity.name || `#${entity.id}`;
+                if (selectedId && String(selectedId) === String(entity.id)) {
+                    option.selected = true;
+                }
+                el.ownerEntitySelect.appendChild(option);
+            });
+
+            if (state.entities.length === 0) {
+                el.ownerEntitySelect.innerHTML += '<option value="" disabled>' 
+                    + t('no_entities_found', 'No entities found for this tenant') + '</option>';
             }
-            el.ownerEntitySelect.appendChild(option);
-        });
 
-        if (state.entities.length === 0) {
-            el.ownerEntitySelect.innerHTML += '<option value="" disabled>' 
-                + t('no_entities_found', 'No entities found for this tenant') + '</option>';
+        } catch (e) {
+            console.error('❌ loadEntities error:', e);
         }
-
-    } catch (e) {
-        console.error('❌ loadEntities error:', e);
     }
-}
 
     // ═══════════════════════════════════════════════════════════
     // TOGGLE OWNER FIELDS (user ↔ entity)
@@ -306,7 +347,6 @@ async function loadEntities(selectedId = null) {
                 language: state.language
             });
 
-            // Global filter for Platform Admin
             const globalFilter = document.getElementById('globalTenantFilter');
             if (globalFilter && globalFilter.value !== '') {
                 params.append('tenant_id', globalFilter.value);
@@ -355,7 +395,7 @@ async function loadEntities(selectedId = null) {
         infoEl.textContent = t('pagination_showing', 'Showing') + ' ' + start + '-' + end + ' ' + t('pagination_of', 'of') + ' ' + total;
 
         let html = '';
-        html += '<button class="page-btn" data-page="' + (currentPage - 1) + '"' + (currentPage <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+        html += '<button class="page-btn" data-page="' + (currentPage - 1) + '"' + (currentPage <= 1 ? ' disabled' : '') + '">&laquo;</button>';
 
         for (let i = 1; i <= totalPages; i++) {
             if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
@@ -448,12 +488,13 @@ async function loadEntities(selectedId = null) {
             if (formTenantId) formTenantId.value = document.getElementById('globalTenantFilter')?.value || CFG.tenantId;
         }
 
-        // Reset owner-type fields to "user" view.
         if (CFG.canEditAllFields) {
             toggleOwnerFields('user');
         }
 
+        // Load countries with current language
         loadCountries();
+        
         if (el.city) {
             el.city.innerHTML = '<option value="">' + t('select_city', 'Select City') + '</option>';
             el.city.disabled = true;
@@ -488,12 +529,10 @@ async function loadEntities(selectedId = null) {
                 if (CFG.canEditAllFields) {
                     const ownerTypeSelect = document.getElementById('ownerTypeSelect');
                     if (ownerTypeSelect) ownerTypeSelect.value = addr.owner_type || 'user';
-                    // Toggle and populate entity dropdown / user-id input accordingly.
                     await toggleOwnerFields(
                         addr.owner_type || 'user',
                         addr.owner_type === 'entity' ? addr.owner_id : null
                     );
-                    // For user-type, restore the numeric input value after toggleOwnerFields reset it.
                     if ((addr.owner_type || 'user') === 'user' && el.ownerIdInput) {
                         el.ownerIdInput.value = addr.owner_id || '';
                     }
@@ -572,6 +611,25 @@ async function loadEntities(selectedId = null) {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // LANGUAGE SWITCHER UTILITY (Optional)
+    // ═══════════════════════════════════════════════════════════
+    
+    function setLanguage(lang) {
+        state.language = lang;
+        // Reload all data with new language
+        loadCountries();
+        loadAddresses();
+        // If a country is selected, reload its cities
+        if (el.country && el.country.value) {
+            loadCities(el.country.value);
+        }
+        console.log(`🔄 Language switched to: ${lang}`);
+    }
+
+    // Expose language switcher globally if needed
+    window.AddressesSetLanguage = setLanguage;
+
+    // ═══════════════════════════════════════════════════════════
     // INIT
     // ═══════════════════════════════════════════════════════════
     
@@ -583,6 +641,8 @@ async function loadEntities(selectedId = null) {
             formTitle: document.getElementById('addressFormTitle'),
             country: document.getElementById('countrySelect'),
             city: document.getElementById('citySelect'),
+            latitude: document.getElementById('latitude'),
+            longitude: document.getElementById('longitude'),
             ownerIdInput: document.getElementById('ownerIdInput'),
             ownerEntitySelect: document.getElementById('ownerEntitySelect'),
             ownerTypeSelect: document.getElementById('ownerTypeSelect'),
@@ -601,13 +661,25 @@ async function loadEntities(selectedId = null) {
         if (el.country) el.country.onchange = () => loadCities(el.country.value);
         if (el.globalFilter) el.globalFilter.onchange = () => { currentPage = 1; loadAddresses(); };
 
-        // Wire up owner-type selector → swap user-id input ↔ entity dropdown.
+        const formTenantId = document.getElementById('formTenantId');
+        if (formTenantId) {
+            formTenantId.onchange = () => {
+                // If entity type is currently selected, reload entities for the new tenant
+                if (el.ownerTypeSelect && el.ownerTypeSelect.value === 'entity') {
+                    loadEntities();
+                }
+            };
+        }
+
         if (el.ownerTypeSelect) {
             el.ownerTypeSelect.onchange = () => toggleOwnerFields(el.ownerTypeSelect.value);
         }
 
+        // Initial load with configured language
         await loadCountries();
         await loadAddresses();
+        
+        console.log(`✅ Addresses module initialized with language: ${state.language}`);
     }
 
     window.Addresses = {
@@ -615,7 +687,10 @@ async function loadEntities(selectedId = null) {
         load: loadAddresses,
         add: addAddress,
         edit: editAddress,
-        delete: deleteAddress
+        delete: deleteAddress,
+        setLanguage: setLanguage,
+        reloadCountries: loadCountries,
+        reloadCities: loadCities
     };
 
     if (document.readyState === 'loading') {

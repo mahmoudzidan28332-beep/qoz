@@ -1847,17 +1847,14 @@
         syncTreeCheckboxStates();
     }
 
-    /** Internal cascade: select/deselect a node and all its descendants */
+    /** Internal toggle: select/deselect a node (no cascade by default as per user request) */
     function _toggleCategoryWithCascade(categoryId, checked) {
-        const all = [categoryId, ...getDescendantIds(categoryId)];
         if (checked) {
-            all.forEach(id => {
-                if (!state.selectedCategories.includes(id)) {
-                    state.selectedCategories.push(id);
-                }
-            });
+            if (!state.selectedCategories.includes(categoryId)) {
+                state.selectedCategories.push(categoryId);
+            }
         } else {
-            state.selectedCategories = state.selectedCategories.filter(id => !all.includes(id));
+            state.selectedCategories = state.selectedCategories.filter(id => id !== categoryId);
         }
         syncTreeCheckboxStates();
         syncCategoryDropdownsFromSelection();
