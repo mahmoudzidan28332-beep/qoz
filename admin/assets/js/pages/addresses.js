@@ -222,33 +222,46 @@
     // LOAD ENTITIES (tenant-scoped)
     // ═══════════════════════════════════════════════════════════
 
-    async function loadEntities(selectedId = null) {
-        if (!el.ownerEntitySelect) return;
+    // addresses.js — loadEntities()
+async function loadEntities(selectedId = null) {
+    if (!el.ownerEntitySelect) return;
 
-        el.ownerEntitySelect.innerHTML = '<option value="">' + t('select_entity', 'Select entity...') + '</option>';
+    el.ownerEntitySelect.innerHTML = '<option value="">' + t('select_entity', 'Select entity...') + '</option>';
 
-        try {
-            const tenantId = CFG.tenantId || 0;
-            const params = new URLSearchParams({ limit: 1000, language: state.language });
-            if (tenantId) params.append('tenant_id', tenantId);
+    try {
+        // For Platform Admin, use the tenant currently set in the form field
+        // (not CFG.tenantId which is 0 for platform admins)
+        const formTenantId = document.getElementById('formTenantId');
+        const tenantId = (formTenantId && formTenantId.value)
+            ? parseInt(formTenantId.value, 10)
+            : CFG.tenantId;
 
-            const result = await apiFetch(`${ENTITIES_API}?${params}`);
-            const items = (result.data && result.data.items) || (Array.isArray(result.data) ? result.data : []);
-            state.entities = Array.isArray(items) ? items : [];
+        const params = new URLSearchParams({ limit: 1000, language: state.language });
+        if (tenantId) params.append('tenant_id', tenantId);
 
-            state.entities.forEach(entity => {
-                const option = document.createElement('option');
-                option.value = entity.id;
-                option.textContent = entity.store_name || entity.name || `#${entity.id}`;
-                if (selectedId && String(selectedId) === String(entity.id)) {
-                    option.selected = true;
-                }
-                el.ownerEntitySelect.appendChild(option);
-            });
-        } catch (e) {
-            console.error('❌ loadEntities error:', e);
+        const result = await apiFetch(`${ENTITIES_API}?${params}`);
+        const items = (result.data && result.data.items) || (Array.isArray(result.data) ? result.data : []);
+        state.entities = Array.isArray(items) ? items : [];
+
+        state.entities.forEach(entity => {
+            const option = document.createElement('option');
+            option.value = entity.id;
+            option.textContent = entity.store_name || entity.name || `#${entity.id}`;
+            if (selectedId && String(selectedId) === String(entity.id)) {
+                option.selected = true;
+            }
+            el.ownerEntitySelect.appendChild(option);
+        });
+
+        if (state.entities.length === 0) {
+            el.ownerEntitySelect.innerHTML += '<option value="" disabled>' 
+                + t('no_entities_found', 'No entities found for this tenant') + '</option>';
         }
+
+    } catch (e) {
+        console.error('❌ loadEntities error:', e);
     }
+}
 
     // ═══════════════════════════════════════════════════════════
     // TOGGLE OWNER FIELDS (user ↔ entity)
