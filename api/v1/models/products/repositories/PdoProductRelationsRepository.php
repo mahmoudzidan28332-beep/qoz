@@ -48,19 +48,20 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             FROM product_relations pr
             INNER JOIN products p_main ON pr.product_id = p_main.id
             INNER JOIN products p_rel  ON pr.related_product_id = p_rel.id
-            INNER JOIN entities e      ON p_main.tenant_id = e.id
-            LEFT JOIN product_translations pt_main
-                   ON p_main.id = pt_main.product_id AND pt_main.language_code = :lang_main
             LEFT JOIN product_translations pt_rel
                    ON p_rel.id  = pt_rel.product_id  AND pt_rel.language_code  = :lang_rel
-            WHERE e.tenant_id = :tenant_id
+            WHERE 1=1
         ";
 
         $params = [
-            ':tenant_id' => $tenantId,
             ':lang_main'  => $lang,
             ':lang_rel'   => $lang,
         ];
+
+        if ($tenantId > 0) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
 
@@ -87,10 +88,14 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             FROM product_relations pr
             INNER JOIN products p_main ON pr.product_id = p_main.id
             INNER JOIN entities e      ON p_main.tenant_id = e.id
-            WHERE e.tenant_id = :tenant_id
+            WHERE 1=1
         ";
 
-        $params = [':tenant_id' => $tenantId];
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
 
         $stmt = $this->pdo->prepare($sql);
@@ -110,13 +115,21 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             FROM product_relations pr
             INNER JOIN products p_main ON pr.product_id = p_main.id
             INNER JOIN products p_rel  ON pr.related_product_id = p_rel.id
-            INNER JOIN entities e      ON p_main.tenant_id = e.id
-            LEFT JOIN product_translations pt_main
-                   ON p_main.id = pt_main.product_id AND pt_main.language_code = :lang_main
             LEFT JOIN product_translations pt_rel
                    ON p_rel.id  = pt_rel.product_id  AND pt_rel.language_code  = :lang_rel
-            WHERE e.tenant_id = :tenant_id
-              AND pr.id = :id
+            WHERE pr.id = :id
+        ";
+
+        $params = [
+            ':id'         => $id,
+            ':lang_main'  => $lang,
+            ':lang_rel'   => $lang,
+        ];
+
+        if ($tenantId > 0) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
             LIMIT 1
         ";
 
@@ -137,8 +150,10 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
     {
         $this->pdo->beginTransaction();
         try {
-            $this->validateProductBelongsToTenant((int) $data['product_id'],         $tenantId);
-            $this->validateProductBelongsToTenant((int) $data['related_product_id'],  $tenantId);
+            if ($tenantId > 0) {
+                $this->validateProductBelongsToTenant((int) $data['product_id'],         $tenantId);
+                $this->validateProductBelongsToTenant((int) $data['related_product_id'],  $tenantId);
+            }
             $this->checkDuplicate((int) $data['product_id'], (int) $data['related_product_id'], $data['relation_type']);
 
             $stmt = $this->pdo->prepare("
@@ -170,14 +185,21 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
 
         $this->pdo->beginTransaction();
         try {
-            $check = $this->pdo->prepare("
+            $check_sql = "
                 SELECT pr.id
                 FROM product_relations pr
                 INNER JOIN products p ON pr.product_id = p.id
                 INNER JOIN entities e ON p.tenant_id = e.id
-                WHERE e.tenant_id = :tenant_id AND pr.id = :id
-            ");
-            $check->execute([':tenant_id' => $tenantId, ':id' => $data['id']]);
+                WHERE pr.id = :id
+            ";
+            $check_params = [':id' => $data['id']];
+            if ($tenantId > 0) {
+                $check_sql .= " AND e.tenant_id = :tenant_id";
+                $check_params[':tenant_id'] = $tenantId;
+            }
+            
+            $check = $this->pdo->prepare($check_sql);
+            $check->execute($check_params);
             if (!$check->fetch()) {
                 throw new InvalidArgumentException('Relation not found or access denied.');
             }
@@ -186,12 +208,12 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             $params = [':id' => $data['id']];
 
             if (isset($data['product_id'])) {
-                $this->validateProductBelongsToTenant((int) $data['product_id'], $tenantId);
+                if ($tenantId > 0) $this->validateProductBelongsToTenant((int) $data['product_id'], $tenantId);
                 $fields[] = 'product_id = :product_id';
                 $params[':product_id'] = $data['product_id'];
             }
             if (isset($data['related_product_id'])) {
-                $this->validateProductBelongsToTenant((int) $data['related_product_id'], $tenantId);
+                if ($tenantId > 0) $this->validateProductBelongsToTenant((int) $data['related_product_id'], $tenantId);
                 $fields[] = 'related_product_id = :related_product_id';
                 $params[':related_product_id'] = $data['related_product_id'];
             }
@@ -225,21 +247,27 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
     public function delete(int $tenantId, int $id): bool
     {
         // Portable subquery instead of MySQL-only multi-table DELETE
-        $stmt = $this->pdo->prepare("
+        $sql = "
             DELETE FROM product_relations
             WHERE id = :id
-              AND product_id IN (
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql .= " AND product_id IN (
                   SELECT p.id FROM products p
                   INNER JOIN entities e ON p.tenant_id = e.id
                   WHERE e.tenant_id = :tenant_id
-              )
-        ");
-        return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+              )";
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     public function deleteByProduct(int $tenantId, int $productId, ?string $relationType = null): bool
     {
-        $this->validateProductBelongsToTenant($productId, $tenantId);
+        if ($tenantId > 0) $this->validateProductBelongsToTenant($productId, $tenantId);
 
         $sql    = 'DELETE FROM product_relations WHERE product_id = :product_id';
         $params = [':product_id' => $productId];
@@ -265,19 +293,20 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             SELECT pr.*,
                    {$nameField} AS related_product_name
             FROM product_relations pr
-            INNER JOIN products p  ON pr.related_product_id = p.id
-            INNER JOIN entities e  ON p.tenant_id = e.id
             LEFT JOIN product_translations pt
                    ON p.id = pt.product_id AND pt.language_code = :lang
-            WHERE e.tenant_id = :tenant_id
-              AND pr.product_id = :product_id
+            WHERE pr.product_id = :product_id
         ";
 
         $params = [
-            ':tenant_id'  => $tenantId,
             ':product_id' => $productId,
             ':lang'        => $lang,
         ];
+
+        if ($tenantId > 0) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id']  = $tenantId;
+        }
 
         if ($relationType !== null) {
             $sql .= ' AND pr.relation_type = :relation_type';
@@ -329,6 +358,7 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
      */
     private function validateProductBelongsToTenant(int $productId, int $tenantId): void
     {
+        if ($tenantId <= 0) return;
         $stmt = $this->pdo->prepare("
             SELECT p.id FROM products p
             INNER JOIN entities e ON p.tenant_id = e.id

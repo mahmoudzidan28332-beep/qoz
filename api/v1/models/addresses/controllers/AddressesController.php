@@ -73,12 +73,12 @@ final class AddressesController extends BaseController
     // ================================
     // GET BY OWNER
     // ================================
-    public function getByOwner(int $ownerId, string $ownerType = 'user'): array
+    public function getByOwner(int $ownerId, string $ownerType = 'user', string $language = 'ar'): array
     {
         $this->requirePermission('addresses.view');
         $this->requireTenantScope();
 
-        return $this->service->getByOwner($ownerId, $ownerType);
+        return $this->service->getByOwner($ownerId, $ownerType, $language);
     }
 
     // ================================

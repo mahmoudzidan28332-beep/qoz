@@ -146,9 +146,9 @@ final class AddressesService extends BaseService
     // GET BY OWNER
     // =========================================================================
 
-    public function getByOwner(int $ownerId, string $ownerType = 'user'): array
+    public function getByOwner(int $ownerId, string $ownerType = 'user', string $language = 'ar'): array
     {
-        return $this->repo->getByOwner($ownerId, $ownerType);
+        return $this->repo->getByOwner($ownerId, $ownerType, $language);
     }
 
     // =========================================================================

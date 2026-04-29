@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * ProductsController
+ *
+ * Entry point for product-related requests. Coordinates between
+ * routes and the ProductsService.
+ */
 final class ProductsController
 {
     private ProductsService $service;
@@ -11,7 +17,7 @@ final class ProductsController
     }
 
     /**
-     * List products with filters, ordering, and pagination
+     * List products.
      *
      * @param int|null $limit
      * @param int|null $offset
@@ -33,7 +39,7 @@ final class ProductsController
     }
 
     /**
-     * Get a single product by ID
+     * Get a product.
      *
      * @param int $id
      * @param string $lang
@@ -45,10 +51,10 @@ final class ProductsController
     }
 
     /**
-     * Create a new product
+     * Create a product.
      *
      * @param array $data
-     * @return int New product ID
+     * @return int
      */
     public function create(array $data): int
     {
@@ -56,10 +62,10 @@ final class ProductsController
     }
 
     /**
-     * Update an existing product
+     * Update a product.
      *
-     * @param array $data Must include 'id'
-     * @return int Updated product ID
+     * @param array $data
+     * @return int
      */
     public function update(array $data): int
     {
@@ -67,7 +73,7 @@ final class ProductsController
     }
 
     /**
-     * Delete a product by ID
+     * Delete a product.
      *
      * @param int $id
      * @return bool
@@ -78,7 +84,7 @@ final class ProductsController
     }
 
     /**
-     * Get subscription product limit for a tenant
+     * Check product limits.
      *
      * @return array|null
      */
@@ -88,7 +94,7 @@ final class ProductsController
     }
 
     /**
-     * Count products by tenant
+     * Count products by tenant.
      *
      * @return int
      */

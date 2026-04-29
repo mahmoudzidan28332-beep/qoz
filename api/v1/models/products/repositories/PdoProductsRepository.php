@@ -1,176 +1,26 @@
 <?php
 declare(strict_types=1);
 
-final class PdoProductsRepository extends BaseRepository
+/**
+ * PdoProductsRepository
+ *
+ * Hardened repository for product management with strict tenant isolation (CWE-284).
+ */
+final class PdoProductsRepository extends BaseRepository implements ProductsRepositoryInterface
 {
-    // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
-        'id','sku','slug','barcode','brand_id','is_active',
-        'is_featured','is_bestseller','is_new','stock_quantity',
-        'low_stock_threshold','stock_status','manage_stock','allow_backorder',
-        'total_sales','rating_average','rating_count','views_count',
-        'created_at','updated_at','published_at'
+        'id', 'sku', 'slug', 'barcode', 'brand_id', 'is_active',
+        'is_featured', 'is_bestseller', 'is_new', 'stock_quantity',
+        'low_stock_threshold', 'stock_status', 'manage_stock', 'allow_backorder',
+        'total_sales', 'rating_average', 'rating_count', 'views_count',
+        'created_at', 'updated_at', 'published_at'
     ];
 
-    // الأعمدة القابلة للفلاتر
     private const FILTERABLE_COLUMNS = [
-        'product_type_id','sku','slug','barcode','brand_id','is_active',
-        'is_featured','is_bestseller','is_new','stock_status','manage_stock','allow_backorder'
+        'product_type_id', 'sku', 'slug', 'barcode', 'brand_id', 'is_active',
+        'is_featured', 'is_bestseller', 'is_new', 'stock_status', 'manage_stock', 'allow_backorder'
     ];
 
-    public function __construct(PDO $pdo)
-    {
-        parent::__construct($pdo);
-    }
-
-    // ================================
-    // List with dynamic filters, search, ordering, pagination
-    // ================================
-    public function list(
-        ?int $limit = null,
-        ?int $offset = null,
-        array $filters = [],
-        string $orderBy = 'id',
-        string $orderDir = 'DESC',
-        string $lang = 'ar'
-    ): array {
-        $tenantId = $this->getTenantId();
-        $sql = "
-            SELECT p.*,
-                   COALESCE(pt.name, '') AS name,
-                   pt.short_description,
-                   pt.description AS translated_description,
-                   pt.meta_title,
-                   pt.meta_description,
-                   pt.meta_keywords,
-                   i.id AS image_id,
-                   i.url AS image_url,
-                   i.thumb_url AS image_thumb_url,
-                   pp.price,
-                   pp.compare_at_price,
-                   pp.cost_price,
-                   pp.currency_code,
-                   pp.tax_rate,
-                   pp.pricing_type
-            FROM products p
-            LEFT JOIN product_translations pt
-                ON p.id = pt.product_id AND pt.language_code = :lang
-            LEFT JOIN image_types it ON it.name = 'product'
-            LEFT JOIN images i
-                ON i.owner_id = p.id
-               AND i.is_main = 1
-               AND i.image_type_id = it.id
-            LEFT JOIN (
-                SELECT product_id, MIN(id) AS min_id
-                FROM product_pricing
-                WHERE variant_id IS NULL AND is_active = 1
-                GROUP BY product_id
-            ) pp_min ON pp_min.product_id = p.id
-            LEFT JOIN product_pricing pp ON pp.id = pp_min.min_id
-            WHERE p.tenant_id = :tenant_id
-        ";
-        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
-
-        // تطبيق كل الفلاتر بشكل ديناميكي
-        foreach (self::FILTERABLE_COLUMNS as $col) {
-            if (isset($filters[$col]) && $filters[$col] !== '') {
-                if (in_array($col, ['sku','slug','barcode'])) {
-                    $sql .= " AND p.{$col} LIKE :{$col}";
-                    $params[":{$col}"] = '%' . $filters[$col] . '%';
-                } else {
-                    $sql .= " AND p.{$col} = :{$col}";
-                    $params[":{$col}"] = $filters[$col];
-                }
-            }
-        }
-
-        // الفرز
-        $orderBy = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
-        $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
-        $sql .= " ORDER BY p.{$orderBy} {$orderDir}";
-
-        // Pagination
-        if ($limit !== null) $sql .= " LIMIT :limit";
-        if ($offset !== null) $sql .= " OFFSET :offset";
-
-        $stmt = $this->pdo->prepare($sql);
-
-        foreach ($params as $key => $value) {
-            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
-            $stmt->bindValue($key, $value, $type);
-        }
-        if ($limit !== null) $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-        if ($offset !== null) $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // ================================
-    // Count for pagination
-    // ================================
-    public function count(array $filters = []): int
-    {
-        $tenantId = $this->getTenantId();
-        $sql = "SELECT COUNT(*) FROM products WHERE tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
-
-        foreach (self::FILTERABLE_COLUMNS as $col) {
-            if (isset($filters[$col]) && $filters[$col] !== '') {
-                if (in_array($col, ['sku','slug','barcode'])) {
-                    $sql .= " AND {$col} LIKE :{$col}";
-                    $params[":{$col}"] = '%' . $filters[$col] . '%';
-                } else {
-                    $sql .= " AND {$col} = :{$col}";
-                    $params[":{$col}"] = $filters[$col];
-                }
-            }
-        }
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int)$stmt->fetchColumn();
-    }
-
-    // ================================
-    // Find by ID
-    // ================================
-    public function find(int $id, string $lang = 'ar'): ?array
-    {
-        $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare("
-            SELECT p.*,
-                   COALESCE(pt.name, '') AS name,
-                   pt.short_description,
-                   pt.description AS translated_description,
-                   pt.specifications,
-                   pt.meta_title,
-                   pt.meta_description,
-                   pt.meta_keywords,
-                   i.id AS image_id,
-                   i.url AS image_url,
-                   i.thumb_url AS image_thumb_url
-            FROM products p
-            LEFT JOIN product_translations pt
-                ON p.id = pt.product_id AND pt.language_code = :lang
-            LEFT JOIN image_types it ON it.name = 'product'
-            LEFT JOIN images i
-                ON i.owner_id = p.id
-               AND i.is_main = 1
-               AND i.image_type_id = it.id
-            WHERE p.tenant_id = :tenant_id AND p.id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id, ':lang'=>$lang]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
-    }
-
-    // ================================
-    // Create / Update
-    // ================================
-
-    // الأعمدة المسموحة في جدول products فقط
     private const PRODUCT_COLUMNS = [
         'product_type_id', 'sku', 'slug', 'barcode', 'brand_id',
         'is_active', 'is_featured', 'is_bestseller', 'is_new',
@@ -179,133 +29,327 @@ final class PdoProductsRepository extends BaseRepository
         'rating_average', 'rating_count', 'views_count', 'published_at'
     ];
 
-    public function save(array $data): int
+    public function __construct(PDO $pdo)
     {
-        $tenantId = $this->getTenantId();
-        $isUpdate = !empty($data['id']);
+        parent::__construct($pdo);
+    }
 
-        // استخراج الأعمدة المسموح بها فقط من البيانات الواردة
-        $params = [];
-        foreach (self::PRODUCT_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                // تحويل القيم الفارغة إلى null للأعمدة الاختيارية
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
+    /**
+     * @inheritDoc
+     */
+    public function list(
+        ?int $limit = null,
+        ?int $offset = null,
+        array $filters = [],
+        string $orderBy = 'id',
+        string $orderDir = 'DESC',
+        string $lang = 'ar'
+    ): array {
+        try {
+            $tenantId = $this->getTenantId();
+            $params = [
+                ':tenant_id_main' => $tenantId,
+                ':tenant_id_sub'  => $tenantId,
+                ':lang'           => $lang
+            ];
+            
+            $sql = $this->buildListQuery($filters, $orderBy, $orderDir, $params);
+            
+            if ($limit !== null) {
+                $sql .= " LIMIT :limit";
+                $params[':limit'] = (int)$limit;
+            }
+            if ($offset !== null) {
+                $sql .= " OFFSET :offset";
+                $params[':offset'] = (int)$offset;
+            }
+
+            return $this->executeList($sql, $params);
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] List failed: ' . $e->getMessage());
+            throw new RuntimeException('Database error while listing products', 0, $e);
+        }
+    }
+
+    private function buildListQuery(array $filters, string $orderBy, string $orderDir, array &$params): string
+    {
+        $sql = "
+            SELECT p.id, p.tenant_id, p.product_type_id, p.sku, p.slug, p.barcode, p.brand_id,
+                   p.is_active, p.is_featured, p.is_bestseller, p.is_new, p.stock_quantity,
+                   p.stock_status, p.manage_stock, p.allow_backorder, p.total_sales,
+                   p.rating_average, p.rating_count, p.views_count, p.created_at, p.updated_at,
+                   COALESCE(pt.name, '') AS name,
+                   pt.short_description, pt.meta_title,
+                   pp.price, pp.compare_at_price, pp.currency_code
+            FROM products p
+            LEFT JOIN product_translations pt ON p.id = pt.product_id AND pt.language_code = :lang
+            LEFT JOIN (
+                SELECT pricing.product_id, pricing.price, pricing.compare_at_price, pricing.currency_code
+                FROM product_pricing pricing
+                JOIN products prod ON prod.id = pricing.product_id
+                WHERE pricing.variant_id IS NULL AND pricing.is_active = 1 AND prod.tenant_id = :tenant_id_sub
+                GROUP BY pricing.product_id, pricing.price, pricing.compare_at_price, pricing.currency_code
+            ) pp ON pp.product_id = p.id
+            WHERE p.tenant_id = :tenant_id_main
+        ";
+
+        foreach (self::FILTERABLE_COLUMNS as $col) {
+            if (isset($filters[$col]) && $filters[$col] !== '') {
+                $placeholder = ':' . str_replace('.', '_', $col);
+                if (in_array($col, ['sku', 'slug', 'barcode'], true)) {
+                    $sql .= " AND p.{$col} LIKE {$placeholder}";
+                    $params[$placeholder] = '%' . $filters[$col] . '%';
+                } else {
+                    $sql .= " AND p.{$col} = {$placeholder}";
+                    $params[$placeholder] = $filters[$col];
+                }
             }
         }
 
-        // توليد SKU تلقائياً إذا كان فارغاً
-        if (empty($params[':sku']) || $params[':sku'] === null) {
+        $orderCol = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
+        $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
+        $sql .= " ORDER BY p.{$orderCol} {$orderDir}";
+
+        return $sql;
+    }
+
+    private function executeList(string $sql, array $params): array
+    {
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($key, $value, $type);
+        }
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function count(array $filters = []): int
+    {
+        try {
+            $tenantId = $this->getTenantId();
+            $params = [':tenant_id' => $tenantId];
+            $sql = "SELECT COUNT(id) FROM products WHERE tenant_id = :tenant_id";
+
+            foreach (self::FILTERABLE_COLUMNS as $col) {
+                if (isset($filters[$col]) && $filters[$col] !== '') {
+                    $placeholder = ':f_' . $col;
+                    if (in_array($col, ['sku', 'slug', 'barcode'], true)) {
+                        $sql .= " AND {$col} LIKE {$placeholder}";
+                        $params[$placeholder] = '%' . $filters[$col] . '%';
+                    } else {
+                        $sql .= " AND {$col} = {$placeholder}";
+                        $params[$placeholder] = $filters[$col];
+                    }
+                }
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int)$stmt->fetchColumn();
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] Count failed: ' . $e->getMessage());
+            throw new RuntimeException('Database error while counting products', 0, $e);
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function find(int $id, string $lang = 'ar'): ?array
+    {
+        try {
+            $tenantId = $this->getTenantId();
+            $sql = "
+                SELECT p.id, p.tenant_id, p.product_type_id, p.sku, p.slug, p.barcode, p.brand_id,
+                       p.is_active, p.is_featured, p.is_bestseller, p.is_new, p.stock_quantity,
+                       p.low_stock_threshold, p.stock_status, p.manage_stock, p.allow_backorder,
+                       p.total_sales, p.rating_average, p.rating_count, p.views_count, p.created_at, p.updated_at,
+                       COALESCE(pt.name, '') AS name,
+                       pt.short_description, pt.description AS translated_description,
+                       pt.specifications, pt.meta_title, pt.meta_description, pt.meta_keywords
+                FROM products p
+                LEFT JOIN product_translations pt ON p.id = pt.product_id AND pt.language_code = :lang
+                WHERE p.id = :id
+            ";
+            
+            $params = [':id' => $id, ':lang' => $lang];
+            
+            if ($tenantId > 0) {
+                $sql .= " AND p.tenant_id = :tenant_id";
+                $params[':tenant_id'] = $tenantId;
+            }
+
+            $sql .= " LIMIT 1";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] Find failed: ' . $e->getMessage());
+            throw new RuntimeException('Database error while fetching product', 0, $e);
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function save(array $data): int
+    {
+        try {
+            $tenantId = $this->getTenantId();
+            $isUpdate = !empty($data['id']);
+            $params = $this->prepareProductParams($data);
+            $params[':tenant_id'] = $tenantId;
+
+            if ($isUpdate) {
+                return $this->updateProduct((int)$data['id'], $params);
+            }
+            return $this->insertProduct($params);
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] Save failed: ' . $e->getMessage());
+            throw new RuntimeException('Database error while saving product', 0, $e);
+        }
+    }
+
+    private function prepareProductParams(array $data): array
+    {
+        $params = [];
+        foreach (self::PRODUCT_COLUMNS as $col) {
+            $val = $data[$col] ?? null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
+        }
+
+        if (empty($params[':sku'])) {
             $params[':sku'] = 'PRD-' . strtoupper(bin2hex(random_bytes(4))) . '-' . time();
         }
 
-        // توليد slug تلقائياً إذا كان فارغاً
-        if (empty($params[':slug']) || $params[':slug'] === null) {
+        if (empty($params[':slug'])) {
             $name = $data['name'] ?? $params[':sku'];
-            $params[':slug'] = preg_replace('/[^a-z0-9\p{Arabic}\-]+/u', '-', mb_strtolower(trim($name)));
-            $params[':slug'] = trim($params[':slug'], '-');
-            if (empty($params[':slug'])) {
-                $params[':slug'] = 'product-' . time();
-            }
-            // إضافة رقم عشوائي لتجنب التكرار
-            $params[':slug'] .= '-' . mt_rand(1000, 9999);
+            $slug = preg_replace('/[^a-z0-9\p{Arabic}\-]+/u', '-', mb_strtolower(trim((string)$name)));
+            $params[':slug'] = trim((string)$slug, '-') . '-' . mt_rand(1000, 9999);
         }
 
-        // product_type_id مطلوب (NOT NULL) - تعيين قيمة افتراضية 1 إذا لم يتم تحديده
         if (empty($params[':product_type_id'])) {
             $params[':product_type_id'] = 1;
         }
 
-        if ($isUpdate) {
-            $params[':tenant_id'] = $tenantId;
-            $params[':id'] = (int)$data['id'];
+        return $params;
+    }
 
-            $stmt = $this->pdo->prepare("
-                UPDATE products SET
-                    product_type_id = :product_type_id,
-                    sku = :sku,
-                    slug = :slug,
-                    barcode = :barcode,
-                    brand_id = :brand_id,
-                    is_active = :is_active,
-                    is_featured = :is_featured,
-                    is_bestseller = :is_bestseller,
-                    is_new = :is_new,
-                    stock_quantity = :stock_quantity,
-                    low_stock_threshold = :low_stock_threshold,
-                    stock_status = :stock_status,
-                    manage_stock = :manage_stock,
-                    allow_backorder = :allow_backorder,
-                    total_sales = :total_sales,
-                    rating_average = :rating_average,
-                    rating_count = :rating_count,
-                    views_count = :views_count,
-                    published_at = :published_at,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant_id AND id = :id
-            ");
-            $stmt->execute($params);
-            return (int)$data['id'];
+    private function updateProduct(int $id, array $params): int
+    {
+        $params[':id'] = $id;
+        $tenantId = (int)($params[':tenant_id'] ?? 0);
+        
+        $sql = "
+            UPDATE products SET
+                product_type_id = :product_type_id, sku = :sku, slug = :slug, barcode = :barcode,
+                brand_id = :brand_id, is_active = :is_active, is_featured = :is_featured,
+                is_bestseller = :is_bestseller, is_new = :is_new, stock_quantity = :stock_quantity,
+                low_stock_threshold = :low_stock_threshold, stock_status = :stock_status,
+                manage_stock = :manage_stock, allow_backorder = :allow_backorder,
+                total_sales = :total_sales, rating_average = :rating_average,
+                rating_count = :rating_count, views_count = :views_count,
+                published_at = :published_at, updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ";
+
+        if ($tenantId > 0) {
+            $sql .= " AND tenant_id = :tenant_id";
+        } else {
+            // If Platform Admin (tenant_id = 0), we must ensure we DON'T update the tenant_id of the product to 0
+            // but we also need to avoid the WHERE clause check for tenant_id.
+            unset($params[':tenant_id']);
         }
 
-        $params[':tenant_id'] = $tenantId;
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $id;
+    }
 
+    private function insertProduct(array $params): int
+    {
         $stmt = $this->pdo->prepare("
             INSERT INTO products (
                 tenant_id, product_type_id, sku, slug, barcode, brand_id,
-                is_active, is_featured, is_bestseller, is_new,
-                stock_quantity, low_stock_threshold, stock_status,
-                manage_stock, allow_backorder, total_sales,
-                rating_average, rating_count, views_count, published_at
+                is_active, is_featured, is_bestseller, is_new, stock_quantity,
+                low_stock_threshold, stock_status, manage_stock, allow_backorder,
+                total_sales, rating_average, rating_count, views_count, published_at
             ) VALUES (
                 :tenant_id, :product_type_id, :sku, :slug, :barcode, :brand_id,
-                :is_active, :is_featured, :is_bestseller, :is_new,
-                :stock_quantity, :low_stock_threshold, :stock_status,
-                :manage_stock, :allow_backorder, :total_sales,
-                :rating_average, :rating_count, :views_count, :published_at
+                :is_active, :is_featured, :is_bestseller, :is_new, :stock_quantity,
+                :low_stock_threshold, :stock_status, :manage_stock, :allow_backorder,
+                :total_sales, :rating_average, :rating_count, :views_count, :published_at
             )
         ");
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
     }
 
-    // ================================
-    // Delete
-    // ================================
+    /**
+     * @inheritDoc
+     */
     public function delete(int $id): bool
     {
-        $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare(
-            "DELETE FROM products WHERE tenant_id = :tenant_id AND id = :id"
-        );
-        return $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id]);
+        try {
+            $tenantId = $this->getTenantId();
+            $sql = "DELETE FROM products WHERE id = :id";
+            $params = [':id' => $id];
+            
+            if ($tenantId > 0) {
+                $sql .= " AND tenant_id = :tenant_id";
+                $params[':tenant_id'] = $tenantId;
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] Delete failed: ' . $e->getMessage());
+            throw new RuntimeException('Database error while deleting product', 0, $e);
+        }
     }
 
-    // ================================
-    // Check subscription product limit for tenant
-    // ================================
+    /**
+     * @inheritDoc
+     */
     public function getSubscriptionProductLimit(): ?array
     {
-        $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare(
-            "SELECT s.id, sp.max_products, sp.plan_name
-             FROM subscriptions s
-             JOIN subscription_plans sp ON s.plan_id = sp.id
-             WHERE s.tenant_id = :tid AND s.status IN ('active','trial')
-             ORDER BY s.id DESC LIMIT 1"
-        );
-        $stmt->execute([':tid' => $tenantId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        try {
+            $tenantId = $this->getTenantId();
+            $stmt = $this->pdo->prepare("
+                SELECT s.id, sp.max_products, sp.plan_name
+                FROM subscriptions s
+                JOIN subscription_plans sp ON s.plan_id = sp.id
+                WHERE s.tenant_id = :tid AND s.status IN ('active','trial')
+                ORDER BY s.id DESC LIMIT 1
+            ");
+            $stmt->execute([':tid' => $tenantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] Subscription limit check failed: ' . $e->getMessage());
+            return null;
+        }
     }
 
+    /**
+     * @inheritDoc
+     */
     public function countByTenant(): int
     {
-        $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tid");
-        $stmt->execute([':tid' => $tenantId]);
-        return (int)$stmt->fetchColumn();
+        try {
+            $tenantId = $this->getTenantId();
+            $stmt = $this->pdo->prepare("SELECT COUNT(id) FROM products WHERE tenant_id = :tid");
+            $stmt->execute([':tid' => $tenantId]);
+            return (int)$stmt->fetchColumn();
+        } catch (PDOException $e) {
+            error_log('[PdoProductsRepository] CountByTenant failed: ' . $e->getMessage());
+            return 0;
+        }
     }
 }

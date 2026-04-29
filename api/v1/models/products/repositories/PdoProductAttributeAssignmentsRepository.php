@@ -27,10 +27,12 @@ final class PdoProductAttributeAssignmentsRepository
             INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE p.tenant_id = :tenant_id
-        ";
-
-        $params = [':tenant_id' => $tenantId];
+            WHERE 1=1";
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         if ($productId) {
             $sql .= " AND paa.product_id = :productId";
@@ -54,17 +56,21 @@ final class PdoProductAttributeAssignmentsRepository
     {
         $tenantId = TenantContext::require();
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT paa.*, pa.slug AS attribute_slug, pav.slug AS attribute_value_slug
             FROM product_attribute_assignments paa
             INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE paa.id = :id AND p.tenant_id = :tenant_id
-            LIMIT 1
-        ");
-
-        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+            WHERE paa.id = :id
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql . " LIMIT 1");
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -73,18 +79,23 @@ final class PdoProductAttributeAssignmentsRepository
     {
         $tenantId = TenantContext::require();
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT paa.id, paa.attribute_id, paa.attribute_value_id, paa.custom_value,
                    pa.slug AS attribute_slug, pav.slug AS attribute_value_slug, pav.value AS attribute_value
             FROM product_attribute_assignments paa
             INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE paa.product_id = :productId AND p.tenant_id = :tenant_id
-            ORDER BY pa.sort_order ASC
-        ");
-
-        $stmt->execute([':productId' => $productId, ':tenant_id' => $tenantId]);
+            WHERE paa.product_id = :productId
+        ";
+        $params = [':productId' => $productId];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= " ORDER BY pa.sort_order ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -94,12 +105,14 @@ final class PdoProductAttributeAssignmentsRepository
         $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
 
-        // Verify product belongs to tenant
+        // Verify product belongs to tenant (if not platform admin)
         $productId = (int)$data['product_id'];
-        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-        $checkStmt->execute([$productId, $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new InvalidArgumentException("Product not found or access denied.");
+        if ($tenantId > 0) {
+            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $checkStmt->execute([$productId, $tenantId]);
+            if (!$checkStmt->fetch()) {
+                throw new InvalidArgumentException("Product not found or access denied.");
+            }
         }
 
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
@@ -107,15 +120,17 @@ final class PdoProductAttributeAssignmentsRepository
         if ($isUpdate) {
             $id = (int)$data['id'];
             
-            // Security check: Verify assignment belongs to tenant
-            $assignCheck = $this->pdo->prepare("
-                SELECT paa.id FROM product_attribute_assignments paa 
-                JOIN products p ON paa.product_id = p.id 
-                WHERE paa.id = ? AND p.tenant_id = ?
-            ");
-            $assignCheck->execute([$id, $tenantId]);
-            if (!$assignCheck->fetch()) {
-                throw new InvalidArgumentException("Assignment record not found or access denied.");
+            if ($tenantId > 0) {
+                // Security check: Verify assignment belongs to tenant
+                $assignCheck = $this->pdo->prepare("
+                    SELECT paa.id FROM product_attribute_assignments paa 
+                    JOIN products p ON paa.product_id = p.id 
+                    WHERE paa.id = ? AND p.tenant_id = ?
+                ");
+                $assignCheck->execute([$id, $tenantId]);
+                if (!$assignCheck->fetch()) {
+                    throw new InvalidArgumentException("Assignment record not found or access denied.");
+                }
             }
 
             $stmt = $this->pdo->prepare("
@@ -170,13 +185,19 @@ final class PdoProductAttributeAssignmentsRepository
             return false;
         }
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             DELETE paa FROM product_attribute_assignments paa
             INNER JOIN products p ON paa.product_id = p.id
-            WHERE paa.id = :id AND p.tenant_id = :tenant_id
-        ");
+            WHERE paa.id = :id
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
-        $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        $stmt = $this->pdo->prepare($sql);
+        $result = $stmt->execute($params);
 
         // Log the action
         if ($userId && $result) {
@@ -198,13 +219,19 @@ final class PdoProductAttributeAssignmentsRepository
         $this->pdo->beginTransaction();
 
         try {
-            $stmt = $this->pdo->prepare("
+            $sql = "
                 DELETE paa FROM product_attribute_assignments paa
                 INNER JOIN products p ON paa.product_id = p.id
-                WHERE paa.product_id = :productId AND p.tenant_id = :tenant_id
-            ");
+                WHERE paa.product_id = :productId
+            ";
+            $params = [':productId' => $productId];
+            if ($tenantId > 0) {
+                $sql .= " AND p.tenant_id = :tenant_id";
+                $params[':tenant_id'] = $tenantId;
+            }
 
-            $result = $stmt->execute([':productId' => $productId, ':tenant_id' => $tenantId]);
+            $stmt = $this->pdo->prepare($sql);
+            $result = $stmt->execute($params);
 
             // Log the action for each deleted assignment
             if ($userId && $result) {
