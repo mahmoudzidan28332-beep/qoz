@@ -46,11 +46,11 @@ try {
     $service    = new CommissionCreditNotesService($repo);
     $controller = new CommissionCreditNotesController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
                 $stats = $controller->stats($tenantId);
                 ResponseFormatter::success($stats);
                 break;
@@ -66,7 +66,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['invoice_id'])) $filters['invoice_id'] = $_GET['invoice_id'];
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['date_from']))  $filters['date_from'] = $_GET['date_from'];
@@ -80,6 +80,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'credit_note_number', 'invoice_id', 'related_transaction_id', 'credit_amount', 'credit_commission', 'credit_vat', 'net_credit', 'reason', 'status', 'issued_at', 'created_by', 'issued_by', 'cancelled_by']));
             if (empty($data['tenant_id'])) {
                 $data['tenant_id'] = $_SESSION['tenant_id'] ?? 1;
             }
@@ -112,4 +113,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-

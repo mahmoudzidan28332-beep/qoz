@@ -62,7 +62,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id'])) $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['plan_id']))   $filters['plan_id'] = $_GET['plan_id'];
                 if (isset($_GET['status']))    $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))    $filters['search'] = $_GET['search'];
@@ -75,6 +75,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['subscription_number', 'tenant_id', 'plan_id', 'status', 'billing_period', 'price', 'currency_code', 'start_date', 'end_date', 'trial_end_date', 'next_billing_date', 'auto_renew', 'cancelled_at', 'cancellation_reason', 'suspended_at', 'suspension_reason']));
             $errors = SubscriptionsValidator::validateCreate($data);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
             $result = $controller->create($data);
@@ -148,4 +149,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-

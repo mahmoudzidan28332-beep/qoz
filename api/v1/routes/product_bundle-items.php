@@ -31,7 +31,7 @@ $controller = new ProductBundleItemsController($service);
 
 try {
     // Get tenant ID from query string or session
-    $tenantId = $_GET['tenant_id'] ?? $_SESSION['tenant_id'] ?? null;
+    $tenantId = resolve_tenant_id();
     if (!$tenantId || !is_numeric($tenantId)) {
         ResponseFormatter::error('Unauthorized: tenant not found', 401);
         exit;

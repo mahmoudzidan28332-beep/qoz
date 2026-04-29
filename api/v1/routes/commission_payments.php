@@ -46,11 +46,11 @@ try {
     $service    = new CommissionPaymentsService($repo);
     $controller = new CommissionPaymentsController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
                 $stats = $controller->stats($tenantId, $entityId);
                 ResponseFormatter::success($stats);
@@ -67,7 +67,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id']))              $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['entity_id']))              $filters['entity_id'] = $_GET['entity_id'];
                 if (isset($_GET['commission_invoice_id']))  $filters['commission_invoice_id'] = $_GET['commission_invoice_id'];
                 if (isset($_GET['is_cancelled']))           $filters['is_cancelled'] = $_GET['is_cancelled'];
@@ -82,6 +82,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'entity_id', 'commission_invoice_id', 'payment_number', 'payment_method', 'amount_paid', 'paid_at', 'is_cancelled', 'cancelled_at', 'cancellation_reason', 'created_by', 'cancelled_by']));
             if (empty($data['tenant_id'])) {
                 $data['tenant_id'] = $_SESSION['tenant_id'] ?? 1;
             }
@@ -114,4 +115,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-

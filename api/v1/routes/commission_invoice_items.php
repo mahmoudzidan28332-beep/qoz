@@ -69,6 +69,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['invoice_id', 'transaction_id', 'order_id', 'order_date', 'order_amount', 'commission_amount', 'vat_amount', 'net_commission', 'transaction_type']));
             $errors = CommissionInvoiceItemsValidator::validateCreate($data);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
             $id = $controller->create($data);
@@ -98,5 +99,4 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-
 

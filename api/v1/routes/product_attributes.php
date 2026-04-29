@@ -55,11 +55,13 @@ try {
         }
     } elseif ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['slug', 'attribute_type_id', 'is_filterable', 'is_visible', 'is_required', 'is_variation', 'sort_order', 'is_global']));
         ResponseFormatter::success(
             $controller->create($data)
         );
     } elseif ($method === 'PUT') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['slug', 'attribute_type_id', 'is_filterable', 'is_visible', 'is_required', 'is_variation', 'sort_order', 'is_global'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         ResponseFormatter::success(
             $controller->update($data)
         );

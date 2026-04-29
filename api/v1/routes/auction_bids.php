@@ -78,6 +78,7 @@ try {
 
         case 'POST':
             $data  = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = array_intersect_key($data, array_flip(['auction_id', 'user_id', 'bid_amount', 'max_auto_bid', 'bid_type', 'is_winning', 'is_auto_outbid', 'ip_address', 'user_agent']));
             $newId = $controller->create($data);
             ResponseFormatter::success(['id' => $newId], 'Bid placed successfully', 201);
             break;
@@ -106,4 +107,3 @@ try {
     safe_log('critical', 'auction_bids.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error($e->getMessage(), 500);
 }
-

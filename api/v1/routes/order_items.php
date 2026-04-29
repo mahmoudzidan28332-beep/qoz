@@ -15,7 +15,7 @@ if (!$pdo instanceof PDO) { ResponseFormatter::error('Database not initialized',
 $repo = new PdoOrderItemsRepository($pdo);
 $service = new OrderItemsService($repo);
 $controller = new OrderItemsController($service);
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 if ($tenantId === null) { ResponseFormatter::error('Unauthorized: tenant not found', 401); exit; }
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -40,4 +40,3 @@ try {
 } catch (\InvalidArgumentException $e) { safe_log('warning', 'order_items.validation', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 422); }
 catch (\RuntimeException $e) { safe_log('error', 'order_items.runtime', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 400); }
 catch (Throwable $e) { safe_log('critical', 'order_items.fatal', ['error' => $e->getMessage()]); ResponseFormatter::error('Internal Server Error', 500); }
-

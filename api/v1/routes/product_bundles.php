@@ -30,7 +30,7 @@ $service    = new ProductBundlesService($repo, $validator);
 $controller = new ProductBundlesController($service);
 
 try {
-    $tenantId = $_GET['tenant_id'] ?? $_SESSION['tenant_id'] ?? null;
+    $tenantId = resolve_tenant_id();
     if (!$tenantId || !is_numeric($tenantId)) {
         ResponseFormatter::error('Unauthorized: tenant not found', 401);
         exit;

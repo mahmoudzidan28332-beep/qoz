@@ -43,6 +43,12 @@ try {
     // Collect filters
     $filters = [];
     
+    // فلتر tenant_id — resolved from trusted session/role, never from raw GET
+    $tenantId = resolve_tenant_id();
+    if ($tenantId !== null) {
+        $filters['tenant_id'] = $tenantId;
+    }
+
     // فلتر entity_id
     if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id'])) {
         $filters['entity_id'] = (int)$_GET['entity_id'];
@@ -101,7 +107,8 @@ try {
             
             // GET /api/entities_attribute_values/entity/{entity_id} - الحصول على جميع قيم كيان
             if (isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) {
-                $values = $controller->getEntityValues((int)$_GET['entity_id'], $lang);
+                $tenantIdFilter = isset($filters['tenant_id']) ? $filters['tenant_id'] : null;
+                $values = $controller->getEntityValues((int)$_GET['entity_id'], $lang, $tenantIdFilter);
                 ResponseFormatter::success($values);
                 exit;
             }
@@ -146,7 +153,8 @@ try {
             // POST /api/entities_attribute_values/bulk/{entity_id} - حفظ جماعي لقيم كيان
             if (isset($_GET['action']) && $_GET['action'] === 'bulk' && isset($_GET['entity_id'])) {
                 $entityId = (int)$_GET['entity_id'];
-                $savedIds = $controller->saveEntityValues($entityId, $data);
+                $tenantIdParam = resolve_tenant_id();
+                $savedIds = $controller->saveEntityValues($entityId, $data, $tenantIdParam);
                 ResponseFormatter::success(['saved_ids' => $savedIds], 'Bulk values saved successfully', 201);
                 exit;
             }
@@ -169,8 +177,8 @@ try {
         case 'DELETE':
             // DELETE /api/entities_attribute_values/entity/{entity_id} - حذف جميع قيم كيان
             if ((isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) || (isset($_GET['entity_id']) && !isset($_GET['id']))) {
-                $controller->deleteEntityValues((int)$_GET['entity_id']);
-                ResponseFormatter::success(null, 'All entity values deleted successfully');
+                $tenantIdParam = resolve_tenant_id();
+                $controller->deleteEntityValues((int)$_GET['entity_id'], $tenantIdParam);
                 exit;
             }
             
@@ -212,4 +220,3 @@ try {
     safe_log('critical','entities_attribute_values.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }
-

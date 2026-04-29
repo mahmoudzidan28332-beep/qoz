@@ -46,11 +46,11 @@ try {
     $service    = new CommissionTransactionsService($repo);
     $controller = new CommissionTransactionsController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
                 $stats = $controller->stats($tenantId, $entityId);
                 ResponseFormatter::success($stats);
@@ -62,7 +62,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id']))        $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['entity_id']))        $filters['entity_id'] = $_GET['entity_id'];
                 if (isset($_GET['status']))           $filters['status'] = $_GET['status'];
                 if (isset($_GET['transaction_type'])) $filters['transaction_type'] = $_GET['transaction_type'];
@@ -78,6 +78,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['tenant_id', 'entity_id', 'order_id', 'order_date', 'transaction_type', 'order_amount', 'commission_amount', 'vat_amount', 'net_commission', 'status', 'is_locked', 'locked_at', 'created_by', 'updated_by', 'cancelled_by']));
             if (empty($data['tenant_id']) && !empty($_SESSION['tenant_id'])) {
                 $data['tenant_id'] = (int)$_SESSION['tenant_id'];
             }
@@ -110,4 +111,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-

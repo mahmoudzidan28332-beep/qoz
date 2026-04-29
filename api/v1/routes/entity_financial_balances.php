@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // Error handling
 ini_set('display_errors', '0');
-ini_set('log_errors', '1');
+ini_set('log_errors', '0');
 ini_set('error_log', __DIR__ . '/../../../logs/php_errors.log');
 
 date_default_timezone_set('Asia/Riyadh');
@@ -46,6 +46,7 @@ try {
     $service    = new EntityFinancialBalancesService($repo);
     $controller = new EntityFinancialBalancesController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
@@ -55,7 +56,7 @@ try {
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
-                if (isset($_GET['tenant_id'])) $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['limit']))     $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))    $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);
@@ -92,5 +93,4 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-
 

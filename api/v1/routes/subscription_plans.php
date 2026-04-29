@@ -73,6 +73,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['plan_name', 'code', 'plan_type', 'billing_period', 'price', 'currency_code', 'setup_fee', 'commission_rate', 'max_products', 'max_branches', 'max_orders_per_month', 'max_staff', 'analytics_access', 'priority_support', 'featured_listing', 'custom_domain', 'api_access', 'trial_period_days', 'is_active', 'is_featured', 'sort_order']));
             $errors = SubscriptionPlansValidator::validateCreate($data);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
             $id = $controller->create($data);
@@ -102,4 +103,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-

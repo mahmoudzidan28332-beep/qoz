@@ -53,6 +53,7 @@ try {
     // ===== CREATE =====
     if ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['code', 'name', 'description', 'width', 'height', 'crop', 'quality', 'format', 'is_thumbnail', 'icon', 'color']));
         ResponseFormatter::success(
             $controller->create($data)
         );
@@ -62,6 +63,7 @@ try {
     // ===== UPDATE =====
     if ($method === 'PUT') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['code', 'name', 'description', 'width', 'height', 'crop', 'quality', 'format', 'is_thumbnail', 'icon', 'color'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         if (empty($data['id'])) {
             throw new InvalidArgumentException('ID is required');
         }
@@ -96,4 +98,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

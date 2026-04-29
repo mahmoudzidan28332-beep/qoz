@@ -126,7 +126,7 @@ try {
                 }
                 ResponseFormatter::success($item);
             } elseif (isset($_GET['entity_type'], $_GET['entity_id'])) {
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+                $tenantId = resolve_tenant_id();
                 $item = $controller->getByEntity($_GET['entity_type'], (int)$_GET['entity_id'], $tenantId);
                 if (!$item) {
                     ResponseFormatter::error('SEO meta not found for this entity', 404);
@@ -188,4 +188,3 @@ try {
     error_log("Error in seo_meta: " . $e->getMessage());
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }
-
