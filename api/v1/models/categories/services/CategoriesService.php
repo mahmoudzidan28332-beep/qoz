@@ -89,13 +89,15 @@ final class CategoriesService
             throw new RuntimeException('Category not found');
         }
 
+        $translations = $this->repo->getTranslations($id);
+
         if ($allTranslations) {
-            $row['translations'] = $this->repo->getTranslations($id);
+            $row['translations'] = $translations;
         } else {
-            $translations = $this->repo->getTranslations($id);
             if (isset($translations[$lang])) {
                 $row = array_merge($row, $translations[$lang]);
             }
+            $row['translations'] = $translations;
         }
 
         $image = $this->repo->getMainImage($tenantId, $id);
@@ -121,6 +123,8 @@ final class CategoriesService
         array $data,
         ?int $userId = null
     ): array {
+        $data = $this->normalizePayload($data);
+
         $errors = $this->validator->validate($data);
         if (!empty($errors)) {
             throw new InvalidArgumentException(
@@ -162,6 +166,117 @@ final class CategoriesService
         }
 
         return $row;
+    }
+
+    private function normalizePayload(array $data): array
+    {
+        $translations = $this->normalizeTranslations($data['translations'] ?? []);
+        $defaultTranslation = null;
+
+        foreach ($translations as $translation) {
+            if (($translation['language_code'] ?? '') === 'en') {
+                $defaultTranslation = $translation;
+                break;
+            }
+        }
+
+        if ($defaultTranslation === null) {
+            $fallbackName = $this->normalizeString($data['name'] ?? null);
+            $fallbackSlug = $this->normalizeString($data['slug'] ?? null);
+            $fallbackDescription = $this->normalizeNullableString($data['description'] ?? null);
+
+            if ($fallbackName !== null || $fallbackSlug !== null || $fallbackDescription !== null) {
+                $defaultTranslation = [
+                    'language_code' => 'en',
+                    'name' => $fallbackName ?? '',
+                    'slug' => $fallbackSlug ?? '',
+                    'description' => $fallbackDescription,
+                    'meta_title' => null,
+                    'meta_description' => null,
+                    'meta_keywords' => null,
+                ];
+                $translations[] = $defaultTranslation;
+            }
+        }
+
+        if ($defaultTranslation !== null) {
+            $data['name'] = $this->firstNonEmpty(
+                $this->normalizeString($defaultTranslation['name'] ?? null),
+                $this->normalizeString($data['name'] ?? null)
+            ) ?? '';
+
+            $data['slug'] = $this->firstNonEmpty(
+                $this->normalizeString($defaultTranslation['slug'] ?? null),
+                $this->normalizeString($data['slug'] ?? null)
+            ) ?? '';
+
+            $data['description'] = $this->firstNonEmpty(
+                $this->normalizeNullableString($defaultTranslation['description'] ?? null),
+                $this->normalizeNullableString($data['description'] ?? null)
+            );
+        }
+
+        $data['translations'] = $translations;
+
+        return $data;
+    }
+
+    private function normalizeTranslations(array $translations): array
+    {
+        $normalized = [];
+
+        foreach ($translations as $key => $translation) {
+            if (!is_array($translation)) {
+                continue;
+            }
+
+            $languageCode = $translation['language_code'] ?? (is_string($key) ? $key : null);
+            $languageCode = $this->normalizeString($languageCode);
+            if ($languageCode === null) {
+                continue;
+            }
+
+            $normalized[$languageCode] = [
+                'language_code' => $languageCode,
+                'name' => $this->normalizeNullableString($translation['name'] ?? null) ?? '',
+                'slug' => $this->normalizeNullableString($translation['slug'] ?? null),
+                'description' => $this->normalizeNullableString($translation['description'] ?? null),
+                'meta_title' => $this->normalizeNullableString($translation['meta_title'] ?? null),
+                'meta_description' => $this->normalizeNullableString($translation['meta_description'] ?? null),
+                'meta_keywords' => $this->normalizeNullableString($translation['meta_keywords'] ?? null),
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    private function normalizeString(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        return $value !== '' ? $value : null;
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            $value = (string) $value;
+        }
+
+        $value = trim($value);
+        return $value !== '' ? $value : null;
+    }
+
+    private function firstNonEmpty(?string $first, ?string $second): ?string
+    {
+        return $first !== null && $first !== '' ? $first : $second;
     }
 
     /* ============================================================

@@ -7,6 +7,11 @@ final class PdoCountryTaxesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'country_id', 'tax_class_id', 'tax_name', 'tax_name_ar',
+        'tax_type', 'tax_rate', 'is_inclusive', 'is_active', 'effective_date'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -74,6 +79,7 @@ final class PdoCountryTaxesRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 

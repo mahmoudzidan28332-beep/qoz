@@ -17,7 +17,10 @@ final class TenantCategoriesService
     public function list(?int $tenantId = null, ?int $categoryId = null, ?int $isActive = null, int $page = 1, int $limit = 25, string $lang = 'ar'): array
     {
         $offset = ($page - 1) * $limit;
-        return $this->repo->all($tenantId, $categoryId, $isActive, $offset, $limit, $lang);
+        return [
+            'items' => $this->repo->all($tenantId, $categoryId, $isActive, $offset, $limit, $lang),
+            'total' => $this->repo->count($tenantId, $categoryId, $isActive)
+        ];
     }
 
     public function get(int $id, string $lang = 'ar'): array

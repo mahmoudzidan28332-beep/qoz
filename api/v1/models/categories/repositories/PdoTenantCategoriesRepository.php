@@ -3,17 +3,37 @@ declare(strict_types=1);
 
 // api/v1/models/categories/repositories/PdoTenantCategoriesRepository.php
 
-final class PdoTenantCategoriesRepository
+final class PdoTenantCategoriesRepository extends BaseRepository
 {
-    private PDO $pdo;
-
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
+    /**
+     * Get all tenant categories with pagination and filters
+     *
+     * @param  int|null $tenantId   Preferred tenant ID (ignored if Context > 0)
+     * @param  int|null $categoryId Filter by category
+     * @param  int|null $isActive   Filter by status
+     * @param  int      $offset
+     * @param  int|null $limit
+     * @param  string   $lang
+     * @return array
+     */
     public function all(?int $tenantId = null, ?int $categoryId = null, ?int $isActive = null, int $offset = 0, int $limit = null, string $lang = 'ar'): array
     {
+        $contextTenantId = $this->getTenantId();
+        
+        // 🔒 SECURITY: Enforce tenant isolation. 
+        // If Context is > 0, we MUST filter by that tenant.
+        // Only if Context is 0 (Platform Admin) do we allow the filter to choose the tenant (or 0 for all).
+        if ($contextTenantId > 0) {
+            $effectiveTenantId = $contextTenantId;
+        } else {
+            $effectiveTenantId = ($tenantId !== null && $tenantId > 0) ? $tenantId : 0;
+        }
+
         $sql = "SELECT tc.*, t.name AS tenant_name,
                        COALESCE(
                            (SELECT name FROM category_translations WHERE category_id = c.id AND language_code = :lang LIMIT 1),
@@ -27,9 +47,9 @@ final class PdoTenantCategoriesRepository
 
         $params = [':lang' => $lang];
 
-        if ($tenantId !== null) {
+        if ($effectiveTenantId > 0) {
             $sql .= " AND tc.tenant_id = :tenantId";
-            $params[':tenantId'] = $tenantId;
+            $params[':tenantId'] = $effectiveTenantId;
         }
 
         if ($categoryId !== null) {
@@ -44,35 +64,84 @@ final class PdoTenantCategoriesRepository
 
         $sql .= " ORDER BY tc.sort_order ASC, tc.created_at DESC";
 
-        // Apply limit if provided (limit=0 or null → no limit)
         if ($limit !== null && $limit > 0) {
             $sql .= " LIMIT :limit OFFSET :offset";
             $params[':limit'] = $limit;
             $params[':offset'] = $offset;
+            
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stmt->execute();
+        } else {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
         }
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Count total categories matching filters (for pagination)
+     */
+    public function count(?int $tenantId = null, ?int $categoryId = null, ?int $isActive = null): int
+    {
+        $contextTenantId = $this->getTenantId();
+        
+        if ($contextTenantId > 0) {
+            $effectiveTenantId = $contextTenantId;
+        } else {
+            $effectiveTenantId = ($tenantId !== null && $tenantId > 0) ? $tenantId : 0;
+        }
+
+        $sql = "SELECT COUNT(*) FROM tenant_categories tc WHERE 1=1";
+        $params = [];
+
+        if ($effectiveTenantId > 0) {
+            $sql .= " AND tc.tenant_id = :tenantId";
+            $params[':tenantId'] = $effectiveTenantId;
+        }
+
+        if ($categoryId !== null) {
+            $sql .= " AND tc.category_id = :categoryId";
+            $params[':categoryId'] = $categoryId;
+        }
+
+        if ($isActive !== null) {
+            $sql .= " AND tc.is_active = :isActive";
+            $params[':isActive'] = $isActive;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
     public function find(int $id, string $lang = 'ar'): ?array
     {
-        $stmt = $this->pdo->prepare("
-            SELECT tc.*, t.name AS tenant_name,
-                   COALESCE(
-                       (SELECT name FROM category_translations WHERE category_id = c.id AND language_code = :lang LIMIT 1),
-                       (SELECT name FROM category_translations WHERE category_id = c.id ORDER BY language_code LIMIT 1),
-                       c.name
-                   ) AS category_name
-            FROM tenant_categories tc
-            LEFT JOIN tenants t ON tc.tenant_id = t.id
-            LEFT JOIN categories c ON tc.category_id = c.id
-            WHERE tc.id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':id' => $id, ':lang' => $lang]);
+        $contextTenantId = $this->getTenantId();
+        
+        $sql = "SELECT tc.*, t.name AS tenant_name,
+                       COALESCE(
+                           (SELECT name FROM category_translations WHERE category_id = c.id AND language_code = :lang LIMIT 1),
+                           (SELECT name FROM category_translations WHERE category_id = c.id ORDER BY language_code LIMIT 1),
+                           c.name
+                       ) AS category_name
+                FROM tenant_categories tc
+                LEFT JOIN tenants t ON tc.tenant_id = t.id
+                LEFT JOIN categories c ON tc.category_id = c.id
+                WHERE tc.id = :id";
+        
+        $params = [':id' => $id, ':lang' => $lang];
+
+        if ($contextTenantId > 0) {
+            $sql .= " AND tc.tenant_id = :tenantId";
+            $params[':tenantId'] = $contextTenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -82,7 +151,12 @@ final class PdoTenantCategoriesRepository
         $isUpdate = !empty($data['id']);
 
         if ($isUpdate) {
-            // For partial updates, only update provided fields
+            // Verify ownership if tenant-scoped
+            $existing = $this->find((int)$data['id']);
+            if (!$existing) {
+                throw new RuntimeException('Tenant Category not found or access denied');
+            }
+
             $updateFields = [];
             $params = [':id' => $data['id']];
 
@@ -104,7 +178,7 @@ final class PdoTenantCategoriesRepository
             }
 
             if (empty($updateFields)) {
-                return (int)$data['id']; // No changes
+                return (int)$data['id'];
             }
 
             $sql = "UPDATE tenant_categories SET " . implode(', ', $updateFields) . " WHERE id = :id";
@@ -126,22 +200,13 @@ final class PdoTenantCategoriesRepository
         }
     }
 
-    /**
-     * Return all descendant category IDs for a given set of category IDs.
-     * Uses a recursive CTE (supported by MySQL 8+ and MariaDB 10.2+).
-     * Falls back to an iterative in-application recursion for older engines.
-     *
-     * @param  int[] $rootIds
-     * @return int[]  flat, deduplicated list (includes the original $rootIds)
-     */
     public function getDescendantIds(array $rootIds): array
     {
         if (empty($rootIds)) {
             return [];
         }
 
-        // Collect all descendant IDs iteratively to support any MySQL/MariaDB version
-        $all = array_flip($rootIds);   // use as a set
+        $all = array_flip($rootIds);
         $queue = $rootIds;
 
         while (!empty($queue)) {
@@ -165,12 +230,6 @@ final class PdoTenantCategoriesRepository
         return array_keys($all);
     }
 
-    /**
-     * Validate that all given category IDs actually exist in the DB.
-     *
-     * @param  int[] $ids
-     * @return int[] IDs that do NOT exist
-     */
     public function findMissingCategoryIds(array $ids): array
     {
         if (empty($ids)) {
@@ -183,32 +242,24 @@ final class PdoTenantCategoriesRepository
         return array_values(array_diff($ids, $found));
     }
 
-    /**
-     * Full sync: replace all tenant-category assignments for a tenant with the new set.
-     *
-     * Steps (in a single transaction):
-     *   1. Delete rows for the tenant that are NOT in $categoryIds.
-     *   2. Insert rows for IDs that do not yet exist (INSERT IGNORE).
-     *
-     * @param  int   $tenantId
-     * @param  int[] $categoryIds  resolved (children already expanded) list
-     * @param  int   $isActive
-     * @return array{added:int, removed:int}
-     */
     public function syncForTenant(int $tenantId, array $categoryIds, int $isActive = 1): array
     {
+        // 🔒 Verify context
+        $contextTenantId = $this->getTenantId();
+        if ($contextTenantId > 0 && $contextTenantId !== $tenantId) {
+            throw new RuntimeException('Access denied to sync categories for another tenant');
+        }
+
         $this->pdo->beginTransaction();
         try {
             $removed = 0;
             $added   = 0;
 
             if (empty($categoryIds)) {
-                // Remove everything for this tenant
                 $stmt = $this->pdo->prepare("DELETE FROM tenant_categories WHERE tenant_id = :tid");
                 $stmt->execute([':tid' => $tenantId]);
                 $removed = $stmt->rowCount();
             } else {
-                // 1. Delete assignments not in the new set
                 $placeholders = implode(',', array_fill(0, count($categoryIds), '?'));
                 $params = array_merge([$tenantId], array_values($categoryIds));
                 $stmt = $this->pdo->prepare(
@@ -217,7 +268,6 @@ final class PdoTenantCategoriesRepository
                 $stmt->execute($params);
                 $removed = $stmt->rowCount();
 
-                // 2. Fetch which IDs already exist
                 $stmt = $this->pdo->prepare(
                     "SELECT category_id FROM tenant_categories WHERE tenant_id = ? AND category_id IN ($placeholders)"
                 );
@@ -225,7 +275,6 @@ final class PdoTenantCategoriesRepository
                 $existing = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
                 $toInsert = array_values(array_diff($categoryIds, $existing));
 
-                // 3. Batch-insert missing rows
                 if (!empty($toInsert)) {
                     $rowPlaceholders = implode(',', array_fill(0, count($toInsert), '(?,?,?,?,NOW())'));
                     $insertParams = [];
@@ -233,7 +282,7 @@ final class PdoTenantCategoriesRepository
                         $insertParams[] = $tenantId;
                         $insertParams[] = $catId;
                         $insertParams[] = $isActive;
-                        $insertParams[] = 0; // default sort_order
+                        $insertParams[] = 0;
                     }
                     $stmt = $this->pdo->prepare(
                         "INSERT IGNORE INTO tenant_categories (tenant_id, category_id, is_active, sort_order, created_at)
@@ -254,7 +303,17 @@ final class PdoTenantCategoriesRepository
 
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM tenant_categories WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        $contextTenantId = $this->getTenantId();
+        
+        $sql = "DELETE FROM tenant_categories WHERE id = :id";
+        $params = [':id' => $id];
+
+        if ($contextTenantId > 0) {
+            $sql .= " AND tenant_id = :tenantId";
+            $params[':tenantId'] = $contextTenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 }

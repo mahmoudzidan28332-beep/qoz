@@ -85,10 +85,10 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         if ($isSuperAdmin) {
             $sql .= " WHERE 1=1";
         } elseif ($hasAssignments) {
-            $sql .= " WHERE (c.tenant_id = :tenantId OR tc_assign.category_id IS NOT NULL)";
+            $sql .= " WHERE (c.tenant_id = :tenantId OR c.tenant_id IS NULL OR tc_assign.category_id IS NOT NULL)";
             $params[':tenantId'] = $tenantId;
         } else {
-            $sql .= " WHERE c.tenant_id = :tenantId";
+            $sql .= " WHERE (c.tenant_id = :tenantId OR c.tenant_id IS NULL)";
             $params[':tenantId'] = $tenantId;
         }
 
@@ -169,7 +169,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         } else {
             $stmt = $this->pdo->prepare("
                 SELECT * FROM categories
-                WHERE tenant_id = :tenantId AND id = :id
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
                 LIMIT 1
             ");
             $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
@@ -195,10 +195,13 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
     public function save(?int $tenantId, array $data, ?int $userId = null): int
     {
         if ($tenantId === null) {
-            if (empty($data['tenant_id'])) {
-                throw new \InvalidArgumentException('tenant_id is required in data when super admin saves a category');
+            if (array_key_exists('tenant_id', $data) && $data['tenant_id'] === null) {
+                $tenantId = null;
+            } elseif (!empty($data['tenant_id'])) {
+                $tenantId = (int) $data['tenant_id'];
+            } else {
+                $tenantId = null;
             }
-            $tenantId = (int) $data['tenant_id'];
         }
 
         $isUpdate = !empty($data['id']);
@@ -222,24 +225,65 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         }
     }
 
-    private function updateCategory(int $tenantId, array $data): int
+    private function updateCategory(?int $tenantId, array $data): int
     {
-        $stmt = $this->pdo->prepare("UPDATE categories SET parent_id = :parent_id, slug = :slug, name = :name, description = :description, sort_order = :sort_order, is_active = :is_active, is_featured = :is_featured, updated_at = NOW() WHERE tenant_id = :tenantId AND id = :id");
-        $stmt->execute([':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0), ':tenantId' => $tenantId, ':id' => (int)$data['id']]);
+        $sql = "UPDATE categories SET parent_id = :parent_id, slug = :slug, name = :name, description = :description, sort_order = :sort_order, is_active = :is_active, is_featured = :is_featured, updated_at = NOW() WHERE id = :id";
+        
+        if ($tenantId !== null) {
+            $sql .= " AND tenant_id = :tenantId";
+        }
+        
+        $stmt = $this->pdo->prepare($sql);
+        
+        $params = [
+            ':parent_id'   => $data['parent_id'] ?? null,
+            ':slug'        => $data['slug'],
+            ':name'        => $data['name'],
+            ':description' => $data['description'] ?? null,
+            ':sort_order'  => (int)($data['sort_order'] ?? 0),
+            ':is_active'   => (int)($data['is_active'] ?? 1),
+            ':is_featured' => (int)($data['is_featured'] ?? 0),
+            ':id'          => (int)$data['id']
+        ];
+        
+        if ($tenantId !== null) {
+            $params[':tenantId'] = $tenantId;
+        }
+        
+        $stmt->execute($params);
         return (int)$data['id'];
     }
 
-    private function insertCategory(int $tenantId, array $data): int
+    private function insertCategory(?int $tenantId, array $data): int
     {
         $stmt = $this->pdo->prepare("INSERT INTO categories (tenant_id, parent_id, slug, name, description, sort_order, is_active, is_featured, created_at) VALUES (:tenantId, :parent_id, :slug, :name, :description, :sort_order, :is_active, :is_featured, NOW())");
         $stmt->execute([':tenantId' => $tenantId, ':parent_id' => $data['parent_id'] ?? null, ':slug' => $data['slug'], ':name' => $data['name'], ':description' => $data['description'] ?? null, ':sort_order' => (int)($data['sort_order'] ?? 0), ':is_active' => (int)($data['is_active'] ?? 1), ':is_featured' => (int)($data['is_featured'] ?? 0)]);
         return (int)$this->pdo->lastInsertId();
     }
 
-    private function saveCategoryRelations(int $tenantId, int $categoryId, array $data): void
+    private function saveCategoryRelations(?int $tenantId, int $categoryId, array $data): void
     {
         if (!empty($data['image_id'])) {
-            $this->pdo->prepare("UPDATE images SET owner_id = :owner_id, is_main = 1 WHERE id = :image_id AND tenant_id = :tenantId")->execute([':owner_id' => $categoryId, ':image_id' => (int)$data['image_id'], ':tenantId' => $tenantId]);
+            $sql = "UPDATE images SET owner_id = :owner_id, is_main = 1 WHERE id = :image_id";
+            if ($tenantId === null) {
+                // If it's a global category, the image should probably also be global (tenant_id IS NULL)
+                // But it's safer to just link it by owner_id and image_id if we assume the image belongs to the global pool.
+                $sql .= " AND tenant_id IS NULL";
+            } else {
+                $sql .= " AND tenant_id = :tenantId";
+            }
+            $stmt = $this->pdo->prepare($sql);
+            
+            $params = [
+                ':owner_id' => $categoryId,
+                ':image_id' => (int)$data['image_id']
+            ];
+            
+            if ($tenantId !== null) {
+                $params[':tenantId'] = $tenantId;
+            }
+            
+            $stmt->execute($params);
         }
         if (isset($data['translations']) && is_array($data['translations'])) { $this->saveTranslations($categoryId, $data['translations']); }
         if (!empty($data['deleted_translations']) && is_array($data['deleted_translations'])) {
@@ -285,19 +329,15 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             ")->execute([':categoryId' => $categoryId]);
 
             // حذف الفئة
-            if ($tenantId === null) {
-                $this->pdo->prepare(
-                    "DELETE FROM categories WHERE id = :categoryId"
-                )->execute([':categoryId' => $categoryId]);
-            } else {
-                $this->pdo->prepare("
-                    DELETE FROM categories
-                    WHERE tenant_id = :tenantId AND id = :categoryId
-                ")->execute([
-                    ':tenantId'   => $tenantId,
-                    ':categoryId' => $categoryId,
-                ]);
+            $sql = "DELETE FROM categories WHERE id = :categoryId";
+            $params = [':categoryId' => $categoryId];
+            
+            if ($tenantId !== null) {
+                $sql .= " AND tenant_id = :tenantId";
+                $params[':tenantId'] = $tenantId;
             }
+            
+            $this->pdo->prepare($sql)->execute($params);
 
             $logTenantId = $tenantId ?? (int) ($oldData['tenant_id'] ?? 0);
 
@@ -331,9 +371,23 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
      * ============================================================ */
     public function saveTranslations(int $categoryId, array $translations): void
     {
-        $translations = array_filter($translations, static function ($trans) {
-            return !empty($trans['language_code']);
-        });
+        $normalized = [];
+        foreach ($translations as $key => $trans) {
+            if (!is_array($trans)) {
+                continue;
+            }
+
+            $languageCode = $trans['language_code'] ?? (is_string($key) ? $key : null);
+            $languageCode = is_string($languageCode) ? trim($languageCode) : '';
+            if ($languageCode === '') {
+                continue;
+            }
+
+            $trans['language_code'] = $languageCode;
+            $normalized[] = $trans;
+        }
+
+        $translations = $normalized;
 
         if (empty($translations)) {
             return;
@@ -428,7 +482,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
         } else {
             $stmt = $this->pdo->prepare("
                 SELECT id FROM categories
-                WHERE tenant_id = :tenantId AND slug = :slug
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
                 LIMIT 1
             ");
             $stmt->execute([':tenantId' => $tenantId, ':slug' => $slug]);
@@ -451,7 +505,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE id IN ($placeholders)";
         } else {
             $params = array_merge([$isActive ? 1 : 0, $tenantId], $ids);
-            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE tenant_id = ? AND id IN ($placeholders)";
+            $sql = "UPDATE categories SET is_active = ?, updated_at = NOW() WHERE (tenant_id = ? OR tenant_id IS NULL) AND id IN ($placeholders)";
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -466,7 +520,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             $sql    = "SELECT COUNT(*) AS count FROM categories WHERE slug = :slug";
             $params = [':slug' => $slug];
         } else {
-            $sql    = "SELECT COUNT(*) AS count FROM categories WHERE tenant_id = :tenantId AND slug = :slug";
+            $sql    = "SELECT COUNT(*) AS count FROM categories WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug";
             $params = [':tenantId' => $tenantId, ':slug' => $slug];
         }
 

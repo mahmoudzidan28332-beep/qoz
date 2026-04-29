@@ -101,9 +101,14 @@ final class CategoriesController
      * ============================================================ */
     public function getById(?int $tenantId, int $id): array
     {
-        $lang           = $this->sanitizeLang($_GET['lang'] ?? 'ar');
-        $allTranslations = isset($_GET['all_translations']) &&
-                           in_array($_GET['all_translations'], ['1', 1, true], true);
+        $lang            = $this->sanitizeLang($_GET['lang'] ?? 'ar');
+        
+        // Robust detection of all_translations flag
+        $allTranslations = false;
+        if (isset($_GET['all_translations'])) {
+            $val = (string)$_GET['all_translations'];
+            $allTranslations = in_array(strtolower($val), ['1', 'true', 'on', 'yes'], true);
+        }
 
         return $this->service->getById($tenantId, $id, $lang, $allTranslations);
     }

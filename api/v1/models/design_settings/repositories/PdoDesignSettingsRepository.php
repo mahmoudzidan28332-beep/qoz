@@ -17,19 +17,27 @@ final class PdoDesignSettingsRepository
         $sql = "
             SELECT id, theme_id, setting_key, setting_name, setting_value, setting_type, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM design_settings
-            WHERE tenant_id = :tenantId
+            WHERE 1=1
         ";
 
-        $params = [':tenantId' => $tenantId];
-
-        if ($category) {
-            $sql .= " AND category = :category";
-            $params[':category'] = $category;
-        }
+        $params = [];
 
         if ($themeId) {
             $sql .= " AND theme_id = :themeId";
             $params[':themeId'] = $themeId;
+
+            if ($tenantId !== 1) {
+                $sql .= " AND (tenant_id = :tenantId OR tenant_id IS NULL)";
+                $params[':tenantId'] = $tenantId;
+            }
+        } else {
+            $sql .= " AND (tenant_id = :tenantId OR tenant_id IS NULL)";
+            $params[':tenantId'] = $tenantId;
+        }
+
+        if ($category) {
+            $sql .= " AND category = :category";
+            $params[':category'] = $category;
         }
 
         $sql .= " ORDER BY category ASC, sort_order ASC, setting_name ASC";
@@ -178,14 +186,22 @@ final class PdoDesignSettingsRepository
         $sql = "
             SELECT setting_key, setting_value, setting_type
             FROM design_settings
-            WHERE tenant_id = :tenantId AND is_active = 1
+            WHERE is_active = 1
         ";
 
-        $params = [':tenantId' => $tenantId];
+        $params = [];
 
         if ($themeId) {
             $sql .= " AND theme_id = :themeId";
             $params[':themeId'] = $themeId;
+
+            if ($tenantId !== 1) {
+                $sql .= " AND (tenant_id = :tenantId OR tenant_id IS NULL)";
+                $params[':tenantId'] = $tenantId;
+            }
+        } else {
+            $sql .= " AND (tenant_id = :tenantId OR tenant_id IS NULL)";
+            $params[':tenantId'] = $tenantId;
         }
 
         $sql .= " ORDER BY category ASC, sort_order ASC";

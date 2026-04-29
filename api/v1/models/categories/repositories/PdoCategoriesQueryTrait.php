@@ -26,11 +26,11 @@ trait PdoCategoriesQueryTrait
                     ON c.id = tc_assign.category_id
                    AND tc_assign.tenant_id = :tenantId_tc
                    AND tc_assign.is_active = 1
-                WHERE (c.tenant_id = :tenantId OR tc_assign.category_id IS NOT NULL)
+                WHERE (c.tenant_id = :tenantId OR c.tenant_id IS NULL OR tc_assign.category_id IS NOT NULL)
             ";
             $params = [':tenantId' => $tenantId, ':tenantId_tc' => $tenantId];
         } elseif (!$isSuperAdmin) {
-            $sql    = "SELECT COUNT(*) AS total FROM categories c WHERE c.tenant_id = :tenantId";
+            $sql    = "SELECT COUNT(*) AS total FROM categories c WHERE (c.tenant_id = :tenantId OR c.tenant_id IS NULL)";
             $params = [':tenantId' => $tenantId];
         } else {
             $sql    = "SELECT COUNT(*) AS total FROM categories c WHERE 1=1";
@@ -115,7 +115,7 @@ trait PdoCategoriesQueryTrait
         $params = [':lang' => $lang];
 
         if ($tenantId !== null) {
-            $sql .= " AND c.tenant_id = :tenantId";
+            $sql .= " AND (c.tenant_id = :tenantId OR c.tenant_id IS NULL)";
             $params[':tenantId'] = $tenantId;
         }
 
@@ -149,7 +149,7 @@ trait PdoCategoriesQueryTrait
         $params = [':lang' => $lang];
 
         if ($tenantId !== null) {
-            $sql .= " AND c.tenant_id = :tenantId";
+            $sql .= " AND (c.tenant_id = :tenantId OR c.tenant_id IS NULL)";
             $params[':tenantId'] = $tenantId;
         }
 
@@ -179,7 +179,7 @@ trait PdoCategoriesQueryTrait
      * LOGGING
      * ============================================================ */
     private function logAction(
-        int $tenantId,
+        ?int $tenantId,
         int $userId,
         string $action,
         int $entityId,
