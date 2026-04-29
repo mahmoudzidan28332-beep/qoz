@@ -16,6 +16,10 @@ final class PdoTenantDomainsRepository implements TenantDomainsRepositoryInterfa
 
     private const ALLOWED_TYPES       = ['primary', 'custom', 'subdomain', 'alias'];
     private const ALLOWED_SSL_STATUSES = ['none', 'pending', 'active', 'failed'];
+    private const ALLOWED_COLUMNS = [
+        'tenant_id', 'domain', 'type', 'is_verified', 'verification_token',
+        'verified_at', 'ssl_status', 'ssl_expires_at', 'redirect_to_primary', 'meta'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -163,6 +167,7 @@ final class PdoTenantDomainsRepository implements TenantDomainsRepositoryInterfa
 
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             INSERT INTO " . self::TABLE . "
                 (tenant_id, domain, type, is_verified, verification_token,

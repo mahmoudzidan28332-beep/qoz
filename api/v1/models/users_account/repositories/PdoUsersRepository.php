@@ -5,6 +5,10 @@ final class PdoUsersRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'username', 'email', 'password', 'preferred_language', 'phone', 'is_active'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -13,12 +17,25 @@ final class PdoUsersRepository
     public function all(?int $limit = null, ?int $offset = null, array $filters = []): array
     {
         $sql = "
-            SELECT u.id, u.username, u.email, u.preferred_language, u.phone, u.is_active, u.created_at, u.updated_at
+            SELECT DISTINCT u.id, u.username, u.email, u.preferred_language, u.phone, u.is_active, u.created_at, u.updated_at
             FROM users u
+        ";
+        if (!empty($filters['tenant_id'])) {
+            $sql .= "
+            INNER JOIN tenant_users tu
+                ON tu.user_id = u.id
+               AND tu.tenant_id = :tenant_id
+            ";
+        }
+        $sql .= "
             WHERE 1=1
         ";
 
         $params = [];
+
+        if (!empty($filters['tenant_id'])) {
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
 
         // Filters
         if (isset($filters['is_active'])) {
@@ -51,8 +68,15 @@ final class PdoUsersRepository
 
     public function count(array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM users u WHERE 1=1";
+        $sql = "SELECT COUNT(DISTINCT u.id) FROM users u";
         $params = [];
+
+        if (!empty($filters['tenant_id'])) {
+            $sql .= " INNER JOIN tenant_users tu ON tu.user_id = u.id AND tu.tenant_id = :tenant_id";
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
+
+        $sql .= " WHERE 1=1";
 
         if (isset($filters['is_active'])) {
             $sql .= " AND u.is_active = :is_active";
@@ -109,6 +133,12 @@ final class PdoUsersRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $id = $data['id'] ?? null;
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
+        if ($id !== null) {
+            $data['id'] = $id;
+        }
+
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 
@@ -357,5 +387,49 @@ final class PdoUsersRepository
             ':changes' => $changes,
             ':ip' => $_SERVER['REMOTE_ADDR'] ?? null
         ]);
+    }
+    /**
+     * Check if a user belongs to a specific tenant.
+     */
+    public function belongsToTenant(int $userId, int $tenantId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM tenant_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        return (bool)$stmt->fetchColumn();
+    }
+    /**
+     * Find platform user info by user ID.
+     */
+    public function findPlatformUserByUserId(int $userId): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, role_key, is_active FROM platform_users WHERE user_id = :uid LIMIT 1');
+        $stmt->execute([':uid' => $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Find platform user info by username or email.
+     * Joins users with platform_users.
+     */
+    public function findPlatformUserByUsername(string $identifier): ?array
+    {
+        $sql = "
+            SELECT u.id, u.username, u.email, u.password_hash as password, u.is_active,
+                   pu.id as platform_user_id, pu.role_key as platform_role, pu.is_active as platform_active
+            FROM users u
+            INNER JOIN platform_users pu ON pu.user_id = u.id
+            WHERE u.username = :val1 OR u.email = :val2
+            LIMIT 1
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':val1' => $identifier,
+            ':val2' => $identifier
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $row ?: null;
     }
 }

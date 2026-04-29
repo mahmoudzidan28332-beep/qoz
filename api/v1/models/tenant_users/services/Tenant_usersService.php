@@ -247,14 +247,18 @@ final class Tenant_usersService
             $pageUsed = (int)floor($offset / max(1, $perPage)) + 1;
         }
 
+        if (!is_array($filters)) {
+            $filters = [];
+        }
+
         // Validate filters
         $filterErrors = Tenant_usersValidator::validateFilters($filters);
         if (!empty($filterErrors)) {
             throw new InvalidArgumentException('Invalid filters: ' . json_encode($filterErrors, JSON_UNESCAPED_UNICODE));
         }
 
-        $items = $this->repo->all($tenantId, $perPage, $offset, $filters);
-        $total = $this->repo->count($tenantId, $filters);
+        $items = $this->repo->all($perPage, $offset, $filters);
+        $total = $this->repo->count($filters);
         $pages = $perPage > 0 ? (int)ceil($total / $perPage) : 0;
 
         return [
@@ -275,7 +279,7 @@ final class Tenant_usersService
         if (!empty($filterErrors)) {
             throw new InvalidArgumentException('Invalid filters: ' . json_encode($filterErrors, JSON_UNESCAPED_UNICODE));
         }
-        return $this->repo->count($tenantId, $filters);
+        return $this->repo->count($filters);
     }
 
     public function get(int $tenantId, int $id): array
@@ -288,9 +292,9 @@ final class Tenant_usersService
     public function getStats(int $tenantId): array
     {
         return [
-            'total_users' => $this->repo->count($tenantId),
-            'active_users' => $this->repo->count($tenantId, ['is_active' => 1]),
-            'inactive_users' => $this->repo->count($tenantId, ['is_active' => 0])
+            'total_users' => $this->repo->count(),
+            'active_users' => $this->repo->count(['is_active' => 1]),
+            'inactive_users' => $this->repo->count(['is_active' => 0])
         ];
     }
 

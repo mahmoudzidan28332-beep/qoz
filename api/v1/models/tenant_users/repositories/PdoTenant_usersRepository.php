@@ -11,13 +11,12 @@ declare(strict_types=1);
  * - save() that supports create and update with careful NULL handling and error logging
  */
 
-final class PdoTenant_usersRepository
+final class PdoTenant_usersRepository extends BaseRepository
 {
-    private PDO $pdo;
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     public function addUserToTenant(int $tenantId, int $userId): void
@@ -42,13 +41,25 @@ final class PdoTenant_usersRepository
      *
      * Returns array of associative rows.
      */
-    public function all(int $tenantId, int $perPage = 10, int $offset = 0, array $filters = []): array
+    public function all(int $perPage = 10, int $offset = 0, array $filters = []): array
     {
-        $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : $tenantId;
+        $tenantId = $this->getTenantId();
         $whereParts = [];
         $params = [];
 
-        if ($effectiveTenantId > 0) { $whereParts[] = 'tu.tenant_id = :tenantId'; $params[':tenantId'] = $effectiveTenantId; }
+        // 🔒 SECURITY: Enforce tenant isolation. 
+        // If Context is > 0, we MUST filter by that tenant, regardless of what the filters say.
+        // Only if Context is 0 (Platform Admin) do we allow the filter to choose the tenant (or 0 for all).
+        if ($tenantId > 0) {
+            $effectiveTenantId = $tenantId;
+        } else {
+            $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : 0;
+        }
+
+        if ($effectiveTenantId > 0) {
+            $whereParts[] = 'tu.tenant_id = :tenantId';
+            $params[':tenantId'] = $effectiveTenantId;
+        }
 
         $this->applyAllFilters($filters, $whereParts, $params);
 
@@ -107,14 +118,21 @@ final class PdoTenant_usersRepository
      * 
      * NOTE: If $tenantId is 0, it means "all tenants" (super admin only)
      */
-    public function count(int $tenantId, array $filters = []): int
+    public function count(array $filters = []): int
     {
-        $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : $tenantId;
-
+        $tenantId = $this->getTenantId();
         $whereParts = [];
         $params = [];
 
-        // Only filter by tenant_id if > 0 (0 means super admin viewing all tenants)
+        // 🔒 SECURITY: Enforce tenant isolation. 
+        // If Context is > 0, we MUST filter by that tenant, regardless of what the filters say.
+        // Only if Context is 0 (Platform Admin) do we allow the filter to choose the tenant (or 0 for all).
+        if ($tenantId > 0) {
+            $effectiveTenantId = $tenantId;
+        } else {
+            $effectiveTenantId = isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) ? (int)$filters['tenant_id'] : 0;
+        }
+
         if ($effectiveTenantId > 0) {
             $whereParts[] = 'tu.tenant_id = :tenantId';
             $params[':tenantId'] = $effectiveTenantId;

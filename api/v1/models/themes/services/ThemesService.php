@@ -1,13 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// api/v1/models/themes/services/ThemesService.php
-
-/*
-|--------------------------------------------------------------------------
-| Required dependencies (NO autoload, NO namespace)
-|--------------------------------------------------------------------------
-*/
 require_once __DIR__ . '/../repositories/PdoThemesRepository.php';
 require_once __DIR__ . '/../validators/ThemesValidator.php';
 
@@ -18,25 +11,26 @@ final class ThemesService
 
     public const WHITELISTED_COLUMNS = [
         'name', 'slug', 'description', 'thumbnail_url', 'preview_url',
-        'version', 'author', 'is_active', 'is_default', 'id'
+        'version', 'author', 'is_active', 'is_default', 'id',
+        'theme_scope', 'theme_target', 'tenant_id', 'owner_tenant_id'
     ];
 
     public function __construct(
         PdoThemesRepository $repo,
         ThemesValidator $validator
     ) {
-        $this->repo      = $repo;
+        $this->repo = $repo;
         $this->validator = $validator;
     }
 
-    public function list(int $tenantId, bool $activeOnly = false): array
+    public function list(int $tenantId, array $options = []): array
     {
-        return $this->repo->all($tenantId, $activeOnly);
+        return $this->repo->all($tenantId, $options);
     }
 
-    public function get(int $tenantId, string $slug): array
+    public function get(int $tenantId, string $slug, array $options = []): array
     {
-        $row = $this->repo->find($tenantId, $slug);
+        $row = $this->repo->find($tenantId, $slug, $options);
         if (!$row) {
             throw new RuntimeException('Theme not found');
         }
@@ -44,9 +38,9 @@ final class ThemesService
         return $row;
     }
 
-    public function getActive(int $tenantId): array
+    public function getActive(int $tenantId, array $options = []): array
     {
-        $row = $this->repo->getActive($tenantId);
+        $row = $this->repo->getActive($tenantId, $options);
         if (!$row) {
             throw new RuntimeException('No active theme found');
         }
@@ -54,9 +48,9 @@ final class ThemesService
         return $row;
     }
 
-    public function getDefault(int $tenantId): array
+    public function getDefault(int $tenantId, array $options = []): array
     {
-        $row = $this->repo->getDefault($tenantId);
+        $row = $this->repo->getDefault($tenantId, $options);
         if (!$row) {
             throw new RuntimeException('No default theme found');
         }
@@ -66,24 +60,21 @@ final class ThemesService
 
     public function save(int $tenantId, array $data): array
     {
-        // 🔒 SECURITY: Mass Assignment Protection - Define WHITELIST
         $whitelisted = array_intersect_key($data, array_flip(self::WHITELISTED_COLUMNS));
 
         $errors = $this->validator->validate($whitelisted);
         if (!empty($errors)) {
-            throw new InvalidArgumentException(
-                json_encode($errors, JSON_UNESCAPED_UNICODE)
-            );
+            throw new InvalidArgumentException(json_encode($errors, JSON_UNESCAPED_UNICODE));
         }
 
         $id = $this->repo->save($tenantId, $whitelisted);
+        $lookupOptions = [
+            'theme_target' => $whitelisted['theme_target'] ?? null,
+            'theme_scope' => $whitelisted['theme_scope'] ?? null,
+            'owner_tenant_id' => $whitelisted['owner_tenant_id'] ?? ($whitelisted['tenant_id'] ?? null),
+        ];
 
-        if (isset($whitelisted['id'])) {
-            $row = $this->repo->findById($tenantId, $id);
-        } else {
-            $row = $this->repo->find($tenantId, $whitelisted['slug']);
-        }
-
+        $row = $this->repo->findById($tenantId, $id, $lookupOptions);
         if (!$row) {
             throw new RuntimeException('Failed to load saved theme');
         }
@@ -91,26 +82,26 @@ final class ThemesService
         return $row;
     }
 
-    public function delete(int $tenantId, string $slug): void
+    public function delete(int $tenantId, string $slug, array $options = []): void
     {
-        $this->repo->delete($tenantId, $slug);
+        $this->repo->delete($tenantId, $slug, $options);
     }
 
-    public function deleteById(int $tenantId, int $id): void
+    public function deleteById(int $tenantId, int $id, array $options = []): void
     {
-        $this->repo->deleteById($tenantId, $id);
+        $this->repo->deleteById($tenantId, $id, $options);
     }
 
-    public function activate(int $tenantId, string $slug): void
+    public function activate(int $tenantId, string $slug, array $options = []): void
     {
-        if (!$this->repo->activate($tenantId, $slug)) {
+        if (!$this->repo->activate($tenantId, $slug, $options)) {
             throw new RuntimeException('Failed to activate theme');
         }
     }
 
-    public function setDefault(int $tenantId, string $slug): void
+    public function setDefault(int $tenantId, string $slug, array $options = []): void
     {
-        if (!$this->repo->setDefault($tenantId, $slug)) {
+        if (!$this->repo->setDefault($tenantId, $slug, $options)) {
             throw new RuntimeException('Failed to set default theme');
         }
     }

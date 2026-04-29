@@ -17,7 +17,7 @@ final class PdoSystemSettingsRepository
         $sql = "
             SELECT id, tenant_id, setting_key, setting_value, setting_type, category, description, is_public, is_editable, created_at, updated_at
             FROM system_settings
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
         ";
 
         $params = [':tenantId' => $tenantId];
@@ -40,7 +40,7 @@ final class PdoSystemSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT *
             FROM system_settings
-            WHERE tenant_id = :tenantId AND setting_key = :key
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
             LIMIT 1
         ");
 
@@ -54,7 +54,7 @@ final class PdoSystemSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT *
             FROM system_settings
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1
         ");
 
@@ -75,7 +75,7 @@ final class PdoSystemSettingsRepository
                     is_public = :is_public,
                     is_editable = :is_editable,
                     updated_at = NOW()
-                WHERE tenant_id = :tenantId AND id = :id
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             ");
 
             $stmt->execute([
@@ -100,7 +100,7 @@ final class PdoSystemSettingsRepository
         ");
 
         $stmt->execute([
-            ':tenantId'    => $tenantId,
+            ':tenantId'    => $tenantId === 1 ? null : $tenantId,
             ':key'         => $data['setting_key'],
             ':value'       => $data['setting_value'],
             ':type'        => $data['setting_type'] ?? 'text',
@@ -117,7 +117,7 @@ final class PdoSystemSettingsRepository
     {
         $stmt = $this->pdo->prepare("
             DELETE FROM system_settings
-            WHERE tenant_id = :tenantId AND setting_key = :key
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
         ");
 
         return $stmt->execute([':tenantId' => $tenantId, ':key' => $key]);
@@ -127,7 +127,7 @@ final class PdoSystemSettingsRepository
     {
         $stmt = $this->pdo->prepare("
             DELETE FROM system_settings
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
         ");
 
         return $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
@@ -138,7 +138,7 @@ final class PdoSystemSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT category
             FROM system_settings
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
             ORDER BY category ASC
         ");
 
@@ -151,7 +151,7 @@ final class PdoSystemSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT setting_key, setting_value, setting_type
             FROM system_settings
-            WHERE tenant_id = :tenantId AND is_public = 1
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND is_public = 1
             ORDER BY category ASC, setting_key ASC
         ");
 

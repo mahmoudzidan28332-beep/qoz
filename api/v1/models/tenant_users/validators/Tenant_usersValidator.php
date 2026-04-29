@@ -113,8 +113,8 @@ final class Tenant_usersValidator
         }
 
         // tenant_id filter validation (optional)
-        if (isset($filters['tenant_id']) && (!is_numeric($filters['tenant_id']) || (int)$filters['tenant_id'] <= 0)) {
-            $errors['tenant_id'] = 'Tenant ID filter must be a positive number';
+        if (isset($filters['tenant_id']) && (!is_numeric($filters['tenant_id']) || (int)$filters['tenant_id'] < 0)) {
+            $errors['tenant_id'] = 'Tenant ID filter must be a non-negative number';
         }
 
         // entity_id filter validation (optional)

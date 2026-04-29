@@ -44,6 +44,16 @@ final class SystemSettingsService
         return $row;
     }
 
+    public function getById(int $tenantId, int $id): array
+    {
+        $row = $this->repo->findById($tenantId, $id);
+        if (!$row) {
+            throw new RuntimeException('Setting not found');
+        }
+
+        return $row;
+    }
+
     public function save(int $tenantId, array $data): array
     {
         // 🔒 SECURITY: Mass Assignment Protection - Define WHITELIST

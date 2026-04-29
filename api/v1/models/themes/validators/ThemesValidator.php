@@ -60,6 +60,14 @@ final class ThemesValidator
             $errors['is_default'] = 'Is default must be 0 or 1';
         }
 
+        if (isset($data['theme_scope']) && !in_array($data['theme_scope'], ['global', 'tenant', 'platform'], true)) {
+            $errors['theme_scope'] = 'Theme scope is invalid';
+        }
+
+        if (isset($data['theme_target']) && !in_array($data['theme_target'], ['tenant_store', 'platform_admin', 'platform_home'], true)) {
+            $errors['theme_target'] = 'Theme target is invalid';
+        }
+
         return $errors;
     }
 }

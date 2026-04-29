@@ -33,6 +33,11 @@ final class SystemSettingsController
         return $this->service->get($tenantId, $key);
     }
 
+    public function getById(int $tenantId, int $id): array
+    {
+        return $this->service->getById($tenantId, $id);
+    }
+
     public function create(int $tenantId, array $data): array
     {
         return $this->service->save($tenantId, $data);
