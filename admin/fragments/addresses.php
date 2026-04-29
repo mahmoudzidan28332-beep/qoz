@@ -176,9 +176,6 @@ $apiBase = '/api';
                 <input type="hidden" name="owner_type" id="ownerTypeHidden" value="user">
                 <input type="hidden" name="owner_id" id="ownerIdHidden" value="<?= (int)($user['id'] ?? 0) ?>">
                 <?php else: ?>
-                <div class="alert-info" style="padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em;">
-                    <i class="fas fa-info-circle"></i> <?= __t('admin_mode_notice', 'Administrator mode: you can set owner type and ID manually.') ?>
-                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label><?= __t('owner_type', 'Owner Type') ?> <span class="required">*</span></label>
@@ -187,9 +184,14 @@ $apiBase = '/api';
                             <option value="entity"><?= __t('entity', 'Entity') ?></option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="ownerIdGroup">
                         <label><?= __t('owner_id', 'Owner ID') ?> <span class="required">*</span></label>
+                        <!-- Shown when owner_type = user -->
                         <input type="number" name="owner_id" id="ownerIdInput" class="form-control" required min="1">
+                        <!-- Shown when owner_type = entity — populated by JS with tenant-scoped entities -->
+                        <select name="owner_id" id="ownerEntitySelect" class="form-control" style="display:none" disabled>
+                            <option value=""><?= __t('select_entity', 'Select entity...') ?></option>
+                        </select>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -288,6 +290,7 @@ window.ADDRESSES_CONFIG = {
     apiUrl: '<?= $apiBase ?>/addresses',
     countriesApi: '<?= $apiBase ?>/countries',
     citiesApi: '<?= $apiBase ?>/cities',
+    entitiesApi: '<?= $apiBase ?>/entities',
     tenantId: <?= $tenantId ?>,
     lang: '<?= addslashes($lang) ?>',
     csrf: '<?= addslashes($csrf) ?>',

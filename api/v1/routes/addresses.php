@@ -108,6 +108,11 @@ try {
     $raw    = file_get_contents('php://input');
     $data   = $raw ? (json_decode($raw, true) ?? []) : [];
 
+    // Resolve current user ID once for all mutation audit logs.
+    $currentUserId = isset($_SESSION['user_id'])
+        ? (int)$_SESSION['user_id']
+        : (isset($_SESSION['user']['id']) ? (int)$_SESSION['user']['id'] : null);
+
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset   = ($page - 1) * $limit;
@@ -202,6 +207,12 @@ try {
             $data['owner_type'] = $data['owner_type'] ?? 'user';
             $data['owner_id']   = $data['owner_id']   ?? ($user['id'] ?? null);
 
+            // 🔒 SECURITY: When the address is attached to an entity, verify that
+            // the entity belongs to the current tenant.  Platform admins are exempt.
+            if (!$isPlatformAdmin && ($data['owner_type'] ?? '') === 'entity') {
+                verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
+            }
+
             $newId = $controller->create($data);
 
             AuditLogsService::log(
@@ -210,7 +221,7 @@ try {
                 (int)$newId,
                 null,
                 $effectiveTenantId,
-                get_user_id(),
+                $currentUserId,
                 null,
                 array_merge($data, ['id' => (int)$newId])
             );
@@ -230,6 +241,12 @@ try {
             // Mass-assignment guard: only allowed fields pass through.
             $data = array_intersect_key($data, array_flip($allowedFields));
 
+            // 🔒 SECURITY: When the address is being re-assigned to an entity,
+            // verify that entity belongs to the current tenant.
+            if (!$isPlatformAdmin && ($data['owner_type'] ?? '') === 'entity') {
+                verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
+            }
+
             // Fetch old state for audit diff
             $oldState = null;
             try {
@@ -246,7 +263,7 @@ try {
                 $updateId,
                 null,
                 $effectiveTenantId,
-                get_user_id(),
+                $currentUserId,
                 $oldState,
                 array_merge($data, ['id' => $updateId])
             );
@@ -279,7 +296,7 @@ try {
                 $deleteId,
                 null,
                 $effectiveTenantId,
-                get_user_id(),
+                $currentUserId,
                 $deletedState,
                 null
             );

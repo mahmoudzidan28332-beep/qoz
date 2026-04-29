@@ -11,6 +11,7 @@
     const API = CFG.apiUrl || '/api/addresses';
     const COUNTRIES_API = CFG.countriesApi || '/api/countries';
     const CITIES_API = CFG.citiesApi || '/api/cities';
+    const ENTITIES_API = CFG.entitiesApi || '/api/entities';
 
     const S = CFG.strings || {};
     function t(key, fallback) { return S[key] || fallback || key; }
@@ -22,7 +23,8 @@
         language: CFG.lang || 'ar',
         items: [],
         countries: [],
-        cities: []
+        cities: [],
+        entities: []
     };
 
     let el = {};
@@ -217,6 +219,65 @@
     }
 
     // ═══════════════════════════════════════════════════════════
+    // LOAD ENTITIES (tenant-scoped)
+    // ═══════════════════════════════════════════════════════════
+
+    async function loadEntities(selectedId = null) {
+        if (!el.ownerEntitySelect) return;
+
+        el.ownerEntitySelect.innerHTML = '<option value="">' + t('select_entity', 'Select entity...') + '</option>';
+
+        try {
+            const tenantId = CFG.tenantId || 0;
+            const params = new URLSearchParams({ limit: 1000, language: state.language });
+            if (tenantId) params.append('tenant_id', tenantId);
+
+            const result = await apiFetch(`${ENTITIES_API}?${params}`);
+            const items = (result.data && (result.data.data || result.data)) || (Array.isArray(result) ? result : []);
+            state.entities = Array.isArray(items) ? items : [];
+
+            state.entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.store_name || entity.name || `#${entity.id}`;
+                if (selectedId && String(selectedId) === String(entity.id)) {
+                    option.selected = true;
+                }
+                el.ownerEntitySelect.appendChild(option);
+            });
+        } catch (e) {
+            console.error('❌ loadEntities error:', e);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TOGGLE OWNER FIELDS (user ↔ entity)
+    // ═══════════════════════════════════════════════════════════
+
+    async function toggleOwnerFields(ownerType, selectedEntityId = null) {
+        if (!CFG.canEditAllFields) return;
+
+        const isEntity = ownerType === 'entity';
+
+        if (el.ownerIdInput) {
+            el.ownerIdInput.style.display  = isEntity ? 'none' : '';
+            el.ownerIdInput.disabled       = isEntity;
+            el.ownerIdInput.required       = !isEntity;
+            el.ownerIdInput.name           = isEntity ? '' : 'owner_id';
+        }
+        if (el.ownerEntitySelect) {
+            el.ownerEntitySelect.style.display = isEntity ? '' : 'none';
+            el.ownerEntitySelect.disabled      = !isEntity;
+            el.ownerEntitySelect.required      = isEntity;
+            el.ownerEntitySelect.name          = isEntity ? 'owner_id' : '';
+        }
+
+        if (isEntity) {
+            await loadEntities(selectedEntityId);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // LOAD ADDRESSES
     // ═══════════════════════════════════════════════════════════
     
@@ -374,6 +435,11 @@
             if (formTenantId) formTenantId.value = document.getElementById('globalTenantFilter')?.value || CFG.tenantId;
         }
 
+        // Reset owner-type fields to "user" view.
+        if (CFG.canEditAllFields) {
+            toggleOwnerFields('user');
+        }
+
         loadCountries();
         if (el.city) {
             el.city.innerHTML = '<option value="">' + t('select_city', 'Select City') + '</option>';
@@ -408,9 +474,16 @@
 
                 if (CFG.canEditAllFields) {
                     const ownerTypeSelect = document.getElementById('ownerTypeSelect');
-                    const ownerIdInput = document.getElementById('ownerIdInput');
                     if (ownerTypeSelect) ownerTypeSelect.value = addr.owner_type || 'user';
-                    if (ownerIdInput) ownerIdInput.value = addr.owner_id || '';
+                    // Toggle and populate entity dropdown / user-id input accordingly.
+                    await toggleOwnerFields(
+                        addr.owner_type || 'user',
+                        addr.owner_type === 'entity' ? addr.owner_id : null
+                    );
+                    // For user-type, restore the numeric input value after toggleOwnerFields reset it.
+                    if ((addr.owner_type || 'user') === 'user' && el.ownerIdInput) {
+                        el.ownerIdInput.value = addr.owner_id || '';
+                    }
                 }
             }
 
@@ -497,6 +570,9 @@
             formTitle: document.getElementById('addressFormTitle'),
             country: document.getElementById('countrySelect'),
             city: document.getElementById('citySelect'),
+            ownerIdInput: document.getElementById('ownerIdInput'),
+            ownerEntitySelect: document.getElementById('ownerEntitySelect'),
+            ownerTypeSelect: document.getElementById('ownerTypeSelect'),
             btnAdd: document.getElementById('btnAddAddress'),
             btnClose: document.getElementById('btnCloseForm'),
             btnDelete: document.getElementById('btnDeleteAddress'),
@@ -511,6 +587,11 @@
         if (el.btnGetLocation) el.btnGetLocation.onclick = getUserLocation;
         if (el.country) el.country.onchange = () => loadCities(el.country.value);
         if (el.globalFilter) el.globalFilter.onchange = () => { currentPage = 1; loadAddresses(); };
+
+        // Wire up owner-type selector → swap user-id input ↔ entity dropdown.
+        if (el.ownerTypeSelect) {
+            el.ownerTypeSelect.onchange = () => toggleOwnerFields(el.ownerTypeSelect.value);
+        }
 
         await loadCountries();
         await loadAddresses();
