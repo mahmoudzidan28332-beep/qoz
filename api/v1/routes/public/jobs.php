@@ -12,13 +12,17 @@ if ($first === 'jobs') {
 
     if ($id) {
         // Full job detail with translated title/description via job_translations
+        // Multi-tenant safety: scope job lookup by tenant_id through entity relationship
+        $tidCond = $tenantId ? ' AND e.tenant_id = ?' : '';
+        $tidParam = $tenantId ? [$tenantId] : [];
         $row = $pdoOne(
             "SELECT j.*, COALESCE(jt.job_title, j.slug) AS title,
                     jt.description, jt.requirements, jt.benefits
                FROM jobs j
+          INNER JOIN entities e ON e.id = j.entity_id" . $tidCond . "
           LEFT JOIN job_translations jt ON jt.job_id = j.id AND jt.language_code = ?
               WHERE j.id = ? AND j.status NOT IN ('cancelled','filled','closed') LIMIT 1",
-            [$lang, $id]
+            array_merge($tidParam, [$lang, $id])
         );
         if ($row) ResponseFormatter::success(['ok' => true, 'job' => $row]);
         else      ResponseFormatter::notFound('Job not found');
@@ -28,6 +32,13 @@ if ($first === 'jobs') {
     // $whereParams: params for WHERE only (no $lang — $lang is for the JOIN)
     $where       = "WHERE j.status NOT IN ('cancelled', 'filled', 'closed')";
     $whereParams = [];
+    // Multi-tenant safety: scope job listing by tenant_id through entity relationship
+    $joinEntity = '';
+    $joinParams = [];
+    if ($tenantId) {
+        $joinEntity = ' INNER JOIN entities e ON e.id = j.entity_id AND e.tenant_id = ?';
+        $joinParams[] = $tenantId;
+    }
     if (!empty($_GET['is_featured']))    { $where .= ' AND j.is_featured = ?'; $whereParams[] = 1; }
     if (!empty($_GET['is_urgent']))      { $where .= ' AND j.is_urgent = ?';   $whereParams[] = 1; }
     if (!empty($_GET['is_remote']))      { $where .= ' AND j.is_remote = ?';   $whereParams[] = 1; }
@@ -44,7 +55,7 @@ if ($first === 'jobs') {
         $whereParams[] = $lang;
     }
 
-    $total = $pdoCount("SELECT COUNT(*) FROM jobs j $where", $whereParams);
+    $total = $pdoCount("SELECT COUNT(*) FROM jobs j $joinEntity $where", array_merge($joinParams, $whereParams));
     $rows  = $pdoList(
         "SELECT j.id, COALESCE(jt.job_title, j.slug) AS title,
                 j.job_type AS employment_type,
@@ -53,9 +64,10 @@ if ($first === 'jobs') {
                 j.salary_min, j.salary_max, j.salary_currency,
                 j.city_id, j.entity_id, j.created_at
            FROM jobs j
+           $joinEntity
       LEFT JOIN job_translations jt ON jt.job_id = j.id AND jt.language_code = ?
          $where ORDER BY j.is_featured DESC, j.created_at DESC LIMIT ? OFFSET ?",
-        array_merge([$lang], $whereParams, [$per, $offset])
+        array_merge($joinParams, [$lang], $whereParams, [$per, $offset])
     );
 
     ResponseFormatter::success([

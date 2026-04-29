@@ -6,13 +6,13 @@ declare(strict_types=1);
  * Variables available: $pdo, $pdoList, $pdoOne, $pdoCount,
  *   $first, $segments, $lang, $page, $per, $offset, $tenantId
  * 
- * ✅ Enhanced for Tree View with full frontend compatibility
+ * âœ… Enhanced for Tree View with full frontend compatibility
  */
 
 if ($first === 'categories') {
     $id = $_GET['id'] ?? (isset($segments[1]) && ctype_digit((string)$segments[1]) ? (int)$segments[1] : null);
 
-    /* ── Single Category by ID ──────────────────────────── */
+    /* â”€â”€ Single Category by ID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     if ($id) {
         $row = $pdoOne(
             "SELECT c.id, 
@@ -37,10 +37,10 @@ if ($first === 'categories') {
         exit;
     }
 
-    /* ════════════════════════════════════════════════════════
-     * 🌳 TREE MODE: Return ALL categories as nested hierarchy
+    /* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+     * ًںŒ³ TREE MODE: Return ALL categories as nested hierarchy
      * Supports: ?tree=1&search=...&featured=1
-     * ════════════════════════════════════════════════════════ */
+     * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
     if (!empty($_GET['tree'])) {
         
         // Base WHERE clause
@@ -48,17 +48,17 @@ if ($first === 'categories') {
         $treeParams = [$lang]; // First param is always language
         
         if ($tenantId) { 
-            $treeWhere .= ' AND c.tenant_id = ?'; 
+            $treeWhere .= ' AND (c.tenant_id = ? OR c.tenant_id IS NULL)'; 
             $treeParams[] = $tenantId; 
         }
         
-        // ✅ Support Featured Filter in Tree Mode
+        // âœ… Support Featured Filter in Tree Mode
         if (!empty($_GET['featured'])) { 
             $treeWhere .= ' AND c.is_featured = ?'; 
             $treeParams[] = 1; 
         }
         
-        // ✅ Support Search Filter in Tree Mode
+        // âœ… Support Search Filter in Tree Mode
         $searchKeyword = '';
         if (!empty($_GET['search'])) {
             $kw = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($_GET['search'])) . '%';
@@ -69,7 +69,7 @@ if ($first === 'categories') {
             $searchKeyword = trim($_GET['search']);
         }
 
-        /* ── Optimized Query with JOIN for product_count ── */
+        /* â”€â”€ Optimized Query with JOIN for product_count â”€â”€ */
         $allCats = $pdoList(
             "SELECT c.id, 
                     COALESCE(ct.name, c.name, c.slug) AS name, 
@@ -83,12 +83,12 @@ if ($first === 'categories') {
                     c.parent_id, 
                     c.sort_order, 
                     c.tenant_id,
-                    -- ✅ Optimized product count using LEFT JOIN + GROUP BY
+                    -- âœ… Optimized product count using LEFT JOIN + GROUP BY
                     COALESCE(pc.product_count, 0) AS product_count
                FROM categories c
                LEFT JOIN category_translations ct 
                       ON ct.category_id = c.id AND ct.language_code = ?
-               -- ✅ Pre-calculate product counts in one query
+               -- âœ… Pre-calculate product counts in one query
                LEFT JOIN (
                    SELECT pc2.category_id, COUNT(DISTINCT p2.id) AS product_count
                    FROM products p2
@@ -101,7 +101,7 @@ if ($first === 'categories') {
             $treeParams
         );
 
-        /* ── Build tree from flat list (with filtering support) ── */
+        /* â”€â”€ Build tree from flat list (with filtering support) â”€â”€ */
         $map = [];
         foreach ($allCats as &$cat) {
             $cat['children'] = [];
@@ -129,22 +129,22 @@ if ($first === 'categories') {
         }
         unset($catRef);
         
-        /* ✅ NEW: If searching, include only matching branches */
+        /* âœ… NEW: If searching, include only matching branches */
         if ($searchKeyword && !empty($_GET['search'])) {
             $tree = filterTreeBySearch($tree, $searchKeyword);
         }
 
-        /* ✅ NEW: If featured filter, remove non-featured branches */
+        /* âœ… NEW: If featured filter, remove non-featured branches */
         if (!empty($_GET['featured'])) {
             $tree = filterTreeByFeatured($tree);
         }
 
-        /* ✅ NEW: If has_products filter, remove branches with no products anywhere */
+        /* âœ… NEW: If has_products filter, remove branches with no products anywhere */
         if (!empty($_GET['has_products'])) {
             $tree = filterTreeByProducts($tree);
         }
 
-        /* ✅ Calculate total counts recursively */
+        /* âœ… Calculate total counts recursively */
         $totalCategories = countAllNodesRecursive($tree);
         $totalProducts = sumProductCountsRecursive($tree);
 
@@ -167,17 +167,17 @@ if ($first === 'categories') {
         exit;
     }
 
-    /* ════════════════════════════════════════════════════════
-     * 📄 PAGINATED LIST MODE (Original functionality)
+    /* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+     * ًں“„ PAGINATED LIST MODE (Original functionality)
      * For grid/card views with pagination
-     * ════════════════════════════════════════════════════════ */
+     * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
     
     // WHERE clause construction
     $where       = 'WHERE c.is_active = 1';
     $whereParams = [];
     
     if ($tenantId) { 
-        $where .= ' AND c.tenant_id = ?'; 
+        $where .= ' AND (c.tenant_id = ? OR c.tenant_id IS NULL)'; 
         $whereParams[] = $tenantId; 
     }
     
@@ -203,7 +203,7 @@ if ($first === 'categories') {
         $whereParams[] = $kw;
     }
 
-    /* ✅ NEW: has_products filter for list mode */
+    /* âœ… NEW: has_products filter for list mode */
     $having = '';
     if (!empty($_GET['has_products'])) {
         // Since product_count is a subquery in the SELECT, we can use HAVING or wrap it.
@@ -251,9 +251,9 @@ if ($first === 'categories') {
     exit;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
- * 🔧 HELPER FUNCTIONS for Tree Operations
- * ═══════════════════════════════════════════════════════════════════ */
+/* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+ * ًں”§ HELPER FUNCTIONS for Tree Operations
+ * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
 
 /**
  * Filter tree by search keyword (recursive)
@@ -413,6 +413,6 @@ function calculateMaxDepth(array $nodes, int $currentDepth = 1): int {
 }
 
 /* -------------------------------------------------------
- * Route: Jobs (public listing — no auth required)
+ * Route: Jobs (public listing â€” no auth required)
  * GET /api/public/jobs[/{id}]
  * ----------------------------------------------------- */

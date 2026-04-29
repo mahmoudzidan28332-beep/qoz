@@ -9,36 +9,99 @@ declare(strict_types=1);
 
 if ($first === 'ui') {
     $tid = $tenantId ?? 1;
+    $requestedThemeTarget = strtolower(trim((string)($_GET['theme_target'] ?? 'tenant_store')));
+    $themeTarget = in_array($requestedThemeTarget, ['tenant_store', 'platform_home'], true)
+        ? $requestedThemeTarget
+        : 'tenant_store';
 
-    // Look up active theme_id for this tenant (mirrors AdminUiThemeLoader::getActiveThemeId)
-    $uiThemeRow = $pdoOne('SELECT id FROM themes WHERE tenant_id = ? AND is_active = 1 LIMIT 1', [$tid]);
-    if (!$uiThemeRow) {
-        $uiThemeRow = $pdoOne('SELECT id FROM themes WHERE tenant_id = ? AND is_default = 1 LIMIT 1', [$tid]);
+    $themeSelection = null;
+
+    if ($themeTarget === 'platform_home') {
+        $themeSelection = $pdoOne(
+            "SELECT id, COALESCE(tenant_id, 1) AS tenant_id
+               FROM themes
+              WHERE theme_scope = 'platform'
+                AND theme_target = 'platform_home'
+                AND is_active = 1
+                AND (tenant_id = 1 OR tenant_id IS NULL)
+              ORDER BY is_default DESC, id ASC
+              LIMIT 1"
+        );
+
+        if (!$themeSelection) {
+            $themeSelection = $pdoOne(
+                "SELECT id, COALESCE(tenant_id, 1) AS tenant_id
+                   FROM themes
+                  WHERE theme_scope = 'platform'
+                    AND theme_target = 'platform_home'
+                    AND is_default = 1
+                    AND (tenant_id = 1 OR tenant_id IS NULL)
+                  ORDER BY is_active DESC, id ASC
+                  LIMIT 1"
+            );
+        }
+    } else {
+        $themeSelection = $pdoOne(
+            "SELECT t.id, COALESCE(t.tenant_id, 1) AS tenant_id
+               FROM tenant_theme_overrides o
+               INNER JOIN themes t ON t.id = o.theme_id
+              WHERE o.tenant_id = ?
+                AND o.setting_type = 'theme_selection'
+                AND o.setting_key = 'tenant_store_active_theme_id'
+              ORDER BY o.id DESC
+              LIMIT 1",
+            [$tid]
+        );
+        if (!$themeSelection) {
+            $themeSelection = $pdoOne(
+                "SELECT id, COALESCE(tenant_id, 1) AS tenant_id
+                   FROM themes
+                  WHERE theme_target = 'tenant_store'
+                    AND (
+                         (theme_scope = 'tenant' AND tenant_id = ? AND is_active = 1)
+                         OR
+                         (theme_scope = 'global' AND (tenant_id = 1 OR tenant_id IS NULL) AND is_default = 1)
+                    )
+                  ORDER BY theme_scope = 'tenant' DESC, id ASC
+                  LIMIT 1",
+                [$tid]
+            );
+        }
     }
-    $uiThemeId  = $uiThemeRow ? (int)$uiThemeRow['id'] : null;
+
+    $uiThemeId = $themeSelection ? (int)$themeSelection['id'] : null;
+    $uiThemeTenantId = $themeSelection ? max(1, (int)($themeSelection['tenant_id'] ?? 1)) : $tid;
 
     if ($uiThemeId) {
-        $colors = $pdoList('SELECT setting_key AS `key`, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order, id', [$tid, $uiThemeId]);
-        $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order', [$tid, $uiThemeId]);
-        $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY sort_order', [$tid, $uiThemeId]);
-        $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY button_type', [$tid, $uiThemeId]);
-        $cards = $pdoList('SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1 AND (theme_id = ? OR theme_id IS NULL) ORDER BY card_type', [$tid, $uiThemeId]);
+        if ($themeTarget === 'platform_home') {
+            $colors = $pdoList('SELECT setting_key AS key, color_value AS value, category FROM color_settings WHERE is_active = 1 AND theme_id = ? ORDER BY sort_order, id', [$uiThemeId]);
+            $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE is_active = 1 AND theme_id = ? ORDER BY sort_order', [$uiThemeId]);
+            $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE is_active = 1 AND theme_id = ? ORDER BY sort_order', [$uiThemeId]);
+            $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE is_active = 1 AND theme_id = ? ORDER BY button_type', [$uiThemeId]);
+            $cards = $pdoList('SELECT * FROM card_styles WHERE is_active = 1 AND theme_id = ? ORDER BY card_type', [$uiThemeId]);
+        } else {
+            $colors = $pdoList('SELECT setting_key AS key, color_value AS value, category FROM color_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order, id', [$uiThemeId, $uiThemeTenantId]);
+            $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order', [$uiThemeId, $uiThemeTenantId]);
+            $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order', [$uiThemeId, $uiThemeTenantId]);
+            $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY button_type', [$uiThemeId, $uiThemeTenantId]);
+            $cards = $pdoList('SELECT * FROM card_styles WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY card_type', [$uiThemeId, $uiThemeTenantId]);
+        }
     } else {
-        $colors = $pdoList('SELECT setting_key AS `key`, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order, id', [$tid]);
+        $colors = $pdoList('SELECT setting_key AS key, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order, id', [$tid]);
         $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
         $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
         $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY button_type', [$tid]);
         $cards = $pdoList('SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY card_type', [$tid]);
     }
 
-    // Generate CSS string — mirrors AdminUiThemeLoader::generateCss() exactly.
+    // Generate CSS string â€” mirrors AdminUiThemeLoader::generateCss() exactly.
     // Sanitize values: strip {}, ; and backticks to prevent CSS injection.
     $sanitize = static fn(string $v): string => preg_replace('/[{};`]/', '', trim($v));
     $safeCssIdent = static fn(string $s): string => preg_replace('/[^a-z0-9-]/', '-', strtolower($s));
 
     $css = ":root {\n";
 
-    // ── Color settings ────────────────────────────────────────────────────────
+    // â”€â”€ Color settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     $colorKeyVal = [];
     foreach ($colors as $c) {
         if (empty($c['key']) || empty($c['value'])) continue;
@@ -65,7 +128,7 @@ if ($first === 'ui') {
         }
     }
 
-    // ── Font settings ─────────────────────────────────────────────────────────
+    // â”€â”€ Font settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     foreach ($fonts as $f) {
         if (empty($f['setting_key'])) continue;
         $sk = $safeCssIdent((string)$f['setting_key']);
@@ -75,7 +138,7 @@ if ($first === 'ui') {
         if (!empty($f['line_height'])) $css .= "  --{$sk}-line-height: " . $sanitize((string)$f['line_height']) . ";\n";
     }
 
-    // ── Design settings ───────────────────────────────────────────────────────
+    // â”€â”€ Design settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     foreach ($designs as $d) {
         if (empty($d['setting_key']) || empty($d['setting_value'])) continue;
         $type = strtolower($d['setting_type'] ?? 'text');
@@ -83,7 +146,7 @@ if ($first === 'ui') {
         $css .= '  --' . $safeCssIdent((string)$d['setting_key']) . ': ' . $sanitize((string)$d['setting_value']) . ";\n";
     }
 
-    // ── Card styles → :root CSS variables ────────────────────────────────────
+    // â”€â”€ Card styles â†’ :root CSS variables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     $posCardTypes = ['product', 'category'];
     $posCardSeen  = [];
     foreach ($cards as $c) {
@@ -97,7 +160,7 @@ if ($first === 'ui') {
         if (!empty($c['text_color']))       $css .= "  --card-{$slug}-text: "         . $sanitize((string)$c['text_color']) . ";\n";
         if (!empty($c['border_width']))     $css .= "  --card-{$slug}-border-width: " . (int)$c['border_width'] . "px;\n";
 
-        // POS card_type aliases — first active card per type wins
+        // POS card_type aliases â€” first active card per type wins
         $cardType = $c['card_type'] ?? '';
         if (in_array($cardType, $posCardTypes, true) && !isset($posCardSeen[$cardType])) {
             $posCardSeen[$cardType] = true;
@@ -114,7 +177,7 @@ if ($first === 'ui') {
 
     $css .= "}\n";
 
-    // ── Button styles → concrete CSS classes ─────────────────────────────────
+    // â”€â”€ Button styles â†’ concrete CSS classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     foreach ($buttons as $b) {
         if (empty($b['slug'])) continue;
         $slug = $safeCssIdent((string)$b['slug']);
@@ -143,7 +206,7 @@ if ($first === 'ui') {
         }
     }
 
-    // ── Card styles → concrete CSS classes ───────────────────────────────────
+    // â”€â”€ Card styles â†’ concrete CSS classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     $hoverEffectMap = [
         'lift'       => "transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.15);",
         'zoom'       => "transform: scale(1.03);",
@@ -183,6 +246,12 @@ if ($first === 'ui') {
 
     ResponseFormatter::success([
         'ok'           => true,
+        'theme'        => [
+            'id'         => $uiThemeId,
+            'tenant_id'  => $uiThemeTenantId,
+            'target'     => $themeTarget,
+            'source'     => $themeSelection ? 'resolved' : 'fallback',
+        ],
         'ui'           => $GLOBALS['PUBLIC_UI'] ?? [],
         'colors'       => $colors,
         'fonts'        => $fonts,

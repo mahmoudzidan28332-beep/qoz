@@ -26,8 +26,7 @@ if ($first === 'addresses') {
         if (!$addrRow) { ResponseFormatter::notFound('Address not found'); exit; }
         try {
             $addrRepo = new PdoAddressesRepository($pdo);
-            $addrService = new AddressesService($addrRepo);
-            $addrRepo->deleteById($addrId);
+            $addrRepo->deleteByOwner($addrId, $addrSessUserId);
             ResponseFormatter::success(['ok' => true]);
         } catch (Throwable $_) { ResponseFormatter::error('Delete failed', 500); }
         exit;
@@ -45,9 +44,10 @@ if ($first === 'addresses') {
         try {
             $addrRepo = new PdoAddressesRepository($pdo);
             if ($isPrimary) {
-                $addrRepo->resetPrimary($addrSessUserId);
+                $addrRepo->resetPrimaryByOwner($addrSessUserId);
             }
-            $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary);
+            // tenant_id = null for regular user addresses
+            $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary, null);
             ResponseFormatter::success(['ok' => true, 'id' => $newAddrId], 'Address added', 201);
         } catch (Throwable $_) { ResponseFormatter::error('Failed to save address', 500); }
         exit;

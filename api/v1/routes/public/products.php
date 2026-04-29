@@ -43,11 +43,11 @@ if ($first === 'products') {
 
     $id = $_GET['id'] ?? (isset($segments[1]) && ctype_digit((string)$segments[1]) ? (int)$segments[1] : null);
     if (!$id && !empty($_GET['slug'])) {
-        if ($tenantId) {
-            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 AND tenant_id = ? LIMIT 1', [$_GET['slug'], $tenantId]);
-        } else {
-            $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 LIMIT 1', [$_GET['slug']]);
+        if (!$tenantId) {
+            ResponseFormatter::error('tenant_id is required for slug-based lookup', 400);
+            exit;
         }
+        $slugRow = $pdoOne('SELECT id FROM products WHERE slug = ? AND is_active = 1 AND tenant_id = ? LIMIT 1', [$_GET['slug'], $tenantId]);
         if ($slugRow) $id = (int)$slugRow['id'];
     }
 
