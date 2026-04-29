@@ -43,9 +43,9 @@ final class EntitiesAttributeValuesController
     /**
      * Get all values for an entity
      */
-    public function getEntityValues(int $entityId, string $lang = 'ar'): array
+    public function getEntityValues(int $entityId, string $lang = 'ar', ?int $tenantId = null): array
     {
-        return $this->service->getEntityValues($entityId, $lang);
+        return $this->service->getEntityValues($entityId, $lang, $tenantId);
     }
 
     /**
@@ -75,9 +75,9 @@ final class EntitiesAttributeValuesController
     /**
      * Save multiple values for an entity
      */
-    public function saveEntityValues(int $entityId, array $values): array
+    public function saveEntityValues(int $entityId, array $values, ?int $tenantId = null): array
     {
-        return $this->service->saveEntityValues($entityId, $values);
+        return $this->service->saveEntityValues($entityId, $values, $tenantId);
     }
 
     /**
@@ -91,9 +91,9 @@ final class EntitiesAttributeValuesController
     /**
      * Delete all values for an entity
      */
-    public function deleteEntityValues(int $entityId): void
+    public function deleteEntityValues(int $entityId, ?int $tenantId = null): void
     {
-        $this->service->deleteEntityValues($entityId);
+        $this->service->deleteEntityValues($entityId, $tenantId);
     }
 
     /**

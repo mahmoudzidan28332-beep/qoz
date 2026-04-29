@@ -5,6 +5,14 @@ use InvalidArgumentException;
 
 final class EntitiesValidator
 {
+    /** @var string[] $validVendorTypeCodes empty = skip DB check */
+    private array $validVendorTypeCodes;
+
+    public function __construct(array $validVendorTypeCodes = [])
+    {
+        $this->validVendorTypeCodes = $validVendorTypeCodes;
+    }
+
     public function validate(array $data, bool $update = false): void
     {
         // الحقول الأساسية المطلوبة عند الإنشاء
@@ -26,9 +34,15 @@ final class EntitiesValidator
             }
         }
 
-        // تحقق إضافي من الصلاحية للقيم
-        if (isset($data['vendor_type']) && !in_array($data['vendor_type'], ['product_seller','service_provider','both'], true)) {
-            throw new InvalidArgumentException("Field 'vendor_type' has invalid value");
+        // تحقق ديناميكي من vendor_type مقابل جدول entity_types
+        if (isset($data['vendor_type'])) {
+            if (empty($data['vendor_type'])) {
+                throw new InvalidArgumentException("Field 'vendor_type' is required");
+            }
+            if (!empty($this->validVendorTypeCodes) &&
+                !in_array($data['vendor_type'], $this->validVendorTypeCodes, true)) {
+                throw new InvalidArgumentException("Field 'vendor_type' has invalid value");
+            }
         }
 
         if (isset($data['store_type']) && !in_array($data['store_type'], ['individual','company','brand'], true)) {

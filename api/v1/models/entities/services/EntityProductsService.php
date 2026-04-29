@@ -10,16 +10,8 @@ final class EntityProductsService
         $this->repo = $repo;
     }
 
-    /**
-     * List entity products with filtering and pagination
-     */
-    public function list(
-        ?int $limit = null,
-        ?int $offset = null,
-        array $filters = [],
-        string $orderBy = 'id',
-        string $orderDir = 'DESC'
-    ): array {
+    public function list(?int $limit = null, ?int $offset = null, array $filters = [], string $orderBy = 'id', string $orderDir = 'DESC'): array
+    {
         $items = $this->repo->all($limit, $offset, $filters, $orderBy, $orderDir);
         $total = $this->repo->count($filters);
 
@@ -34,87 +26,61 @@ final class EntityProductsService
         ];
     }
 
-    /**
-     * Get a single entity product
-     */
-    public function get(int $id): ?array
+    public function get(int $id, int $tenantId, int $entityId): ?array
     {
-        return $this->repo->find($id);
+        return $this->repo->find($id, $tenantId, $entityId);
     }
 
-    /**
-     * Get by entity and product
-     */
-    public function getByEntityAndProduct(int $entityId, int $productId): ?array
+    public function getEntityProducts(int $entityId, int $tenantId, string $lang = 'ar'): array
     {
-        return $this->repo->findByEntityAndProduct($entityId, $productId);
+        return $this->repo->getEntityProducts($entityId, $lang, $tenantId);
     }
 
-    /**
-     * Get all products for an entity
-     */
-    public function getEntityProducts(int $entityId): array
-    {
-        return $this->repo->getEntityProducts($entityId);
-    }
-
-    /**
-     * Create a new entity product
-     */
     public function create(array $data): int
     {
         EntityProductsValidator::validateCreate($data);
         return $this->repo->save($data);
     }
 
-    /**
-     * Update an existing entity product
-     */
     public function update(int $id, array $data): void
     {
-        $existing = $this->repo->find($id);
+        $tenantId = (int)($data['tenant_id'] ?? 0);
+        $entityId = (int)($data['entity_id'] ?? 0);
+        
+        if ($tenantId <= 0 || $entityId <= 0) {
+            throw new RuntimeException("tenant_id and entity_id are required for update");
+        }
+
+        $existing = $this->repo->find($id, $tenantId, $entityId);
         if (!$existing) {
-            throw new RuntimeException("Entity product not found");
+            throw new RuntimeException("Entity product not found or access denied");
         }
 
         EntityProductsValidator::validateUpdate($data);
         $this->repo->save(array_merge(['id' => $id], $data));
     }
 
-    /**
-     * Bulk save products for an entity
-     */
     public function saveEntityProducts(int $entityId, int $tenantId, array $products): array
     {
         EntityProductsValidator::validateBulkSave($entityId, $products);
         return $this->repo->saveEntityProducts($entityId, $tenantId, $products);
     }
 
-    /**
-     * Delete an entity product
-     */
-    public function delete(int $id): void
+    public function delete(int $id, int $tenantId, int $entityId): void
     {
-        if (!$this->repo->find($id)) {
-            throw new RuntimeException("Entity product not found");
+        if (!$this->repo->find($id, $tenantId, $entityId)) {
+            throw new RuntimeException("Entity product not found or access denied");
         }
-
-        $this->repo->delete($id);
+        $this->repo->delete($id, $tenantId, $entityId);
     }
 
-    /**
-     * Delete all products for an entity
-     */
-    public function deleteEntityProducts(int $entityId): void
+    public function deleteEntityProducts(int $entityId, int $tenantId): void
     {
-        $this->repo->deleteEntityProducts($entityId);
+        $this->repo->deleteEntityProducts($entityId, $tenantId);
     }
 
-    /**
-     * Get statistics
-     */
-    public function getStatistics(): array
+    public function getStatistics(int $tenantId): array
     {
-        return $this->repo->getStatistics();
+        return $this->repo->getStatistics($tenantId);
     }
 }

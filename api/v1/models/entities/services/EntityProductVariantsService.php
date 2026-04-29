@@ -37,33 +37,33 @@ final class EntityProductVariantsService
     /**
      * Get a single entity product variant
      */
-    public function get(int $id): ?array
+    public function get(int $id, int $tenantId, int $entityId): ?array
     {
-        return $this->repo->find($id);
+        return $this->repo->find($id, $tenantId, $entityId);
     }
 
     /**
      * Get by entity and variant
      */
-    public function getByEntityAndVariant(int $entityId, int $variantId): ?array
+    public function getByEntityAndVariant(int $entityId, int $variantId, int $tenantId): ?array
     {
-        return $this->repo->findByEntityAndVariant($entityId, $variantId);
+        return $this->repo->findByEntityAndVariant($entityId, $variantId, $tenantId);
     }
 
     /**
      * Get all variants for an entity
      */
-    public function getEntityVariants(int $entityId): array
+    public function getEntityVariants(int $entityId, int $tenantId): array
     {
-        return $this->repo->getEntityVariants($entityId);
+        return $this->repo->getEntityVariants($entityId, $tenantId);
     }
 
     /**
      * Get variants for a specific entity product
      */
-    public function getEntityProductVariants(int $entityId, int $productId): array
+    public function getEntityProductVariants(int $entityId, int $productId, int $tenantId): array
     {
-        return $this->repo->getEntityProductVariants($entityId, $productId);
+        return $this->repo->getEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     /**
@@ -80,9 +80,16 @@ final class EntityProductVariantsService
      */
     public function update(int $id, array $data): void
     {
-        $existing = $this->repo->find($id);
+        $tenantId = (int)($data['tenant_id'] ?? 0);
+        $entityId = (int)($data['entity_id'] ?? 0);
+        
+        if ($tenantId <= 0 || $entityId <= 0) {
+            throw new RuntimeException("tenant_id and entity_id are required for update");
+        }
+
+        $existing = $this->repo->find($id, $tenantId, $entityId);
         if (!$existing) {
-            throw new RuntimeException("Entity product variant not found");
+            throw new RuntimeException("Entity product variant not found or access denied");
         }
 
         EntityProductVariantsValidator::validateUpdate($data);
@@ -101,36 +108,36 @@ final class EntityProductVariantsService
     /**
      * Delete an entity product variant
      */
-    public function delete(int $id): void
+    public function delete(int $id, int $tenantId, int $entityId): void
     {
-        if (!$this->repo->find($id)) {
-            throw new RuntimeException("Entity product variant not found");
+        if (!$this->repo->find($id, $tenantId, $entityId)) {
+            throw new RuntimeException("Entity product variant not found or access denied");
         }
 
-        $this->repo->delete($id);
+        $this->repo->delete($id, $tenantId, $entityId);
     }
 
     /**
      * Delete all variants for an entity
      */
-    public function deleteEntityVariants(int $entityId): void
+    public function deleteEntityVariants(int $entityId, int $tenantId): void
     {
-        $this->repo->deleteEntityVariants($entityId);
+        $this->repo->deleteEntityVariants($entityId, $tenantId);
     }
 
     /**
      * Delete all variants for a specific entity product
      */
-    public function deleteEntityProductVariants(int $entityId, int $productId): void
+    public function deleteEntityProductVariants(int $entityId, int $productId, int $tenantId): void
     {
-        $this->repo->deleteEntityProductVariants($entityId, $productId);
+        $this->repo->deleteEntityProductVariants($entityId, $productId, $tenantId);
     }
 
     /**
      * Get statistics
      */
-    public function getStatistics(): array
+    public function getStatistics(int $tenantId): array
     {
-        return $this->repo->getStatistics();
+        return $this->repo->getStatistics($tenantId);
     }
 }

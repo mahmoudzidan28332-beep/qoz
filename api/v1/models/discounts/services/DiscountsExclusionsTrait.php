@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-trait DiscountsExclusionsTrait
+trait DiscountsServiceExclusionsTrait
 {
     public function listExclusions(int $discountId): array
     {

@@ -10,8 +10,8 @@ final class EntitiesService
     public function list(...$args): array
     {
         return [
-            'items'=>$this->repo->all(...$args),
-            'total'=>$this->repo->count($args[0],$args[3])
+            'items'=>$this->repo->all($args[1],$args[2],$args[3],$args[4],$args[5],$args[6]),
+            'total'=>$this->repo->count($args[3])
         ];
     }
 

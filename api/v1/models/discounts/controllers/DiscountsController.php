@@ -8,7 +8,7 @@ require_once __DIR__ . '/DiscountsExclusionsTrait.php';
  */
 final class DiscountsController
 {
-    use DiscountsExclusionsTrait;
+    use DiscountsControllerExclusionsTrait;
     private DiscountsService $service;
 
     public function __construct(DiscountsService $service)
@@ -50,9 +50,9 @@ final class DiscountsController
         return $this->service->deleteDiscount($id);
     }
 
-    public function discountStats(): array
+    public function discountStats(array $filters = []): array
     {
-        return $this->service->discountStats();
+        return $this->service->discountStats($filters);
     }
 
     // ================================

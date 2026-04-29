@@ -10,29 +10,19 @@ final class EntityProductsController
         $this->service = $service;
     }
 
-    public function list(
-        ?int $limit = null,
-        ?int $offset = null,
-        array $filters = [],
-        string $orderBy = 'id',
-        string $orderDir = 'DESC'
-    ): array {
+    public function list(?int $limit = null, ?int $offset = null, array $filters = [], string $orderBy = 'id', string $orderDir = 'DESC'): array
+    {
         return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function get(int $id): ?array
+    public function get(int $id, int $tenantId, int $entityId): ?array
     {
-        return $this->service->get($id);
+        return $this->service->get($id, $tenantId, $entityId);
     }
 
-    public function getByEntityAndProduct(int $entityId, int $productId): ?array
+    public function getEntityProducts(int $entityId, int $tenantId, string $lang = 'ar'): array
     {
-        return $this->service->getByEntityAndProduct($entityId, $productId);
-    }
-
-    public function getEntityProducts(int $entityId): array
-    {
-        return $this->service->getEntityProducts($entityId);
+        return $this->service->getEntityProducts($entityId, $tenantId, $lang);
     }
 
     public function create(array $data): int
@@ -50,18 +40,18 @@ final class EntityProductsController
         return $this->service->saveEntityProducts($entityId, $tenantId, $products);
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, int $tenantId, int $entityId): void
     {
-        $this->service->delete($id);
+        $this->service->delete($id, $tenantId, $entityId);
     }
 
-    public function deleteEntityProducts(int $entityId): void
+    public function deleteEntityProducts(int $entityId, int $tenantId): void
     {
-        $this->service->deleteEntityProducts($entityId);
+        $this->service->deleteEntityProducts($entityId, $tenantId);
     }
 
-    public function getStatistics(): array
+    public function getStatistics(int $tenantId): array
     {
-        return $this->service->getStatistics();
+        return $this->service->getStatistics($tenantId);
     }
 }

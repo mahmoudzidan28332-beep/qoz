@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-final class PdoEntitiesRepository
+final class PdoEntitiesRepository extends BaseRepository
 {
-    private PDO $pdo;
 
     private const ALLOWED_ORDER_BY = [
         'id','store_name','status','is_verified','joined_at','created_at'
@@ -15,14 +14,13 @@ final class PdoEntitiesRepository
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     // =========================
     // List
     // =========================
     public function all(
-        int $tenantId,
         ?int $limit,
         ?int $offset,
         array $filters,
@@ -30,6 +28,7 @@ final class PdoEntitiesRepository
         string $orderDir,
         string $lang
     ): array {
+        $tenantId = $this->getTenantId();
         $sql = "
             SELECT e.*,
                    e.store_name AS original_store_name,
@@ -82,8 +81,9 @@ final class PdoEntitiesRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function count(int $tenantId, array $filters): int
+    public function count(array $filters): int
     {
+        $tenantId = $this->getTenantId();
         $sql = "SELECT COUNT(*) FROM entities WHERE tenant_id = :tenant_id";
         $params = [':tenant_id'=>$tenantId];
 
@@ -240,5 +240,15 @@ final class PdoEntitiesRepository
             $websiteUrl,
         ]);
         return (int)$this->pdo->lastInsertId();
+    }
+
+    /**
+     * Verify if an entity belongs to a specific tenant.
+     */
+    public function verifyOwnership(int $id, int $tenantId): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT 1 FROM entities WHERE id = :id AND tenant_id = :tid LIMIT 1");
+        $stmt->execute([':id' => $id, ':tid' => $tenantId]);
+        return (bool)$stmt->fetchColumn();
     }
 }

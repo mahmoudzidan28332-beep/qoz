@@ -21,6 +21,7 @@ final class PdoEntitySettingsRepository
     // List with dynamic filters, search, ordering, pagination
     // ================================
     public function all(
+        int  $tenantId,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -33,10 +34,10 @@ final class PdoEntitySettingsRepository
                    e.status,
                    e.email
             FROM entity_settings es
-            LEFT JOIN entities e ON es.entity_id = e.id
-            WHERE 1=1
+            INNER JOIN entities e ON es.entity_id = e.id
+            WHERE e.tenant_id = :tenant_id
         ";
-        $params = [];
+        $params = [':tenant_id' => $tenantId];
 
         // تطبيق الفلاتر
         if (isset($filters['entity_id']) && is_numeric($filters['entity_id'])) {
@@ -182,15 +183,15 @@ final class PdoEntitySettingsRepository
     // ================================
     // Count for pagination
     // ================================
-    public function count(array $filters = []): int
+    public function count(int $tenantId, array $filters = []): int
     {
         $sql = "
             SELECT COUNT(*) 
             FROM entity_settings es
-            LEFT JOIN entities e ON es.entity_id = e.id
-            WHERE 1=1
+            INNER JOIN entities e ON es.entity_id = e.id
+            WHERE e.tenant_id = :tenant_id
         ";
-        $params = [];
+        $params = [':tenant_id' => $tenantId];
 
         // تطبيق نفس الفلاتر الموجودة في دالة all
         if (isset($filters['entity_id']) && is_numeric($filters['entity_id'])) {
@@ -241,7 +242,7 @@ final class PdoEntitySettingsRepository
     // ================================
     // Find by ID
     // ================================
-    public function find(int $entityId): ?array
+    public function find(int $entityId, int $tenantId): ?array
     {
         $stmt = $this->pdo->prepare("
             SELECT es.*,
@@ -249,11 +250,11 @@ final class PdoEntitySettingsRepository
                    e.status,
                    e.email
             FROM entity_settings es
-            LEFT JOIN entities e ON es.entity_id = e.id
-            WHERE es.entity_id = :entity_id
+            INNER JOIN entities e ON es.entity_id = e.id
+            WHERE es.entity_id = :entity_id AND e.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':entity_id' => $entityId]);
+        $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -274,9 +275,9 @@ final class PdoEntitySettingsRepository
         'card_style_id',
     ];
 
-    public function save(int $entityId, array $data): bool
+    public function save(int $entityId, int $tenantId, array $data): bool
     {
-        $isUpdate = $this->find($entityId) !== null;
+        $isUpdate = $this->find($entityId, $tenantId) !== null;
 
         // استخراج الأعمدة المسموح بها فقط من البيانات الواردة
         $params = [':entity_id' => $entityId];
@@ -303,15 +304,19 @@ final class PdoEntitySettingsRepository
                     " . implode(', ', $setClauses) . ",
                     updated_at = CURRENT_TIMESTAMP
                 WHERE entity_id = :entity_id
+                  AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
             ";
+            $params[':tenant_id'] = $tenantId;
         } else {
             $sql = "
                 INSERT INTO entity_settings (
                     entity_id, " . implode(', ', $filteredCols) . "
-                ) VALUES (
-                    :entity_id, :" . implode(', :', $filteredCols) . "
-                )
+                ) 
+                SELECT :entity_id, :" . implode(', :', $filteredCols) . "
+                FROM (SELECT 1) AS dummy
+                WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
             ";
+            $params[':tenant_id'] = $tenantId;
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -321,11 +326,13 @@ final class PdoEntitySettingsRepository
     // ================================
     // Delete
     // ================================
-    public function delete(int $entityId): bool
+    public function delete(int $entityId, int $tenantId): bool
     {
         $stmt = $this->pdo->prepare(
-            "DELETE FROM entity_settings WHERE entity_id = :entity_id"
+            "DELETE FROM entity_settings 
+             WHERE entity_id = :entity_id
+               AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)"
         );
-        return $stmt->execute([':entity_id' => $entityId]);
+        return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
     }
 }

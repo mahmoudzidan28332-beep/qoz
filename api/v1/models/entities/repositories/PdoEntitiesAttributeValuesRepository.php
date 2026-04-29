@@ -15,6 +15,10 @@ final class PdoEntitiesAttributeValuesRepository
         'entity_id', 'attribute_id'
     ];
 
+    // tenant_id is filtered via the entities JOIN (e.tenant_id) since
+    // entities_attribute_values has no direct tenant_id column
+    private const TENANT_FILTER_COL = 'tenant_id';
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -56,6 +60,12 @@ final class PdoEntitiesAttributeValuesRepository
                     $params[":{$col}"] = (int)$filters[$col];
                 }
             }
+        }
+
+        // فلتر tenant_id عبر جدول entities (entities_attribute_values لا يحمل tenant_id مباشرة)
+        if (isset($filters[self::TENANT_FILTER_COL]) && is_numeric($filters[self::TENANT_FILTER_COL])) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = (int)$filters[self::TENANT_FILTER_COL];
         }
 
         // فلتر إضافي للبحث في القيمة
@@ -142,6 +152,12 @@ final class PdoEntitiesAttributeValuesRepository
             }
         }
 
+        // فلتر tenant_id عبر جدول entities (entities_attribute_values لا يحمل tenant_id مباشرة)
+        if (isset($filters[self::TENANT_FILTER_COL]) && is_numeric($filters[self::TENANT_FILTER_COL])) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = (int)$filters[self::TENANT_FILTER_COL];
+        }
+
         if (isset($filters['value']) && !empty($filters['value'])) {
             $sql .= " AND eav.value LIKE :value";
             $params[":value"] = '%' . $filters['value'] . '%';
@@ -206,9 +222,9 @@ final class PdoEntitiesAttributeValuesRepository
     // ================================
     // Find by entity and attribute
     // ================================
-    public function findByEntityAndAttribute(int $entityId, int $attributeId, string $lang = 'ar'): ?array
+    public function findByEntityAndAttribute(int $entityId, int $attributeId, string $lang = 'ar', ?int $tenantId = null): ?array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT eav.*,
                    e.store_name,
                    e.status as entity_status,
@@ -221,10 +237,15 @@ final class PdoEntitiesAttributeValuesRepository
             LEFT JOIN entities_attributes ea ON eav.attribute_id = ea.id
             LEFT JOIN entities_attribute_translations eat 
                 ON ea.id = eat.attribute_id AND eat.language_code = :lang
-            WHERE eav.entity_id = :entity_id AND eav.attribute_id = :attribute_id
-            LIMIT 1
-        ");
-        $stmt->execute([':entity_id' => $entityId, ':attribute_id' => $attributeId, ':lang' => $lang]);
+            WHERE eav.entity_id = :entity_id AND eav.attribute_id = :attribute_id";
+        $params = [':entity_id' => $entityId, ':attribute_id' => $attributeId, ':lang' => $lang];
+        if ($tenantId !== null) {
+            $sql .= ' AND e.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -232,9 +253,9 @@ final class PdoEntitiesAttributeValuesRepository
     // ================================
     // Get all values for an entity
     // ================================
-    public function getEntityValues(int $entityId, string $lang = 'ar'): array
+    public function getEntityValues(int $entityId, string $lang = 'ar', ?int $tenantId = null): array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT eav.*,
                    ea.slug as attribute_slug,
                    ea.attribute_type,
@@ -243,11 +264,20 @@ final class PdoEntitiesAttributeValuesRepository
             FROM entities_attribute_values eav
             LEFT JOIN entities_attributes ea ON eav.attribute_id = ea.id
             LEFT JOIN entities_attribute_translations eat 
-                ON ea.id = eat.attribute_id AND eat.language_code = :lang
+                ON ea.id = eat.attribute_id AND eat.language_code = :lang";
+        $params = [':entity_id' => $entityId, ':lang' => $lang];
+        if ($tenantId !== null) {
+            // JOIN entities to enforce tenant scope
+            $sql .= "
+            INNER JOIN entities e ON eav.entity_id = e.id AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= "
             WHERE eav.entity_id = :entity_id
             ORDER BY ea.sort_order, ea.id
-        ");
-        $stmt->execute([':entity_id' => $entityId, ':lang' => $lang]);
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -305,7 +335,8 @@ final class PdoEntitiesAttributeValuesRepository
         }
 
         // التحقق من وجود الكيان والخاصية
-        $this->validateEntityAndAttribute((int)$params[':entity_id'], (int)$params[':attribute_id']);
+        $tenantId = isset($data['tenant_id']) && is_numeric($data['tenant_id']) ? (int)$data['tenant_id'] : null;
+        $this->validateEntityAndAttribute((int)$params[':entity_id'], (int)$params[':attribute_id'], $tenantId);
 
         if ($isUpdate) {
             $params[':id'] = (int)$data['id'];
@@ -332,7 +363,7 @@ final class PdoEntitiesAttributeValuesRepository
     // ================================
     // Bulk save values for an entity
     // ================================
-    public function saveEntityValues(int $entityId, array $values): array
+    public function saveEntityValues(int $entityId, array $values, ?int $tenantId = null): array
     {
         $this->pdo->beginTransaction();
         try {
@@ -340,9 +371,12 @@ final class PdoEntitiesAttributeValuesRepository
             
             foreach ($values as $valueData) {
                 $valueData['entity_id'] = $entityId;
+                if ($tenantId !== null) {
+                    $valueData['tenant_id'] = $tenantId;
+                }
                 
                 // التحقق من وجود القيمة مسبقاً
-                $existing = $this->findByEntityAndAttribute($entityId, (int)$valueData['attribute_id']);
+                $existing = $this->findByEntityAndAttribute($entityId, (int)$valueData['attribute_id'], 'ar', $tenantId);
                 
                 if ($existing) {
                     $valueData['id'] = $existing['id'];
@@ -373,8 +407,17 @@ final class PdoEntitiesAttributeValuesRepository
     // ================================
     // Delete all values for an entity
     // ================================
-    public function deleteEntityValues(int $entityId): bool
+    public function deleteEntityValues(int $entityId, ?int $tenantId = null): bool
     {
+        if ($tenantId !== null) {
+            // Scope deletion to entities that belong to the given tenant
+            $stmt = $this->pdo->prepare(
+                "DELETE eav FROM entities_attribute_values eav
+                 INNER JOIN entities e ON eav.entity_id = e.id
+                 WHERE eav.entity_id = :entity_id AND e.tenant_id = :tenant_id"
+            );
+            return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
+        }
         $stmt = $this->pdo->prepare(
             "DELETE FROM entities_attribute_values WHERE entity_id = :entity_id"
         );
@@ -414,11 +457,18 @@ final class PdoEntitiesAttributeValuesRepository
     // ================================
     // Validate entity and attribute exist
     // ================================
-    private function validateEntityAndAttribute(int $entityId, int $attributeId): void
+    private function validateEntityAndAttribute(int $entityId, int $attributeId, ?int $tenantId = null): void
     {
-        // التحقق من وجود الكيان
-        $entityStmt = $this->pdo->prepare("SELECT id FROM entities /* tenant_id scoped via caller */ WHERE id = :entity_id LIMIT 1");
-        $entityStmt->execute([':entity_id' => $entityId]);
+        // التحقق من وجود الكيان (مع فلتر tenant_id إذا تم تمريره)
+        $entitySql = 'SELECT id FROM entities WHERE id = :entity_id';
+        $entityParams = [':entity_id' => $entityId];
+        if ($tenantId !== null) {
+            $entitySql .= ' AND tenant_id = :tenant_id';
+            $entityParams[':tenant_id'] = $tenantId;
+        }
+        $entitySql .= ' LIMIT 1';
+        $entityStmt = $this->pdo->prepare($entitySql);
+        $entityStmt->execute($entityParams);
         if (!$entityStmt->fetch()) {
             throw new RuntimeException("Entity not found");
         }

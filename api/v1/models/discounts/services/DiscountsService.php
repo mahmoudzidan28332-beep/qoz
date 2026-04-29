@@ -9,7 +9,7 @@ require_once __DIR__ . '/DiscountsExclusionsTrait.php';
  */
 final class DiscountsService
 {
-    use DiscountsExclusionsTrait;
+    use DiscountsServiceExclusionsTrait;
     private PdoDiscountsRepository $discounts;
     private PdoDiscountTranslationsRepository $translations;
     private PdoDiscountScopesRepository $scopes;
@@ -71,9 +71,9 @@ final class DiscountsService
         return $this->discounts->delete($id);
     }
 
-    public function discountStats(): array
+    public function discountStats(array $filters = []): array
     {
-        return $this->discounts->stats();
+        return $this->discounts->stats($filters);
     }
 
     // ================================

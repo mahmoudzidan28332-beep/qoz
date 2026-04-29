@@ -54,9 +54,9 @@ final class EntitiesAttributeValuesService
     /**
      * الحصول على جميع قيم كيان محدد
      */
-    public function getEntityValues(int $entityId, string $lang = 'ar'): array
+    public function getEntityValues(int $entityId, string $lang = 'ar', ?int $tenantId = null): array
     {
-        return $this->repo->getEntityValues($entityId, $lang);
+        return $this->repo->getEntityValues($entityId, $lang, $tenantId);
     }
 
     /**
@@ -94,10 +94,10 @@ final class EntitiesAttributeValuesService
     /**
      * حفظ جماعي لقيم كيان
      */
-    public function saveEntityValues(int $entityId, array $values): array
+    public function saveEntityValues(int $entityId, array $values, ?int $tenantId = null): array
     {
         EntitiesAttributeValuesValidator::validateBulkSave($entityId, $values);
-        return $this->repo->saveEntityValues($entityId, $values);
+        return $this->repo->saveEntityValues($entityId, $values, $tenantId);
     }
 
     /**
@@ -116,9 +116,9 @@ final class EntitiesAttributeValuesService
     /**
      * حذف جميع قيم كيان
      */
-    public function deleteEntityValues(int $entityId): void
+    public function deleteEntityValues(int $entityId, ?int $tenantId = null): void
     {
-        $this->repo->deleteEntityValues($entityId);
+        $this->repo->deleteEntityValues($entityId, $tenantId);
     }
 
     /**
