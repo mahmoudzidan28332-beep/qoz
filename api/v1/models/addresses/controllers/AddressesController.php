@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-final class AddressesController
+final class AddressesController extends BaseController
 {
     private AddressesService $service;
 
@@ -30,11 +30,11 @@ final class AddressesController
     }
 
     // ================================
-    // GET
+    // GET - Supports both tenant users and regular users
     // ================================
-    public function get(int $id, string $language = 'ar', ?int $tenantId = null): array
+    public function get(int $id, string $language = 'ar'): array
     {
-        return $this->service->get($id, $language, $tenantId);
+        return $this->service->get($id, $language);
     }
 
     // ================================
@@ -46,7 +46,7 @@ final class AddressesController
     }
 
     // ================================
-    // UPDATE
+    // UPDATE - Supports both tenant users and regular users
     // ================================
     public function update(int $id, array $data): bool
     {
@@ -54,10 +54,26 @@ final class AddressesController
     }
 
     // ================================
-    // DELETE
+    // DELETE - Supports both tenant users and regular users
     // ================================
     public function delete(int $id): bool
     {
         return $this->service->delete($id);
+    }
+
+    // ================================
+    // GET BY OWNER
+    // ================================
+    public function getByOwner(int $ownerId, string $ownerType = 'user'): array
+    {
+        return $this->service->getByOwner($ownerId, $ownerType);
+    }
+
+    // ================================
+    // GET PRIMARY ADDRESS
+    // ================================
+    public function getPrimaryAddress(int $ownerId, string $ownerType = 'user'): ?array
+    {
+        return $this->service->getPrimaryAddress($ownerId, $ownerType);
     }
 }

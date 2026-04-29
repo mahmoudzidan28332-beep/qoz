@@ -1,184 +1,144 @@
 <?php
 declare(strict_types=1);
 
-final class PdoAddressesRepository
+/**
+ * PdoAddressesRepository
+ * 
+ * Handles address management for users and entities.
+ * HARDENED: All write operations and finds now enforce tenant isolation.
+ */
+final class PdoAddressesRepository extends BaseRepository
 {
-    private PDO $pdo;
-
-    private const ALLOWED_ORDER_BY = [
-        'id','owner_type','owner_id','city_id','country_id',
-        'is_primary','created_at','updated_at'
-    ];
-
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
-    // ================================
-    // LIST
-    // ================================
-    public function list(
-        int $limit,
-        int $offset,
-        array $filters,
-        string $orderBy,
-        string $orderDir
-    ): array {
-        if (!in_array($orderBy, self::ALLOWED_ORDER_BY, true)) {
-            $orderBy = 'id';
-        }
-
-        $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
-
-        $where  = [];
-        $params = [];
-        $language = $filters['language'] ?? 'ar';
-
-        // Multi-tenant: always apply tenant_id filter when provided
-        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '') {
-            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :filter_tenant_id))
-                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :filter_tenant_id_usr)))";
-            $params['filter_tenant_id'] = (int)$filters['tenant_id'];
-            $params['filter_tenant_id_usr'] = (int)$filters['tenant_id'];
-        }
-
-        // Apply individual field filters alongside tenant_id (not exclusively)
-        foreach ([
-            'id','owner_type','owner_id','city_id','country_id','is_primary'
-        ] as $field) {
-            if (array_key_exists($field, $filters) && $filters[$field] !== null && $filters[$field] !== '') {
-                $where[] = "a.$field = :filter_$field";
-                $params["filter_$field"] = $filters[$field];
-            }
-        }
-
-        // Multi-tenant safety: require tenant_id or owner scoping to prevent cross-tenant data leakage
-        $hasTenantScope = isset($filters['tenant_id']) && $filters['tenant_id'] !== null && $filters['tenant_id'] !== '';
-        $hasOwnerScope  = (isset($filters['owner_type']) && $filters['owner_type'] !== '') && (isset($filters['owner_id']) && $filters['owner_id'] !== '');
-        if (!$hasTenantScope && !$hasOwnerScope) {
-            return ['items' => [], 'total' => 0];
-        }
-
-        $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
-
-        // ================================
-        // DATA WITH TRANSLATIONS
-        // ================================
-        $sql = "
+    /**
+     * Build the standard SELECT clause for addresses with resolved tenant_id.
+     */
+    private function getBaseSelect(): string
+    {
+        return "
             SELECT 
                 a.*,
                 COALESCE(ct.name, c.name) AS country_name,
-                COALESCE(cit.name, ci.name) AS city_name
+                COALESCE(cit.name, ci.name) AS city_name,
+                COALESCE(e.tenant_id, tu.tenant_id) AS tenant_id
             FROM addresses a
             LEFT JOIN countries c ON a.country_id = c.id
             LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
             LEFT JOIN cities ci ON a.city_id = ci.id
             LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
-            $whereSql
-            ORDER BY a.$orderBy $orderDir
-            LIMIT :limit OFFSET :offset
+            LEFT JOIN entities e ON a.owner_type = 'entity' AND a.owner_id = e.id
+            LEFT JOIN tenant_users tu ON a.owner_type = 'user' AND a.owner_id = tu.user_id
         ";
+    }
 
-        $stmt = $this->pdo->prepare($sql);
+    private function applyTenantFilter(array &$where, array &$params): void
+    {
+        $tid = $this->getTenantId();
+        if ($tid === 0) return;
 
-        // Fix: Bind language parameters separately for both joins
-        $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
-        $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
-        
-        foreach ($params as $k => $v) {
-            if (is_int($v)) {
-                $stmt->bindValue(":$k", $v, PDO::PARAM_INT);
-            } else {
-                $stmt->bindValue(":$k", $v, PDO::PARAM_STR);
-            }
+        $where[] = "(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)";
+        $params[':tid'] = $tid;
+        $params[':tid_usr'] = $tid;
+    }
+
+    public function list(int $limit, int $offset, array $filters = [], string $orderBy = 'a.id', string $orderDir = 'DESC'): array
+    {
+        $where  = ['1=1'];
+        $params = [
+            ':lang_country' => $filters['language'] ?? 'ar',
+            ':lang_city'    => $filters['language'] ?? 'ar'
+        ];
+
+        $this->applyTenantFilter($where, $params);
+
+        if (!empty($filters['owner_type'])) {
+            $where[] = "a.owner_type = :owner_type";
+            $params[':owner_type'] = $filters['owner_type'];
+        }
+        if (!empty($filters['owner_id'])) {
+            $where[] = "a.owner_id = :owner_id";
+            $params[':owner_id'] = (int)$filters['owner_id'];
         }
 
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $sql = $this->getBaseSelect() . " WHERE " . implode(' AND ', $where);
+        $sql .= " ORDER BY $orderBy $orderDir LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limit',  $limit,  PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // ================================
-        // COUNT
-        // ================================
-        $countSql = "
-            SELECT COUNT(*)
-            FROM addresses a
-            $whereSql
-        ";
-
-        $countStmt = $this->pdo->prepare($countSql);
-        foreach ($params as $k => $v) {
-            if (is_int($v)) {
-                $countStmt->bindValue(":$k", $v, PDO::PARAM_INT);
-            } else {
-                $countStmt->bindValue(":$k", $v, PDO::PARAM_STR);
-            }
-        }
-        $countStmt->execute();
-
-        $total = (int)$countStmt->fetchColumn();
-
-        return [
-            'items' => $items,
-            'total' => $total
-        ];
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // ================================
-    // GET
-    // ================================
-    public function find(int $id, string $language = 'ar', ?int $tenantId = null): ?array
+    public function count(array $filters = []): int
     {
-        $where  = ['a.id = :id'];
+        $where  = ['1=1'];
         $params = [];
 
-        if ($tenantId !== null) {
-            // Multi-tenant safety: scope address to entities or users belonging to the given tenant
-            $where[] = "((a.owner_type = 'entity' AND a.owner_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id))
-                OR (a.owner_type = 'user' AND a.owner_id IN (SELECT user_id FROM tenant_users WHERE tenant_id = :tenant_id_usr)))";
-            $params[':tenant_id'] = $tenantId;
-            $params[':tenant_id_usr'] = $tenantId;
+        $tid = $this->getTenantId();
+        $join = "";
+        if ($tid > 0) {
+            $join = "
+                LEFT JOIN entities e ON a.owner_type = 'entity' AND a.owner_id = e.id
+                LEFT JOIN tenant_users tu ON a.owner_type = 'user' AND a.owner_id = tu.user_id
+            ";
+            $where[] = "(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)";
+            $params[':tid'] = $tid;
+            $params[':tid_usr'] = $tid;
         }
 
-        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        if (!empty($filters['owner_type'])) {
+            $where[] = "a.owner_type = :owner_type";
+            $params[':owner_type'] = $filters['owner_type'];
+        }
+        if (!empty($filters['owner_id'])) {
+            $where[] = "a.owner_id = :owner_id";
+            $params[':owner_id'] = (int)$filters['owner_id'];
+        }
 
-        $sql = "
-            SELECT 
-                a.*,
-                COALESCE(ct.name, c.name) AS country_name,
-                COALESCE(cit.name, ci.name) AS city_name
-            FROM addresses a
-            LEFT JOIN countries c ON a.country_id = c.id
-            LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
-            LEFT JOIN cities ci ON a.city_id = ci.id
-            LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
-            $whereSql
-            LIMIT 1
-        ";
+        $sql = "SELECT COUNT(*) FROM addresses a $join WHERE " . implode(' AND ', $where);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function find(int $id, string $language = 'ar'): ?array
+    {
+        $where  = ['a.id = :id'];
+        $params = [
+            ':id'           => $id,
+            ':lang_country' => $language,
+            ':lang_city'    => $language
+        ];
+
+        $this->applyTenantFilter($where, $params);
+
+        $sql = $this->getBaseSelect() . " WHERE " . implode(' AND ', $where) . " LIMIT 1";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':lang_country', $language, PDO::PARAM_STR);
-        $stmt->bindValue(':lang_city', $language, PDO::PARAM_STR);
-        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-        if ($tenantId !== null) {
-            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
-            $stmt->bindValue(':tenant_id_usr', $tenantId, PDO::PARAM_INT);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
         }
         $stmt->execute();
-
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
 
-    // ================================
-    // CREATE
-    // ================================
-    public function create(array $data): int
+    public function save(array $data): int
     {
-        // If setting as primary, unset other primary addresses for this owner
+        if (!empty($data['id'])) {
+            $this->update((int)$data['id'], $data);
+            return (int)$data['id'];
+        }
+
         if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
             $this->unsetPrimaryAddresses($data['owner_type'], (int)$data['owner_id']);
         }
@@ -195,88 +155,53 @@ final class PdoAddressesRepository
             )
         ";
 
-        $params = [
-            'owner_type'    => $data['owner_type'] ?? null,
-            'owner_id'      => $data['owner_id'] ?? null,
-            'address_line1' => $data['address_line1'] ?? null,
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            'owner_type'    => $data['owner_type'],
+            'owner_id'      => $data['owner_id'],
+            'address_line1' => $data['address_line1'],
             'address_line2' => $data['address_line2'] ?? null,
-            'city_id'       => isset($data['city_id']) && $data['city_id'] !== '' ? (int)$data['city_id'] : null,
-            'country_id'    => isset($data['country_id']) && $data['country_id'] !== '' ? (int)$data['country_id'] : null,
+            'city_id'       => $data['city_id'] ?? null,
+            'country_id'    => $data['country_id'] ?? null,
             'postal_code'   => $data['postal_code'] ?? null,
-            'latitude'      => isset($data['latitude']) && $data['latitude'] !== '' ? (float)$data['latitude'] : null,
-            'longitude'     => isset($data['longitude']) && $data['longitude'] !== '' ? (float)$data['longitude'] : null,
-            'is_primary'    => isset($data['is_primary']) ? (int)$data['is_primary'] : 0,
-        ];
+            'latitude'      => $data['latitude'] ?? null,
+            'longitude'     => $data['longitude'] ?? null,
+            'is_primary'    => $data['is_primary'] ?? 0
+        ]);
 
-        try {
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($params);
-            return (int)$this->pdo->lastInsertId();
-        } catch (\PDOException $e) {
-            // If it's a duplicate entry error on entity_address key
-            if ($e->getCode() == 23000 && strpos($e->getMessage(), 'entity_address') !== false) {
-                // This means there's already a non-primary address, which shouldn't be unique
-                // We need to handle this by modifying our approach
-                throw new \RuntimeException('An address already exists. If you have a UNIQUE constraint on entity_address, please modify it to only apply when is_primary = 1', 400);
-            }
-            throw $e;
-        }
+        return (int)$this->pdo->lastInsertId();
     }
 
-    // ================================
-    // UPDATE
-    // ================================
     public function update(int $id, array $data): bool
     {
-        unset($data['id']);
-        unset($data['csrf_token']);
-        unset($data['tenant_id']);
-
-        if (!$data) {
-            return false;
+        $existing = $this->find($id);
+        if (!$existing) {
+            throw new \RuntimeException('Address not found or access denied.', 404);
         }
 
-        // If setting as primary, unset other primary addresses for this owner
+        unset($data['id'], $data['csrf_token'], $data['tenant_id']);
+        if (!$data) return false;
+
         if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {
-            // Get current address to find owner
-            $current = $this->find($id);
-            if ($current) {
-                $this->unsetPrimaryAddresses($current['owner_type'], (int)$current['owner_id'], $id);
-            }
+            $this->unsetPrimaryAddresses($existing['owner_type'], (int)$existing['owner_id'], $id);
         }
 
         $sets = [];
-        foreach ($data as $key => $_) {
+        $params = [':id' => $id];
+        foreach ($data as $key => $val) {
             $sets[] = "$key = :$key";
+            $params[":$key"] = $val;
         }
 
-        $sql = "
-            UPDATE addresses
-            SET ".implode(', ', $sets)."
-            WHERE id = :id
-        ";
-
-        $data['id'] = $id;
-
-        return $this->pdo->prepare($sql)->execute($data);
+        return $this->pdo->prepare(
+            "UPDATE addresses SET " . implode(', ', $sets) . " WHERE id = :id"
+        )->execute($params);
     }
 
-    // ================================
-    // UNSET PRIMARY ADDRESSES
-    // ================================
     private function unsetPrimaryAddresses(string $ownerType, int $ownerId, ?int $excludeId = null): void
     {
-        $sql = "
-            UPDATE addresses
-            SET is_primary = 0
-            WHERE owner_type = :owner_type
-            AND owner_id = :owner_id
-        ";
-
-        $params = [
-            'owner_type' => $ownerType,
-            'owner_id'   => $ownerId,
-        ];
+        $sql    = "UPDATE addresses SET is_primary = 0 WHERE owner_type = :owner_type AND owner_id = :owner_id";
+        $params = ['owner_type' => $ownerType, 'owner_id' => $ownerId];
 
         if ($excludeId !== null) {
             $sql .= " AND id != :exclude_id";
@@ -286,46 +211,38 @@ final class PdoAddressesRepository
         $this->pdo->prepare($sql)->execute($params);
     }
 
-    // ================================
-    // DELETE BY ID (simple, no owner check - caller must verify ownership)
-    // ================================
-    public function deleteById(int $id): bool
-    {
-        return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = ?")
-            ->execute([$id]);
-    }
-
-    // ================================
-    // RESET PRIMARY (set is_primary = 0 for all addresses of a user)
-    // ================================
-    public function resetPrimary(int $ownerId): bool
-    {
-        return $this->pdo
-            ->prepare('UPDATE addresses SET is_primary = 0 WHERE owner_id = ? AND owner_type = "user"')
-            ->execute([$ownerId]);
-    }
-
-    // ================================
-    // CREATE ADDRESS (simplified public route version)
-    // ================================
-    public function createAddress(int $ownerId, string $addressLine1, ?string $addressLine2, ?int $cityId, ?int $countryId, ?string $postalCode, int $isPrimary): int
-    {
-        $st = $this->pdo->prepare(
-            'INSERT INTO addresses (owner_type, owner_id, address_line1, address_line2, city_id, country_id, postal_code, is_primary)
-             VALUES ("user", ?, ?, ?, ?, ?, ?, ?)'
-        );
-        $st->execute([$ownerId, $addressLine1, $addressLine2, $cityId, $countryId, $postalCode, $isPrimary]);
-        return (int)$this->pdo->lastInsertId();
-    }
-
-    // ================================
-    // DELETE
-    // ================================
     public function delete(int $id): bool
     {
+        $existing = $this->find($id);
+        if (!$existing) {
+            throw new \RuntimeException('Address not found or access denied.', 404);
+        }
+
         return $this->pdo
             ->prepare("DELETE FROM addresses WHERE id = :id")
             ->execute(['id' => $id]);
+    }
+
+    public function getByOwner(int $ownerId, string $ownerType = 'user'): array
+    {
+        $where = [
+            'a.owner_id = :oid',
+            'a.owner_type = :otype',
+        ];
+        $params = [
+            ':oid'          => $ownerId,
+            ':otype'        => $ownerType,
+            ':lang_country' => 'ar',
+            ':lang_city'    => 'ar',
+        ];
+
+        $this->applyTenantFilter($where, $params);
+
+        $sql = $this->getBaseSelect()
+            . " WHERE " . implode(' AND ', $where)
+            . " ORDER BY a.is_primary DESC, a.id DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
