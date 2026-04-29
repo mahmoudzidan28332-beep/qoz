@@ -6,6 +6,9 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
     private PDO $pdo;
     private const TABLE = 'auto_bid_settings';
     private const ALLOWED_ORDER_BY = ['id', 'max_bid_amount', 'is_active', 'total_auto_bids', 'created_at', 'updated_at'];
+    private const ALLOWED_COLUMNS = [
+        'auction_id', 'user_id', 'max_bid_amount', 'is_active'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -88,6 +91,7 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
 
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
 
         if ($isUpdate) {

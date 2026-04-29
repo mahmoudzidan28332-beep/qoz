@@ -7,6 +7,10 @@ final class PdoAttributeTypesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'code', 'name', 'has_values', 'is_multi', 'is_visual', 'is_active'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -61,6 +65,7 @@ final class PdoAttributeTypesRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->findById((int)$data['id']) : null;
 

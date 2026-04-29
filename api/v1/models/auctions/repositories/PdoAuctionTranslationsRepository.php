@@ -5,6 +5,9 @@ final class PdoAuctionTranslationsRepository implements AuctionTranslationsRepos
 {
     private PDO $pdo;
     private const TABLE = 'auction_translations';
+    private const ALLOWED_COLUMNS = [
+        'auction_id', 'language_code', 'title', 'description', 'terms_conditions'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -32,6 +35,7 @@ final class PdoAuctionTranslationsRepository implements AuctionTranslationsRepos
 
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             INSERT INTO " . self::TABLE . " (auction_id, language_code, title, description, terms_conditions)
             VALUES (:auction_id, :language_code, :title, :description, :terms_conditions)

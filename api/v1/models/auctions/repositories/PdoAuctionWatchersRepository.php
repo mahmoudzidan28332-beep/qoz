@@ -5,6 +5,9 @@ final class PdoAuctionWatchersRepository implements AuctionWatchersRepositoryInt
 {
     private PDO $pdo;
     private const TABLE = 'auction_watchers';
+    private const ALLOWED_COLUMNS = [
+        'auction_id', 'user_id', 'notify_before_end', 'notify_on_outbid', 'notify_on_winner'
+    ];
 
     public function __construct(PDO $pdo)
     {
@@ -32,6 +35,7 @@ final class PdoAuctionWatchersRepository implements AuctionWatchersRepositoryInt
 
     public function save(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             INSERT INTO " . self::TABLE . " (auction_id, user_id, notify_before_end, notify_on_outbid, notify_on_winner)
             VALUES (:auction_id, :user_id, :notify_before_end, :notify_on_outbid, :notify_on_winner)

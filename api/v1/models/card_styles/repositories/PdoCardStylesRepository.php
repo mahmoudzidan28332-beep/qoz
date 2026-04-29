@@ -20,7 +20,7 @@ final class PdoCardStylesRepository
                    shadow_style, padding, hover_effect, text_align, image_aspect_ratio,
                    is_active, created_at
             FROM card_styles
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
         ";
 
         $params = [':tenantId' => $tenantId];
@@ -48,7 +48,7 @@ final class PdoCardStylesRepository
         $sql = "
             SELECT *
             FROM card_styles
-            WHERE tenant_id = :tenantId AND slug = :slug
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
 
         $params = [':tenantId' => $tenantId, ':slug' => $slug];
@@ -71,7 +71,7 @@ final class PdoCardStylesRepository
         $stmt = $this->pdo->prepare("
             SELECT *
             FROM card_styles
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1
         ");
 
@@ -101,7 +101,7 @@ final class PdoCardStylesRepository
                     image_aspect_ratio = :image_aspect_ratio,
                     is_active         = :is_active,
                     updated_at        = NOW()
-                WHERE tenant_id = :tenantId AND id = :id
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             ");
 
             $stmt->execute([
@@ -141,7 +141,7 @@ final class PdoCardStylesRepository
         ");
 
         $stmt->execute([
-            ':tenantId'           => $tenantId,
+            ':tenantId'           => $tenantId === 1 ? null : $tenantId,
             ':theme_id'           => $data['theme_id'] ?? null,
             ':name'               => $data['name'],
             ':slug'               => $data['slug'],
@@ -166,7 +166,7 @@ final class PdoCardStylesRepository
     {
         $sql = "
             DELETE FROM card_styles
-            WHERE tenant_id = :tenantId AND slug = :slug
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
 
         $params = [':tenantId' => $tenantId, ':slug' => $slug];
@@ -184,7 +184,7 @@ final class PdoCardStylesRepository
     {
         $stmt = $this->pdo->prepare("
             DELETE FROM card_styles
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
         ");
 
         return $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
@@ -195,7 +195,7 @@ final class PdoCardStylesRepository
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT card_type
             FROM card_styles
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
             ORDER BY card_type ASC
         ");
 
@@ -209,7 +209,7 @@ final class PdoCardStylesRepository
             SELECT slug, card_type, background_color, text_color, border_color, border_width,
                    border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio
             FROM card_styles
-            WHERE tenant_id = :tenantId AND is_active = 1
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND is_active = 1
         ";
 
         $params = [':tenantId' => $tenantId];

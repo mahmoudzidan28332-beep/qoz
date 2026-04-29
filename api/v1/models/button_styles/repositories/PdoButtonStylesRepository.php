@@ -17,7 +17,7 @@ final class PdoButtonStylesRepository
         $sql = "
             SELECT id, tenant_id, theme_id, name, slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color, is_active, created_at, updated_at
             FROM button_styles
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
         ";
 
         $params = [':tenantId' => $tenantId];
@@ -45,7 +45,7 @@ final class PdoButtonStylesRepository
         $sql = "
             SELECT *
             FROM button_styles
-            WHERE tenant_id = :tenantId AND slug = :slug
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
 
         $params = [':tenantId' => $tenantId, ':slug' => $slug];
@@ -68,7 +68,7 @@ final class PdoButtonStylesRepository
         $stmt = $this->pdo->prepare("
             SELECT *
             FROM button_styles
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1
         ");
 
@@ -99,7 +99,7 @@ final class PdoButtonStylesRepository
                     hover_border_color = :hover_border_color,
                     is_active = :is_active,
                     updated_at = NOW()
-                WHERE tenant_id = :tenantId AND id = :id
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             ");
 
             $stmt->execute([
@@ -134,7 +134,7 @@ final class PdoButtonStylesRepository
         ");
 
         $stmt->execute([
-            ':tenantId'               => $tenantId,
+            ':tenantId'               => $tenantId === 1 ? null : $tenantId,
             ':theme_id'               => $data['theme_id'] ?? null,
             ':name'                   => $data['name'],
             ':slug'                   => $data['slug'],
@@ -160,7 +160,7 @@ final class PdoButtonStylesRepository
     {
         $sql = "
             DELETE FROM button_styles
-            WHERE tenant_id = :tenantId AND slug = :slug
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
 
         $params = [':tenantId' => $tenantId, ':slug' => $slug];
@@ -178,7 +178,7 @@ final class PdoButtonStylesRepository
     {
         $stmt = $this->pdo->prepare("
             DELETE FROM button_styles
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
         ");
 
         return $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
@@ -189,7 +189,7 @@ final class PdoButtonStylesRepository
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT button_type
             FROM button_styles
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
             ORDER BY button_type ASC
         ");
 
@@ -202,7 +202,7 @@ final class PdoButtonStylesRepository
         $sql = "
             SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color
             FROM button_styles
-            WHERE tenant_id = :tenantId AND is_active = 1
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND is_active = 1
         ";
 
         $params = [':tenantId' => $tenantId];

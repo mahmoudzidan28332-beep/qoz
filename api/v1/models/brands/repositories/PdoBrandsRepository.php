@@ -1,10 +1,8 @@
 <?php
 declare(strict_types=1);
 
-final class PdoBrandsRepository
+final class PdoBrandsRepository extends BaseRepository
 {
-    private PDO $pdo;
-
     private const ALLOWED_ORDER_BY = [
         'id', 'tenant_id', 'entity_id', 'slug', 'is_active', 'is_featured', 'sort_order', 'created_at', 'updated_at'
     ];
@@ -15,14 +13,14 @@ final class PdoBrandsRepository
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     /**
      * جلب قائمة العلامات التجارية مع الفلاتر والترتيب والصفحات
      */
     public function all(
-        int $tenantId,
+        ?int $tenantId = null,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -30,6 +28,15 @@ final class PdoBrandsRepository
         string $orderDir = 'ASC',
         string $lang = 'en'
     ): array {
+        $contextTenantId = $this->getTenantId();
+        
+        // 🔒 SECURITY: Enforce tenant isolation.
+        if ($contextTenantId > 0) {
+            $effectiveTenantId = $contextTenantId;
+        } else {
+            $effectiveTenantId = ($tenantId !== null && $tenantId > 0) ? $tenantId : 0;
+        }
+
         $sql = "
             SELECT b.id, b.tenant_id, b.entity_id, b.slug, b.website_url,
                    b.is_active, b.is_featured, b.sort_order, b.created_at, b.updated_at,
@@ -40,9 +47,14 @@ final class PdoBrandsRepository
             FROM brands b
             LEFT JOIN brand_translations bt 
                 ON b.id = bt.brand_id AND bt.language_code = :lang
-            WHERE b.tenant_id = :tenant_id
+            WHERE 1=1
         ";
-        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
+        $params = [':lang' => $lang];
+
+        if ($effectiveTenantId > 0) {
+            $sql .= " AND b.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $effectiveTenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -64,43 +76,53 @@ final class PdoBrandsRepository
         $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
         $sql .= " ORDER BY b.{$orderBy} {$orderDir}";
 
-        if ($limit !== null) {
-            $sql .= " LIMIT :limit";
+        if ($limit !== null && $limit > 0) {
+            $sql .= " LIMIT :limit OFFSET :offset";
+            $params[':limit'] = (int)$limit;
+            $params[':offset'] = (int)($offset ?? 0);
+            
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $val) {
+                $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stmt->execute();
+        } else {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
         }
-        if ($offset !== null) {
-            $sql .= " OFFSET :offset";
-        }
-
-        $stmt = $this->pdo->prepare($sql);
-        foreach ($params as $key => $val) {
-            $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
-        }
-        if ($limit !== null) {
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        }
-        if ($offset !== null) {
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        }
-        $stmt->execute();
+        
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function count(int $tenantId, array $filters = []): int
+    public function count(?int $tenantId = null, array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM brands WHERE tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
+        $contextTenantId = $this->getTenantId();
+        
+        if ($contextTenantId > 0) {
+            $effectiveTenantId = $contextTenantId;
+        } else {
+            $effectiveTenantId = ($tenantId !== null && $tenantId > 0) ? $tenantId : 0;
+        }
+
+        $sql = "SELECT COUNT(*) FROM brands b WHERE 1=1";
+        $params = [];
+
+        if ($effectiveTenantId > 0) {
+            $sql .= " AND b.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $effectiveTenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
                 if ($col === 'tenant_id') continue;
                 if ($col === 'slug') {
-                    $sql .= " AND slug LIKE :slug";
+                    $sql .= " AND b.slug LIKE :slug";
                     $params[':slug'] = '%' . $filters['slug'] . '%';
                 } elseif (in_array($col, ['is_active', 'is_featured'])) {
-                    $sql .= " AND {$col} = :{$col}";
+                    $sql .= " AND b.{$col} = :{$col}";
                     $params[":{$col}"] = (int)$filters[$col];
                 } else {
-                    $sql .= " AND {$col} = :{$col}";
+                    $sql .= " AND b.{$col} = :{$col}";
                     $params[":{$col}"] = $filters[$col];
                 }
             }
@@ -114,17 +136,11 @@ final class PdoBrandsRepository
     /**
      * العثور على علامة تجارية بواسطة slug مع الترجمات
      */
-    public function find(int $tenantId, string $slug, string $lang = 'en', bool $allTranslations = false): ?array
+    public function find(string $slug, string $lang = 'en', bool $allTranslations = false): ?array
     {
-        if ($allTranslations) {
-            $row = $this->findBySlugRaw($tenantId, $slug);
-            if ($row) {
-                $row['translations'] = $this->getTranslationsAsArray($row['id']);
-            }
-            return $row;
-        }
+        $contextTenantId = $this->getTenantId();
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT b.id, b.tenant_id, b.entity_id, b.slug, b.website_url,
                    b.is_active, b.is_featured, b.sort_order, b.created_at, b.updated_at,
                    COALESCE(bt.name, '') AS name,
@@ -134,28 +150,37 @@ final class PdoBrandsRepository
             FROM brands b
             LEFT JOIN brand_translations bt 
                 ON b.id = bt.brand_id AND bt.language_code = :lang
-            WHERE b.tenant_id = :tenantId AND b.slug = :slug
-            LIMIT 1
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':lang' => $lang, ':slug' => $slug]);
+            WHERE b.slug = :slug
+        ";
+        
+        $params = [':lang' => $lang, ':slug' => $slug];
+
+        if ($contextTenantId > 0) {
+            $sql .= " AND b.tenant_id = :tenantId";
+            $params[':tenantId'] = $contextTenantId;
+        }
+
+        $sql .= " LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row && $allTranslations) {
+            $row['translations'] = $this->getTranslationsAsArray((int)$row['id']);
+        }
+
         return $row ?: null;
     }
 
     /**
      * العثور على علامة تجارية بواسطة ID مع الترجمات
      */
-    public function findById(int $tenantId, int $id, string $lang = 'en', bool $allTranslations = false): ?array
+    public function findById(int $id, string $lang = 'en', bool $allTranslations = false): ?array
     {
-        if ($allTranslations) {
-            $row = $this->findByIdRaw($tenantId, $id);
-            if ($row) {
-                $row['translations'] = $this->getTranslationsAsArray($row['id']);
-            }
-            return $row;
-        }
+        $contextTenantId = $this->getTenantId();
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT b.id, b.tenant_id, b.entity_id, b.slug, b.website_url,
                    b.is_active, b.is_featured, b.sort_order, b.created_at, b.updated_at,
                    COALESCE(bt.name, '') AS name,
@@ -165,43 +190,26 @@ final class PdoBrandsRepository
             FROM brands b
             LEFT JOIN brand_translations bt 
                 ON b.id = bt.brand_id AND bt.language_code = :lang
-            WHERE b.tenant_id = :tenantId AND b.id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':id' => $id, ':lang' => $lang]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
-    }
+            WHERE b.id = :id
+        ";
+        
+        $params = [':id' => $id, ':lang' => $lang];
 
-    /**
-     * جلب الصف الأساسي بدون ترجمات بواسطة slug
-     */
-    private function findBySlugRaw(int $tenantId, string $slug): ?array
-    {
-        $stmt = $this->pdo->prepare("
-            SELECT *
-            FROM brands
-            WHERE tenant_id = :tenantId AND slug = :slug
-            LIMIT 1
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':slug' => $slug]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
-    }
+        if ($contextTenantId > 0) {
+            $sql .= " AND b.tenant_id = :tenantId";
+            $params[':tenantId'] = $contextTenantId;
+        }
 
-    /**
-     * جلب الصف الأساسي بدون ترجمات بواسطة ID
-     */
-    private function findByIdRaw(int $tenantId, int $id): ?array
-    {
-        $stmt = $this->pdo->prepare("
-            SELECT *
-            FROM brands
-            WHERE tenant_id = :tenantId AND id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
+        $sql .= " LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row && $allTranslations) {
+            $row['translations'] = $this->getTranslationsAsArray((int)$row['id']);
+        }
+
         return $row ?: null;
     }
 
@@ -222,13 +230,27 @@ final class PdoBrandsRepository
     /**
      * حفظ (إدراج أو تحديث) علامة تجارية
      */
-    public function save(int $tenantId, array $data, ?int $userId = null): int
+    public function save(array $data, ?int $userId = null): int
     {
+        $contextTenantId = $this->getTenantId();
         $isUpdate = !empty($data['id']);
-        $oldData = $isUpdate ? $this->findByIdRaw($tenantId, (int)$data['id']) : null;
+        
+        if ($isUpdate) {
+            $existing = $this->findById((int)$data['id']);
+            if (!$existing) {
+                throw new RuntimeException('Brand not found or access denied');
+            }
+            $id = (int)$data['id'];
+            $targetTenantId = (int)$existing['tenant_id'];
+        } else {
+            $targetTenantId = ($contextTenantId > 0) ? $contextTenantId : (int)($data['tenant_id'] ?? 0);
+            if ($targetTenantId <= 0) {
+                throw new InvalidArgumentException('Valid tenant_id is required for new brands');
+            }
+        }
 
         $fields = [
-            'tenant_id'    => $tenantId,
+            'tenant_id'    => $targetTenantId,
             'entity_id'    => $data['entity_id']    ?? null,
             'slug'         => $data['slug']         ?? null,
             'website_url'  => $data['website_url']  ?? null,
@@ -238,11 +260,10 @@ final class PdoBrandsRepository
         ];
 
         if ($isUpdate) {
-            $id = (int)$data['id'];
             $sets = [];
-            $params = [':id' => $id, ':tenantId' => $tenantId];
+            $params = [':id' => $id, ':tenantId' => $targetTenantId];
             foreach ($fields as $col => $val) {
-                if (array_key_exists($col, $data) || $col === 'tenant_id') {
+                if (array_key_exists($col, $data)) {
                     if ($col === 'tenant_id') continue;
                     $sets[] = "$col = :$col";
                     $params[":$col"] = $val;
@@ -272,9 +293,8 @@ final class PdoBrandsRepository
             $this->deleteTranslations($id, $data['deleted_translations']);
         }
 
-        // تسجيل العملية (اختياري)
         if ($userId) {
-            $this->logAction($tenantId, $userId, $isUpdate ? 'update' : 'create', $id, $oldData, $data);
+            $this->logAction($targetTenantId, $userId, $isUpdate ? 'update' : 'create', $id, $isUpdate ? $existing : null, $data);
         }
 
         return $id;
@@ -302,22 +322,21 @@ final class PdoBrandsRepository
     /**
      * حذف بواسطة slug
      */
-    public function delete(int $tenantId, string $slug, ?int $userId = null): bool
+    public function delete(string $slug, ?int $userId = null): bool
     {
-        $oldData = $this->findBySlugRaw($tenantId, $slug);
-        if (!$oldData) return false;
+        $existing = $this->find($slug);
+        if (!$existing) return false;
 
         $this->pdo->beginTransaction();
         try {
-            // حذف الترجمات
             $this->pdo->prepare("DELETE FROM brand_translations WHERE brand_id = :brand_id")
-                ->execute([':brand_id' => $oldData['id']]);
+                ->execute([':brand_id' => $existing['id']]);
 
-            $stmt = $this->pdo->prepare("DELETE FROM brands WHERE tenant_id = :tenantId AND slug = :slug");
-            $result = $stmt->execute([':tenantId' => $tenantId, ':slug' => $slug]);
+            $stmt = $this->pdo->prepare("DELETE FROM brands WHERE id = :id");
+            $result = $stmt->execute([':id' => $existing['id']]);
 
             if ($userId) {
-                $this->logAction($tenantId, $userId, 'delete', $oldData['id'], $oldData, null);
+                $this->logAction((int)$existing['tenant_id'], $userId, 'delete', (int)$existing['id'], $existing, null);
             }
             $this->pdo->commit();
             return $result;
@@ -330,21 +349,21 @@ final class PdoBrandsRepository
     /**
      * حذف بواسطة ID
      */
-    public function deleteById(int $tenantId, int $id, ?int $userId = null): bool
+    public function deleteById(int $id, ?int $userId = null): bool
     {
-        $oldData = $this->findByIdRaw($tenantId, $id);
-        if (!$oldData) return false;
+        $existing = $this->findById($id);
+        if (!$existing) return false;
 
         $this->pdo->beginTransaction();
         try {
             $this->pdo->prepare("DELETE FROM brand_translations WHERE brand_id = :brand_id")
                 ->execute([':brand_id' => $id]);
 
-            $stmt = $this->pdo->prepare("DELETE FROM brands WHERE tenant_id = :tenantId AND id = :id");
-            $result = $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
+            $stmt = $this->pdo->prepare("DELETE FROM brands WHERE id = :id");
+            $result = $stmt->execute([':id' => $id]);
 
             if ($userId) {
-                $this->logAction($tenantId, $userId, 'delete', $id, $oldData, null);
+                $this->logAction((int)$existing['tenant_id'], $userId, 'delete', $id, $existing, null);
             }
             $this->pdo->commit();
             return $result;
@@ -352,45 +371,6 @@ final class PdoBrandsRepository
             $this->pdo->rollBack();
             return false;
         }
-    }
-
-    /**
-     * العلامات النشطة
-     */
-    public function getActiveBrands(int $tenantId, string $lang = 'en'): array
-    {
-        $stmt = $this->pdo->prepare("
-            SELECT b.id, b.slug, b.website_url, b.sort_order,
-                   COALESCE(bt.name, '') AS name,
-                   COALESCE(bt.meta_title, '') AS meta_title,
-                   COALESCE(bt.meta_description, '') AS meta_description
-            FROM brands b
-            LEFT JOIN brand_translations bt 
-                ON b.id = bt.brand_id AND bt.language_code = :lang
-            WHERE b.tenant_id = :tenantId AND b.is_active = 1
-            ORDER BY b.sort_order ASC, b.slug ASC
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':lang' => $lang]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * العلامات المميزة (featured)
-     */
-    public function getFeaturedBrands(int $tenantId, string $lang = 'en'): array
-    {
-        $stmt = $this->pdo->prepare("
-            SELECT b.id, b.slug, b.website_url, b.sort_order,
-                   COALESCE(bt.name, '') AS name,
-                   COALESCE(bt.description, '') AS description
-            FROM brands b
-            LEFT JOIN brand_translations bt 
-                ON b.id = bt.brand_id AND bt.language_code = :lang
-            WHERE b.tenant_id = :tenantId AND b.is_featured = 1 AND b.is_active = 1
-            ORDER BY b.sort_order ASC, b.slug ASC
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':lang' => $lang]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
