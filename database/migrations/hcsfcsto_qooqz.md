@@ -29,6 +29,7 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `addresses` (
   `id` bigint(20) UNSIGNED NOT NULL,
+  `tenant_id` int(11) UNSIGNED NOT NULL DEFAULT 0,
   `owner_type` enum('user','entity') NOT NULL,
   `owner_id` bigint(20) UNSIGNED NOT NULL,
   `address_line1` varchar(255) NOT NULL,

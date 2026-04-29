@@ -4,25 +4,44 @@ declare(strict_types=1);
 /**
  * PdoAddressesRepository
  *
- * Handles address management for users and entities.
+ * Handles address management for users, tenants, entities, and tenant users.
+ *
+ * TABLE SCHEMA (addresses):
+ *  - id          BIGINT UNSIGNED PK AUTO_INCREMENT
+ *  - tenant_id   INT(11) UNSIGNED NOT NULL DEFAULT 0  ← direct column on the table
+ *  - owner_type  ENUM('user','entity') NOT NULL
+ *  - owner_id    BIGINT UNSIGNED NOT NULL
+ *  - address_line1 / address_line2 / city_id / country_id / postal_code / latitude / longitude
+ *  - is_primary  TINYINT(1)
+ *  - primary_marker VIRTUAL GENERATED
+ *  - created_at / updated_at
+ *
+ * TENANT ISOLATION:
+ *  Because `tenant_id` is a first-class column on the table every query uses
+ *  a simple `a.tenant_id = :tenant_id` predicate.  There are no JOINs to
+ *  `entities` or `tenant_users` for isolation purposes (those tables are
+ *  irrelevant — tenant_id is stored directly on the address row at INSERT time).
+ *
+ *  Platform admins pass tenant_id = 0 (TenantContext::set(0)) to indicate a
+ *  global view; in that case the tenant filter is omitted so they can see all
+ *  tenants' addresses.
  *
  * SECURITY HARDENING:
- *  - ALLOWED_COLUMNS constant guards against mass-assignment injection.
+ *  - ALLOWED_COLUMNS guards every write path against mass-assignment injection.
  *  - ALLOWED_ORDER_BY whitelist prevents ORDER BY SQL injection.
- *  - All SELECT queries route through BaseRepository::execute() /
- *    executePaginated() so QueryGuard and autoAudit always fire.
- *  - UPDATE and DELETE use a JOIN-based multi-table form that includes
- *    tenant_id in the WHERE clause for defence-in-depth (the addresses
- *    table has no direct tenant_id column; isolation is via JOINs).
- *  - All PDO calls are wrapped in try/catch(PDOException) — errors are
- *    logged internally and re-thrown as RuntimeException so raw DB
- *    details never reach the client.
+ *  - All SELECT paths route through BaseRepository::execute() /
+ *    executePaginated() so QueryGuard + autoAudit always fire.
+ *  - All PDO calls are wrapped in catch(PDOException) — errors are
+ *    logged internally and re-thrown as RuntimeException.
  */
 final class PdoAddressesRepository extends BaseRepository implements AddressesRepositoryInterface
 {
     /**
      * Columns callers are permitted to set via create / update.
-     * Every other key supplied by the user is silently discarded.
+     * `tenant_id` is intentionally excluded — it is always sourced from
+     * TenantContext, never from user-supplied data.
+     *
+     * @var string[]
      */
     private const ALLOWED_COLUMNS = [
         'owner_type', 'owner_id',
@@ -33,9 +52,11 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
 
     /**
      * Fully-qualified ORDER BY expressions that are safe to interpolate.
+     *
+     * @var string[]
      */
     private const ALLOWED_ORDER_BY = [
-        'a.id', 'a.owner_id', 'a.owner_type',
+        'a.id', 'a.tenant_id', 'a.owner_id', 'a.owner_type',
         'a.city_id', 'a.country_id',
         'a.is_primary', 'a.created_at', 'a.updated_at',
     ];
@@ -50,14 +71,15 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
     // =========================================================================
 
     /**
-     * Standard SELECT projection for addresses (explicit columns — no SELECT *).
-     * The result always includes a derived `tenant_id` column from the JOINs.
+     * Standard SELECT projection for addresses with translated country/city names.
+     * Uses the direct `a.tenant_id` column — no JOIN-based derivation needed.
      */
     private function getBaseSelect(): string
     {
         return "
             SELECT
                 a.id,
+                a.tenant_id,
                 a.owner_type,
                 a.owner_id,
                 a.address_line1,
@@ -71,8 +93,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
                 a.created_at,
                 a.updated_at,
                 COALESCE(ct.name, c.name)   AS country_name,
-                COALESCE(cit.name, ci.name) AS city_name,
-                COALESCE(e.tenant_id, tu.tenant_id) AS tenant_id
+                COALESCE(cit.name, ci.name) AS city_name
             FROM addresses a
             LEFT JOIN countries c
                 ON a.country_id = c.id
@@ -82,55 +103,24 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
                 ON a.city_id = ci.id
             LEFT JOIN city_translations cit
                 ON ci.id = cit.city_id AND cit.language_code = :lang_city
-            LEFT JOIN entities e
-                ON a.owner_type = 'entity' AND a.owner_id = e.id
-            LEFT JOIN tenant_users tu
-                ON a.owner_type = 'user' AND a.owner_id = tu.user_id
         ";
     }
 
     /**
-     * Append tenant-isolation WHERE fragments when a non-zero tenant is active.
-     * The addresses table has no direct tenant_id column; isolation is via JOINs.
+     * Append the tenant-isolation predicate to $where / $params.
+     *
+     * Uses the direct `a.tenant_id` column.
+     * When tenant_id = 0 (platform-admin global view) no filter is applied.
      */
     private function applyTenantFilter(array &$where, array &$params): void
     {
         $tid = $this->getTenantId();
         if ($tid === 0) {
-            return; // platform-admin: global view, no tenant filter
+            return; // platform-admin: global view, no filter
         }
 
-        $where[]            = '(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)';
-        $params[':tid']     = $tid;
-        $params[':tid_usr'] = $tid;
-    }
-
-    /**
-     * Build the JOIN + condition fragment used in DML (UPDATE / DELETE) queries
-     * so that tenant_id isolation is enforced at the SQL level as defence-in-depth.
-     *
-     * @return array{join: string, cond: string, params: array}
-     */
-    private function tenantDmlFragment(): array
-    {
-        $join = "
-            LEFT JOIN entities e
-                ON a.owner_type = 'entity' AND a.owner_id = e.id
-            LEFT JOIN tenant_users tu
-                ON a.owner_type = 'user' AND a.owner_id = tu.user_id
-        ";
-
-        $tid = $this->getTenantId();
-        if ($tid === 0) {
-            // Platform-admin: allow operation on any tenant row.
-            return ['join' => $join, 'cond' => '1 = 1', 'params' => []];
-        }
-
-        return [
-            'join'   => $join,
-            'cond'   => '(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)',
-            'params' => [':tid' => $tid, ':tid_usr' => $tid],
-        ];
+        $where[]              = 'a.tenant_id = :tenant_id';
+        $params[':tenant_id'] = $tid;
     }
 
     // =========================================================================
@@ -144,7 +134,6 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         string $orderBy  = 'a.id',
         string $orderDir = 'DESC'
     ): array {
-        // Whitelist ORDER BY to prevent SQL injection via user-supplied values.
         if (!in_array($orderBy, self::ALLOWED_ORDER_BY, true)) {
             $orderBy = 'a.id';
         }
@@ -190,21 +179,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         $where  = ['1 = 1'];
         $params = [];
 
-        // Always include the JOINs so that the SQL string contains 'tenant_id'
-        // (required for QueryGuard validation).
-        $join = "
-            LEFT JOIN entities e
-                ON a.owner_type = 'entity' AND a.owner_id = e.id
-            LEFT JOIN tenant_users tu
-                ON a.owner_type = 'user' AND a.owner_id = tu.user_id
-        ";
-
-        $tid = $this->getTenantId();
-        if ($tid > 0) {
-            $where[]            = '(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)';
-            $params[':tid']     = $tid;
-            $params[':tid_usr'] = $tid;
-        }
+        $this->applyTenantFilter($where, $params);
 
         if (!empty($filters['owner_type'])) {
             $where[]               = 'a.owner_type = :owner_type';
@@ -215,8 +190,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             $params[':owner_id'] = (int) $filters['owner_id'];
         }
 
-        $sql = 'SELECT COUNT(*) FROM addresses a ' . $join
-             . ' WHERE ' . implode(' AND ', $where);
+        $sql = 'SELECT COUNT(*) FROM addresses a WHERE ' . implode(' AND ', $where);
 
         try {
             return (int) $this->execute($sql, $params, 'addresses')->fetchColumn();
@@ -265,7 +239,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             return (int) $data['id'];
         }
 
-        // Mass-assignment guard.
+        // Mass-assignment guard — only ALLOWED_COLUMNS pass through.
         $safe = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
 
         if (isset($safe['is_primary']) && (int) $safe['is_primary'] === 1) {
@@ -275,17 +249,25 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             );
         }
 
+        // tenant_id is sourced from TenantContext, not from user-supplied $data.
+        $tenantId = $this->getTenantId();
+
         $sql = '
             INSERT INTO addresses
-                (owner_type, owner_id, address_line1, address_line2,
-                 city_id, country_id, postal_code, latitude, longitude, is_primary)
+                (tenant_id, owner_type, owner_id,
+                 address_line1, address_line2,
+                 city_id, country_id, postal_code,
+                 latitude, longitude, is_primary)
             VALUES
-                (:owner_type, :owner_id, :address_line1, :address_line2,
-                 :city_id, :country_id, :postal_code, :latitude, :longitude, :is_primary)
+                (:tenant_id, :owner_type, :owner_id,
+                 :address_line1, :address_line2,
+                 :city_id, :country_id, :postal_code,
+                 :latitude, :longitude, :is_primary)
         ';
 
         try {
             $this->pdo->prepare($sql)->execute([
+                ':tenant_id'     => $tenantId,
                 ':owner_type'    => $safe['owner_type'],
                 ':owner_id'      => $safe['owner_id'],
                 ':address_line1' => $safe['address_line1'],
@@ -310,14 +292,14 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
 
     public function update(int $id, array $data): bool
     {
-        // Verify ownership and tenant scope first (throws 404 on mismatch).
+        // Verify row belongs to this tenant (and exists) before mutating.
         $existing = $this->find($id);
         if (!$existing) {
             throw new \RuntimeException('Address not found or access denied.', 404);
         }
 
         // Mass-assignment guard — only whitelisted columns may be updated.
-        // Ownership (owner_type / owner_id) is immutable after creation.
+        // Ownership fields (owner_type / owner_id) and tenant_id are immutable.
         $safe = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         unset($safe['owner_type'], $safe['owner_id']);
 
@@ -333,28 +315,27 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             );
         }
 
-        // Build SET clause using only whitelisted column names.
-        // The secondary in_array() check is defence-in-depth after array_intersect_key().
+        // Build SET clause — secondary in_array() is defence-in-depth.
         $sets   = [];
-        $params = [':id' => $id];
+        $params = [
+            ':id'        => $id,
+            ':tenant_id' => $this->getTenantId(),
+        ];
         foreach ($safe as $col => $val) {
             if (!in_array($col, self::ALLOWED_COLUMNS, true)) {
-                continue; // should never happen; extra safety net
+                continue;
             }
-            $sets[]           = "a.{$col} = :{$col}";
+            $sets[]            = "{$col} = :{$col}";
             $params[":{$col}"] = $val;
         }
 
-        // Multi-table UPDATE includes tenant_id via JOINs for defence-in-depth.
-        $tf  = $this->tenantDmlFragment();
-        $sql = "
-            UPDATE addresses a
-            {$tf['join']}
-            SET " . implode(', ', $sets) . "
-            WHERE a.id = :id
-              AND {$tf['cond']}
-        ";
-        $params = array_merge($params, $tf['params']);
+        if (empty($sets)) {
+            return false;
+        }
+
+        // tenant_id in WHERE provides defence-in-depth against cross-tenant writes.
+        $sql = 'UPDATE addresses SET ' . implode(', ', $sets)
+             . ' WHERE id = :id AND tenant_id = :tenant_id';
 
         try {
             return (bool) $this->pdo->prepare($sql)->execute($params);
@@ -373,24 +354,28 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         int    $ownerId,
         ?int   $excludeId = null
     ): void {
-        $tf = $this->tenantDmlFragment();
+        $tid    = $this->getTenantId();
+        $params = [
+            ':owner_type' => $ownerType,
+            ':owner_id'   => $ownerId,
+            ':tenant_id'  => $tid,
+        ];
 
-        $sql = "
-            UPDATE addresses a
-            {$tf['join']}
-            SET a.is_primary = 0
-            WHERE a.owner_type = :owner_type
-              AND a.owner_id   = :owner_id
-              AND {$tf['cond']}
-        ";
-
-        $params = array_merge(
-            [':owner_type' => $ownerType, ':owner_id' => $ownerId],
-            $tf['params']
-        );
+        // tenant_id = 0 means platform-admin global context; omit the filter
+        // so the helper can clear the primary flag across any tenant row.
+        if ($tid === 0) {
+            $sql = 'UPDATE addresses SET is_primary = 0
+                    WHERE owner_type = :owner_type AND owner_id = :owner_id';
+            unset($params[':tenant_id']);
+        } else {
+            $sql = 'UPDATE addresses SET is_primary = 0
+                    WHERE owner_type = :owner_type
+                      AND owner_id   = :owner_id
+                      AND tenant_id  = :tenant_id';
+        }
 
         if ($excludeId !== null) {
-            $sql                  .= ' AND a.id != :exclude_id';
+            $sql                  .= ' AND id != :exclude_id';
             $params[':exclude_id'] = $excludeId;
         }
 
@@ -408,24 +393,25 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
 
     public function delete(int $id): bool
     {
-        // Verify ownership and tenant scope first (throws 404 on mismatch).
+        // Verify row belongs to this tenant (and exists) before deleting.
         $existing = $this->find($id);
         if (!$existing) {
             throw new \RuntimeException('Address not found or access denied.', 404);
         }
 
-        // Multi-table DELETE includes tenant_id via JOINs for defence-in-depth.
-        $tf  = $this->tenantDmlFragment();
-        $sql = "
-            DELETE a FROM addresses a
-            {$tf['join']}
-            WHERE a.id = :id
-              AND {$tf['cond']}
-        ";
-        $params = array_merge([':id' => $id], $tf['params']);
+        $tid    = $this->getTenantId();
+        $params = [':id' => $id, ':tenant_id' => $tid];
+
+        // Platform-admin global context (tid = 0): allow deletion of any row.
+        if ($tid === 0) {
+            $sql = 'DELETE FROM addresses WHERE id = :id';
+            unset($params[':tenant_id']);
+        } else {
+            $sql = 'DELETE FROM addresses WHERE id = :id AND tenant_id = :tenant_id';
+        }
 
         try {
-            return (bool) $this->pdo->prepare($sql)->execute($params);
+            return (bool) $this->execute($sql, $params, 'addresses')->rowCount() > 0;
         } catch (\PDOException $e) {
             error_log('[PdoAddressesRepository::delete] ' . $e->getMessage());
             throw new \RuntimeException('Database error while deleting address', 0, $e);
