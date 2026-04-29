@@ -9,7 +9,8 @@ final class TenantCategoriesValidator
     {
         $errors = [];
 
-        if (empty($data['tenant_id']) || !is_numeric($data['tenant_id'])) {
+        // tenant_id is required only for new records; updates use existing record's tenant_id
+        if (empty($data['id']) && (empty($data['tenant_id']) || !is_numeric($data['tenant_id']))) {
             $errors['tenant_id'] = 'Tenant ID is required and must be a number';
         }
 

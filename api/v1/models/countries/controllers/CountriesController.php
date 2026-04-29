@@ -18,6 +18,11 @@ final class CountriesController
      */
     public function list(array $filters = []): array
     {
+        // Support both 'lang' and 'language' as parameter names
+        if (empty($filters['lang']) && !empty($filters['language'])) {
+            $filters['lang'] = $filters['language'];
+        }
+        
         return $this->service->list($filters);
     }
 

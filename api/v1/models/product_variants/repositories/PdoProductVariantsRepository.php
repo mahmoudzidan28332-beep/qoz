@@ -32,9 +32,14 @@ final class PdoProductVariantsRepository
                 INNER JOIN products p ON pv.product_id = p.id
                 LEFT JOIN product_variant_translations pvt 
                        ON pv.id = pvt.variant_id" . ($languageCode ? " AND pvt.language_code = :lang" : "") . "
-                WHERE p.tenant_id = :tenant_id";
-        $params = [':tenant_id'=>$tenantId];
-        if($languageCode) $params[':lang']=$languageCode;
+                WHERE 1=1";
+        
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        if ($languageCode) $params[':lang'] = $languageCode;
 
         if (!empty($filters['product_id'])) {
             $sql .= " AND pv.product_id = :product_id";
@@ -135,12 +140,20 @@ final class PdoProductVariantsRepository
     // ===========================
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             DELETE pv FROM product_variants pv
             INNER JOIN products p ON pv.product_id = p.id
-            WHERE pv.id = :id AND p.tenant_id = :tenant_id
-        ");
-        return $stmt->execute([':id'=>$id, ':tenant_id'=>$tenantId]);
+            WHERE pv.id = :id
+        ";
+        $params = [':id' => $id];
+        
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 
     // ===========================
@@ -151,12 +164,13 @@ final class PdoProductVariantsRepository
         $stmt = $this->pdo->prepare("
             INSERT INTO product_variant_translations (variant_id, language_code, name)
             VALUES (:variant_id, :lang, :name)
-            ON DUPLICATE KEY UPDATE name = :name
+            ON DUPLICATE KEY UPDATE name = :name_upd
         ");
         $stmt->execute([
             ':variant_id' => $variantId,
             ':lang' => $languageCode,
-            ':name' => $name
+            ':name' => $name,
+            ':name_upd' => $name
         ]);
     }
 

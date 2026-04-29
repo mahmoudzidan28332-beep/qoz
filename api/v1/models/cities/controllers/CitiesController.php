@@ -17,7 +17,7 @@ final class CitiesController
     // ✅ إصلاح: استلام filters بدلاً من قراءة $_GET مباشرة
     public function list(array $filters = []): array
     {
-        $lang = $filters['lang'] ?? 'en';
+        $lang = $filters['lang'] ?? $filters['language'] ?? 'en';
         $countryId = isset($filters['country_id']) ? (int)$filters['country_id'] : null;
         $page = (int)($filters['page'] ?? 1);
         $perPage = (int)($filters['per_page'] ?? 20);
