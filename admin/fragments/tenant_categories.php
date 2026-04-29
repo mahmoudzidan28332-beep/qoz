@@ -49,7 +49,7 @@ $tenantId     = admin_tenant_id();
 $apiBase      = '/api';
 
 // ── Permissions ──────────────────────────────────────────────
-$canCreate = $isPlatformAdmin || can('manage_tenant_categories');
+$canCreate = $isPlatformAdmin || $isSuperAdmin || can('manage_tenant_categories');
 $canEdit   = $canCreate;
 $canDelete = $canCreate;
 

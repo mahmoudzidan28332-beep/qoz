@@ -128,16 +128,16 @@ $apiBase = '/api';
 
     <!-- Header -->
     <div class="page-header">
-        <div>
-            <h1><?= __t('title', 'Addresses') ?></h1>
-            <p><?= __t('subtitle', 'Manage addresses') ?></p>
+        <div class="page-header-content">
+            <h1 class="page-title"><?= __t('title', 'Addresses') ?></h1>
+            <p class="page-subtitle"><?= __t('subtitle', 'Manage addresses') ?></p>
         </div>
 
-        <div class="header-actions">
+        <div class="page-header-actions">
             <?php if ($isPlatformAdmin): ?>
             <div class="filter-group">
                 <label><?= __t('filter_by_tenant', 'Filter by Tenant') ?>:</label>
-                <input type="number" id="globalTenantFilter" class="form-control" placeholder="0 = All" value="<?= $selectedTenantId ?>">
+                <input type="number" id="globalTenantFilter" class="form-control" style="width:100px; display:inline-block;" placeholder="0 = All" value="<?= $selectedTenantId ?>">
             </div>
             <?php endif; ?>
 
@@ -151,10 +151,10 @@ $apiBase = '/api';
     </div>
 
     <!-- Form -->
-    <div class="card form-card" id="addressFormCard" style="display:none">
+    <div class="card addr-form-card" id="addressFormCard" style="display:none; margin-bottom: 24px;">
         <div class="card-header">
             <h3 id="addressFormTitle"><?= __t('add_address', 'Add Address') ?></h3>
-            <button type="button" id="btnCloseForm">&times;</button>
+            <button type="button" id="btnCloseForm" class="btn-close-form">&times;</button>
         </div>
 
         <div class="card-body">
@@ -165,7 +165,7 @@ $apiBase = '/api';
                 
                 <?php if ($isPlatformAdmin): ?>
                 <div class="form-group">
-                    <label><?= __t('tenant_id', 'Tenant ID') ?> <span class="required">*</span></label>
+                    <label><?= __t('tenant_id', 'Tenant ID') ?> <span class="required-star">*</span></label>
                     <input type="number" name="tenant_id" id="formTenantId" class="form-control" value="<?= $tenantId ?>" required>
                 </div>
                 <?php else: ?>
@@ -178,14 +178,14 @@ $apiBase = '/api';
                 <?php else: ?>
                 <div class="form-row">
                     <div class="form-group">
-                        <label><?= __t('owner_type', 'Owner Type') ?> <span class="required">*</span></label>
+                        <label><?= __t('owner_type', 'Owner Type') ?> <span class="required-star">*</span></label>
                         <select name="owner_type" id="ownerTypeSelect" class="form-control" required>
                             <option value="user"><?= __t('user', 'User') ?></option>
                             <option value="entity"><?= __t('entity', 'Entity') ?></option>
                         </select>
                     </div>
                     <div class="form-group" id="ownerIdGroup">
-                        <label><?= __t('owner_id', 'Owner ID') ?> <span class="required">*</span></label>
+                        <label><?= __t('owner_id', 'Owner ID') ?> <span class="required-star">*</span></label>
                         <!-- Shown when owner_type = user -->
                         <input type="number" name="owner_id" id="ownerIdInput" class="form-control" required min="1">
                         <!-- Shown when owner_type = entity — populated by JS with tenant-scoped entities -->
@@ -197,23 +197,23 @@ $apiBase = '/api';
                 <?php endif; ?>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label><?= __t('country', 'Country') ?> <span class="required">*</span></label>
-                        <select id="countrySelect" name="country_id" required>
+                    <div class="form-group" style="position: relative;">
+                        <label><?= __t('country', 'Country') ?> <span class="required-star">*</span></label>
+                        <select id="countrySelect" name="country_id" class="form-control" required style="width: 100%;">
                             <option value=""><?= __t('select', 'Select...') ?></option>
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label><?= __t('city', 'City') ?> <span class="required">*</span></label>
-                        <select id="citySelect" name="city_id" required disabled>
+                    <div class="form-group" style="position: relative;">
+                        <label><?= __t('city', 'City') ?> <span class="required-star">*</span></label>
+                        <select id="citySelect" name="city_id" class="form-control" required disabled style="width: 100%;">
                             <option value=""><?= __t('select', 'Select...') ?></option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label><?= __t('address_line1', 'Address Line 1') ?> <span class="required">*</span></label>
+                    <label><?= __t('address_line1', 'Address Line 1') ?> <span class="required-star">*</span></label>
                     <input type="text" name="address_line1" class="form-control" required>
                 </div>
 
@@ -237,12 +237,12 @@ $apiBase = '/api';
                     </div>
                 </div>
 
-                <div class="form-actions">
+                <div class="form-actions" style="margin-top: 20px;">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> <?= __t('save', 'Save') ?>
                     </button>
                     <?php if ($canDelete): ?>
-                    <button type="button" id="btnDeleteAddress" class="btn btn-danger" style="display:none">
+                    <button type="button" id="btnDeleteAddress" class="btn btn-danger addr-delete-btn" style="display:none">
                         <i class="fas fa-trash"></i> <?= __t('delete', 'Delete') ?>
                     </button>
                     <?php endif; ?>
