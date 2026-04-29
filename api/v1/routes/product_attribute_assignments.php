@@ -1,22 +1,16 @@
 <?php
 declare(strict_types=1);
-
-// api/routes/product_attribute_assignments.php
-
-// ===== مسار api =====
 $baseDir = dirname(__DIR__, 2);
-
-// ===== تحميل bootstrap =====
 require_once $baseDir . '/bootstrap.php';
-
-// ===== تحميل ResponseFormatter =====
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
-
-// ===== تحميل safe_helpers =====
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
-
-// ===== تحميل قاعدة البيانات =====
+require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';   
+require_once $sharedPath . '/QueryGuard.php';
+
 
 // ===== تحميل ملفات products =====
 require_once API_VERSION_PATH . '/models/products/repositories/PdoProductAttributeAssignmentsRepository.php';
@@ -30,6 +24,16 @@ if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
     return;
 }
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Multi-tenant isolation hardening
+require_once $baseDir . '/shared/helpers/admin_context.php';
+require_once $baseDir . '/shared/helpers/TenantContext.php';
+
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+TenantContext::set($effectiveTenantId);
 
 // إنشاء الاعتمادات
 $repo      = new PdoProductAttributeAssignmentsRepository($pdo);
@@ -71,11 +75,13 @@ try {
         }
     } elseif ($method === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['product_id', 'attribute_id', 'attribute_value_id', 'custom_value']));
         ResponseFormatter::success(
             $controller->create($data)
         );
     } elseif ($method === 'PUT') {
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = array_intersect_key($data, array_flip(['product_id', 'attribute_id', 'attribute_value_id', 'custom_value'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         ResponseFormatter::success(
             $controller->update($data)
         );

@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 
- $baseDir = dirname(__DIR__, 2);
+$baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
- $modelsPath = API_VERSION_PATH . '/models/entities';
+$modelsPath = API_VERSION_PATH . '/models/entities';
 require_once $modelsPath . '/repositories/PdoEntityProductsRepository.php';
 require_once $modelsPath . '/validators/EntityProductsValidator.php';
 require_once $modelsPath . '/services/EntityProductsService.php';
@@ -15,15 +15,25 @@ require_once $modelsPath . '/controllers/EntityProductsController.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
- $pdo = $GLOBALS['ADMIN_DB'] ?? null;
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
- $repo = new PdoEntityProductsRepository($pdo);
- $service = new EntityProductsService($repo);
- $controller = new EntityProductsController($service);
+// ================================
+// Tenant & Auth check
+// ================================
+$tenantId = resolve_tenant_id();
+
+if ($tenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
+
+$repo = new PdoEntityProductsRepository($pdo);
+$service = new EntityProductsService($repo);
+$controller = new EntityProductsController($service);
 
 // ================================
 // Handle request
@@ -39,8 +49,8 @@ try {
     $orderBy  = $_GET['order_by'] ?? 'id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
 
-    // Collect filters
-    $filters = [];
+    // Collect filters — tenant_id is always forced from session
+    $filters = ['tenant_id' => $tenantId];
 
     if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id'])) {
         $filters['entity_id'] = (int)$_GET['entity_id'];
@@ -50,28 +60,12 @@ try {
         $filters['product_id'] = (int)$_GET['product_id'];
     }
 
-    if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
-        $filters['tenant_id'] = (int)$_GET['tenant_id'];
-    }
-
     if (isset($_GET['is_active']) && in_array($_GET['is_active'], ['0', '1'])) {
         $filters['is_active'] = (int)$_GET['is_active'];
     }
 
     if (isset($_GET['is_featured']) && in_array($_GET['is_featured'], ['0', '1'])) {
         $filters['is_featured'] = (int)$_GET['is_featured'];
-    }
-
-    if (isset($_GET['store_name']) && !empty(trim($_GET['store_name']))) {
-        $filters['store_name'] = trim($_GET['store_name']);
-    }
-
-    if (isset($_GET['product_name']) && !empty(trim($_GET['product_name']))) {
-        $filters['product_name'] = trim($_GET['product_name']);
-    }
-
-    if (isset($_GET['product_sku']) && !empty(trim($_GET['product_sku']))) {
-        $filters['product_sku'] = trim($_GET['product_sku']);
     }
 
     if (isset($_GET['search']) && !empty(trim($_GET['search']))) {
@@ -89,21 +83,26 @@ try {
         case 'GET':
             // GET /api/entity_products?action=statistics
             if (isset($_GET['action']) && $_GET['action'] === 'statistics') {
-                $statistics = $controller->getStatistics();
+                $statistics = $controller->getStatistics($tenantId);
                 ResponseFormatter::success($statistics);
                 exit;
             }
 
             // GET /api/entity_products?action=entity&entity_id={id}
             if (isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) {
-                $products = $controller->getEntityProducts((int)$_GET['entity_id']);
+                $products = $controller->getEntityProducts((int)$_GET['entity_id'], $tenantId);
                 ResponseFormatter::success($products);
                 exit;
             }
 
-            // GET /api/entity_products?id={id}
+            // GET /api/entity_products?id={id}&entity_id={id}
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get((int)$_GET['id']);
+                $entityId = (int)($_GET['entity_id'] ?? 0);
+                if ($entityId <= 0) {
+                    ResponseFormatter::error('entity_id is required', 400);
+                    exit;
+                }
+                $item = $controller->get((int)$_GET['id'], $tenantId, $entityId);
                 if ($item) {
                     ResponseFormatter::success($item);
                 } else {
@@ -130,20 +129,16 @@ try {
             break;
 
         case 'POST':
-            // POST /api/entity_products?action=bulk&entity_id={id}&tenant_id={id}
+            // POST /api/entity_products?action=bulk&entity_id={id}
             if (isset($_GET['action']) && $_GET['action'] === 'bulk' && isset($_GET['entity_id'])) {
                 $entityId = (int)$_GET['entity_id'];
-                $tenantId = (int)($_GET['tenant_id'] ?? ($data['tenant_id'] ?? 0));
-                if ($tenantId <= 0) {
-                    ResponseFormatter::error('tenant_id is required for bulk save', 400);
-                    exit;
-                }
                 $savedIds = $controller->saveEntityProducts($entityId, $tenantId, $data);
                 ResponseFormatter::success(['saved_ids' => $savedIds], 'Bulk products saved successfully', 201);
                 exit;
             }
 
             // POST /api/entity_products
+            $data['tenant_id'] = $tenantId;
             $newId = $controller->create($data);
             ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
             break;
@@ -153,33 +148,34 @@ try {
                 ResponseFormatter::error('ID is required', 400);
                 exit;
             }
+            if (empty($data['entity_id']) || !is_numeric($data['entity_id'])) {
+                ResponseFormatter::error('entity_id is required', 400);
+                exit;
+            }
 
+            $data['tenant_id'] = $tenantId;
             $controller->update((int)$data['id'], $data);
             ResponseFormatter::success(['id' => (int)$data['id']], 'Updated successfully');
             break;
 
         case 'DELETE':
             // DELETE /api/entity_products?action=entity&entity_id={id}
-            if ((isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) || (isset($_GET['entity_id']) && !isset($_GET['id']))) {
-                $controller->deleteEntityProducts((int)$_GET['entity_id']);
+            if (isset($_GET['action']) && $_GET['action'] === 'entity' && isset($_GET['entity_id'])) {
+                $controller->deleteEntityProducts((int)$_GET['entity_id'], $tenantId);
                 ResponseFormatter::success(null, 'All entity products deleted successfully');
                 exit;
             }
 
-            // DELETE /api/entity_products?id={id}
-            $deleteId = null;
-            if (!empty($data['id']) && is_numeric($data['id'])) {
-                $deleteId = (int)$data['id'];
-            } elseif (!empty($_GET['id']) && is_numeric($_GET['id'])) {
-                $deleteId = (int)$_GET['id'];
-            }
+            // DELETE /api/entity_products?id={id}&entity_id={id}
+            $deleteId = (int)($_GET['id'] ?? $data['id'] ?? 0);
+            $entityId = (int)($_GET['entity_id'] ?? $data['entity_id'] ?? 0);
 
-            if (!$deleteId) {
-                ResponseFormatter::error('ID is required', 400);
+            if (!$deleteId || !$entityId) {
+                ResponseFormatter::error('ID and entity_id are required', 400);
                 exit;
             }
 
-            $controller->delete($deleteId);
+            $controller->delete($deleteId, $tenantId, $entityId);
             ResponseFormatter::success(null, 'Deleted successfully');
             break;
 

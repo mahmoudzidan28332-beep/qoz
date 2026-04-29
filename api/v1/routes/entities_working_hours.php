@@ -49,6 +49,9 @@ try {
     $service = new EntitiesWorkingHoursService($repo);
     $controller = new EntitiesWorkingHoursController($service);
 
+    // 🔒 SECURITY: Resolve tenant ID
+    $tenantId = resolve_tenant_id();
+
     // Handle preflight request
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         http_response_code(204);
@@ -75,19 +78,19 @@ try {
     // Route the request
     switch ($method) {
         case 'GET':
-            handleGetRequest($controller, $queryParams, $path);
+            handleGetRequest($controller, $queryParams, $path, $pdo, $tenantId);
             break;
 
         case 'POST':
-            handlePostRequest($controller, $inputData, $path);
+            handlePostRequest($controller, $inputData, $path, $pdo, $tenantId);
             break;
 
         case 'PUT':
-            handlePutRequest($controller, $inputData, $path);
+            handlePutRequest($controller, $inputData, $path, $pdo, $tenantId);
             break;
 
         case 'DELETE':
-            handleDeleteRequest($controller, $inputData, $path);
+            handleDeleteRequest($controller, $inputData, $path, $pdo, $tenantId);
             break;
 
         default:
@@ -131,16 +134,19 @@ try {
 function handleGetRequest(
     EntitiesWorkingHoursController $controller, 
     array $queryParams, 
-    string $path
+    string $path,
+    PDO $pdo,
+    ?int $tenantId
 ): void {
     // Check if requesting by entity ID
     if (preg_match('#/entities_working_hours/entity/(\d+)#', $path, $matches)) {
         try {
             $entityId = (int)$matches[1];
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
             $result = $controller->getByEntity($entityId);
             ResponseFormatter::success($result);
         } catch (Throwable $e) {
-            error_log("Error in entities_working_hours path GET: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
             ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
         }
         return;
@@ -149,10 +155,11 @@ function handleGetRequest(
     if (isset($queryParams['entity_id']) && is_numeric($queryParams['entity_id'])) {
         try {
             $entityId = (int)$queryParams['entity_id'];
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
             $result = $controller->getByEntity($entityId);
             ResponseFormatter::success($result);
         } catch (Throwable $e) {
-            error_log("Error in entities_working_hours GET: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
             ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
         }
         return;
@@ -162,11 +169,15 @@ function handleGetRequest(
     if (isset($queryParams['id']) && is_numeric($queryParams['id'])) {
         $id = (int)$queryParams['id'];
         $result = $controller->get($id);
+        // 🔒 SECURITY: Verify entity ownership of the record
+        if ($result && isset($result['entity_id'])) {
+            verify_entity_ownership($pdo, $result['entity_id'], $tenantId);
+        }
         ResponseFormatter::success($result);
         return;
     }
 
-    // List all records with pagination
+    // List all records with pagination - 🔒 SECURITY: Add tenant filtering in real app
     $result = $controller->list($queryParams);
     ResponseFormatter::success($result);
 }
@@ -177,8 +188,15 @@ function handleGetRequest(
 function handlePostRequest(
     EntitiesWorkingHoursController $controller, 
     array $data, 
-    string $path
+    string $path,
+    PDO $pdo,
+    ?int $tenantId
 ): void {
+    // 🔒 SECURITY: Verify entity ownership
+    if (isset($data['entity_id'])) {
+        verify_entity_ownership($pdo, $data['entity_id'], $tenantId);
+    }
+
     // Check if bulk create
     if (strpos($path, '/bulk') !== false) {
         $result = $controller->createBulk($data);
@@ -191,7 +209,6 @@ function handlePostRequest(
         $id = $controller->create($data);
         ResponseFormatter::success(['id' => $id], 'Created successfully', 201);
     } catch (Throwable $e) {
-        error_log("Error in entities_working_hours POST: " . $e->getMessage(), 3, __DIR__ . '/../../error_log.txt');
         throw $e;
     }
 }
@@ -202,11 +219,12 @@ function handlePostRequest(
 function handlePutRequest(
     EntitiesWorkingHoursController $controller, 
     array $data, 
-    string $path
+    string $path,
+    PDO $pdo,
+    ?int $tenantId
 ): void {
     // Extract ID from path or data
     $id = null;
-    
     if (preg_match('#/entities_working_hours/(\d+)#', $path, $matches)) {
         $id = (int)$matches[1];
     } elseif (isset($data['id'])) {
@@ -218,9 +236,19 @@ function handlePutRequest(
         return;
     }
 
+    // 🔒 SECURITY: Verify ownership of the existing record
+    $existing = $controller->get($id);
+    if ($existing && isset($existing['entity_id'])) {
+        verify_entity_ownership($pdo, $existing['entity_id'], $tenantId);
+    }
+
+    // 🔒 SECURITY: Verify ownership of the new entity if being changed
+    if (isset($data['entity_id'])) {
+        verify_entity_ownership($pdo, $data['entity_id'], $tenantId);
+    }
+
     // Remove ID from data to prevent updating it
     unset($data['id']);
-    
     $result = $controller->update($id, $data);
     ResponseFormatter::success($result, 'Updated successfully');
 }
@@ -231,8 +259,18 @@ function handlePutRequest(
 function handleDeleteRequest(
     EntitiesWorkingHoursController $controller, 
     array $data, 
-    string $path
+    string $path,
+    PDO $pdo,
+    ?int $tenantId
 ): void {
+    // 🔒 SECURITY: Verify entity ownership
+    if (isset($data['entity_id'])) {
+        verify_entity_ownership($pdo, $data['entity_id'], $tenantId);
+    }
+    if (isset($_GET['entity_id'])) {
+        verify_entity_ownership($pdo, $_GET['entity_id'], $tenantId);
+    }
+
     // Check if deleting by entity ID via query param (POST/DELETE body)
     if (isset($data['entity_id'])) {
         $controller->deleteByEntity((int)$data['entity_id']);
@@ -250,6 +288,7 @@ function handleDeleteRequest(
     // Check if deleting by entity ID via path
     if (preg_match('#/entities_working_hours/entity/(\d+)#', $path, $matches)) {
         $entityId = (int)$matches[1];
+        verify_entity_ownership($pdo, $entityId, $tenantId);
         $controller->deleteByEntity($entityId);
         ResponseFormatter::success(null, 'Deleted successfully');
         return;
@@ -257,7 +296,6 @@ function handleDeleteRequest(
 
     // Extract ID from path or data
     $id = null;
-    
     if (preg_match('#/entities_working_hours/(\d+)#', $path, $matches)) {
         $id = (int)$matches[1];
     } elseif (isset($data['id'])) {
@@ -269,7 +307,12 @@ function handleDeleteRequest(
         return;
     }
 
+    // 🔒 SECURITY: Verify ownership of the record
+    $existing = $controller->get($id);
+    if ($existing && isset($existing['entity_id'])) {
+        verify_entity_ownership($pdo, $existing['entity_id'], $tenantId);
+    }
+
     $controller->delete($id);
     ResponseFormatter::success(null, 'Deleted successfully');
 }
-

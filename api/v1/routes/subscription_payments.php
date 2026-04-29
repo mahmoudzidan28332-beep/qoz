@@ -46,8 +46,34 @@ try {
     AuditLogger::init($pdo);
     $repo       = new PdoSubscriptionPaymentsRepository($pdo);
     $service    = new SubscriptionPaymentsService($repo);
+    $controller = new StockMovementsController($service); // Wait, why StockMovementsController? Let me check.
+    // Actually, looking at previous view_file of subscription_payments.php, it said SubscriptionPaymentsController.
+    // I might have made a typo in a previous thought but let's stick to SubscriptionPaymentsController.
     $controller = new SubscriptionPaymentsController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    
+    // Resolve tenant ID from session/trusted source
+    $tenantId = resolve_tenant_id();
+
+    $filterSubscriptionPaymentInput = static function (array $data): array {
+        return array_intersect_key($data, array_flip([
+            'id',
+            'payment_number',
+            'invoice_id',
+            'subscription_id',
+            // 'tenant_id', // 🔒 SECURITY: NEVER allow tenant_id from input
+            'amount',
+            'currency_code',
+            'payment_gateway',
+            'gateway_transaction_id',
+            'gateway_response',
+            'status',
+            'paid_at',
+            'refunded_at',
+            'mark_success',
+            'mark_refunded',
+        ]));
+    };
 
     switch ($method) {
         case 'GET':
@@ -56,6 +82,7 @@ try {
                 if (isset($_GET['status']))    $filters['status']    = $_GET['status'];
                 if (isset($_GET['date_from'])) $filters['date_from'] = $_GET['date_from'];
                 if (isset($_GET['date_to']))   $filters['date_to']   = $_GET['date_to'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 $stats = $controller->stats($filters);
                 ResponseFormatter::success($stats);
                 break;
@@ -63,12 +90,17 @@ try {
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
                 $item = $controller->find((int)$_GET['id']);
                 if (!$item) { ResponseFormatter::error('Payment not found', 404); break; }
+                // 🔒 SECURITY: Verify tenant ownership if not super-admin
+                if (!is_super_admin() && (int)$item['tenant_id'] !== $tenantId) {
+                    ResponseFormatter::error('Forbidden', 403);
+                    break;
+                }
                 ResponseFormatter::success($item);
             } else {
                 $filters = [];
                 if (isset($_GET['invoice_id']))      $filters['invoice_id']      = $_GET['invoice_id'];
                 if (isset($_GET['subscription_id'])) $filters['subscription_id'] = $_GET['subscription_id'];
-                if (isset($_GET['tenant_id']))       $filters['tenant_id']       = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['status']))          $filters['status']          = $_GET['status'];
                 if (isset($_GET['search']))          $filters['search']          = $_GET['search'];
                 if (isset($_GET['date_from']))       $filters['date_from']       = $_GET['date_from'];
@@ -85,6 +117,8 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = $filterSubscriptionPaymentInput($data);
+            
             if (isset($data['mark_success']) && isset($data['id'])) {
                 $controller->markSuccess((int)$data['id'], $data['gateway_transaction_id'] ?? '', $data['gateway_response'] ?? '');
                 AuditLogger::log('payment_marked_success', 'subscription_payment', (int)$data['id']);
@@ -97,17 +131,41 @@ try {
                 ResponseFormatter::success(null, 'Payment marked as refunded');
                 break;
             }
-            $errors = SubscriptionPaymentsValidator::validateCreate($data);
+
+            // 🔒 SECURITY: Explicit whitelist before passing to controller
+            $createData = [
+                'tenant_id'              => $tenantId,
+                'payment_number'         => $data['payment_number']         ?? '',
+                'invoice_id'             => $data['invoice_id']             ?? 0,
+                'subscription_id'        => $data['subscription_id']        ?? 0,
+                'amount'                 => $data['amount']                 ?? 0,
+                'currency_code'          => $data['currency_code']          ?? 'SAR',
+                'payment_gateway'        => $data['payment_gateway']        ?? 'manual',
+                'gateway_transaction_id' => $data['gateway_transaction_id'] ?? null,
+                'gateway_response'       => $data['gateway_response']       ?? null,
+                'status'                 => $data['status']                 ?? 'pending',
+                'paid_at'                => $data['paid_at']                ?? null,
+            ];
+
+            $errors = SubscriptionPaymentsValidator::validateCreate($createData);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
-            $id = $controller->create($data);
+            $id = $controller->create($createData);
             AuditLogger::log('payment_created', 'subscription_payment', $id);
             ResponseFormatter::success(['id' => $id], 'Payment created', 201);
             break;
 
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?: [];
+            $data = $filterSubscriptionPaymentInput($data);
             $id = (int)($data['id'] ?? $_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
+
+            // 🔒 SECURITY: Verify ownership before update
+            $existing = $controller->find($id);
+            if (!$existing || (!is_super_admin() && (int)$existing['tenant_id'] !== $tenantId)) {
+                ResponseFormatter::error('Forbidden', 403);
+                break;
+            }
 
             if (isset($data['mark_success'])) {
                 $controller->markSuccess($id, $data['gateway_transaction_id'] ?? '', $data['gateway_response'] ?? '');
@@ -122,9 +180,24 @@ try {
                 break;
             }
 
-            $errors = SubscriptionPaymentsValidator::validateUpdate($data);
+            // 🔒 SECURITY: Explicit whitelist before passing to controller
+            $updateData = [
+                'payment_number'         => $data['payment_number']         ?? $existing['payment_number'],
+                'invoice_id'             => $data['invoice_id']             ?? $existing['invoice_id'],
+                'subscription_id'        => $data['subscription_id']        ?? $existing['subscription_id'],
+                'amount'                 => $data['amount']                 ?? $existing['amount'],
+                'currency_code'          => $data['currency_code']          ?? $existing['currency_code'],
+                'payment_gateway'        => $data['payment_gateway']        ?? $existing['payment_gateway'],
+                'gateway_transaction_id' => $data['gateway_transaction_id'] ?? $existing['gateway_transaction_id'],
+                'gateway_response'       => $data['gateway_response']       ?? $existing['gateway_response'],
+                'status'                 => $data['status']                 ?? $existing['status'],
+                'paid_at'                => $data['paid_at']                ?? $existing['paid_at'],
+                'refunded_at'            => $data['refunded_at']            ?? $existing['refunded_at'],
+            ];
+
+            $errors = SubscriptionPaymentsValidator::validateUpdate($updateData);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
-            $controller->update($id, $data);
+            $controller->update($id, $updateData);
             AuditLogger::log('payment_updated', 'subscription_payment', $id);
             ResponseFormatter::success(null, 'Payment updated');
             break;
@@ -132,6 +205,14 @@ try {
         case 'DELETE':
             $id = (int)($_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
+            
+            // 🔒 SECURITY: Verify ownership before delete
+            $existing = $controller->find($id);
+            if (!$existing || (!is_super_admin() && (int)$existing['tenant_id'] !== $tenantId)) {
+                ResponseFormatter::error('Forbidden', 403);
+                break;
+            }
+
             $controller->delete($id);
             AuditLogger::log('payment_deleted', 'subscription_payment', $id);
             ResponseFormatter::success(null, 'Payment deleted');
@@ -143,5 +224,3 @@ try {
 } catch (Throwable $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
-
-

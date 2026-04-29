@@ -1,15 +1,16 @@
 <?php
 declare(strict_types=1);
-
-// ===== مسار api =====
 $baseDir = dirname(__DIR__, 2);
-
-// ===== تحميل bootstrap =====
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';   
+require_once $sharedPath . '/QueryGuard.php';
+
 
 // ===== تحميل ملفات audit_logs (لتمكين AuditLogsService في المستودع) =====
 $auditPath = API_VERSION_PATH . '/models/audit_logs';
@@ -71,8 +72,8 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     // Resolve tenant_id for this request
-    $tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-        ? (int)$_GET['tenant_id']
+    $tenantId = (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']))
+        ? ((int)$_GET['tenant_id'] === 0 ? null : (int)$_GET['tenant_id'])
         : ($isSuperAdmin ? null : ($_sessionTenantId ?? $defaultTenantId));
 
     $format = strtolower($_GET['format'] ?? 'json');
@@ -114,7 +115,10 @@ try {
         }
         
         try {
-            $row = $controller->getById($tenantId, $id);
+            $allTranslations = isset($_GET['all_translations'])
+                && in_array(strtolower((string) $_GET['all_translations']), ['1', 'true', 'on', 'yes'], true);
+
+            $row = $controller->getById($tenantId, $id, $lang, $allTranslations);
             ResponseFormatter::success($row);
         } catch (RuntimeException $e) {
             ResponseFormatter::error($e->getMessage(), 404);

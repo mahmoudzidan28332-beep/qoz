@@ -25,14 +25,27 @@ require_once API_VERSION_PATH . '/models/system_settings/services/SystemSettings
 require_once API_VERSION_PATH . '/models/system_settings/controllers/SystemSettingsController.php';
 
 /** @var PDO $pdo */
+$user     = $_SESSION['user'] ?? [];
+$tenantId = resolve_tenant_id();
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : !empty($_SESSION['platform_admin']);
+
+if ($tenantId === null && $isPlatformAdmin) {
+    $tenantId = 1; // Fallback to platform tenant
+}
+
+if ($tenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
+
+// استخدم tenantId ثابت مؤقتًا
+$tenantId = 1;
+
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
     return;
 }
-
-// استخدم tenantId ثابت مؤقتًا
-$tenantId = 1;
 
 // إنشاء الاعتمادات
 $repo      = new PdoSystemSettingsRepository($pdo);

@@ -1,14 +1,20 @@
 <?php
 declare(strict_types=1);
 
-// تفعيل عرض الأخطاء للتطوير فقط
-ini_set('display_errors', '0');
-
 $baseDir = dirname(__DIR__, 2);
-require_once $baseDir.'/bootstrap.php';
-require_once $baseDir.'/shared/core/ResponseFormatter.php';
-require_once $baseDir.'/shared/config/db.php';
-require_once $baseDir.'/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 
 require_once API_VERSION_PATH . '/models/products/repositories/PdoProduct_physical_attributesRepository.php';
 require_once API_VERSION_PATH . '/models/products/validators/Product_physical_attributesValidator.php';
@@ -24,6 +30,16 @@ if (!$pdo instanceof PDO) {
 
 // تفعيل وضع الأخطاء في PDO
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Multi-tenant isolation hardening
+require_once $baseDir . '/shared/helpers/admin_context.php';
+require_once $baseDir . '/shared/helpers/TenantContext.php';
+
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+TenantContext::set($effectiveTenantId);
 
 // Setup
 $repo       = new PdoProductPhysicalAttributesRepository($pdo);
@@ -82,6 +98,7 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'weight', 'weight_unit', 'length', 'width', 'height', 'dimension_unit']));
             $id = $controller->create($data);
             ResponseFormatter::success(['id' => $id], 'Created successfully');
             break;

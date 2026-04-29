@@ -27,6 +27,15 @@ $validator  = new NotificationChannelsValidator();
 $service    = new NotificationChannelsService($repo, $validator);
 $controller = new NotificationChannelsController($service);
 
+$filterNotificationChannelInput = static function (array $data): array {
+    return array_intersect_key($data, array_flip([
+        'id',
+        'code',
+        'name',
+        'is_active',
+    ]));
+};
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -78,15 +87,31 @@ try {
 
     $raw  = file_get_contents('php://input');
     $data = ($raw !== false && $raw !== '') ? (json_decode($raw, true) ?? []) : [];
+    $data = $filterNotificationChannelInput($data);
 
     if ($method === 'POST') {
-        $newId = $controller->create($data);
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $newId = $controller->create([
+            'code'      => $data['code']      ?? '',
+            'name'      => $data['name']      ?? '',
+            'is_active' => $data['is_active'] ?? 0,
+        ]);
         ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
         exit;
     }
 
     if ($method === 'PUT') {
-        $updatedId = $controller->update($data);
+        if (empty($data['id']) || !is_numeric($data['id'])) {
+            ResponseFormatter::error('Missing or invalid id for update', 400);
+            exit;
+        }
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $updatedId = $controller->update([
+            'id'        => (int)$data['id'],
+            'code'      => $data['code']      ?? '',
+            'name'      => $data['name']      ?? '',
+            'is_active' => $data['is_active'] ?? 0,
+        ]);
         ResponseFormatter::success(['id' => $updatedId], 'Updated successfully');
         exit;
     }
@@ -118,4 +143,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

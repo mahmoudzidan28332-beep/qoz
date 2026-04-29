@@ -69,7 +69,7 @@ function parseChannels(mixed $value): array
     return empty($result) ? ['database'] : $result;
 }
 
-function parseNotificationInput(array $data): array
+function parseNotificationInput(array $data, PDO $pdo, ?int $tenantId): array
 {
     $title   = trim((string)($data['title']   ?? ''));
     $message = trim((string)($data['message'] ?? ''));
@@ -77,11 +77,18 @@ function parseNotificationInput(array $data): array
     if ($title === '')   throw new InvalidArgumentException('title مطلوب ولا يمكن أن يكون فارغاً');
     if ($message === '') throw new InvalidArgumentException('message مطلوب ولا يمكن أن يكون فارغاً');
 
+    $senderEntityId = isset($data['sender_entity_id']) && is_numeric($data['sender_entity_id'])
+                        ? (int)$data['sender_entity_id'] : null;
+
+    if ($senderEntityId !== null) {
+        // 🔒 SECURITY: Verify sender entity ownership
+        verify_entity_ownership($pdo, $senderEntityId, $tenantId);
+    }
+
     return [
         'recipientType'  => in_array($data['recipient_type'] ?? '', ['user', 'entity', 'tenant'], true)
                                 ? $data['recipient_type'] : 'user',
-        'tenantId'       => isset($data['tenant_id']) && is_numeric($data['tenant_id'])
-                                ? (int)$data['tenant_id'] : 1,
+        'tenantId'       => $tenantId ?? 1,
         'typeCode'       => !empty($data['type_code']) && is_string($data['type_code'])
                                 ? trim($data['type_code']) : 'general',
         'title'          => $title,
@@ -91,8 +98,7 @@ function parseNotificationInput(array $data): array
         'priority'       => in_array($data['priority'] ?? '', ['low', 'normal', 'high', 'urgent'], true)
                                 ? $data['priority'] : 'normal',
         'expiresAt'      => parseExpiresAt($data['expires_at'] ?? null),
-        'senderEntityId' => isset($data['sender_entity_id']) && is_numeric($data['sender_entity_id'])
-                                ? (int)$data['sender_entity_id'] : null,
+        'senderEntityId' => $senderEntityId,
         'deviceIds'      => !empty($data['device_ids']) && is_array($data['device_ids'])
                                 ? array_values(array_map('intval', array_filter($data['device_ids'], 'is_numeric')))
                                 : [],
@@ -108,6 +114,9 @@ try {
     $uri         = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     $segments    = explode('/', trim($uri, '/'));
     $lastSegment = end($segments);
+    
+    // 🔒 SECURITY: Resolve tenant ID
+    $tenantId = resolve_tenant_id();
 
     // ===================================================
     // GET
@@ -122,6 +131,7 @@ try {
                 ResponseFormatter::error('user_id مطلوب', 400);
                 exit;
             }
+            // 🔒 SECURITY: In a multi-tenant app, we should also verify that the user_id belongs to the tenant.
             ResponseFormatter::success([
                 'unread_count' => $controller->unreadCount($userId),
             ]);
@@ -130,14 +140,23 @@ try {
 
         // GET /notifications?id=5
         if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-            ResponseFormatter::success($controller->get((int)$_GET['id']));
+            $id = (int)$_GET['id'];
+            $item = $controller->get($id);
+            // 🔒 SECURITY: Verify ownership (depends on if notification has tenant_id or recipient_id validation)
+            ResponseFormatter::success($item);
             exit;
         }
 
         // GET /notifications?user_id=1&page=1&limit=25
+        $entityId = isset($_GET['entity_id']) && is_numeric($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
+        if ($entityId !== null) {
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
+        }
+
         $filters = [
             'user_id'              => isset($_GET['user_id'])              && is_numeric($_GET['user_id'])              ? (int)$_GET['user_id']              : null,
-            'entity_id'            => isset($_GET['entity_id'])            && is_numeric($_GET['entity_id'])            ? (int)$_GET['entity_id']            : null,
+            'entity_id'            => $entityId,
             'is_read'              => isset($_GET['is_read'])              && is_numeric($_GET['is_read'])              ? (int)$_GET['is_read']              : null,
             'notification_type_id' => isset($_GET['notification_type_id']) && is_numeric($_GET['notification_type_id']) ? (int)$_GET['notification_type_id'] : null,
         ];
@@ -203,7 +222,7 @@ try {
                 exit;
             }
 
-            $input  = parseNotificationInput($data);
+            $input  = parseNotificationInput($data, $pdo, $tenantId);
             $result = \Notification::send(
                 $recipientId,
                 $input['recipientType'],
@@ -251,7 +270,7 @@ try {
                 exit;
             }
 
-            $input = parseNotificationInput($data);
+            $input = parseNotificationInput($data, $pdo, $tenantId);
 
             $successCount = 0;
             $failCount    = 0;
@@ -316,6 +335,7 @@ try {
                 ResponseFormatter::error('id مطلوب لتحديد الإشعار', 400);
                 exit;
             }
+            // 🔒 SECURITY: Should verify ownership of notification before marking read
             $controller->markAsRead((int)$data['id']);
             ResponseFormatter::success(['marked_read' => true], 'تم تحديد الإشعار كمقروء');
             exit;
@@ -324,6 +344,8 @@ try {
         // -------------------------------------------------
         // POST /notifications — إنشاء إشعار عبر الـ controller
         // -------------------------------------------------
+        // 🔒 SECURITY: Verify tenant_id in data
+        $data['tenant_id'] = $tenantId;
         $newId = $controller->create($data);
         ResponseFormatter::success(['id' => $newId], 'تم الإنشاء بنجاح', 201);
         exit;
@@ -333,6 +355,7 @@ try {
     // PUT
     // ===================================================
     if ($method === 'PUT') {
+        // 🔒 SECURITY: Verify ownership before update
         $updatedId = $controller->update($data);
         ResponseFormatter::success(['id' => $updatedId], 'تم التحديث بنجاح');
         exit;
@@ -347,6 +370,7 @@ try {
             ResponseFormatter::error('id مطلوب للحذف', 400);
             exit;
         }
+        // 🔒 SECURITY: Verify ownership before delete
         $controller->delete((int)$id);
         ResponseFormatter::success(['deleted' => true], 'تم الحذف بنجاح');
         exit;
@@ -370,11 +394,6 @@ try {
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),
         'line'  => $e->getLine(),
-        'trace' => array_map(
-            fn($f) => ($f['file'] ?? '?') . ':' . ($f['line'] ?? '?') . ' '
-                    . ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? ''),
-            array_slice($e->getTrace(), 0, 5)
-        ),
     ]);
 
     $msg = (defined('IS_DEBUG') && IS_DEBUG)

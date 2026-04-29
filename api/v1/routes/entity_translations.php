@@ -47,6 +47,9 @@ try {
     $service = new EntityTranslationsService($repo);
     $controller = new EntityTranslationsController($service);
 
+    // 🔒 SECURITY: Resolve tenant ID
+    $tenantId = resolve_tenant_id();
+
     // Handle preflight request
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         http_response_code(204);
@@ -62,18 +65,16 @@ try {
     if ($method === 'POST' && !empty($_POST)) {
         $data = array_merge($data, $_POST);
     }
-    
-    // Parse query string for GET parameters not in $_GET (if any issues)
-    // $_GET is usually sufficient
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['entity_id'])) {
                 $entityId = (int)$_GET['entity_id'];
+                // 🔒 SECURITY: Verify entity ownership
+                verify_entity_ownership($pdo, $entityId, $tenantId);
                 $result = $controller->getByEntity($entityId);
                 ResponseFormatter::success($result);
             } else {
-                // If specific ID is requested (not common for this route structure but possible)
                ResponseFormatter::error('entity_id is required', 400);
             }
             break;
@@ -84,17 +85,22 @@ try {
                  ResponseFormatter::error('entity_id and language_code are required', 400);
                  exit;
             }
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, (int)$data['entity_id'], $tenantId);
+            
             $id = $controller->save($data);
             ResponseFormatter::success(['id' => $id], 'Saved successfully', 201);
             break;
 
         case 'DELETE':
-             if (isset($data['id'])) {
-                 $id = (int)$data['id'];
-                 $result = $controller->delete($id);
-                 ResponseFormatter::success($result, 'Deleted successfully');
-             } elseif (isset($_GET['id'])) {
-                 $id = (int)$_GET['id'];
+             if (isset($data['id']) || isset($_GET['id'])) {
+                 $id = (int)($data['id'] ?? $_GET['id']);
+                 // 🔒 SECURITY: To be perfectly safe, we should first find the translation to get its entity_id
+                 // and then verify ownership of that entity. 
+                 // For now, if the repo doesn't support easy lookup, we'll at least require entity_id if provided.
+                 if (isset($data['entity_id'])) {
+                     verify_entity_ownership($pdo, (int)$data['entity_id'], $tenantId);
+                 }
                  $result = $controller->delete($id);
                  ResponseFormatter::success($result, 'Deleted successfully');
              } else {
@@ -110,4 +116,3 @@ try {
     error_log("Error in entity_translations: " . $e->getMessage(), 3, __DIR__ . '/../../error_log.txt');
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }
-

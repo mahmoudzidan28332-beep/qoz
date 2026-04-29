@@ -31,6 +31,9 @@ try {
     $raw    = file_get_contents('php://input');
     $data   = $raw ? json_decode($raw, true) : [];
     $action = $_GET['action'] ?? '';
+    
+    // 🔒 SECURITY: Resolve tenant ID for security checks
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'OPTIONS':
@@ -43,9 +46,15 @@ try {
         case 'GET':
             // GET /api/core_events?action=aggregate&entity_type=product&start_date=X&end_date=Y
             if ($action === 'aggregate') {
+                $entityId = $_GET['entity_id'] ?? '';
+                if ($entityId !== '') {
+                    // 🔒 SECURITY: Verify entity ownership
+                    verify_entity_ownership($pdo, $entityId, $tenantId);
+                }
+                
                 $params = [
                     'entity_type' => $_GET['entity_type'] ?? 'product',
-                    'entity_id'   => $_GET['entity_id'] ?? '',
+                    'entity_id'   => $entityId,
                     'start_date'  => $_GET['start_date'] ?? date('Y-m-01'),
                     'end_date'    => $_GET['end_date'] ?? date('Y-m-d'),
                     'group_by'    => $_GET['group_by'] ?? 'day',
@@ -74,9 +83,15 @@ try {
             $orderBy = $_GET['order_by'] ?? 'id';
             $orderDir = $_GET['order_dir'] ?? 'DESC';
 
+            $entityId = $_GET['entity_id'] ?? '';
+            if ($entityId !== '') {
+                // 🔒 SECURITY: Verify entity ownership
+                verify_entity_ownership($pdo, $entityId, $tenantId);
+            }
+
             $filters = [
                 'entity_type' => $_GET['entity_type'] ?? '',
-                'entity_id'   => $_GET['entity_id'] ?? '',
+                'entity_id'   => $entityId,
                 'event_type'  => $_GET['event_type'] ?? '',
                 'user_id'     => $_GET['user_id'] ?? '',
                 'session_id'  => $_GET['session_id'] ?? '',
@@ -98,6 +113,11 @@ try {
             break;
 
         case 'POST':
+            // 🔒 SECURITY: Verify entity ownership if provided in data
+            if (isset($data['entity_id']) && $data['entity_id'] !== '') {
+                verify_entity_ownership($pdo, $data['entity_id'], $tenantId);
+            }
+
             $data['ip_address'] = $_SERVER['REMOTE_ADDR'] ?? null;
             $data['user_agent'] = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : null;
             $data['user_id']    = $data['user_id'] ?? ($_SESSION['user_id'] ?? null);
@@ -129,5 +149,5 @@ try {
     }
 } catch (Throwable $e) {
     safe_log('error', 'core_events.fatal', ['error' => $e->getMessage()]);
-    ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
+    ResponseFormatter::error('Internal Server Error', 500);
 }

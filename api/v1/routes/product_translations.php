@@ -5,8 +5,16 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
-require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 
 $modelsPath = API_VERSION_PATH . '/models/products';
 require_once $modelsPath . '/repositories/PdoProductTranslationsRepository.php';
@@ -15,6 +23,15 @@ require_once $modelsPath . '/controllers/ProductTranslationsController.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+// Multi-tenant isolation hardening
+require_once $baseDir . '/shared/helpers/admin_context.php';
+require_once $baseDir . '/shared/helpers/TenantContext.php';
+
+$user = $_SESSION['user'] ?? [];
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+TenantContext::set($effectiveTenantId);
+
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) ResponseFormatter::error('Database not initialized', 500);
 
@@ -22,8 +39,6 @@ $repo = new PdoProductTranslationsRepository($pdo);
 $service = new ProductTranslationsService($repo);
 $controller = new ProductTranslationsController($service);
 
-$user = $_SESSION['user'] ?? [];
-$tenantId = isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null;
 $languageCode = $user['preferred_language'] ?? 'en';
 
 try {
@@ -40,12 +55,12 @@ try {
         $orderDir = $_GET['order_dir'] ?? 'DESC';
 
         if ($id !== null) {
-            $res = $controller->get($tenantId, $id, $languageCode);
+            $res = $controller->get($id, $languageCode);
             ResponseFormatter::success($res);
         } else {
             // When listing translations for a specific product, show ALL languages
             $langFilter = !empty($filters['product_id']) ? null : $languageCode;
-            $res = $controller->list($tenantId, $langFilter, $limit, $offset, $filters, $orderBy, $orderDir);
+            $res = $controller->list($langFilter, $limit, $offset, $filters, $orderBy, $orderDir);
             ResponseFormatter::success($res);
         }
         exit;

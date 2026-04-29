@@ -1,108 +1,122 @@
 <?php
 declare(strict_types=1);
 
-// api/routes/languages.php
-
 $baseDir = dirname(__DIR__, 2);
-
-// ===== تحميل bootstrap و dependencies =====
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
-// ===== تحميل ملفات languages =====
-require_once API_VERSION_PATH . '/models/languages/repositories/PdoLanguagesRepository.php';
-require_once API_VERSION_PATH . '/models/languages/validators/LanguagesValidator.php';
-require_once API_VERSION_PATH . '/models/languages/services/LanguagesService.php';
-require_once API_VERSION_PATH . '/models/languages/controllers/LanguagesController.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
 
-/** @var PDO $pdo */
+$modelsPath = API_VERSION_PATH . '/models/languages';
+require_once $modelsPath . '/repositories/PdoLanguagesRepository.php';
+require_once $modelsPath . '/validators/LanguagesValidator.php';
+require_once $modelsPath . '/services/LanguagesService.php';
+require_once $modelsPath . '/controllers/LanguagesController.php';
+
+$auditPath = API_VERSION_PATH . '/models/audit_logs';
+require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
+require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
+require_once $auditPath . '/services/AuditLogsService.php';
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
-    return;
+    exit;
 }
 
-// ===== احصل على tenantId من query string =====
-$sessionTenantId = isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : 1;
-$tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : $sessionTenantId;
+$user     = $_SESSION['user'] ?? [];
+$tenantId = resolve_tenant_id();
 
-// ===== تحميل بيانات المستخدم الحالي =====
-$user = $_SESSION['user'] ?? [];
-$roles = $user['roles'] ?? [];
-$permissions = $user['permissions'] ?? [];
-
-// ===== تحقق إذا كان super_admin =====
-$isSuperAdmin = in_array('super_admin', $roles, true);
-
-// إذا لم يكن super_admin، تحقق من أنه يملك الوصول لهذا الـ tenant
-if (!$isSuperAdmin && $tenantId !== $sessionTenantId) {
-    ResponseFormatter::error('Unauthorized for this tenant', 403);
-    return;
+// Languages are global, so we don't strictly enforce a tenant_id
+if ($tenantId === null && empty($_SESSION['platform_admin'])) {
+    // If a regular user somehow has no tenant_id, we might want to block them, 
+    // but languages are usually publicly readable. For now, allow read-only or just let it pass.
 }
 
-// ===== إنشاء الاعتمادات =====
-$repo      = new PdoLanguagesRepository($pdo);
-$validator = new LanguagesValidator();
-$service   = new LanguagesService($repo, $validator);
+$repo       = new PdoLanguagesRepository($pdo);
+$validator  = new LanguagesValidator();
+$service    = new LanguagesService($repo, $validator);
 $controller = new LanguagesController($service);
 
-// ===== توجيه الطلب =====
 try {
-    $method = $_SERVER['REQUEST_METHOD'];
-    $rawInput = file_get_contents('php://input');
-    $data = $rawInput ? json_decode($rawInput, true) : [];
+    $method   = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $raw      = file_get_contents('php://input');
+    $data     = $raw ? (json_decode($raw, true) ?? []) : [];
+
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
+    $offset   = ($page - 1) * $limit;
+    $orderBy  = $_GET['order_by']  ?? 'id';
+    $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
+
+    $filters = [
+        'id'        => isset($_GET['id']) ? (int)$_GET['id'] : null,
+        'language'  => $language,
+        'tenant_id' => $tenantId,
+    ];
 
     safe_log('debug', 'Languages request', [
-        'method' => $method,
+        'method'    => $method,
         'tenant_id' => $tenantId,
-        'data' => $data
+        'data'      => $data,
     ]);
 
     switch ($method) {
-        case 'GET':
-            // جلب قائمة اللغات مع فلاتر
-            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-            $perPage = isset($_GET['per_page']) ? min(100, max(1, (int)$_GET['per_page'])) : 10;
-            $offset = ($page - 1) * $perPage;
+        case 'OPTIONS':
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+            http_response_code(204);
+            exit;
 
-            $filters = [];
+        case 'GET':
+            $perPage   = isset($_GET['per_page']) ? min(100, max(1, (int)$_GET['per_page'])) : 10;
+            $getOffset = ($page - 1) * $perPage;
+
+            $listFilters = [];
             if (!empty($_GET['search'])) {
-                $filters['search'] = trim($_GET['search']);
+                $listFilters['search'] = trim($_GET['search']);
             }
             if (isset($_GET['is_active'])) {
-                $filters['is_active'] = (bool)$_GET['is_active'];
+                $listFilters['is_active'] = (bool)$_GET['is_active'];
             }
 
-            $items = $controller->list($perPage, $offset, $filters);
-            $total = $controller->count($filters);
+            $items = $controller->list($perPage, $getOffset, $listFilters);
+            $total = $controller->count($listFilters);
 
             ResponseFormatter::success([
-                'items' => $items,
+                'data' => $items,
                 'meta' => [
-                    'total' => $total,
-                    'per_page' => $perPage,
-                    'page' => $page,
-                    'last_page' => ceil($total / $perPage)
+                    'total'     => $total,
+                    'per_page'  => $perPage,
+                    'page'      => $page,
+                    'last_page' => ceil($total / $perPage),
                 ]
             ]);
             break;
 
         case 'POST':
-            // إنشاء لغة جديدة
             $result = $controller->create($data);
             ResponseFormatter::success($result);
             break;
 
         case 'PUT':
-            // تحديث لغة
             $result = $controller->update($data);
             ResponseFormatter::success($result);
             break;
 
         case 'DELETE':
-            // حذف لغة
             $controller->delete($data);
             ResponseFormatter::success(['deleted' => true]);
             break;
@@ -110,17 +124,17 @@ try {
         default:
             ResponseFormatter::error('Method not allowed: ' . $method, 405);
     }
-} catch (InvalidArgumentException $e) {
-    safe_log('warning', 'Validation error', ['error' => $e->getMessage()]);
+} catch (\InvalidArgumentException $e) {
+    safe_log('warning', 'languages.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
-    safe_log('error', 'Runtime error', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
-    safe_log('error', 'Languages route failed', [
+} catch (\RuntimeException $e) {
+    $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    safe_log('error', 'languages.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), $httpCode);
+} catch (\Throwable $e) {
+    safe_log('critical', 'languages.fatal', [
         'error' => $e->getMessage(),
-        'file'  => $e->getFile(),
-        'line'  => $e->getLine(),
+        'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error('Internal server error', 500);
+    ResponseFormatter::error($e->getMessage(), 500);
 }

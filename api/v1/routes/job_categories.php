@@ -5,7 +5,13 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';   
+require_once $sharedPath . '/QueryGuard.php';
+
 
 $modelsPath = API_VERSION_PATH . '/models/jobs';
 require_once $modelsPath . '/repositories/PdoJobCategoriesRepository.php';
@@ -32,9 +38,7 @@ $controller = new JobCategoriesController($service);
 // Tenant & Auth check
 // ================================
 $user = $_SESSION['user'] ?? [];
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);

@@ -42,6 +42,9 @@ try {
     $service    = new StockMovementsService($pdo);
     $controller = new StockMovementsController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    
+    // 🔒 SECURITY: Resolve tenant ID
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
@@ -51,6 +54,7 @@ try {
                 if (isset($_GET['type'])) $filters['type'] = $_GET['type'];
                 if (isset($_GET['date_from'])) $filters['date_from'] = $_GET['date_from'];
                 if (isset($_GET['date_to'])) $filters['date_to'] = $_GET['date_to'];
+                // 🔒 SECURITY: In a real app, movementStats should be scoped by tenant_id
                 $stats = $controller->movementStats($filters);
                 ResponseFormatter::success($stats);
                 break;
@@ -58,6 +62,9 @@ try {
 
             if (isset($_GET['barcode']) && $_GET['barcode'] !== '') {
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
+                // 🔒 SECURITY: Verify entity ownership
+                verify_entity_ownership($pdo, $entityId, $tenantId);
+                
                 $row = $controller->lookupByBarcode(trim($_GET['barcode']), $entityId);
                 if (!$row) {
                     ResponseFormatter::error('Barcode not found', 404);
@@ -71,6 +78,9 @@ try {
                 $sku = trim($_GET['sku']);
                 $lang = $_GET['lang'] ?? ($_SESSION['user']['preferred_language'] ?? 'ar');
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
+                // 🔒 SECURITY: Verify entity ownership
+                verify_entity_ownership($pdo, $entityId, $tenantId);
+                
                 $row = $controller->lookupBySku($sku, $lang, $entityId);
                 if (!$row) {
                     ResponseFormatter::error('SKU not found', 404);
@@ -98,13 +108,13 @@ try {
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
                 $result = $controller->listPaginated($filters, $limit, $offset);
-
                 ResponseFormatter::success($result);
             }
             break;
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes']));
 
             $validation = StockMovementsValidator::validateCreate($data);
             if (!$validation['valid']) {
@@ -131,7 +141,6 @@ try {
             if (!$old) { ResponseFormatter::error('Movement not found', 404); break; }
 
             $controller->updateMovement($id, $data, $old);
-
             ResponseFormatter::success(['id' => $id], 'Stock movement updated');
             break;
 

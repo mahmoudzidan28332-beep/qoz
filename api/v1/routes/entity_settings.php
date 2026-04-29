@@ -32,21 +32,24 @@ try {
     $raw = file_get_contents('php://input');
     $data = $raw ? json_decode($raw, true) : [];
 
+    // 🔒 SECURITY: Resolve tenant ID
+    $tenantId = resolve_tenant_id();
+
     $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit   = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset  = ($page - 1) * $limit;
     $orderBy = $_GET['order_by'] ?? 'entity_id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
 
-    // Collect filters - جمع جميع الفلاتر الممكنة
+    // Collect filters
     $filters = [];
-    
-    // فلتر entity_id
     if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id'])) {
-        $filters['entity_id'] = (int)$_GET['entity_id'];
+        $entityId = (int)$_GET['entity_id'];
+        // 🔒 SECURITY: Verify entity ownership if provided in filters
+        verify_entity_ownership($pdo, $entityId, $tenantId);
+        $filters['entity_id'] = $entityId;
     }
     
-    // الفلاتر المنطقية (Boolean)
     $booleanFilters = ['auto_accept_orders', 'allow_cod', 'allow_online_booking', 
                        'booking_cancellation_allowed', 'allow_preorders', 'is_visible', 
                        'maintenance_mode', 'show_reviews', 'show_contact_info', 
@@ -58,7 +61,6 @@ try {
         }
     }
     
-    // الفلاتر الرقمية
     $numericFilters = ['min_order_amount', 'preparation_time_minutes', 'booking_window_days',
                        'max_bookings_per_slot', 'max_daily_orders', 'delivery_radius_km', 
                        'free_delivery_min_order'];
@@ -69,22 +71,18 @@ try {
         }
     }
     
-    // فلتر طريقة الدفع الافتراضية
     if (isset($_GET['default_payment_method']) && is_string($_GET['default_payment_method'])) {
         $filters['default_payment_method'] = $_GET['default_payment_method'];
     }
     
-    // فلتر اسم المتجر (بحث جزئي)
     if (isset($_GET['store_name']) && !empty(trim($_GET['store_name']))) {
         $filters['store_name'] = trim($_GET['store_name']);
     }
     
-    // فلتر حالة الكيان
     if (isset($_GET['status']) && in_array($_GET['status'], ['pending', 'approved', 'suspended', 'rejected'])) {
         $filters['status'] = $_GET['status'];
     }
     
-    // فلتر بحث في الإعدادات الإضافية
     if (isset($_GET['additional_settings_search']) && !empty(trim($_GET['additional_settings_search']))) {
         $filters['additional_settings_search'] = trim($_GET['additional_settings_search']);
     }
@@ -98,15 +96,17 @@ try {
             exit;
 
         case 'GET':
-            // التحقق إذا كان طلب عنصر واحد
             if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id']) && !isset($_GET['page'])) {
-                $item = $controller->get((int)$_GET['entity_id']);
+                $entityId = (int)$_GET['entity_id'];
+                // 🔒 SECURITY: Verify entity ownership
+                verify_entity_ownership($pdo, $entityId, $tenantId);
+                
+                $item = $controller->get($entityId);
                 if ($item) {
                     ResponseFormatter::success($item);
                 } else {
-                    // Return default settings when none exist yet for this entity
                     ResponseFormatter::success([
-                        'entity_id' => (int)$_GET['entity_id'],
+                        'entity_id' => $entityId,
                         'auto_accept_orders' => 0,
                         'allow_cod' => 0,
                         'min_order_amount' => 0,
@@ -120,6 +120,7 @@ try {
                     ]);
                 }
             } else {
+                // 🔒 SECURITY: In list view, ensure tenant filtering is enforced in the service/repo
                 $result = $controller->list($limit, $offset, $filters, $orderBy, $orderDir);
                 $total = $result['meta']['total'];
                 ResponseFormatter::success([
@@ -131,7 +132,7 @@ try {
                         'total_pages' => $total > 0 ? (int)ceil($total / $limit) : 0,
                         'from'        => $total > 0 ? $offset + 1 : 0,
                         'to'          => $total > 0 ? min($offset + $limit, $total) : 0,
-                        'filters'     => $filters // إضافة الفلاتر المستخدمة في الاستجابة
+                        'filters'     => $filters
                     ]
                 ]);
             }
@@ -144,8 +145,10 @@ try {
             }
             
             $entityId = (int)$data['entity_id'];
-            unset($data['entity_id']);
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
             
+            unset($data['entity_id']);
             $created = $controller->create($entityId, $data);
             ResponseFormatter::success(['id' => $entityId], 'Created successfully', 201);
             break;
@@ -157,8 +160,10 @@ try {
             }
             
             $entityId = (int)$data['entity_id'];
-            unset($data['entity_id']);
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
             
+            unset($data['entity_id']);
             $updated = $controller->update($entityId, $data);
             ResponseFormatter::success(['id' => $entityId], 'Updated successfully');
             break;
@@ -169,7 +174,11 @@ try {
                 exit;
             }
             
-            $deleted = $controller->delete((int)$data['entity_id']);
+            $entityId = (int)$data['entity_id'];
+            // 🔒 SECURITY: Verify entity ownership
+            verify_entity_ownership($pdo, $entityId, $tenantId);
+            
+            $deleted = $controller->delete($entityId);
             ResponseFormatter::success(['deleted' => $deleted], 'Deleted successfully');
             break;
 

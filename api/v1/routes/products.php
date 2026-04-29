@@ -7,7 +7,10 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
-
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';   
+require_once $sharedPath . '/QueryGuard.php';
 $modelsPath = API_VERSION_PATH . '/models/products';
 require_once $modelsPath . '/repositories/PdoProductsRepository.php';
 require_once $modelsPath . '/services/ProductsService.php';
@@ -39,15 +42,16 @@ $controller = new ProductsController($service);
 // ================================
 // Tenant & Auth check
 // ================================
-$user = $_SESSION['user'] ?? [];
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$isPlatformAdmin = is_platform_admin();
+$effectiveTenantId = resolve_tenant_id();
 
-if ($tenantId === null) {
-    ResponseFormatter::error('Unauthorized: tenant not found', 401);
-    exit;
+// Platform Admin defaults to 0 (Global View) if no specific tenant is requested
+if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId === 0)) {
+    $effectiveTenantId = 0;
 }
+
+// 🔒 SECURITY: Enforce TenantContext
+TenantContext::set($effectiveTenantId);
 
 // ================================
 // Handle request
@@ -84,10 +88,10 @@ try {
 
         case 'GET':
             if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $item = $controller->get($tenantId, (int)$_GET['id'], $lang);
+                $item = $controller->get((int)$_GET['id'], $lang);
                 ResponseFormatter::success($item);
             } else {
-                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+                $result = $controller->list($limit, $offset, $filters, $orderBy, $orderDir, $lang);
                 $total = $result['total'];
                 ResponseFormatter::success([
                     'items' => $result['items'],
@@ -106,9 +110,9 @@ try {
         case 'POST':
             // Check subscription product limit before creating
             try {
-                $activePlan = $controller->getSubscriptionProductLimit($tenantId);
+                $activePlan = $controller->getSubscriptionProductLimit();
                 if ($activePlan && (int)$activePlan['max_products'] > 0) {
-                    $currentCount = $controller->countByTenant($tenantId);
+                    $currentCount = $controller->countByTenant();
                     if ($currentCount >= (int)$activePlan['max_products']) {
                         ResponseFormatter::error(
                             'Product limit reached (' . $currentCount . '/' . $activePlan['max_products'] . '). Upgrade your plan to add more products.',
@@ -149,7 +153,7 @@ try {
                 safe_log('warning', 'products.bad_words_check_failed', ['error' => $e->getMessage()]);
             }
 
-            $newId = $controller->create($tenantId, $data);
+            $newId = $controller->create($data);
 
             // Auto-populate SEO meta
             try {
@@ -157,7 +161,7 @@ try {
                     'name'          => $data['name'] ?? '',
                     'slug'          => $data['slug'] ?? '',
                     'description'   => $data['description'] ?? '',
-                    'tenant_id'     => $tenantId,
+                    'tenant_id'     => $effectiveTenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$newId);
             } catch (\Throwable $e) {
@@ -170,7 +174,7 @@ try {
                 'product',
                 (int)$newId,
                 null,
-                $tenantId,
+                $effectiveTenantId,
                 isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null,
                 null,   // old_values: nothing existed before
                 array_merge($data, ['id' => (int)$newId]) // new_values: full payload
@@ -211,13 +215,13 @@ try {
             $oldProductState = null;
             if (!empty($data['id'])) {
                 try {
-                    $oldProductState = $controller->get($tenantId, (int)$data['id'], $lang);
+                    $oldProductState = $controller->get((int)$data['id'], $lang);
                 } catch (\Throwable $e) {
                     error_log('[products] fetch old product state failed: ' . $e->getMessage());
                 }
             }
 
-            $updatedId = $controller->update($tenantId, $data);
+            $updatedId = $controller->update($data);
 
             // Auto-update SEO meta
             try {
@@ -225,7 +229,7 @@ try {
                     'name'          => $data['name'] ?? '',
                     'slug'          => $data['slug'] ?? '',
                     'description'   => $data['description'] ?? '',
-                    'tenant_id'     => $tenantId,
+                    'tenant_id'     => $effectiveTenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$updatedId);
             } catch (\Throwable $e) {
@@ -238,7 +242,7 @@ try {
                 'product',
                 (int)$updatedId,
                 null,
-                $tenantId,
+                $effectiveTenantId,
                 isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null,
                 $oldProductState,           // old_values: snapshot before update
                 array_merge($data, ['id' => (int)$updatedId]) // new_values: submitted payload
@@ -255,12 +259,12 @@ try {
             // Fetch old state for audit (best-effort)
             $deletedProductState = null;
             try {
-                $deletedProductState = $controller->get($tenantId, (int)$data['id'], $lang);
+                $deletedProductState = $controller->get((int)$data['id'], $lang);
             } catch (\Throwable $e) {
                 error_log('[products] fetch deleted product state failed: ' . $e->getMessage());
             }
 
-            $deleted = $controller->delete($tenantId, (int)$data['id']);
+            $deleted = $controller->delete((int)$data['id']);
 
             // Auto-delete SEO meta
             try {
@@ -275,7 +279,7 @@ try {
                 'product',
                 (int)$data['id'],
                 null,
-                $tenantId,
+                $effectiveTenantId,
                 isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null,
                 $deletedProductState, // old_values
                 null                  // new_values: entity no longer exists

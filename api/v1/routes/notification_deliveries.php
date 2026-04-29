@@ -27,6 +27,18 @@ $validator  = new NotificationDeliveriesValidator();
 $service    = new NotificationDeliveriesService($repo, $validator);
 $controller = new NotificationDeliveriesController($service);
 
+$filterNotificationDeliveryInput = static function (array $data): array {
+    return array_intersect_key($data, array_flip([
+        'id',
+        'notification_id',
+        'channel_id',
+        'delivery_status',
+        'attempts',
+        'sent_at',
+        'error_message',
+    ]));
+};
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -78,15 +90,37 @@ try {
 
     $raw  = file_get_contents('php://input');
     $data = ($raw !== false && $raw !== '') ? (json_decode($raw, true) ?? []) : [];
+    $data = $filterNotificationDeliveryInput($data);
 
     if ($method === 'POST') {
-        $newId = $controller->create($data);
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $newId = $controller->create([
+            'notification_id' => $data['notification_id'] ?? 0,
+            'channel_id'      => $data['channel_id']      ?? 0,
+            'delivery_status' => $data['delivery_status'] ?? 'pending',
+            'attempts'        => $data['attempts']        ?? 0,
+            'sent_at'         => $data['sent_at']         ?? null,
+            'error_message'   => $data['error_message']   ?? null,
+        ]);
         ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
         exit;
     }
 
     if ($method === 'PUT') {
-        $updatedId = $controller->update($data);
+        if (empty($data['id']) || !is_numeric($data['id'])) {
+            ResponseFormatter::error('Missing or invalid id for update', 400);
+            exit;
+        }
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $updatedId = $controller->update([
+            'id'              => (int)$data['id'],
+            'notification_id' => $data['notification_id'] ?? 0,
+            'channel_id'      => $data['channel_id']      ?? 0,
+            'delivery_status' => $data['delivery_status'] ?? 'pending',
+            'attempts'        => $data['attempts']        ?? 0,
+            'sent_at'         => $data['sent_at']         ?? null,
+            'error_message'   => $data['error_message']   ?? null,
+        ]);
         ResponseFormatter::success(['id' => $updatedId], 'Updated successfully');
         exit;
     }
@@ -118,4 +152,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

@@ -1,16 +1,19 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '0');
-
 $baseDir = dirname(__DIR__, 2);
-
-// ===== Bootstrap =====
 require_once $baseDir . '/bootstrap.php';
-
-// ===== Core =====
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
 
 require_once API_VERSION_PATH . '/models/products/repositories/PdoProduct_categoriesRepository.php';
 require_once API_VERSION_PATH . '/models/products/validators/Product_categoriesValidator.php';
@@ -23,6 +26,16 @@ if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
     return;
 }
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Multi-tenant isolation hardening
+require_once $baseDir . '/shared/helpers/admin_context.php';
+require_once $baseDir . '/shared/helpers/TenantContext.php';
+
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+TenantContext::set($effectiveTenantId);
 
 // Controller setup
 $repo       = new PdoProduct_categoriesRepository($pdo);
@@ -63,11 +76,13 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order']));
             ResponseFormatter::success($controller->create($data));
             break;
 
         case 'PUT':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             ResponseFormatter::success($controller->update($data));
             break;
 
@@ -90,4 +105,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

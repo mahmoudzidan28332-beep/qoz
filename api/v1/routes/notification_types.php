@@ -28,6 +28,17 @@ $validator  = new NotificationTypesValidator();
 $service    = new NotificationTypesService($repo, $validator);
 $controller = new NotificationTypesController($service);
 
+$filterNotificationTypeInput = static function (array $data): array {
+    return array_intersect_key($data, array_flip([
+        'id',
+        'code',
+        'name',
+        'description',
+        'is_active',
+        'default_template',
+    ]));
+};
+
 // CORS headers
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -80,15 +91,35 @@ try {
 
     $raw  = file_get_contents('php://input');
     $data = ($raw !== false && $raw !== '') ? (json_decode($raw, true) ?? []) : [];
+    $data = $filterNotificationTypeInput($data);
 
     if ($method === 'POST') {
-        $newId = $controller->create($data);
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $newId = $controller->create([
+            'code'             => $data['code']             ?? '',
+            'name'             => $data['name']             ?? '',
+            'description'      => $data['description']      ?? null,
+            'is_active'        => $data['is_active']        ?? 0,
+            'default_template' => $data['default_template'] ?? null,
+        ]);
         ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
         exit;
     }
 
     if ($method === 'PUT') {
-        $updatedId = $controller->update($data);
+        if (empty($data['id']) || !is_numeric($data['id'])) {
+            ResponseFormatter::error('Missing or invalid id for update', 400);
+            exit;
+        }
+        // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $updatedId = $controller->update([
+            'id'               => (int)$data['id'],
+            'code'             => $data['code']             ?? '',
+            'name'             => $data['name']             ?? '',
+            'description'      => $data['description']      ?? null,
+            'is_active'        => $data['is_active']        ?? 0,
+            'default_template' => $data['default_template'] ?? null,
+        ]);
         ResponseFormatter::success(['id' => $updatedId], 'Updated successfully');
         exit;
     }

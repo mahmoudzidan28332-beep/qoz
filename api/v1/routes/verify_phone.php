@@ -18,22 +18,15 @@ declare(strict_types=1);
 
 // ---- Session bootstrap (must match auth.php settings) ----
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    $cookieParams = [
-        'lifetime' => 0,
-        'path'     => '/',
-        'domain'   => $_SERVER['HTTP_HOST'] ?? '',
-        'secure'   => $secure,
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ];
-    if (session_name() !== 'APP_SESSID') session_name('APP_SESSID');
-    if (PHP_VERSION_ID >= 70300) {
-        session_set_cookie_params($cookieParams);
+    $sessionConfig = dirname(__DIR__, 3) . '/shared/config/session.php';
+    if (is_file($sessionConfig)) {
+        require_once $sessionConfig;
     } else {
-        session_set_cookie_params(0, '/', $cookieParams['domain'], $cookieParams['secure'], true);
+        if (session_name() !== 'APP_SESSID') {
+            session_name('APP_SESSID');
+        }
+        @session_start();
     }
-    @session_start();
 }
 
 if (!headers_sent()) {

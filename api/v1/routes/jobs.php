@@ -40,6 +40,7 @@ try {
     $offset = ($page - 1) * $limit;
     $orderBy = $_GET['order_by'] ?? 'id';
     $orderDir = $_GET['order_dir'] ?? 'DESC';
+    $tenantId = resolve_tenant_id();
 
     // Collect filters
     $filters = [
@@ -115,7 +116,7 @@ try {
             // Get featured jobs
             elseif (isset($_GET['featured']) && $_GET['featured'] === '1') {
                 $featuredLimit = isset($_GET['featured_limit']) ? (int)$_GET['featured_limit'] : 10;
-                $items = $controller->getFeatured($featuredLimit, $lang);
+                $items = $controller->getFeatured($tenantId, $featuredLimit, $lang);
                 ResponseFormatter::success([
                     'items' => $items,
                     'total' => count($items)
@@ -124,7 +125,7 @@ try {
             // Get urgent jobs
             elseif (isset($_GET['urgent']) && $_GET['urgent'] === '1') {
                 $urgentLimit = isset($_GET['urgent_limit']) ? (int)$_GET['urgent_limit'] : 10;
-                $items = $controller->getUrgent($urgentLimit, $lang);
+                $items = $controller->getUrgent($tenantId, $urgentLimit, $lang);
                 ResponseFormatter::success([
                     'items' => $items,
                     'total' => count($items)
@@ -133,7 +134,7 @@ try {
             // Get remote jobs
             elseif (isset($_GET['remote']) && $_GET['remote'] === '1') {
                 $remoteLimit = isset($_GET['remote_limit']) ? (int)$_GET['remote_limit'] : 10;
-                $items = $controller->getRemote($remoteLimit, $lang);
+                $items = $controller->getRemote($tenantId, $remoteLimit, $lang);
                 ResponseFormatter::success([
                     'items' => $items,
                     'total' => count($items)
@@ -142,7 +143,7 @@ try {
             // Search jobs
             elseif (isset($_GET['q']) || isset($_GET['search'])) {
                 $keyword = $_GET['q'] ?? $_GET['search'];
-                $result = $controller->search($keyword, $limit, $offset, $lang);
+                $result = $controller->search($tenantId, $keyword, $limit, $offset, $lang);
                 $total = $result['total'];
                 ResponseFormatter::success([
                     'items' => $result['items'],
@@ -158,7 +159,7 @@ try {
             }
             // List all jobs with filters
             else {
-                $result = $controller->list($limit, $offset, $filters, $orderBy, $orderDir, $lang);
+                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
                 $total = $result['total'];
                 ResponseFormatter::success([
                     'items' => $result['items'],
@@ -279,4 +280,3 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 500);
 }
-

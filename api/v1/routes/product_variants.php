@@ -1,17 +1,35 @@
 <?php
 declare(strict_types=1);
+$baseDir = dirname(__DIR__, 2);
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
 
-require_once __DIR__ . '/../../bootstrap.php';
-require_once __DIR__ . '/../../shared/core/ResponseFormatter.php';
-require_once __DIR__ . '/../../shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
 
-$variantsPath = API_VERSION_PATH.'/models/product_variants';
+$modelsPath = API_VERSION_PATH . '/models';
+$variantsPath = $modelsPath . '/product_variants';
 require_once $variantsPath.'/repositories/PdoProductVariantsRepository.php';
 require_once $variantsPath.'/validators/ProductVariantValidator.php';
 require_once $variantsPath.'/services/ProductVariantService.php';
 require_once $variantsPath.'/controllers/ProductVariantController.php';
 
 if(session_status()===PHP_SESSION_NONE) session_start();
+
+// Multi-tenant isolation hardening
+require_once $baseDir . '/shared/helpers/admin_context.php';
+require_once $baseDir . '/shared/helpers/TenantContext.php';
+
+$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
+$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+TenantContext::set($effectiveTenantId);
 
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if(!$pdo instanceof PDO) ResponseFormatter::error('Database not initialized',500);
@@ -20,15 +38,6 @@ $repo = new PdoProductVariantsRepository($pdo);
 $validator = new ProductVariantValidator();
 $service = new ProductVariantService($repo,$validator);
 $controller = new ProductVariantController($service);
-
-$user = $_SESSION['user'] ?? [];
-$roles = $user['roles'] ?? ($_SESSION['roles'] ?? []);
-$isSuperAdmin = in_array('super_admin',$roles,true);
-$sessionTenantId = isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null;
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : $sessionTenantId;
-if(!$isSuperAdmin && ($tenantId===null || $tenantId !== $sessionTenantId)) {
-    ResponseFormatter::error('Unauthorized',403);
-}
 
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -52,13 +61,13 @@ try {
 
         case 'GET':
             if(!empty($_GET['id'])){
-                $item = $controller->listWithTranslations((int)$tenantId, $languageCode, null, null, ['id'=>$_GET['id']]);
-                ResponseFormatter::success($item ?? []);
+                $items = $controller->listWithTranslations($languageCode, null, null, ['id'=>$_GET['id']]);
+                ResponseFormatter::success($items[0] ?? []);
             } elseif(!empty($_GET['variant_id']) && !empty($_GET['translations'])){
                 $translations = $controller->getTranslations((int)$_GET['variant_id']);
                 ResponseFormatter::success($translations);
             } else {
-                $items = $controller->listWithTranslations((int)$tenantId, $languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
+                $items = $controller->listWithTranslations($languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
                 ResponseFormatter::success(['items'=>$items]);
             }
             break;
@@ -69,14 +78,14 @@ try {
                 $controller->saveTranslation((int)$data['variant_id'], $data['translation']['language_code'], $data['translation']['name']);
                 ResponseFormatter::success(['saved'=>true]);
             } else {
-                $id = $controller->createOrUpdate((int)$tenantId, $data);
+                $id = $controller->createOrUpdate($data);
                 ResponseFormatter::success(['id'=>$id]);
             }
             break;
 
         case 'DELETE':
             if(empty($data['id'])) ResponseFormatter::error('Missing id',400);
-            $deleted = $controller->delete((int)$tenantId,(int)$data['id']);
+            $deleted = $controller->delete((int)$data['id']);
             ResponseFormatter::success(['deleted'=>$deleted]);
             break;
 

@@ -46,6 +46,7 @@ try {
     $service    = new FlashSalesService($repo);
     $controller = new FlashSalesController($service);
     $method     = $_SERVER['REQUEST_METHOD'];
+    $tenantId = resolve_tenant_id();
 
     switch ($method) {
         case 'GET':
@@ -56,7 +57,6 @@ try {
             }
             if (isset($_GET['id']) && (int)$_GET['id'] > 0) {
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : null;
-                $tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
                 $item = $controller->find((int)$_GET['id'], $entityId, $tenantId);
                 if (!$item) { ResponseFormatter::error('Flash sale not found', 404); break; }
                 ResponseFormatter::success($item);
@@ -66,7 +66,7 @@ try {
                 if (isset($_GET['status']))     $filters['status'] = $_GET['status'];
                 if (isset($_GET['search']))     $filters['search'] = $_GET['search'];
                 if (isset($_GET['entity_id']))  $filters['entity_id'] = $_GET['entity_id'];
-                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
+                if ($tenantId !== null) $filters['tenant_id'] = $tenantId;
                 if (isset($_GET['limit']))      $filters['limit'] = $_GET['limit'];
                 if (isset($_GET['offset']))     $filters['offset'] = $_GET['offset'];
                 $result = $controller->list($filters);
@@ -75,7 +75,13 @@ try {
             break;
 
         case 'POST':
-            $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            $raw = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            
+            // 🔒 SECURITY: Field whitelisting (Mass Assignment protection)
+            $allowed = ['entity_id', 'title', 'start_at', 'end_at', 'is_active', 'discount_percentage', 'products'];
+            $data = array_intersect_key($raw, array_flip($allowed));
+            $data['tenant_id'] = $tenantId;
+
             $errors = FlashSalesValidator::validateCreate($data);
             if ($errors) { ResponseFormatter::error(implode(', ', $errors), 422); break; }
             $id = $controller->create($data);
@@ -83,7 +89,13 @@ try {
             break;
 
         case 'PUT':
-            $data = json_decode(file_get_contents('php://input'), true) ?: [];
+            $raw = json_decode(file_get_contents('php://input'), true) ?: [];
+            
+            // 🔒 SECURITY: Field whitelisting (Mass Assignment protection)
+            $allowed = ['id', 'entity_id', 'title', 'start_at', 'end_at', 'is_active', 'discount_percentage', 'products'];
+            $data = array_intersect_key($raw, array_flip($allowed));
+            $data['tenant_id'] = $tenantId;
+
             $id = (int)($data['id'] ?? $_GET['id'] ?? 0);
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
             $errors = FlashSalesValidator::validateUpdate($data);

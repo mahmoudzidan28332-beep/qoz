@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 /**
- * routes/auth.php — Production Final
+ * routes/auth.php — Production Final - STABLE VERSION
+ * 
+ * FIXED: Session统一性修复 - 确保API和Admin使用相同的Session
  *
  * GET  : me | csrf | check | logout | google_callback
  * POST : login | register | verify_otp | resend_verification
@@ -9,6 +11,14 @@ declare(strict_types=1);
  *        register_device | update_fcm
  */
 
+// ==============================================
+// ⭐ CRITICAL FIX: Load bootstrap first for unified session
+// ==============================================
+require_once dirname(__DIR__, 2) . '/bootstrap.php';
+
+// ==============================================
+// Load Models
+// ==============================================
 $_authModelsPath = dirname(__DIR__) . '/models';
 require_once $_authModelsPath . '/users_account/repositories/PdoUsersRepository.php';
 require_once $_authModelsPath . '/users_account/repositories/PdoUserAuthProvidersRepository.php';
@@ -18,20 +28,6 @@ require_once $_authModelsPath . '/notification/repositories/PdoUserDevicesReposi
 require_once $_authModelsPath . '/users_account/validators/UsersValidator.php';
 require_once $_authModelsPath . '/users_account/services/UsersService.php';
 require_once $_authModelsPath . '/users_account/controllers/UsersController.php';
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  SESSION BOOTSTRAP
-// ══════════════════════════════════════════════════════════════════════════════
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-    if (session_name() !== 'APP_SESSID') session_name('APP_SESSID');
-    $cp = ['lifetime'=>0,'path'=>'/','domain'=>$_SERVER['HTTP_HOST']??'',
-           'secure'=>$secure,'httponly'=>true,'samesite'=>'Lax'];
-    PHP_VERSION_ID >= 70300
-        ? session_set_cookie_params($cp)
-        : session_set_cookie_params($cp['lifetime'],$cp['path'],$cp['domain'],$cp['secure'],$cp['httponly']);
-    @session_start();
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
@@ -103,9 +99,126 @@ function _read_payload(): array
 
 function _current_user(): ?array
 {
+    global $pdo;
+
+    if ($pdo instanceof PDO && class_exists('\Shared\Application\Auth\UserIdentityResolver', false)) {
+        try {
+            $identity = \Shared\Application\Auth\UserIdentityResolver::resolve($pdo, [
+                'request_id' => defined('REQUEST_ID') ? REQUEST_ID : bin2hex(random_bytes(8)),
+                'force' => true,
+            ]);
+            if ($identity->isAuthenticated()) {
+                return $identity->toArray();
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::error('auth route identity resolve failed: ' . $e->getMessage());
+            }
+        }
+    }
+
     $u = $GLOBALS['ADMIN_USER'] ?? null;
-    if (!$u && !empty($_SESSION['user'])) $u = $_SESSION['user'];
+    if (!$u && !empty($_SESSION['user'])) {
+        $u = $_SESSION['user'];
+    }
     return is_array($u) ? $u : null;
+}
+
+function _identity_debug(): ?array
+{
+    return is_array($_SESSION['identity_debug'] ?? null) ? $_SESSION['identity_debug'] : null;
+}
+
+function _normalize_authenticated_user_snapshot(array $user): array
+{
+    $roles = [];
+    foreach (is_array($user['roles'] ?? null) ? $user['roles'] : [] as $role) {
+        $role = (string) $role;
+        if ($role !== '') {
+            $roles[] = $role;
+        }
+    }
+    $roles = array_values(array_unique($roles));
+
+    $permissions = [];
+    foreach (is_array($user['permissions'] ?? null) ? $user['permissions'] : [] as $permission) {
+        $permission = (string) $permission;
+        if ($permission !== '') {
+            $permissions[] = $permission;
+        }
+    }
+    $permissions = array_values(array_unique($permissions));
+
+    $resourcePermissions = is_array($user['resource_permissions'] ?? null) ? $user['resource_permissions'] : [];
+
+    $tenantId = null;
+    if (array_key_exists('tenant_id', $user) && $user['tenant_id'] !== null && $user['tenant_id'] !== '') {
+        $tenantId = (int) $user['tenant_id'];
+    }
+
+    return [
+        'id' => (int) ($user['id'] ?? 0),
+        'name' => (string) ($user['name'] ?? ($user['username'] ?? '')),
+        'username' => (string) ($user['username'] ?? ($user['name'] ?? '')),
+        'email' => isset($user['email']) ? (string) $user['email'] : null,
+        'phone' => isset($user['phone']) ? (string) $user['phone'] : null,
+        'role_id' => isset($user['role_id']) && $user['role_id'] !== '' ? (int) $user['role_id'] : null,
+        'tenant_id' => $tenantId,
+        'preferred_language' => (string) ($user['preferred_language'] ?? 'en'),
+        'is_active' => (bool) ($user['is_active'] ?? true),
+        'permissions' => $permissions,
+        'roles' => $roles,
+        'resource_permissions' => $resourcePermissions,
+        'permissions_count' => count($permissions),
+        'roles_count' => count($roles),
+    ];
+}
+
+function _commit_authenticated_session(array $user): array
+{
+    global $pdo;
+
+    $user = _normalize_authenticated_user_snapshot($user);
+
+    \Shared\Application\Auth\UserIdentityResolver::forgetResolvedIdentity();
+
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['user'] = $user;
+    $_SESSION['permissions'] = $user['permissions'];
+    $_SESSION['roles'] = $user['roles'];
+    $_SESSION['resource_permissions'] = $user['resource_permissions'];
+
+    if ($user['tenant_id'] !== null) {
+        $_SESSION['tenant_id'] = $user['tenant_id'];
+    } else {
+        unset($_SESSION['tenant_id']);
+    }
+
+    unset(
+        $_SESSION['pending_user_id'],
+        $_SESSION['pending_otp'],
+        $_SESSION['pending_otp_expires'],
+        $_SESSION['pending_otp_attempts'],
+        $_SESSION['pending_verify_link']
+    );
+
+    $GLOBALS['ADMIN_USER'] = $user;
+
+    $resolverPdo = $GLOBALS['ADMIN_DB'] ?? $pdo ?? null;
+    if ($resolverPdo instanceof PDO) {
+        try {
+            \Shared\Application\Auth\UserIdentityResolver::resolve($resolverPdo, [
+                'request_id' => defined('REQUEST_ID') ? REQUEST_ID : bin2hex(random_bytes(8)),
+                'force' => true,
+            ]);
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::error('auth route session commit resolve failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    return $user;
 }
 
 function _ua(): string   { return substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512); }
@@ -251,23 +364,17 @@ function _provider_login(PDO $dbConn, UsersController $controller, string $provi
         'email'              => $uRow['email'],
         'phone'              => $uRow['phone'] ?? null,
         'role_id'            => isset($uRow['role_id'])   ? (int)$uRow['role_id']   : null,
-        'tenant_id'          => isset($uRow['tenant_id']) ? (int)$uRow['tenant_id'] : 1,
+        'tenant_id'          => isset($uRow['tenant_id']) && $uRow['tenant_id'] !== null ? (int)$uRow['tenant_id'] : null,
         'preferred_language' => $uRow['preferred_language'] ?? 'en',
         'is_active'          => true,
         'permissions'        => $rbac['permissions'],
         'roles'              => $rbac['roles'],
+        'resource_permissions' => [],
         'permissions_count'  => count($rbac['permissions']),
         'roles_count'        => count($rbac['roles']),
     ];
 
-    $_SESSION['user_id']     = $user['id'];
-    $_SESSION['user']        = $user;
-    $_SESSION['permissions'] = $user['permissions'];
-    $_SESSION['roles']       = $user['roles'];
-    unset($_SESSION['pending_user_id'], $_SESSION['pending_otp'],
-          $_SESSION['pending_otp_expires'], $_SESSION['pending_otp_attempts'],
-          $_SESSION['pending_verify_link']);
-    $GLOBALS['ADMIN_USER'] = $user;
+    $user = _commit_authenticated_session($user);
     _link_device_on_login($dbConn, $userId);
     return $user;
 }
@@ -303,19 +410,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     _no_cache();
 
     if ($action === 'logout') {
-        unset($_SESSION['user'], $_SESSION['user_id'], $_SESSION['permissions'], $_SESSION['roles']);
-        $GLOBALS['ADMIN_USER'] = null;
-        if (ini_get('session.use_cookies')) {
-            $p = session_get_cookie_params();
-            setcookie(session_name(), '', time()-42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+        \Shared\Application\Auth\UserIdentityResolver::clearSessionIdentity();
+        if (function_exists('destroySession')) {
+            destroySession();
         }
-        session_regenerate_id(true);
+        $GLOBALS['ADMIN_USER'] = null;
         ResponseFormatter::success(['ok'=>true,'message'=>'Logged out']); exit;
     }
 
     if ($action === 'me') {
         $u = _current_user();
-        $u ? ResponseFormatter::success(['ok'=>true,'user'=>$u]) : ResponseFormatter::notFound('Not authenticated');
+        $u
+            ? ResponseFormatter::success(['ok'=>true,'user'=>$u,'debug'=>_identity_debug()])
+            : ResponseFormatter::notFound('Not authenticated');
         exit;
     }
 
@@ -326,7 +433,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     if ($action === 'check') {
         $u = _current_user();
-        ResponseFormatter::success(['ok'=>true,'authenticated'=>(bool)$u,'user'=>$u]); exit;
+        ResponseFormatter::success(['ok'=>true,'authenticated'=>(bool)$u,'user'=>$u,'debug'=>_identity_debug()]); exit;
     }
 
     // ── Google Authorization Code callback ───────────────────────────────
@@ -550,7 +657,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             if ($vRowId > 0) $controller->updateVerificationSessionId($vRowId, session_id());
             $_SESSION['pending_user_id'] = $newId;
-            unset($_SESSION['user_id'],$_SESSION['user'],$_SESSION['pending_otp'],$_SESSION['pending_verify_link']);
+            unset(
+                $_SESSION['user_id'],
+                $_SESSION['user'],
+                $_SESSION['tenant_id'],
+                $_SESSION['permissions'],
+                $_SESSION['roles'],
+                $_SESSION['resource_permissions'],
+                $_SESSION['identity_debug'],
+                $_SESSION['pending_otp'],
+                $_SESSION['pending_verify_link']
+            );
 
             if (!headers_sent()) { header('Content-Type: application/json; charset=utf-8'); _no_cache(); }
             echo json_encode([
@@ -653,10 +770,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['pending_otp'],$_SESSION['pending_user_id'],$_SESSION['pending_otp_expires'],$_SESSION['pending_otp_attempts']);
             session_regenerate_id(true);
 
-            $user = ['id'=>(int)$ud['id'],'name'=>$ud['username'],'username'=>$ud['username'],'email'=>$ud['email'],
-                     'phone'=>$ud['phone'],'role_id'=>null,'preferred_language'=>$ud['preferred_language'],
-                     'is_active'=>true,'permissions'=>[],'roles'=>[],'permissions_count'=>0,'roles_count'=>0];
-            $_SESSION['user_id'] = $user['id']; $_SESSION['user'] = $user; $GLOBALS['ADMIN_USER'] = $user;
+            $user = [
+                'id' => (int) $ud['id'],
+                'name' => $ud['username'],
+                'username' => $ud['username'],
+                'email' => $ud['email'],
+                'phone' => $ud['phone'],
+                'role_id' => null,
+                'tenant_id' => isset($ud['tenant_id']) && $ud['tenant_id'] !== null ? (int) $ud['tenant_id'] : null,
+                'preferred_language' => $ud['preferred_language'],
+                'is_active' => true,
+                'permissions' => [],
+                'roles' => [],
+                'resource_permissions' => [],
+                'permissions_count' => 0,
+                'roles_count' => 0,
+            ];
+            $user = _commit_authenticated_session($user);
 
             if (!headers_sent()) { header('Content-Type: application/json; charset=utf-8'); _no_cache(); }
             echo json_encode(['ok'=>true,'message'=>'Account verified and activated','user'=>$user]);
@@ -742,7 +872,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-
     // ════════════════════════════════════════════════════════════════════════
     //  APPLE LOGIN  (identity_token from Apple SDK)
     // ════════════════════════════════════════════════════════════════════════
@@ -785,6 +914,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $user = _provider_login($pdo, $controller, 'apple', $sub, $email, $name,
                 ['email_verified'=>true,'name'=>$name,'email'=>$email]);
+            
+            // ✅ تسجيل نجاح تسجيل الدخول عبر Apple
+            if (function_exists('safe_log')) {
+                safe_log('info', '✅ APPLE LOGIN SUCCESS - User authenticated', [
+                    'user_id' => $user['id'],
+                    'username' => $user['username'],
+                    'email' => $user['email'],
+                    'tenant_id' => $user['tenant_id'],
+                    'session_id' => session_id(),
+                ]);
+            }
+            
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) Logger::error('Apple login: '.$e->getMessage());
@@ -834,20 +975,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'email'              => $row['email'],
             'phone'              => $row['phone'] ?? null,
             'role_id'            => isset($row['role_id'])   ? (int)$row['role_id']   : null,
-            'tenant_id'          => isset($row['tenant_id']) ? (int)$row['tenant_id'] : 1,
+            'tenant_id'          => isset($row['tenant_id']) && $row['tenant_id'] !== null ? (int)$row['tenant_id'] : null,
             'preferred_language' => $row['preferred_language'] ?? 'en',
             'is_active'          => true,
             'permissions'        => $rbac['permissions'],
             'roles'              => $rbac['roles'],
+            'resource_permissions' => [],
             'permissions_count'  => count($rbac['permissions']),
             'roles_count'        => count($rbac['roles']),
         ];
 
-        $_SESSION['user_id']     = $user['id'];
-        $_SESSION['user']        = $user;
-        $_SESSION['permissions'] = $user['permissions'];
-        $_SESSION['roles']       = $user['roles'];
-        $GLOBALS['ADMIN_USER']   = $user;
+        $user = _commit_authenticated_session($user);
+        
+        // ✅ تسجيل نجاح تسجيل الدخول (الجزء المهم)
+        if (function_exists('safe_log')) {
+            safe_log('info', '✅ LOGIN SUCCESS - User authenticated', [
+                'user_id' => $user['id'],
+                'username' => $user['username'],
+                'email' => $user['email'],
+                'tenant_id' => $user['tenant_id'],
+                'role_id' => $user['role_id'],
+                'roles' => $user['roles'],
+                'session_id' => session_id(),
+                'request_id' => defined('REQUEST_ID') ? REQUEST_ID : 'unknown',
+            ]);
+        } elseif (class_exists('Logger')) {
+            Logger::info('✅ LOGIN SUCCESS - User authenticated', [
+                'user_id' => $user['id'],
+                'username' => $user['username'],
+                'email' => $user['email'],
+                'tenant_id' => $user['tenant_id'],
+            ]);
+        }
+        
         _link_device_on_login($pdo, (int)$user['id']);
 
         ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);

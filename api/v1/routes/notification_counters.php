@@ -52,7 +52,7 @@ try {
         }
 
         $filters = [
-            'tenant_id'      => isset($_GET['tenant_id'])      && is_numeric($_GET['tenant_id'])      ? (int)$_GET['tenant_id']      : null,
+            'tenant_id'      => resolve_tenant_id(),
             'recipient_type' => $_GET['recipient_type'] ?? null,
             'recipient_id'   => isset($_GET['recipient_id'])   && is_numeric($_GET['recipient_id'])   ? (int)$_GET['recipient_id']   : null,
         ];
@@ -136,4 +136,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

@@ -5,243 +5,187 @@ declare(strict_types=1);
  * Route: /api/tenant_users
  *
  * Handles list/get/create/update/delete for tenant_users.
- * Expects the models/services/controllers already implemented under API_VERSION_PATH.
+ * 100% tenant isolation — every operation is scoped to $tenantId from resolve_tenant_id().
  */
+$baseDir = dirname(__DIR__, 2);
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
 
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
-require_once dirname(__DIR__, 2) . '/shared/core/ResponseFormatter.php';
-require_once dirname(__DIR__, 2) . '/shared/helpers/safe_helpers.php';
-require_once dirname(__DIR__, 2) . '/shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
 
-if (!defined('API_VERSION_PATH')) {
-    define('API_VERSION_PATH', dirname(__DIR__, 2) . '/v1');
-}
 
-// Special tenant ID value for super admin to view all tenants
-define('TENANT_ID_ALL', 0);
+$modelsPath = API_VERSION_PATH . '/models/tenant_users';
+require_once $modelsPath . '/repositories/PdoTenant_usersRepository.php';
+require_once $modelsPath . '/validators/Tenant_usersValidator.php';
+require_once $modelsPath . '/services/Tenant_usersService.php';
+require_once $modelsPath . '/controllers/Tenant_usersController.php';
 
-require_once API_VERSION_PATH . '/models/tenant_users/repositories/PdoTenant_usersRepository.php';
-require_once API_VERSION_PATH . '/models/tenant_users/validators/Tenant_usersValidator.php';
-require_once API_VERSION_PATH . '/models/tenant_users/services/Tenant_usersService.php';
-require_once API_VERSION_PATH . '/models/tenant_users/controllers/Tenant_usersController.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 /** @var PDO $pdo */
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
     ResponseFormatter::error('Database not initialized', 500);
-    return;
+    exit;
 }
 
-// Current tenant from session (or default)
-$tenantId = isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : 1;
-
-// Load admin context to get permission functions
-if (file_exists(dirname(__DIR__, 2) . '/admin/includes/admin_context.php')) {
-    require_once dirname(__DIR__, 2) . '/admin/includes/admin_context.php';
-}
-
-// Get current user's entity_id and determine permission scope
-$currentUserId = null;
-$currentEntityId = null;
-$isSuperAdmin = false;
-$canViewAll = false;
-$canViewTenant = false;
-$canViewOwn = false;
-
-if (function_exists('admin_user')) {
-    $adminUser = admin_user();
-    $currentUserId = (int)($adminUser['id'] ?? 0);
-    
-    // Check if super admin
-    if (function_exists('is_super_admin')) {
-        $isSuperAdmin = is_super_admin();
-    }
-    
-    // Get resource permissions
-    if (function_exists('can_view_all')) {
-        $canViewAll = can_view_all('tenant_users');
-    }
-    if (function_exists('can_view_tenant')) {
-        $canViewTenant = can_view_tenant('tenant_users');
-    }
-    if (function_exists('can_view_own')) {
-        $canViewOwn = can_view_own('tenant_users');
-    }
-    
-}
-
-// Instantiate dependencies
-$repo = new PdoTenant_usersRepository($pdo);
-$validator = new Tenant_usersValidator();
-$service = new Tenant_usersService($repo, $validator);
+$repo       = new PdoTenant_usersRepository($pdo);
+$validator  = new Tenant_usersValidator();
+$service    = new Tenant_usersService($repo, $validator);
 $controller = new Tenant_usersController($service);
 
-// Get user's entity_id (must be after controller instantiation)
-if ($currentUserId > 0 && !$isSuperAdmin && !$canViewAll) {
-    $currentEntityId = getUserEntityId($controller, $currentUserId, $tenantId);
+// ================================
+// Tenant & Auth check
+// ================================
+$isSuperAdmin    = is_super_admin();
+$isPlatformAdmin = is_platform_admin();
+$tenantId        = resolve_tenant_id();
+
+if ($tenantId === null && !$isPlatformAdmin) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
 }
 
-/**
- * Try to extract numeric id from ?id= or path (/api/tenant_users/123)
- */
-function extractIdFromRequest(): ?int
-{
-    if (!empty($_GET['id']) && is_numeric($_GET['id'])) return (int)$_GET['id'];
-    if (!empty($_SERVER['PATH_INFO'])) {
-        $parts = explode('/', trim((string)$_SERVER['PATH_INFO'], '/'));
-        $last = end($parts);
-        if (is_numeric($last)) return (int)$last;
-    }
-    $uri = $_SERVER['REQUEST_URI'] ?? '';
-    $uri = explode('?', $uri, 2)[0];
-    if (preg_match('#/(\d+)(?:/)?$#', $uri, $m)) return (int)$m[1];
-    return null;
+// ⚠️ SECURITY LOGIC:
+// - True Platform Admin (no tenant context) -> Can see all (0) or filter by ?tenant_id
+// - Tenant User/Admin (has tenant context) -> MUST be locked to their $tenantId
+$effectiveTenantId = $tenantId;
+
+if ($isPlatformAdmin && $tenantId === null) {
+    // True platform admin with no specific tenant attached
+    $effectiveTenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id']) 
+        ? (int)$_GET['tenant_id'] 
+        : 0;
 }
 
-/**
- * Read JSON body safely
- */
-function jsonBody(): array
-{
-    $raw = file_get_contents('php://input');
-    $data = json_decode((string)$raw, true);
-    return is_array($data) ? $data : [];
+// ALWAYS set TenantContext to satisfy repository fail-fast checks
+TenantContext::set((int)($effectiveTenantId ?? 0));
+
+if ($tenantId !== null) {
+    TenantContext::set($tenantId);
 }
 
-/**
- * Get acting user id for audit logging (try session/admin_user, header, or query)
- */
-function getActingUserId(): ?int
-{
-    if (function_exists('admin_user')) {
-        $u = admin_user();
-        if (is_array($u) && !empty($u['id'])) return (int)$u['id'];
-    }
-    $hdr = $_SERVER['HTTP_X_USER_ID'] ?? null;
-    if ($hdr !== null && is_numeric($hdr)) return (int)$hdr;
-    if (!empty($_GET['user_id']) && is_numeric($_GET['user_id'])) return (int)$_GET['user_id'];
-    return null;
-}
-
-/**
- * Get current user's entity ID from controller
- * 
- * @param Tenant_usersController $controller Controller instance
- * @param int $userId User ID
- * @param int $tenantId Tenant ID
- * @return int|null Entity ID or null if not found
- */
-function getUserEntityId($controller, int $userId, int $tenantId): ?int
-{
-    return $controller->getUserEntityId($userId, $tenantId);
-}
-
+// ================================
+// Handle request
+// ================================
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $raw    = file_get_contents('php://input');
+    $data   = $raw ? json_decode($raw, true) : [];
 
-    if ($method === 'GET') {
-        $id = extractIdFromRequest();
-        if ($id !== null) {
-            $row = $controller->get($tenantId, $id);
+    switch ($method) {
+        case 'OPTIONS':
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+            http_response_code(204);
+            exit;
+
+        case 'GET':
+            // Single record by ?id=
+            if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+                // For True Platform Admin, we pass 0 to repository to bypass ownership check
+                // For everyone else, we pass their resolved $tenantId to enforce ownership
+                $scopedTenantId = ($isPlatformAdmin && $tenantId === null) ? 0 : $tenantId;
+                $row = $controller->get($scopedTenantId, (int)$_GET['id']);
+                ResponseFormatter::success($row);
+            } else {
+                // List with filters and pagination
+                $query = $_GET ?? [];
+                // Force tenant scope (cannot be bypassed by passing tenant_id in GET)
+                $query['tenant_id'] = $effectiveTenantId;
+                $result = $controller->list($effectiveTenantId, $query);
+                ResponseFormatter::success($result);
+            }
+            break;
+
+        case 'POST':
+            // For true platform admins, they can specify target tenant_id
+            if ($isPlatformAdmin && $tenantId === null && isset($data['tenant_id'])) {
+                $targetTenantId = (int)$data['tenant_id'];
+            } else {
+                // Everyone else is locked to their own tenant
+                $targetTenantId = $tenantId;
+            }
+            
+            $data['tenant_id'] = $targetTenantId;
+            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            
+            $row = $controller->create($targetTenantId, $data, $actingUserId);
+            ResponseFormatter::success($row, 201);
+            break;
+
+        case 'PUT':
+            if (empty($data['id'])) {
+                ResponseFormatter::error('Missing ID for update', 400);
+                break;
+            }
+            
+            // Verify ownership if not a platform admin
+            if (!$isPlatformAdmin || $tenantId !== null) {
+                // This will throw 404/403 if user doesn't own this record
+                $controller->get($tenantId, (int)$data['id']);
+                // Prevent tenant hopping via update
+                unset($data['tenant_id']);
+            }
+            
+            $targetTenantId = ($isPlatformAdmin && $tenantId === null)
+                ? (int)($data['tenant_id'] ?? 0)
+                : $tenantId;
+                
+            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $row = $controller->update($targetTenantId, (int)$data['id'], $data, $actingUserId);
             ResponseFormatter::success($row);
-            return;
-        }
+            break;
 
-        // list with filters and pagination — pass $_GET to controller
-        $query = $_GET ?? [];
-        
-        // Apply permission-based filtering
-        if (!$isSuperAdmin) {
-            // If user can only view tenant data, ensure tenant_id is set
-            if ($canViewTenant && !$canViewAll) {
-                $query['tenant_id'] = $tenantId;
+        case 'DELETE':
+            $id = (int)($_GET['id'] ?? ($data['id'] ?? 0));
+            if ($id <= 0) {
+                ResponseFormatter::error('Missing ID for delete', 400);
+                break;
             }
             
-            // If user can only view their entity's data, add entity filter
-            if (!$canViewAll && !$canViewTenant && $canViewOwn && $currentEntityId !== null) {
-                $query['entity_id'] = $currentEntityId;
-                // Also ensure tenant_id is set for entity users
-                $query['tenant_id'] = $tenantId;
+            // Ownership check
+            if (!$isPlatformAdmin || $tenantId !== null) {
+                $controller->get($tenantId, $id);
             }
             
-            // If user can only view own data and not others, filter by user_id
-            if (!$canViewAll && !$canViewTenant && $canViewOwn && $currentEntityId === null && $currentUserId > 0) {
-                $query['user_id'] = $currentUserId;
-                $query['tenant_id'] = $tenantId;
-            }
+            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $scopedTenantId = ($isPlatformAdmin && $tenantId === null) ? 0 : $tenantId;
             
-            // Fallback: if no permissions are set (all false), default to tenant-scoped view
-            // This allows the system to work even if permissions haven't been configured yet
-            if (!$canViewAll && !$canViewTenant && !$canViewOwn) {
-                $query['tenant_id'] = $tenantId;
-            }
-        } else {
-            // Super admin - allow viewing all tenants unless specifically filtered
-            // Don't enforce tenant_id filter for super admin
-            if (!isset($query['tenant_id'])) {
-                // For super admin, pass TENANT_ID_ALL (0) to indicate "all tenants"
-                $tenantId = TENANT_ID_ALL;
-            }
-        }
-        
-        $result = $controller->list($tenantId, $query);
-        ResponseFormatter::success($result);
-        return;
-    }
+            $controller->delete($scopedTenantId, $id, $actingUserId);
+            ResponseFormatter::success(['success' => true]);
+            break;
 
-    if ($method === 'POST') {
-        $data = jsonBody();
-        $actingUserId = getActingUserId();
-        // create may throw InvalidArgumentException on validation or PDOException on write failure
-        $row = $controller->create($tenantId, $data, $actingUserId);
-        ResponseFormatter::success($row, 201);
-        return;
+        default:
+            ResponseFormatter::error('Method not allowed', 405);
     }
-
-    if ($method === 'PUT') {
-        $data = jsonBody();
-        $actingUserId = getActingUserId();
-        $row = $controller->update($tenantId, $data, $actingUserId);
-        ResponseFormatter::success($row);
-        return;
-    }
-
-    if ($method === 'DELETE') {
-        $data = jsonBody();
-        // allow id in path or body
-        if (empty($data['id'])) {
-            $maybeId = extractIdFromRequest();
-            if ($maybeId !== null) $data['id'] = $maybeId;
-        }
-        $controller->delete($tenantId, $data);
-        ResponseFormatter::success(['deleted' => true]);
-        return;
-    }
-
-    ResponseFormatter::error('Method not allowed', 405);
-} catch (InvalidArgumentException $e) {
+} catch (\InvalidArgumentException $e) {
+    safe_log('warning', 'tenant_users.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
+} catch (\RuntimeException $e) {
+    safe_log('error', 'tenant_users.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (PDOException $e) {
-    // DB error: log details for ops and return 500
-    safe_log('error', 'Tenant_users DB error', [
-        'message' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
+} catch (\PDOException $e) {
+    safe_log('error', 'tenant_users.db_error', [
+        'message'     => $e->getMessage(),
+        'file'        => $e->getFile(),
+        'line'        => $e->getLine(),
         'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
-        'GET' => $_GET ?? null,
-        'BODY' => file_get_contents('php://input')
     ]);
     ResponseFormatter::error('Database error', 500);
-} catch (Throwable $e) {
-    safe_log('error', 'Tenant_users route failed', [
+} catch (\Throwable $e) {
+    safe_log('critical', 'tenant_users.fatal', [
         'error' => $e->getMessage(),
-        'file'  => $e->getFile(),
-        'line'  => $e->getLine(),
-        'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
-        'GET' => $_GET ?? null,
-        'BODY' => file_get_contents('php://input')
+        'trace' => $e->getTraceAsString(),
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }

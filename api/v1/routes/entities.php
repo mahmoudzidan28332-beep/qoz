@@ -7,9 +7,12 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+require_once $baseDir . '/shared/core/TenantContext.php';
+require_once $baseDir . '/shared/core/BaseRepository.php';
 
 $modelsPath = API_VERSION_PATH . '/models/entities';
 require_once $modelsPath . '/repositories/PdoEntitiesRepository.php';
+require_once $modelsPath . '/repositories/PdoEntityTypesRepository.php';
 require_once $modelsPath . '/validators/EntitiesValidator.php';
 require_once $modelsPath . '/services/EntitiesService.php';
 require_once $modelsPath . '/controllers/EntitiesController.php';
@@ -24,24 +27,29 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
+// Load valid vendor_type codes from entity_types table
+$entityTypesRepo = new PdoEntityTypesRepository($pdo);
+$allEntityTypes  = $entityTypesRepo->all(null, null, [], 'code', 'ASC');
+$validVendorTypeCodes = array_column($allEntityTypes, 'code');
+
 $repo       = new PdoEntitiesRepository($pdo);
 $service    = new EntitiesService($repo);
 $controller = new EntitiesController($service);
-$validator  = new EntitiesValidator();
+$validator  = new EntitiesValidator($validVendorTypeCodes);
 
 // ================================
 // Tenant & Auth check
 // ================================
 $user = $_SESSION['user'] ?? [];
 
-$tenantId = isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])
-    ? (int)$_GET['tenant_id']
-    : (isset($_SESSION['tenant_id']) ? (int)$_SESSION['tenant_id'] : null);
+$tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
     exit;
 }
+
+TenantContext::set($tenantId);
 
 // ================================
 // Handle request
