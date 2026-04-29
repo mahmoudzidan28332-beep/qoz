@@ -6,12 +6,7 @@ declare(strict_types=1);
  * Fixed: Use APP_SESSID to match API
  */
 
-// ✅ Use same session name as API
-session_name('APP_SESSID');
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/session_boot.php';
 
 ini_set('display_errors', '0');
 error_reporting(E_ALL);

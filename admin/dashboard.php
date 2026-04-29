@@ -11,13 +11,16 @@ $user = $payload['user'] ?? [];
 $lang = $payload['lang'] ?? 'en';
 
 // Check permissions
+$isPlatformStrict = !empty($payload['is_platform_admin']) || !empty($user['is_platform_admin']);
+$roleStrict = $payload['platform_role'] ?? ($user['platform_role'] ?? '');
+$isPlatformAdminOnly = $isPlatformStrict && in_array($roleStrict, ['super_admin', 'admin', 'support'], true);
+
 $canViewDrivers = in_array('view_drivers', $user['permissions'] ?? [], true) 
                || in_array('super_admin', $user['roles'] ?? [], true);
 $canViewSettings = in_array('view_settings', $user['permissions'] ?? [], true)
                 || in_array('super_admin', $user['roles'] ?? [], true)
                 || in_array('admin', $user['roles'] ?? [], true);
-$canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
-             || in_array('super_admin', $user['roles'] ?? [], true);
+$canViewUsers = $isPlatformAdminOnly;
 ?>
 
 <!-- Page meta for i18n -->
@@ -32,18 +35,18 @@ $canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
     padding: 0;
 }
 .dash-card {
-    background: var(--background-secondary, var(--background_secondary, #1e293b));
-    border: 1px solid var(--border-color, var(--border_color, #334155));
+    background: var(--background-secondary, var(--background_secondary));
+    border: 1px solid var(--border-color, var(--border_color));
     border-radius: 12px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
 }
-.dash-title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary, var(--text_primary, #f1f5f9)); margin-bottom:0.25rem; }
-.dash-subtitle { color: var(--text-secondary, var(--text_secondary, #94a3b8)); font-size:0.9375rem; margin-bottom:0; }
+.dash-title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary, var(--text_primary)); margin-bottom:0.25rem; }
+.dash-subtitle { color: var(--text-secondary, var(--text_secondary)); font-size:0.9375rem; margin-bottom:0; }
 .welcome-section { display:flex; align-items:center; gap:1rem; }
-.welcome-icon { font-size:1.75rem; color: var(--primary-color, var(--primary_color, #3b82f6)); flex-shrink:0; }
+.welcome-icon { font-size:1.75rem; color: var(--primary-color, var(--primary_color)); flex-shrink:0; }
 .welcome-content h3 { margin:0 0 0.25rem 0; font-size:1.125rem; }
-.welcome-content p { margin:0; color:var(--text-secondary, var(--text_secondary, #94a3b8)); }
+.welcome-content p { margin:0; color:var(--text-secondary, var(--text_secondary)); }
 
 .quick-actions-grid {
     display: grid;
@@ -52,12 +55,12 @@ $canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
     margin-top: 1rem;
 }
 .action-card {
-    background: var(--background-secondary, var(--background_secondary, #1e293b));
-    border: 1px solid var(--border-color, var(--border_color, #334155));
+    background: var(--background-secondary, var(--background_secondary));
+    border: 1px solid var(--border-color, var(--border_color));
     border-radius: 10px;
     padding: 1.125rem 1.25rem;
     text-decoration: none;
-    color: var(--text-primary, var(--text_primary, #f1f5f9));
+    color: var(--text-primary, var(--text_primary));
     transition: background 0.2s, border-color 0.2s, transform 0.15s;
     display: flex;
     align-items: center;
@@ -66,9 +69,9 @@ $canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
     touch-action: manipulation;
 }
 .action-card:hover, .action-card:focus {
-    background: var(--primary-color, var(--primary_color, #3b82f6));
-    border-color: var(--primary-color, var(--primary_color, #3b82f6));
-    color: #fff;
+    background: var(--primary-color, var(--primary_color));
+    border-color: var(--primary-color, var(--primary_color));
+    color: var(--header-text, var(--header_text));
     transform: translateY(-2px);
     outline: none;
 }
@@ -76,19 +79,19 @@ $canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
     width: 44px;
     height: 44px;
     border-radius: 10px;
-    background: rgba(59, 130, 246, 0.15);
+    background: color-mix(in srgb, var(--primary-color, var(--primary_color, currentColor)) 15%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     font-size: 1.25rem;
-    color: var(--primary-color, var(--primary_color, #3b82f6));
+    color: var(--primary-color, var(--primary_color));
     transition: background 0.2s, color 0.2s;
 }
 .action-card:hover .action-icon,
 .action-card:focus .action-icon {
-    background: rgba(255,255,255,0.2);
-    color: #fff;
+    background: color-mix(in srgb, var(--text-primary, var(--text_primary, currentColor)) 20%, transparent);
+    color: var(--header-text, var(--header_text));
 }
 .action-content h3 { margin:0 0 0.2rem 0; font-size:1rem; font-weight:600; }
 .action-content p { margin:0; font-size:0.8125rem; opacity:0.8; }
@@ -132,10 +135,12 @@ $canViewUsers = in_array('view_users', $user['permissions'] ?? [], true)
                 <div class="action-icon"><i class="fas fa-box"></i></div>
                 <div class="action-content"><h3 data-i18n="nav.products">Products</h3><p data-i18n="manage_products">Manage products &amp; inventory</p></div>
             </a>
+            <?php if ($isPlatformAdminOnly): ?>
             <a href="/admin/fragments/categories.php" class="action-card">
                 <div class="action-icon"><i class="fas fa-tags"></i></div>
                 <div class="action-content"><h3 data-i18n="nav.categories">Categories</h3><p data-i18n="manage_categories">Organize product categories</p></div>
             </a>
+            <?php endif; ?>
             <?php if ($canViewUsers): ?>
             <a href="/admin/fragments/users.php" class="action-card">
                 <div class="action-icon"><i class="fas fa-users"></i></div>

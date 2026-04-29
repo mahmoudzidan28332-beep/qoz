@@ -1,67 +1,91 @@
 <?php
 declare(strict_types=1);
+
 /**
  * admin/logout.php
- * Safe and robust logout handler.
+ * Unified logout handler for both tenant admin and platform admin sessions.
  */
-session_start();
 
-// فقط POST مسموح
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: /admin/login.php');
-    exit;
+require_once __DIR__ . '/includes/session_boot.php';
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$isPlatformSession = !empty($_SESSION['platform_admin']);
+$loginUrl = $isPlatformSession ? '/admin/platform_login.php' : '/admin/login.php';
+
+// Best-effort CSRF validation for POST without blocking logout on stale sessions.
+if ($method === 'POST') {
+    $postedToken = (string)($_POST['csrf_token'] ?? '');
+    $sessionToken = (string)($_SESSION['csrf_token'] ?? '');
+    if ($sessionToken !== '' && $postedToken !== '' && !hash_equals($sessionToken, $postedToken)) {
+        // Continue logout anyway to avoid trapping the user in a broken session.
+    }
 }
 
-// تحقق من CSRF فقط إذا كان الـ token موجودًا في السيشن
-$posted_token = $_POST['csrf_token'] ?? '';
-$session_token = $_SESSION['csrf_token'] ?? '';
+$sessionName = session_name() ?: 'APP_SESSID';
+$cookieParams = session_get_cookie_params();
+$secure = !empty($cookieParams['secure']);
+$domain = (string)($cookieParams['domain'] ?? '');
+$path = (string)($cookieParams['path'] ?? '/');
+$host = $_SERVER['HTTP_HOST'] ?? '';
 
-// إذا كان هناك token في السيشن، تحقق من مطابقته
-if ($session_token !== '' && !hash_equals($session_token, $posted_token)) {
-    // لا نعطي 400 هنا لأنها قد تكون جلسة قديمة أو منتهية
-    // فقط نكمل تسجيل الخروج بأمان
-}
-
-// تنظيف الجلسة
 $_SESSION = [];
 
-// حذف كوكي الجلسة
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000, $params["path"], $params["domain"], $params["secure"], $params["httponly"]);
+$extraSessionKeys = [
+    'platform_admin',
+    'platform_role',
+    'platform_user_id',
+    'user',
+    'user_id',
+    'logged_in',
+    'last_activity',
+    'roles',
+    'permissions',
+    'resource_permissions',
+    'tenant_id',
+    'csrf_token',
+    '__initiated',
+    '__regenerated_at',
+];
+
+foreach ($extraSessionKeys as $key) {
+    unset($_SESSION[$key]);
 }
 
-// حذف كوكيز إضافية شائعة
-$extraCookies = ['session_token', 'remember_me', '__test', 'PHPSESSID'];
-$host = $_SERVER['HTTP_HOST'] ?? 'mzmz.rf.gd';
-$secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-
-foreach ($extraCookies as $name) {
-    setcookie($name, '', time() - 42000, '/', $host, $secure, false);
-    setcookie($name, '', time() - 42000, '/', '.' . $host, $secure, false);
-    setcookie($name, '', time() - 42000, '/', '.mzmz.rf.gd', $secure, false);
+if (ini_get('session.use_cookies')) {
+    setcookie($sessionName, '', time() - 42000, $path, $domain, $secure, true);
+    setcookie($sessionName, '', time() - 42000, '/', $domain, $secure, true);
+    if ($host !== '') {
+        setcookie($sessionName, '', time() - 42000, '/', $host, $secure, true);
+        setcookie($sessionName, '', time() - 42000, '/', '.' . ltrim($host, '.'), $secure, true);
+    }
 }
 
-// تدمير الجلسة على السيرفر
-session_destroy();
+$extraCookies = ['APP_SESSID', 'PHPSESSID', 'session_token', 'remember_me', '__test'];
+foreach ($extraCookies as $cookieName) {
+    setcookie($cookieName, '', time() - 42000, '/', '', $secure, false);
+    if ($host !== '') {
+        setcookie($cookieName, '', time() - 42000, '/', $host, $secure, false);
+        setcookie($cookieName, '', time() - 42000, '/', '.' . ltrim($host, '.'), $secure, false);
+    }
+}
 
-// منع الكاش
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_destroy();
+}
+
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
-
-// صفحة إعادة توجيه مع JS لحذف الكوكيز على العميل
-$loginUrl = '/admin/login.php';
 ?>
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>جاري تسجيل الخروج...</title>
+  <title>جارٍ تسجيل الخروج...</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body { font-family: system-ui, sans-serif; background:#f8fafc; color:#1e293b; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-    .box { text-align:center; padding:30px; background:white; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); max-width:400px; }
+    .box { text-align:center; padding:30px; background:white; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); max-width:420px; }
     h2 { margin:0 0 16px; color:#dc2626; }
     p { margin:8px 0; color:#64748b; }
     .spinner { width:40px; height:40px; border:4px solid #e2e8f0; border-top:4px solid #3b82f6; border-radius:50%; animation:spin 1s linear infinite; margin:20px auto; }
@@ -72,23 +96,25 @@ $loginUrl = '/admin/login.php';
   <div class="box">
     <div class="spinner"></div>
     <h2>تم تسجيل الخروج بنجاح</h2>
-    <p>يتم إعادة توجيهك إلى صفحة تسجيل الدخول...</p>
+    <p>يتم الآن تحويلك إلى صفحة تسجيل الدخول المناسبة...</p>
   </div>
   <script>
-    // حذف الكوكيز على مستوى العميل (غير HttpOnly)
-    (function(){
-      const names = ['PHPSESSID', 'session_token', 'remember_me', '__test'];
-      const domains = [location.hostname, '.mzmz.rf.gd'];
-      names.forEach(name => {
-        domains.forEach(domain => {
+    (function () {
+      const names = ['APP_SESSID', 'PHPSESSID', 'session_token', 'remember_me', '__test'];
+      const domains = [location.hostname, '.' + location.hostname].filter(Boolean);
+
+      names.forEach(function (name) {
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/admin';
+        domains.forEach(function (domain) {
           document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=' + domain;
           document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/admin;domain=' + domain;
         });
-        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
       });
-      setTimeout(() => {
-        window.location.replace('<?php echo $loginUrl; ?>');
-      }, 800);
+
+      setTimeout(function () {
+        window.location.replace(<?php echo json_encode($loginUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>);
+      }, 500);
     })();
   </script>
 </body>
