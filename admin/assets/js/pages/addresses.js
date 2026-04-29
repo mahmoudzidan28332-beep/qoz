@@ -233,7 +233,7 @@
             if (tenantId) params.append('tenant_id', tenantId);
 
             const result = await apiFetch(`${ENTITIES_API}?${params}`);
-            const items = (result.data && (result.data.data || result.data)) || (Array.isArray(result) ? result : []);
+            const items = (result.data && result.data.items) || (Array.isArray(result.data) ? result.data : []);
             state.entities = Array.isArray(items) ? items : [];
 
             state.entities.forEach(entity => {
