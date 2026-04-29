@@ -34,8 +34,8 @@ if (!function_exists('resolve_tenant_id')) {
             if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
                 return (int)$_GET['tenant_id'];
             }
-            // If no override, return their session tenant (which is usually null/0 for platform)
-            return $sessionTenantId;
+            // Platform admin with no tenant override = global view (0 = all tenants)
+            return $sessionTenantId ?? 0;
         }
 
         // 2. For regular users (including tenant admins), ALWAYS force their session tenant
