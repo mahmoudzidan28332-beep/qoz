@@ -46,7 +46,8 @@ final class AddressPolicy implements BasePolicy
     private int    $currentUserId;
     private int    $currentTenantId;
     private bool   $isSuperAdmin;
-    private bool   $isElevated;   // admin or manager
+    private bool   $isElevated;     // admin or manager
+    private bool   $isPlatformAdmin; // platform-level super admin (tenantId = 0)
 
     // =========================================================================
     // Construction
@@ -57,11 +58,12 @@ final class AddressPolicy implements BasePolicy
      * @param int   $currentTenantId The tenant the user belongs to (from TenantContext).
      * @param array $userRoles       Role key-names for the user, e.g. ['manager'].
      */
-    public function __construct(int $currentUserId, int $currentTenantId, array $userRoles = [])
+    public function __construct(int $currentUserId, int $currentTenantId, array $userRoles = [], bool $isPlatformAdmin = false)
     {
         $this->currentUserId   = $currentUserId;
         $this->currentTenantId = $currentTenantId;
-        $this->isSuperAdmin    = in_array('super_admin', $userRoles, true);
+        $this->isPlatformAdmin = $isPlatformAdmin;
+        $this->isSuperAdmin    = $isPlatformAdmin || in_array('super_admin', $userRoles, true);
         $this->isElevated      = $this->isSuperAdmin
             || array_intersect(self::ELEVATED_ROLES, $userRoles) !== [];
     }
@@ -86,7 +88,9 @@ final class AddressPolicy implements BasePolicy
 
         $roles = $_SESSION['user']['roles'] ?? $_SESSION['roles'] ?? [];
 
-        return new self($userId, $tenantId, (array)$roles);
+        $isPlatformAdmin = !empty($_SESSION['platform_admin']);
+
+        return new self($userId, $tenantId, (array)$roles, $isPlatformAdmin);
     }
 
     // =========================================================================
@@ -136,6 +140,11 @@ final class AddressPolicy implements BasePolicy
      */
     public function canCreate(): bool
     {
+        // Platform admins (tenantId = 0) can always create addresses.
+        if ($this->isPlatformAdmin) {
+            return true;
+        }
+
         // Any authenticated user with a valid tenant may create their own address.
         return $this->currentUserId > 0 && $this->currentTenantId > 0;
     }
