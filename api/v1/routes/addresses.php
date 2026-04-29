@@ -71,13 +71,28 @@ $user            = $_SESSION['user'] ?? [];
 $isPlatformAdmin = is_platform_admin();
 $effectiveTenantId = resolve_tenant_id();
 
-// Platform Admin defaults to 0 (Global View) if no specific tenant is requested
+// 🔒 SECURITY: Require authentication for all non-public requests.
+// resolve_tenant_id() returns null when no session is established.
+if (!$isPlatformAdmin && empty($user)) {
+    ResponseFormatter::error('Unauthorized', 401);
+    exit;
+}
+
+// Platform Admin defaults to 0 (Global View) if no specific tenant is requested.
 if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId === 0)) {
     $effectiveTenantId = 0;
 }
 
+// 🔒 SECURITY: Non-platform-admins MUST have a positive tenant_id.
+// A zero or null tenant_id for a regular user would bypass applyTenantFilter()
+// in the repository (tid=0 → global view), exposing all tenants' addresses.
+if (!$isPlatformAdmin && !$effectiveTenantId) {
+    ResponseFormatter::error('Unauthorized: tenant scope not established', 401);
+    exit;
+}
+
 // 🔒 SECURITY: Enforce TenantContext
-TenantContext::set($effectiveTenantId);
+TenantContext::set((int) $effectiveTenantId);
 
 // ================================
 // Whitelisted ORDER BY options
