@@ -14,26 +14,26 @@ final class AddressesController extends BaseController
     // LIST
     // ================================
     public function list(
-        int $limit,
-        int $offset,
-        array $filters,
+        int    $limit,
+        int    $offset,
+        array  $filters,
         string $orderBy,
         string $orderDir
     ): array {
-        return $this->service->list(
-            $limit,
-            $offset,
-            $filters,
-            $orderBy,
-            $orderDir
-        );
+        $this->requirePermission('addresses.view');
+        $this->requireTenantScope();
+
+        return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
     // ================================
-    // GET - Supports both tenant users and regular users
+    // GET
     // ================================
     public function get(int $id, string $language = 'ar'): array
     {
+        $this->requirePermission('addresses.view');
+        $this->requireTenantScope();
+
         return $this->service->get($id, $language);
     }
 
@@ -42,22 +42,31 @@ final class AddressesController extends BaseController
     // ================================
     public function create(array $data): int
     {
+        $this->requirePermission('addresses.create');
+        $this->requireTenantScope();
+
         return $this->service->create($data);
     }
 
     // ================================
-    // UPDATE - Supports both tenant users and regular users
+    // UPDATE
     // ================================
     public function update(int $id, array $data): bool
     {
+        $this->requirePermission('addresses.edit');
+        $this->requireTenantScope();
+
         return $this->service->update($id, $data);
     }
 
     // ================================
-    // DELETE - Supports both tenant users and regular users
+    // DELETE
     // ================================
     public function delete(int $id): bool
     {
+        $this->requirePermission('addresses.delete');
+        $this->requireTenantScope();
+
         return $this->service->delete($id);
     }
 
@@ -66,6 +75,9 @@ final class AddressesController extends BaseController
     // ================================
     public function getByOwner(int $ownerId, string $ownerType = 'user'): array
     {
+        $this->requirePermission('addresses.view');
+        $this->requireTenantScope();
+
         return $this->service->getByOwner($ownerId, $ownerType);
     }
 
@@ -74,6 +86,9 @@ final class AddressesController extends BaseController
     // ================================
     public function getPrimaryAddress(int $ownerId, string $ownerType = 'user'): ?array
     {
+        $this->requirePermission('addresses.view');
+        $this->requireTenantScope();
+
         return $this->service->getPrimaryAddress($ownerId, $ownerType);
     }
 }

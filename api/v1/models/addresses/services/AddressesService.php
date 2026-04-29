@@ -81,7 +81,7 @@ final class AddressesService extends BaseService
         $id = $this->repo->save($data);
 
         // Audit — strip any sensitive fields before logging.
-        $this->auditCreate($id, $this->_safeValues($data));
+        $this->auditCreate($id, $this->safeValues($data));
 
         return $id;
     }
@@ -109,7 +109,7 @@ final class AddressesService extends BaseService
         $result = $this->repo->update($id, $data);
 
         if ($result) {
-            $this->auditUpdate($id, $this->_safeValues($existing), $this->_safeValues($data));
+            $this->auditUpdate($id, $this->safeValues($existing), $this->safeValues($data));
         }
 
         return $result;
@@ -136,7 +136,7 @@ final class AddressesService extends BaseService
         $result = $this->repo->delete($id);
 
         if ($result) {
-            $this->auditDelete($id, $this->_safeValues($existing));
+            $this->auditDelete($id, $this->safeValues($existing));
         }
 
         return $result;
@@ -171,7 +171,7 @@ final class AddressesService extends BaseService
     /**
      * Strip sensitive keys before writing a record snapshot to the audit log.
      */
-    private function _safeValues(array $values): array
+    private function safeValues(array $values): array
     {
         return array_diff_key($values, array_flip(['password', 'password_hash', 'token', 'secret']));
     }

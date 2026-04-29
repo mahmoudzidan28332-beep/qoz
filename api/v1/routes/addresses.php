@@ -5,6 +5,7 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/authorize.php';
 require_once $baseDir . '/shared/config/db.php';
 
 // ================================
@@ -16,12 +17,13 @@ require_once $sharedPath . '/BaseService.php';
 require_once $sharedPath . '/BaseController.php';
 require_once $sharedPath . '/TenantContext.php';
 require_once $sharedPath . '/QueryGuard.php';
-require_once $sharedPath . '/BasePolicy.php';          
+require_once $sharedPath . '/BasePolicy.php';
 
 // ================================
 // Load model files
 // ================================
 $modelsPath = API_VERSION_PATH . '/models/addresses';
+require_once $modelsPath . '/repositories/AddressesRepositoryInterface.php';
 require_once $modelsPath . '/repositories/PdoAddressesRepository.php';
 require_once $modelsPath . '/validators/AddressesValidator.php';
 require_once $modelsPath . '/services/AddressesService.php';
@@ -65,7 +67,7 @@ $controller = new AddressesController($service);
 // ================================
 // Tenant & Auth check
 // ================================
-$user     = $_SESSION['user'] ?? [];
+$user            = $_SESSION['user'] ?? [];
 $isPlatformAdmin = is_platform_admin();
 $effectiveTenantId = resolve_tenant_id();
 
@@ -78,6 +80,12 @@ if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId === 0
 TenantContext::set($effectiveTenantId);
 
 // ================================
+// Whitelisted ORDER BY options
+// ================================
+$allowedOrderBy = ['a.id', 'a.owner_id', 'a.owner_type', 'a.city_id',
+                   'a.country_id', 'a.is_primary', 'a.created_at', 'a.updated_at'];
+
+// ================================
 // Handle request
 // ================================
 try {
@@ -85,12 +93,17 @@ try {
     $raw    = file_get_contents('php://input');
     $data   = $raw ? (json_decode($raw, true) ?? []) : [];
 
-    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])            : 1;
+    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset   = ($page - 1) * $limit;
-    $orderBy  = $_GET['order_by']  ?? 'a.id';
-    $orderDir = $_GET['order_dir'] ?? 'DESC';
-    $language = $_GET['language']  ?? $_GET['lang'] ?? 'ar';
+
+    // Whitelist ORDER BY to prevent SQL injection.
+    $rawOrderBy  = $_GET['order_by']  ?? 'a.id';
+    $orderBy     = in_array($rawOrderBy, $allowedOrderBy, true) ? $rawOrderBy : 'a.id';
+    $rawOrderDir = strtoupper($_GET['order_dir'] ?? 'DESC');
+    $orderDir    = $rawOrderDir === 'ASC' ? 'ASC' : 'DESC';
+
+    $language = $_GET['language'] ?? $_GET['lang'] ?? 'ar';
 
     // ================================
     // Filters
@@ -102,7 +115,7 @@ try {
         'city_id'    => isset($_GET['city_id'])    ? (int)$_GET['city_id']    : null,
         'country_id' => isset($_GET['country_id']) ? (int)$_GET['country_id'] : null,
         'is_primary' => isset($_GET['is_primary']) ? (int)$_GET['is_primary'] : null,
-        'language'   => $language
+        'language'   => $language,
     ];
 
     // ================================
@@ -110,7 +123,7 @@ try {
     // ================================
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     $pathInfo   = parse_url($requestUri, PHP_URL_PATH);
-    $pathParts  = explode('/', trim($pathInfo, '/'));
+    $pathParts  = explode('/', trim($pathInfo ?? '', '/'));
     $urlId      = null;
     foreach ($pathParts as $i => $part) {
         if ($part === 'addresses' && isset($pathParts[$i + 1]) && is_numeric($pathParts[$i + 1])) {
@@ -118,6 +131,16 @@ try {
             break;
         }
     }
+
+    // ================================
+    // Allowed fields for mass-assignment guard
+    // ================================
+    $allowedFields = [
+        'owner_type', 'owner_id',
+        'address_line1', 'address_line2',
+        'city_id', 'country_id', 'postal_code',
+        'latitude', 'longitude', 'is_primary',
+    ];
 
     switch ($method) {
 
@@ -150,7 +173,7 @@ try {
                         'total_pages' => $total > 0 ? (int)ceil($total / $limit) : 0,
                         'from'        => $total > 0 ? $offset + 1 : 0,
                         'to'          => $total > 0 ? min($offset + $limit, $total) : 0,
-                    ]
+                    ],
                 ]);
             }
             break;
@@ -158,6 +181,9 @@ try {
         // ================================
         case 'POST':
         // ================================
+            // Mass-assignment guard: only allowed fields pass through.
+            $data = array_intersect_key($data, array_flip($allowedFields));
+
             $data['owner_type'] = $data['owner_type'] ?? 'user';
             $data['owner_id']   = $data['owner_id']   ?? ($user['id'] ?? null);
 
@@ -185,6 +211,9 @@ try {
                 ResponseFormatter::error('ID is required for update', 400);
                 exit;
             }
+
+            // Mass-assignment guard: only allowed fields pass through.
+            $data = array_intersect_key($data, array_flip($allowedFields));
 
             // Fetch old state for audit diff
             $oldState = null;
@@ -253,14 +282,14 @@ try {
     safe_log('warning', 'addresses.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (\RuntimeException $e) {
-    $code = $e->getCode();
+    $code     = $e->getCode();
     $httpCode = in_array($code, [400, 403, 404, 422]) ? $code : 400;
     safe_log('error', 'addresses.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), $httpCode);
+    ResponseFormatter::error('Operation failed', $httpCode);
 } catch (\Throwable $e) {
     safe_log('critical', 'addresses.fatal', [
         'error' => $e->getMessage(),
-        'trace' => $e->getTraceAsString()
+        'trace' => $e->getTraceAsString(),
     ]);
-    ResponseFormatter::error($e->getMessage(), 500);
+    ResponseFormatter::error('Internal server error', 500);
 }

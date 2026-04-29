@@ -116,8 +116,8 @@ $apiBase = '/api';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous">
-<link rel="stylesheet" href="/admin/assets/css/admin_framework.css?v=<?= time() ?>">
-<link rel="stylesheet" href="/admin/assets/css/pages/addresses.css?v=<?= time() ?>">
+<link rel="stylesheet" href="/admin/assets/css/admin_framework.css?v=<?= assetVer() ?>">
+<link rel="stylesheet" href="/admin/assets/css/pages/addresses.css?v=<?= assetVer() ?>">
 </head>
 <body dir="<?= htmlspecialchars($dir) ?>" style="margin:0;padding:0;">
 <?php endif; ?>
@@ -303,12 +303,12 @@ window.ADDRESSES_CONFIG = {
 </script>
 
 <?php if ($isFragment): ?>
-<script src="/admin/assets/js/admin_framework.js?v=<?= time() ?>"></script>
-<script src="/admin/assets/js/pages/addresses.js?v=<?= time() ?>"></script>
+<script src="/admin/assets/js/admin_framework.js?v=<?= assetVer() ?>"></script>
+<script src="/admin/assets/js/pages/addresses.js?v=<?= assetVer() ?>"></script>
 </body>
 </html>
 <?php else: ?>
-<script src="/admin/assets/js/pages/addresses.js?v=<?= time() ?>"></script>
+<script src="/admin/assets/js/pages/addresses.js?v=<?= assetVer() ?>"></script>
 <?php endif; ?>
 
 <?php
