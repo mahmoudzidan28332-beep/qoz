@@ -334,9 +334,13 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         }
 
         // Build SET clause using only whitelisted column names.
+        // The secondary in_array() check is defence-in-depth after array_intersect_key().
         $sets   = [];
         $params = [':id' => $id];
         foreach ($safe as $col => $val) {
+            if (!in_array($col, self::ALLOWED_COLUMNS, true)) {
+                continue; // should never happen; extra safety net
+            }
             $sets[]           = "a.{$col} = :{$col}";
             $params[":{$col}"] = $val;
         }
