@@ -194,18 +194,17 @@ function getSectionData(string $dataSource, string $apiBase, string $lang, int $
     return match ($type) {
 
         // ── Storefront ────────────────────────────────────────────────────
+        // Homepage: only featured items (is_featured=1) for ALL sections
         'categories' => pub_fetch(
-            $apiBase . 'public/categories?' . $base
-            . ($filter === 'featured' ? '&featured=1' : '')
+            $apiBase . 'public/categories?' . $base . '&featured=1'
         )['data']['data'] ?? [],
 
         'products' => pub_fetch(
-            $apiBase . 'public/products?' . $base
+            $apiBase . 'public/products?' . $base . '&is_featured=1'
             . match ($filter) {
-                'featured' => '&is_featured=1',
-                'new'      => '&is_new=1',
-                'sale'     => '&on_sale=1',
-                default    => '',
+                'new'  => '&is_new=1',
+                'sale' => '&on_sale=1',
+                default => '',
             }
         )['data']['data'] ?? [],
 
@@ -217,8 +216,7 @@ function getSectionData(string $dataSource, string $apiBase, string $lang, int $
         )['data']['data'] ?? [],
 
         'brands' => pub_fetch(
-            $apiBase . 'public/brands?' . $base
-            . ($filter === 'featured' ? '&is_featured=1' : '')
+            $apiBase . 'public/brands?' . $base . '&is_featured=1'
         )['data']['data'] ?? [],
 
         // ── Banners / Slider ──────────────────────────────────────────────
@@ -241,29 +239,23 @@ function getSectionData(string $dataSource, string $apiBase, string $lang, int $
 
         // ── Community & Services ──────────────────────────────────────────
         'entities' => (static function () use ($apiBase, $base, $filter): array {
-            $extra = match ($filter) {
-                'featured' => '&is_featured=1',
-                'verified' => '&is_verified=1',
-                default    => '',
-            };
+            $extra = '&is_featured=1';
+            if ($filter === 'verified') $extra .= '&is_verified=1';
             $data = pub_fetch($apiBase . 'public/entities?' . $base . $extra)['data']['data'] ?? [];
-            if (empty($data) && $extra !== '') {
-                $data = pub_fetch($apiBase . 'public/entities?' . $base)['data']['data'] ?? [];
-            }
             return $data;
         })(),
 
         'tenants' => pub_fetch(
-            $apiBase . 'public/tenants?lang=' . urlencode($lang) . '&per=12&page=1'
+            $apiBase . 'public/tenants?lang=' . urlencode($lang) . '&per=12&page=1&is_featured=1'
             . ($filter === 'active' ? '&status=active' : '')
         )['data']['data'] ?? [],
 
         // ── Auctions ──────────────────────────────────────────────────────
         'auctions' => pub_fetch(
             $apiBase . 'public/auctions?lang=' . urlencode($lang)
-            . '&tenant_id=' . $tenantId . '&per=6&page=1'
+            . '&tenant_id=' . $tenantId . '&per=6&page=1&is_featured=1'
             . match ($filter) {
-                'featured'  => '&featured=1&status=active',
+                'featured'  => '&status=active',
                 'scheduled' => '&status=scheduled',
                 'ended'     => '&status=ended',
                 default     => '&status=active',
@@ -272,10 +264,9 @@ function getSectionData(string $dataSource, string $apiBase, string $lang, int $
 
         // ── Jobs ──────────────────────────────────────────────────────────
         'jobs' => pub_fetch(
-            $apiBase . 'public/jobs?lang=' . urlencode($lang) . '&per=8&page=1'
-            . ($filter === 'featured' ? '&is_featured=1' : '')
-            . ($filter === 'urgent'   ? '&is_urgent=1'   : '')
-            . ($filter === 'remote'   ? '&is_remote=1'   : '')
+            $apiBase . 'public/jobs?lang=' . urlencode($lang) . '&per=8&page=1&is_featured=1'
+            . ($filter === 'urgent' ? '&is_urgent=1' : '')
+            . ($filter === 'remote' ? '&is_remote=1' : '')
         )['data']['data'] ?? [],
 
         // ── Ads (placement-aware) ─────────────────────────────────────────

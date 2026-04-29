@@ -87,14 +87,14 @@ $_tenantCardClass = pub_card_css_class('tenants');
 <div class="pub-container" style="padding-top:28px;padding-bottom:40px;">
 
     <!-- Breadcrumb -->
-    <nav style="font-size:0.84rem;color:var(--pub-muted);margin-bottom:20px;" aria-label="breadcrumb">
+    <nav class="pub-breadcrumb" aria-label="breadcrumb">
         <a href="/frontend/public/index.php"><?= e(t('common.home')) ?></a>
-        <span style="margin:0 6px;">›</span>
+        <span class="pub-breadcrumb-sep"><i class="bi bi-chevron-right"></i></span>
         <span><?= e(t('nav.tenants')) ?></span>
     </nav>
 
     <div class="pub-section-head" style="margin-bottom:16px;">
-        <h1 style="font-size:1.4rem;margin:0;">🏪 <?= e(t('nav.tenants')) ?></h1>
+        <h1 style="font-size:1.4rem;margin:0;"><i class="bi bi-shop"></i> <?= e(t('nav.tenants')) ?></h1>
         <span style="font-size:0.85rem;color:var(--pub-muted);">
             <?= number_format($total) ?> <?= e(t('nav.tenants')) ?>
         </span>
@@ -102,12 +102,17 @@ $_tenantCardClass = pub_card_css_class('tenants');
 
     <!-- Join as Tenant CTA -->
     <?php if (!empty($GLOBALS['PUB_CONTEXT']['user'])): ?>
-    <div class="pub-cta-banner" style="margin-bottom:24px;">
-        <div>
-            <h2>🚀 <?= e(t('join_tenant.cta_title')) ?></h2>
-            <p><?= e(t('join_tenant.cta_subtitle')) ?></p>
+    <div class="pub-cta-banner qz-card-premium qz-glass" style="padding:28px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:20px;">
+        <div style="display:flex;align-items:center;gap:20px;">
+            <div style="width:56px;height:56px;border-radius:16px;background:color-mix(in srgb, var(--pub-primary) 12%, transparent);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--pub-primary);">
+                <i class="bi bi-rocket-takeoff"></i>
+            </div>
+            <div>
+                <h2 style="margin:0 0 4px;font-size:1.35rem;font-weight:800;"><?= e(t('join_tenant.cta_title')) ?></h2>
+                <p style="margin:0;opacity:0.7;font-size:0.92rem;"><?= e(t('join_tenant.cta_subtitle')) ?></p>
+            </div>
         </div>
-        <a href="/frontend/public/join_tenant.php" class="pub-btn--cta"><?= e(t('join_tenant.cta_btn')) ?></a>
+        <a href="/frontend/public/join_tenant.php" class="pub-btn pub-btn--primary" style="padding:12px 24px;border-radius:14px;"><?= e(t('join_tenant.cta_btn')) ?></a>
     </div>
     <?php endif; ?>
 
@@ -124,22 +129,22 @@ $_tenantCardClass = pub_card_css_class('tenants');
     <div class="pub-grid-md">
         <?php foreach ($tenants as $ten): ?>
         <a href="/frontend/public/tenant.php?id=<?= (int)($ten['id'] ?? 0) ?>"
-           class="pub-entity-card<?= $_tenantCardClass ? ' ' . $_tenantCardClass : '' ?>"
+           class="pub-entity-card qz-card-premium<?= $_tenantCardClass ? ' ' . $_tenantCardClass : '' ?>"
            style="text-decoration:none;<?= e($_tenantCardStyle) ?>">
             <div class="pub-entity-avatar">
                 <?php if (!empty($ten['logo_url'])): ?>
                     <img src="<?= e(pub_img($ten['logo_url'], 'tenant_logo')) ?>"
                          alt="<?= e($ten['name'] ?? '') ?>" loading="lazy"
                          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                    <span style="display:none;">🏪</span>
+                    <span style="display:none;"><i class="bi bi-shop"></i></span>
                 <?php else: ?>
-                    🏪
+                    <i class="bi bi-shop"></i>
                 <?php endif; ?>
             </div>
             <div class="pub-entity-info">
                 <p class="pub-entity-name"><?= e($ten['name'] ?? '') ?></p>
                 <?php if (($ten['status'] ?? '') === 'active'): ?>
-                    <span class="pub-entity-verified">🟢 <?= e(t('tenants.active')) ?></span>
+                    <span class="pub-entity-verified"><i class="bi bi-check-circle-fill" style="color: var(--pub-success);"></i> <?= e(t('tenants.active')) ?></span>
                 <?php endif; ?>
                 <?php if (!empty($ten['plan_name'])): ?>
                     <p class="pub-entity-desc"><?= e($ten['plan_name']) ?></p>
@@ -165,9 +170,9 @@ $_tenantCardClass = pub_card_css_class('tenants');
     <?php endif; ?>
 
     <?php else: ?>
-    <div class="pub-empty">
-        <div class="pub-empty-icon">🏪</div>
-        <p class="pub-empty-msg"><?= e(t('entities.empty')) ?></p>
+    <div class="pub-empty" style="text-align:center;padding:80px 20px;">
+        <div class="qz-icon-empty"><i class="bi bi-shop"></i></div>
+        <p class="pub-empty-msg" style="font-weight:500;font-size:1.1rem;color:var(--pub-text);"><?= e(t('entities.empty')) ?></p>
     </div>
     <?php endif; ?>
 

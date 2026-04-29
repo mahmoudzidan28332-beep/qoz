@@ -109,26 +109,30 @@ $_entityCardClass = pub_card_css_class('entities');
 <div class="pub-container" style="padding-top:28px;">
 
     <!-- Breadcrumb -->
-    <nav style="font-size:0.84rem;color:var(--pub-muted);margin-bottom:20px;" aria-label="breadcrumb">
+    <nav class="pub-breadcrumb" aria-label="breadcrumb">
         <a href="/frontend/public/index.php"><?= e(t('common.home')) ?></a>
-        <span style="margin:0 6px;">›</span>
+        <span class="pub-breadcrumb-sep"><i class="bi bi-chevron-right"></i></span>
         <span><?= e(t('nav.entities')) ?></span>
     </nav>
 
     <div class="pub-section-head" style="margin-bottom:16px;">
-        <h1 style="font-size:1.4rem;margin:0;">🏢 <?= e(t('nav.entities')) ?></h1>
+        <h1 style="font-size:1.6rem; margin:0;"><i class="bi bi-shop"></i> <?= e(t('nav.entities')) ?></h1>
         <span style="font-size:0.85rem;color:var(--pub-muted);">
             <?= number_format($total) ?> <?= e(t('entities.entity_count')) ?>
         </span>
     </div>
 
-    <!-- Join as Vendor CTA -->
-    <div class="pub-cta-banner">
-        <div>
-            <h2>🚀 <?= e(t('join_entity.cta_title')) ?></h2>
-            <p><?= e(t('join_entity.cta_subtitle')) ?></p>
+    <div class="pub-cta-banner qz-card-premium qz-glass" style="padding: 28px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; gap: 20px;">
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div class="qz-cta-icon" style="width: 56px; height: 56px; border-radius: 16px; background: color-mix(in srgb, var(--pub-primary) 12%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: var(--pub-primary);">
+                <i class="bi bi-rocket-takeoff"></i>
+            </div>
+            <div>
+                <h2 style="margin:0 0 4px; font-size: 1.35rem; font-weight: 800;"><?= e(t('join_entity.cta_title')) ?></h2>
+                <p style="margin:0; opacity: 0.7; font-size: 0.92rem;"><?= e(t('join_entity.cta_subtitle')) ?></p>
+            </div>
         </div>
-        <a href="/frontend/public/join_entity.php" class="pub-btn--cta"><?= e(t('join_entity.cta_btn')) ?></a>
+        <a href="/frontend/public/join_entity.php" class="pub-btn pub-btn--primary" style="padding: 12px 24px; border-radius: 14px;"><?= e(t('join_entity.cta_btn')) ?></a>
     </div>
 
     <!-- Filters -->
@@ -164,7 +168,7 @@ $_entityCardClass = pub_card_css_class('entities');
             $entHasMulti = count($entImgs) > 1;
         ?>
         <a href="/frontend/public/entity.php?id=<?= (int)($ent['id'] ?? 0) ?>"
-           class="pub-entity-card<?= $_entityCardClass ? ' '.$_entityCardClass : '' ?>"
+           class="pub-entity-card qz-card-premium <?= $_entityCardClass ? ' '.$_entityCardClass : '' ?>"
            style="text-decoration:none;<?= e($entCardStyle) ?>"<?= $entHasMulti ? ' data-img-slide="1"' : '' ?>>
             <div class="pub-entity-avatar" style="position:relative;overflow:hidden;">
                 <?php if (!empty($entImgs)): ?>
@@ -175,9 +179,8 @@ $_entityCardClass = pub_card_css_class('entities');
                          loading="lazy"
                          onerror="this.style.display='none'">
                     <?php endforeach; ?>
-                    <span style="display:none;align-items:center;justify-content:center;">🏢</span>
                 <?php else: ?>
-                    🏢
+                    <i class="bi bi-shop" style="font-size: 2rem; opacity: 0.2;"></i>
                 <?php endif; ?>
             </div>
             <div class="pub-entity-info">
@@ -189,16 +192,16 @@ $_entityCardClass = pub_card_css_class('entities');
                     <p class="pub-entity-desc" style="margin-top:3px;"><?= e($ent['description']) ?></p>
                 <?php endif; ?>
                 <?php if (!empty($ent['is_verified'])): ?>
-                    <span class="pub-entity-verified">✅ <?= e(t('entities.verified')) ?></span>
+                    <span class="pub-entity-verified"><i class="bi bi-patch-check-fill" style="color: #0ea5e9;"></i> <?= e(t('entities.verified')) ?></span>
                 <?php endif; ?>
                 <!-- Entity settings feature badges -->
                 <?php
                 $_entBadges = [];
-                if (!empty($ent['featured_in_app'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--featured">⭐ ' . e(t('entities.featured')) . '</span>';
-                if (!empty($ent['allow_online_booking'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--booking">📅 ' . e(t('entities.online_booking')) . '</span>';
-                if ((float)($ent['delivery_radius_km'] ?? 0) > 0) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--delivery">🚚 ' . e(t('entities.delivery')) . '</span>';
-                if (!empty($ent['allow_cod'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--cod">💵 ' . e(t('entities.cod')) . '</span>';
-                if ((float)($ent['min_order_amount'] ?? 0) > 0) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--minorder">🛒 ' . e(t('entities.min_order')) . ': ' . number_format((float)$ent['min_order_amount'], 2) . '</span>';
+                if (!empty($ent['featured_in_app'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--featured"><i class="bi bi-star-fill"></i> ' . e(t('entities.featured')) . '</span>';
+                if (!empty($ent['allow_online_booking'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--booking"><i class="bi bi-calendar-event"></i> ' . e(t('entities.online_booking')) . '</span>';
+                if ((float)($ent['delivery_radius_km'] ?? 0) > 0) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--delivery"><i class="bi bi-truck"></i> ' . e(t('entities.delivery')) . '</span>';
+                if (!empty($ent['allow_cod'])) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--cod"><i class="bi bi-cash-stack"></i> ' . e(t('entities.cod')) . '</span>';
+                if ((float)($ent['min_order_amount'] ?? 0) > 0) $_entBadges[] = '<span class="pub-entity-feature-badge pub-entity-feature-badge--minorder"><i class="bi bi-cart"></i> ' . e(t('entities.min_order')) . ': ' . number_format((float)$ent['min_order_amount'], 2) . '</span>';
                 if (!empty($_entBadges)):
                 ?>
                 <div class="pub-entity-badges" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">
@@ -225,9 +228,12 @@ $_entityCardClass = pub_card_css_class('entities');
     <?php endif; ?>
 
     <?php else: ?>
-    <div class="pub-empty">
-        <div class="pub-empty-icon">🏢</div>
-        <p class="pub-empty-msg"><?= e(t('entities.empty')) ?></p>
+    <div class="pub-empty" style="text-align:center; padding: 100px 20px;">
+        <div class="qz-empty-icon qz-icon-empty">
+            <i class="bi bi-shop"></i>
+        </div>
+        <p class="pub-empty-msg" style="font-weight: 500; font-size: 1.15rem; color: var(--pub-text);"><?= e(t('entities.empty')) ?></p>
+        <a href="/frontend/public/index.php" class="pub-btn pub-btn--ghost" style="margin-top: 20px;"><?= e(t('common.go_back')) ?></a>
     </div>
     <?php endif; ?>
 

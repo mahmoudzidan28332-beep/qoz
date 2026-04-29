@@ -141,7 +141,7 @@ include dirname(__DIR__) . '/partials/header.php';
 
 <script>
 (function () {
-  var CURRENCY      = <?= json_encode(t('common.currency')) ?>;
+  var CURRENCY      = <?= json_encode('SAR') ?>;
   var REMOVE_CONFIRM = <?= json_encode(t('cart.remove') . '?') ?>;
   var ITEMS_LABEL   = <?= json_encode(t('cart.items')) ?>;
   var TENANT_ID     = <?= (int)($tenantId ?? 1) ?>;

@@ -9,22 +9,10 @@
  *
  * Section types: header, contact, tabs, products, info, hours, location, offers, reviews, policies
  * Each section is rendered via a partial template in /partials/store_sections/{type}.php
- *
- * Features:
- *   - Cover image + logo + store name + rating + verified badge + open/closed status
- *   - Contact info, social links, share button
- *   - Tabbed navigation (products, info, hours, location, offers, reviews)
- *   - Product grid with categories, search, pagination, add-to-cart
- *   - Working hours with live open/closed logic
- *   - Location with OpenStreetMap + Google Maps links
- *   - Discounts/promotions with copy codes
- *   - Ratings/reviews with submission form
- *   - Multi-language support (LTR + RTL)
- *   - Multi-tenant isolation
- *   - Mobile-first responsive design
  */
 
 require_once dirname(__DIR__) . '/includes/public_context.php';
+require_once dirname(__DIR__) . '/partials/store_sections/icons.php';
 
 $ctx      = $GLOBALS['PUB_CONTEXT'];
 $lang     = $ctx['lang'];
@@ -395,33 +383,15 @@ $entityIsOpen    = null;   // null = unknown (no hours data)
 $entityOpenLabel = '';
 $workingHoursArr = $entity['working_hours'] ?? [];
 if (!empty($workingHoursArr)) {
-    $nowDow   = (int)date('w');                  // 0(Sun)…6(Sat)
-    $nowMins  = (int)date('H') * 60 + (int)date('i');
-    foreach ($workingHoursArr as $h) {
-        if ((int)($h['day_of_week'] ?? -1) !== $nowDow) continue;
-        if (empty($h['is_open'])) {
-            $entityIsOpen    = false;
-            $entityOpenLabel = t('entity.closed');
-            break;
-        }
-        $openMin  = 0;
-        $closeMin = 24 * 60;
-        if (!empty($h['open_time'])) {
-            [$oh, $om] = array_map('intval', explode(':', $h['open_time']));
-            $openMin = $oh * 60 + $om;
-        }
-        if (!empty($h['close_time'])) {
-            [$ch, $cm] = array_map('intval', explode(':', $h['close_time']));
-            $closeMin = $ch * 60 + $cm;
-        }
-        if ($nowMins >= $openMin && ($closeMin === 0 || $nowMins < $closeMin)) {
-            $entityIsOpen    = true;
-            $entityOpenLabel = t('entity.open_now');
-        } else {
-            $entityIsOpen    = false;
-            $entityOpenLabel = t('entity.closed');
-        }
-        break;
+    // Respect entity's specific timezone if provided in DB, otherwise fallback to standard local timezone
+    $entityTimeZone = $entity['timezone'] ?? $entity['entity_timezone'] ?? 'Asia/Riyadh';
+    
+    // Leverage the shared function that handles DateTimeZone safely
+    $hoursState = pub_entity_hours_state($workingHoursArr, $entityTimeZone);
+    
+    if ($hoursState['known']) {
+        $entityIsOpen    = $hoursState['is_open'];
+        $entityOpenLabel = $entityIsOpen ? t('entity.open_now') : t('entity.closed');
     }
 }
 
@@ -472,28 +442,32 @@ if ($pdo) {
 
 // Default section titles per language (used when no DB config or no translation)
 $defaultSectionTitles = [
-    'header'   => '', // header has no title
-    'contact'  => '', // contact has no title
-    'products' => t('entity.products_tab'),
-    'info'     => t('entity.info_tab'),
-    'hours'    => t('entity.hours_tab'),
-    'location' => t('entity.location_tab'),
-    'offers'   => t('entity.discounts_tab'),
-    'reviews'  => t('entity.ratings_tab'),
+    'header'     => '', // header has no title
+    'contact'    => '', // contact has no title
+    'products'   => t('entity.products_tab'),
+    'info'       => t('entity.info_tab'),
+    'hours'      => t('entity.hours_tab'),
+    'location'   => t('entity.location_tab'),
+    'offers'     => t('entity.discounts_tab'),
+    'reviews'    => t('entity.ratings_tab'),
     'policies'   => t('entity.policies_tab', 'Policies'),
     'attributes' => t('entity.attributes_tab', 'Merchant Attributes'),
+    'jobs'       => t('entity.jobs_tab', 'Jobs'),
+    'entities'   => t('entity.related_entities_tab', 'Related Entities'),
 ];
 
 // Section icons for visual distinction
 $sectionIcons = [
-    'products' => '🛍️',
-    'info'     => 'ℹ️',
-    'hours'    => '🕐',
-    'location' => '🗺️',
-    'offers'   => '🏷️',
-    'reviews'  => '⭐',
-    'policies'   => '📋',
-    'attributes' => '📝',
+    'products'   => icon('bag'),
+    'info'       => icon('info'),
+    'hours'      => icon('clock'),
+    'location'   => icon('pin'),
+    'offers'     => icon('tag'),
+    'reviews'    => icon('star'),
+    'policies'   => icon('shield'),
+    'attributes' => icon('list'),
+    'jobs'       => icon('rocket'),
+    'entities'   => icon('building'),
 ];
 
 // Default section order when no DB config exists
@@ -506,11 +480,74 @@ if (empty($storeSections)) {
         ['type' => 'hours',    'position' => 60, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
         ['type' => 'location', 'position' => 70, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
         ['type' => 'offers',   'position' => 80, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
-        ['type' => 'reviews',  'position' => 90, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
+        ['type' => 'reviews',    'position' => 90,  'settings' => null, 'translated_title' => null, 'translated_content' => null],
         ['type' => 'policies',   'position' => 95,  'settings' => '{"types":["refund","privacy","shipping","terms"]}', 'translated_title' => null, 'translated_content' => null],
         ['type' => 'attributes', 'position' => 55,  'settings' => null, 'translated_title' => null, 'translated_content' => null],
+        ['type' => 'jobs',       'position' => 100, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
+        ['type' => 'entities',   'position' => 110, 'settings' => null, 'translated_title' => null, 'translated_content' => null],
     ];
 }
+
+// Normalize DB typo: 'jops' → 'jobs', 'entity' → 'entities'
+foreach ($storeSections as &$_ss) {
+    if (($_ss['type'] ?? '') === 'jops') $_ss['type'] = 'jobs';
+    if (($_ss['type'] ?? '') === 'entity') $_ss['type'] = 'entities';
+}
+unset($_ss);
+
+// Ensure jobs and entities sections are always present (even if DB has is_active=0)
+// Load their settings from DB if available so background_color etc. apply correctly
+$_existingTypes = array_column($storeSections, 'type');
+$_missingTypes = [];
+if (!in_array('jobs', $_existingTypes, true)) $_missingTypes[] = 'jobs';
+if (!in_array('entities', $_existingTypes, true)) $_missingTypes[] = 'entities';
+
+if (!empty($_missingTypes) && $pdo) {
+    // Load settings from DB for inactive sections (jops→jobs, entity→entities)
+    try {
+        $_typeMap = ['jobs' => "'jobs','jops'", 'entities' => "'entities','entity'"];
+        foreach ($_missingTypes as $_mt) {
+            $_inTypes = $_typeMap[$_mt];
+            $_sStmt = $pdo->prepare(
+                "SELECT ss.type, ss.position, ss.settings,
+                        sst.title AS translated_title, sst.content AS translated_content
+                   FROM store_sections ss
+                   JOIN store_pages sp ON sp.id = ss.page_id
+              LEFT JOIN store_section_translations sst ON sst.section_id = ss.id AND sst.language_code = ?
+                  WHERE sp.tenant_id = ? AND ss.type IN ({$_inTypes})
+                  ORDER BY ss.id DESC LIMIT 1"
+            );
+            $_sStmt->execute([$lang, $entityTenantId]);
+            $_row = $_sStmt->fetch(PDO::FETCH_ASSOC);
+            if ($_row) {
+                $_row['type'] = $_mt; // normalize type name
+                // FIX: Strip visual settings (background_color, text_color, padding, custom_css)
+                // from inactive DB rows to prevent these sections from having a different
+                // background compared to the rest of the page.
+                if (!empty($_row['settings'])) {
+                    $_rs = is_string($_row['settings'])
+                        ? (json_decode($_row['settings'], true) ?: [])
+                        : (is_array($_row['settings']) ? $_row['settings'] : []);
+                    unset($_rs['background_color'], $_rs['text_color'], $_rs['padding'], $_rs['custom_css']);
+                    $_row['settings'] = !empty($_rs) ? json_encode($_rs) : null;
+                }
+                $storeSections[] = $_row;
+            } else {
+                $storeSections[] = ['type' => $_mt, 'position' => ($_mt === 'jobs' ? 100 : 110), 'settings' => null, 'translated_title' => null, 'translated_content' => null];
+            }
+        }
+    } catch (Throwable $_) {
+        // Fallback: append with no settings
+        foreach ($_missingTypes as $_mt) {
+            $storeSections[] = ['type' => $_mt, 'position' => ($_mt === 'jobs' ? 100 : 110), 'settings' => null, 'translated_title' => null, 'translated_content' => null];
+        }
+    }
+} elseif (!empty($_missingTypes)) {
+    foreach ($_missingTypes as $_mt) {
+        $storeSections[] = ['type' => $_mt, 'position' => ($_mt === 'jobs' ? 100 : 110), 'settings' => null, 'translated_title' => null, 'translated_content' => null];
+    }
+}
+unset($_existingTypes, $_missingTypes, $_typeMap, $_mt, $_sStmt, $_row, $_inTypes, $_rs);
 
 // Build list of active section types for tabs section
 $activeSections = array_column($storeSections, 'type');
@@ -522,9 +559,9 @@ $sectionDir = dirname(__DIR__) . '/partials/store_sections';
 <!-- Entity Page -->
 <?php if ($entityInMaintenance): ?>
 <div class="pub-container" style="padding:40px 0;text-align:center;">
-    <div style="background:var(--pub-surface);border:1px solid var(--pub-border);border-radius:var(--pub-radius);padding:40px 20px;">
-        <div style="font-size:3rem;margin-bottom:16px;">🔧</div>
-        <h2 style="margin:0 0 10px;color:var(--pub-text);"><?= e(t('entity.maintenance_title', 'Under Maintenance')) ?></h2>
+    <div style="background:var(--pub-surface);border:1px solid var(--pub-glass-border);border-radius:var(--pub-radius);padding:40px 20px; box-shadow: var(--pub-shadow);">
+        <div style="font-size:3.5rem;margin-bottom:20px; color: var(--pub-muted); opacity: 0.5;"><?= icon('tools', 56) ?></div>
+        <h2 style="margin:0 0 12px;color:var(--pub-text); font-weight: 800;"><?= e(t('entity.maintenance_title', 'Under Maintenance')) ?></h2>
         <p style="color:var(--pub-muted);margin:0;"><?= e(t('entity.maintenance_msg', 'This entity is currently undergoing maintenance. Please check back later.')) ?></p>
     </div>
 </div>
@@ -578,7 +615,7 @@ if (!function_exists('_pub_safe_css')) {
 }
 
 // Sections that need a section-title header & container wrapping
-$titledSections = ['products', 'info', 'hours', 'location', 'offers', 'reviews', 'policies', 'attributes'];
+$titledSections = ['products', 'info', 'hours', 'location', 'offers', 'reviews', 'policies', 'attributes', 'jobs', 'entities'];
 
 // Track rendered section types to prevent duplicates
 $renderedSectionTypes = [];
@@ -593,8 +630,9 @@ foreach ($storeSections as $section):
     if (isset($renderedSectionTypes[$sectionType])) continue;
     $renderedSectionTypes[$sectionType] = true;
 
-    $sectionSettings = is_string($section['settings'] ?? null) ? (json_decode($section['settings'], true) ?: []) : ($section['settings'] ?? []);
-    $sectionFile     = $sectionDir . '/' . basename($sectionType) . '.php';
+    $sectionSettings    = is_string($section['settings'] ?? null) ? (json_decode($section['settings'], true) ?: []) : ($section['settings'] ?? []);
+    $sectionContentJson = is_string($section['translated_content'] ?? null) ? (json_decode($section['translated_content'], true) ?: []) : [];
+    $sectionFile        = $sectionDir . '/' . basename($sectionType) . '.php';
 
     // Use partial template if available, otherwise skip unknown types
     if (file_exists($sectionFile)):
@@ -642,6 +680,8 @@ foreach ($storeSections as $section):
         endif;
     endif;
 endforeach;
+
+
 ?>
 
 <?php /* (Legacy inline sections removed — now rendered via partials/store_sections/) */ ?>
@@ -677,7 +717,7 @@ function pubShareEntity() {
 function pubCopyLink() {
     var url = window.location.href;
     if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(function() { alert('✅'); });
+        navigator.clipboard.writeText(url).then(function() { alert('Link Copied!'); });
     } else {
         var ta = document.createElement('textarea');
         ta.value = url;
@@ -685,16 +725,16 @@ function pubCopyLink() {
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        alert('✅');
+        alert('Link Copied!');
     }
 }
 
 function pubCopyDiscount(code, btn) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(code).then(function() {
-            var orig = btn.textContent;
-            btn.textContent = '✅';
-            setTimeout(function() { btn.textContent = orig; }, 1800);
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<?= addslashes(icon('check-lg', 18)) ?>';
+            setTimeout(function() { btn.innerHTML = orig; }, 1800);
         });
     } else {
         var ta = document.createElement('textarea');
@@ -703,9 +743,9 @@ function pubCopyDiscount(code, btn) {
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        var orig = btn.textContent;
-        btn.textContent = '✅';
-        setTimeout(function() { btn.textContent = orig; }, 1800);
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<?= addslashes(icon('check-lg', 18)) ?>';
+        setTimeout(function() { btn.innerHTML = orig; }, 1800);
     }
 }
 function pubPickEntityStar(val) {
@@ -729,7 +769,7 @@ function pubSubmitEntityRating(e) {
         if (msg) {
             msg.style.display = 'block';
             msg.style.color = d.success ? 'var(--pub-primary)' : '#dc2626';
-            msg.textContent = d.success ? '✅ <?= addslashes(t('entity.rating_submitted')) ?>' : (d.message || '<?= addslashes(t('common.error')) ?>');
+            msg.innerHTML = d.success ? '<?= addslashes(icon('check-circle', 16)) ?> <?= addslashes(t('entity.rating_submitted')) ?>' : (d.message || '<?= addslashes(t('common.error')) ?>');
         }
         if (d.success) {
             // Reset form
@@ -751,47 +791,47 @@ echo '<style>
 .pub-entity-banner-img { width:100%; height:100%; object-fit:cover; display:block; }
 .pub-entity-banner-placeholder { width:100%; height:100%; background: linear-gradient(135deg, var(--pub-primary) 0%, var(--pub-accent) 100%); }
 .pub-entity-profile-header { display:flex; gap:20px; align-items:flex-start; margin-top:-48px; position:relative; z-index:2; flex-wrap:wrap; }
-.pub-entity-profile-logo { width:96px; height:96px; border-radius:16px; overflow:hidden; background:var(--pub-bg); border:3px solid var(--pub-border); flex-shrink:0; box-shadow:var(--pub-shadow); }
+.pub-entity-profile-logo { width:96px; height:96px; border-radius:16px; overflow:hidden; background:var(--pub-surface); border:1px solid var(--pub-glass-border); flex-shrink:0; box-shadow:var(--pub-shadow); }
 .pub-entity-profile-logo img { width:100%; height:100%; object-fit:cover; }
 .pub-entity-profile-info { flex:1; min-width:0; padding-top:52px; }
 .pub-entity-profile-name { font-size:1.4rem; font-weight:800; margin:0 0 6px; color:var(--pub-text); }
 .pub-entity-profile-desc { font-size:0.92rem; color:var(--pub-muted); margin:0 0 12px; }
 .pub-entity-contacts { display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; margin-bottom:10px; padding-bottom:4px; }
 .pub-entity-contacts::-webkit-scrollbar { display:none; }
-.pub-contact-item { font-size:0.82rem; color:var(--pub-primary); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; padding:4px 10px; background:var(--pub-surface); border:1px solid var(--pub-border); border-radius:20px; flex-shrink:0; }
+.pub-contact-item { font-size:0.82rem; color:var(--pub-primary); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; padding:4px 10px; background:var(--pub-surface); border:1px solid var(--pub-glass-border); border-radius:20px; flex-shrink:0; }
 .pub-contact-item:hover { text-decoration:underline; }
 .pub-entity-social { display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
 .pub-entity-social::-webkit-scrollbar { display:none; }
-.pub-social-btn { padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--pub-border); background:var(--pub-surface); color:var(--pub-text); transition:opacity 0.2s; white-space:nowrap; flex-shrink:0; cursor:pointer; }
+.pub-social-btn { padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--pub-glass-border); background:var(--pub-surface); color:var(--pub-text); transition:opacity 0.2s; white-space:nowrap; flex-shrink:0; cursor:pointer; }
 .pub-entity-section-content { padding-bottom:24px; }
-/* Entity section headers */
-.pub-entity-section { padding:12px 0; border-bottom:1px solid var(--pub-border); }
+/* Entity section headers — FIX: background:transparent prevents DB color bleed */
+.pub-entity-section { padding:12px 0; border-bottom:1px solid var(--pub-glass-border); background:transparent; }
 .pub-entity-section:last-child { border-bottom:none; }
 .pub-entity-section-head { margin-bottom:12px; padding-top:8px; }
 .pub-entity-section-head .pub-section-title { display:flex; align-items:center; gap:8px; }
 .pub-entity-section-icon { font-size:1.2rem; }
-.pub-info-card { background:var(--pub-bg); border:1px solid var(--pub-border); border-radius:var(--pub-radius); overflow:hidden; }
-.pub-info-card-title { font-size:1rem; font-weight:700; margin:0; padding:12px 16px; border-bottom:1px solid var(--pub-border); color:var(--pub-text); }
+.pub-info-card { background:var(--pub-surface); border:1px solid var(--pub-glass-border); border-radius:var(--pub-radius); overflow:hidden; box-shadow:var(--pub-shadow); }
+.pub-info-card-title { font-size:1rem; font-weight:700; margin:0; padding:12px 16px; border-bottom:1px solid var(--pub-glass-border); color:var(--pub-text); }
 .pub-attr-grid { padding:12px 16px; display:grid; gap:8px; }
 .pub-attr-row { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
 .pub-attr-key { font-size:0.82rem; font-weight:600; color:var(--pub-muted); min-width:120px; }
 .pub-attr-val { font-size:0.88rem; color:var(--pub-text); }
 .pub-hours-table { padding:8px 16px 16px; display:grid; gap:6px; }
-.pub-hours-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--pub-border); }
+.pub-hours-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--pub-glass-border); }
 .pub-hours-row:last-child { border-bottom:none; }
 .pub-hours-row--closed { opacity:0.5; }
 .pub-hours-day { font-weight:600; font-size:0.88rem; color:var(--pub-text); }
 .pub-hours-time { font-size:0.88rem; color:var(--pub-muted); }
 /* Category filter tabs */
-.pub-cat-tabs { border-bottom:1px solid var(--pub-border); margin-bottom:4px; }
+.pub-cat-tabs { border-bottom:1px solid var(--pub-glass-border); margin-bottom:4px; }
 .pub-cat-tab-btn { padding:7px 16px; border-radius:var(--pub-radius) var(--pub-radius) 0 0; font-size:0.85rem; font-weight:600;
   color:var(--pub-muted); text-decoration:none; white-space:nowrap; border:1px solid transparent;
   border-bottom:none; transition:background 0.15s,color 0.15s; display:inline-block; }
 .pub-cat-tab-btn:hover { background:var(--pub-surface); color:var(--pub-text); }
-.pub-cat-tab-btn.active { background:var(--pub-bg); color:var(--pub-primary); border-color:var(--pub-border);
-  border-bottom-color:var(--pub-bg); margin-bottom:-1px; }
+.pub-cat-tab-btn.active { background:var(--pub-surface); color:var(--pub-primary); border-color:var(--pub-glass-border);
+  border-bottom-color:var(--pub-surface); margin-bottom:-1px; }
 /* Sub-category tabs */
-.pub-cat-tabs--sub { border-bottom:1px dashed var(--pub-border); margin-top:2px; background:var(--pub-surface,#f8f9fa); border-radius:0 0 4px 4px; }
+.pub-cat-tabs--sub { border-bottom:1px dashed var(--pub-glass-border); margin-top:2px; background:color-mix(in srgb, var(--pub-surface, #f8f9fa) 50%, transparent); border-radius:0 0 4px 4px; }
 .pub-cat-tab-btn--sub { font-size:0.78rem; font-weight:500; padding:5px 12px;
   border-radius:var(--pub-radius) var(--pub-radius) 0 0; }
 /* Cart add button on product card */
@@ -808,8 +848,8 @@ echo '<style>
 .pub-tab-count { background:var(--pub-primary); color:#fff; border-radius:20px; padding:1px 6px;
   font-size:0.72rem; font-weight:700; margin-inline-start:4px; }
 /* Discount cards */
-.pub-discount-card { background:var(--pub-surface); border:1px solid var(--pub-border); border-radius:var(--pub-radius);
-  overflow:hidden; position:relative; }
+.pub-discount-card { background:var(--pub-surface); border:1px solid var(--pub-glass-border); border-radius:var(--pub-radius);
+  overflow:hidden; position:relative; box-shadow:var(--pub-shadow); }
 .pub-discount-badge-top { position:absolute; top:0; right:0; background:var(--pub-accent,#F59E0B); color:#000;
   font-size:0.72rem; font-weight:800; padding:3px 10px;
   border-bottom-left-radius:var(--pub-radius); }
