@@ -23,8 +23,9 @@ declare(strict_types=1);
  *  irrelevant — tenant_id is stored directly on the address row at INSERT time).
  *
  *  Platform admins pass tenant_id = 0 (TenantContext::set(0)) to indicate a
- *  global view; in that case the tenant filter is omitted so they can see all
- *  tenants' addresses.
+ *  global view.  The SQL predicate (:tenant_id = 0 OR a.tenant_id = :tenant_id)
+ *  is ALWAYS injected — when tenant_id = 0 the left-hand side is TRUE so all
+ *  rows pass, achieving the global view without ever omitting the clause.
  *
  * SECURITY HARDENING:
  *  - ALLOWED_COLUMNS guards every write path against mass-assignment injection.
@@ -110,17 +111,15 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
      * Append the tenant-isolation predicate to $where / $params.
      *
      * Uses the direct `a.tenant_id` column.
-     * When tenant_id = 0 (platform-admin global view) no filter is applied.
+     * The predicate (:tenant_id = 0 OR a.tenant_id = :tenant_id) is ALWAYS
+     * added so SQL always contains a tenant_id filter.  When tenant_id = 0
+     * (platform-admin global view) the left side evaluates to TRUE, making all
+     * rows match — no PHP-side bypass is needed or used.
      */
-    private function applyTenantFilter(array &$where, array &$params): void
+    private function requireTenantScope(array &$where, array &$params): void
     {
-        $tid = $this->getTenantId();
-        if ($tid === 0) {
-            return; // platform-admin: global view, no filter
-        }
-
-        $where[]              = 'a.tenant_id = :tenant_id';
-        $params[':tenant_id'] = $tid;
+        $where[]              = '(:tenant_id = 0 OR a.tenant_id = :tenant_id)';
+        $params[':tenant_id'] = $this->getTenantId();
     }
 
     // =========================================================================
@@ -145,7 +144,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             ':lang_city'    => $filters['language'] ?? 'ar',
         ];
 
-        $this->applyTenantFilter($where, $params);
+        $this->requireTenantScope($where, $params);
 
         if (!empty($filters['owner_type'])) {
             $where[]               = 'a.owner_type = :owner_type';
@@ -179,7 +178,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         $where  = ['1 = 1'];
         $params = [];
 
-        $this->applyTenantFilter($where, $params);
+        $this->requireTenantScope($where, $params);
 
         if (!empty($filters['owner_type'])) {
             $where[]               = 'a.owner_type = :owner_type';
@@ -213,7 +212,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             ':lang_city'    => $language,
         ];
 
-        $this->applyTenantFilter($where, $params);
+        $this->requireTenantScope($where, $params);
 
         $sql = $this->getBaseSelect()
              . ' WHERE ' . implode(' AND ', $where)
@@ -334,8 +333,10 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         }
 
         // tenant_id in WHERE provides defence-in-depth against cross-tenant writes.
+        // (:tenant_id = 0 OR ...) keeps the predicate unified: platform-admin
+        // (tid = 0) can update any tenant's row; regular users are scoped.
         $sql = 'UPDATE addresses SET ' . implode(', ', $sets)
-             . ' WHERE id = :id AND tenant_id = :tenant_id';
+             . ' WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)';
 
         try {
             return (bool) $this->pdo->prepare($sql)->execute($params);
@@ -354,25 +355,19 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
         int    $ownerId,
         ?int   $excludeId = null
     ): void {
-        $tid    = $this->getTenantId();
         $params = [
             ':owner_type' => $ownerType,
             ':owner_id'   => $ownerId,
-            ':tenant_id'  => $tid,
+            ':tenant_id'  => $this->getTenantId(),
         ];
 
-        // tenant_id = 0 means platform-admin global context; omit the filter
-        // so the helper can clear the primary flag across any tenant row.
-        if ($tid === 0) {
-            $sql = 'UPDATE addresses SET is_primary = 0
-                    WHERE owner_type = :owner_type AND owner_id = :owner_id';
-            unset($params[':tenant_id']);
-        } else {
-            $sql = 'UPDATE addresses SET is_primary = 0
-                    WHERE owner_type = :owner_type
-                      AND owner_id   = :owner_id
-                      AND tenant_id  = :tenant_id';
-        }
+        // (:tenant_id = 0 OR tenant_id = :tenant_id) is the unified predicate:
+        // tid = 0 (platform-admin) → TRUE for all rows → clears across all tenants.
+        // tid > 0 (regular tenant) → scoped to that tenant only.
+        $sql = 'UPDATE addresses SET is_primary = 0
+                WHERE owner_type = :owner_type
+                  AND owner_id   = :owner_id
+                  AND (:tenant_id = 0 OR tenant_id = :tenant_id)';
 
         if ($excludeId !== null) {
             $sql                  .= ' AND id != :exclude_id';
@@ -399,19 +394,15 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             throw new \RuntimeException('Address not found or access denied.', 404);
         }
 
-        $tid    = $this->getTenantId();
-        $params = [':id' => $id, ':tenant_id' => $tid];
-
-        // Platform-admin global context (tid = 0): allow deletion of any row.
-        if ($tid === 0) {
-            $sql = 'DELETE FROM addresses WHERE id = :id';
-            unset($params[':tenant_id']);
-        } else {
-            $sql = 'DELETE FROM addresses WHERE id = :id AND tenant_id = :tenant_id';
-        }
+        // (:tenant_id = 0 OR tenant_id = :tenant_id) is the unified predicate:
+        // tid = 0 (platform-admin) → TRUE for any row; tid > 0 → scoped delete.
+        // Note: rowCount() > 0 without a (bool) cast avoids the PHP operator-
+        // precedence pitfall where (bool)$n > 0 would cast first then compare.
+        $sql    = 'DELETE FROM addresses WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)';
+        $params = [':id' => $id, ':tenant_id' => $this->getTenantId()];
 
         try {
-            return (bool) $this->execute($sql, $params, 'addresses')->rowCount() > 0;
+            return $this->execute($sql, $params, 'addresses')->rowCount() > 0;
         } catch (\PDOException $e) {
             error_log('[PdoAddressesRepository::delete] ' . $e->getMessage());
             throw new \RuntimeException('Database error while deleting address', 0, $e);
@@ -432,7 +423,7 @@ final class PdoAddressesRepository extends BaseRepository implements AddressesRe
             ':lang_city'    => 'ar',
         ];
 
-        $this->applyTenantFilter($where, $params);
+        $this->requireTenantScope($where, $params);
 
         $sql = $this->getBaseSelect()
              . ' WHERE ' . implode(' AND ', $where)
