@@ -17,7 +17,7 @@ final class PdoFontSettingsRepository
         $sql = "
             SELECT id, theme_id, setting_key, setting_name, font_family, font_size, font_weight, line_height, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM font_settings
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
         ";
 
         $params = [':tenantId' => $tenantId];
@@ -45,7 +45,7 @@ final class PdoFontSettingsRepository
         $sql = "
             SELECT *
             FROM font_settings
-            WHERE tenant_id = :tenantId AND setting_key = :key
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
         ";
 
         $params = [':tenantId' => $tenantId, ':key' => $key];
@@ -68,7 +68,7 @@ final class PdoFontSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT *
             FROM font_settings
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1
         ");
 
@@ -93,7 +93,7 @@ final class PdoFontSettingsRepository
                     is_active = :is_active,
                     sort_order = :sort_order,
                     updated_at = NOW()
-                WHERE tenant_id = :tenantId AND id = :id
+                WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             ");
 
             $stmt->execute([
@@ -122,7 +122,7 @@ final class PdoFontSettingsRepository
         ");
 
         $stmt->execute([
-            ':tenantId'    => $tenantId,
+            ':tenantId'    => $tenantId === 1 ? null : $tenantId, // Store as NULL for platform (1)
             ':theme_id'    => $data['theme_id'] ?? null,
             ':key'         => $data['setting_key'],
             ':name'        => $data['setting_name'],
@@ -142,7 +142,7 @@ final class PdoFontSettingsRepository
     {
         $sql = "
             DELETE FROM font_settings
-            WHERE tenant_id = :tenantId AND setting_key = :key
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
         ";
 
         $params = [':tenantId' => $tenantId, ':key' => $key];
@@ -160,7 +160,7 @@ final class PdoFontSettingsRepository
     {
         $stmt = $this->pdo->prepare("
             DELETE FROM font_settings
-            WHERE tenant_id = :tenantId AND id = :id
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
         ");
 
         return $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
@@ -171,7 +171,7 @@ final class PdoFontSettingsRepository
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT category
             FROM font_settings
-            WHERE tenant_id = :tenantId
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL)
             ORDER BY category ASC
         ");
 
@@ -184,7 +184,7 @@ final class PdoFontSettingsRepository
         $sql = "
             SELECT setting_key, font_family, font_size, font_weight, line_height, category
             FROM font_settings
-            WHERE tenant_id = :tenantId AND is_active = 1
+            WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND is_active = 1
         ";
 
         $params = [':tenantId' => $tenantId];

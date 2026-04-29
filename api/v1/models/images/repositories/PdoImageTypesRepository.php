@@ -5,6 +5,11 @@ final class PdoImageTypesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'code', 'name', 'description', 'width', 'height',
+        'crop', 'quality', 'format', 'is_thumbnail', 'icon', 'color'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -97,6 +102,7 @@ final class PdoImageTypesRepository
      */
     public function create(array $data): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             INSERT INTO image_types (
                 code,
@@ -147,6 +153,7 @@ final class PdoImageTypesRepository
      */
     public function update(int $id, array $data): bool
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $stmt = $this->pdo->prepare("
             UPDATE image_types
             SET

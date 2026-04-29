@@ -14,6 +14,7 @@ final class JobApplicationsController
      * List applications with filters, ordering, and pagination
      */
     public function list(
+        ?int $tenantId = null,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -21,12 +22,11 @@ final class JobApplicationsController
         string $orderDir = 'DESC',
         string $lang = 'ar'
     ): array {
-        $items = $this->service->list($limit, $offset, $filters, $orderBy, $orderDir, $lang);
-        $total = $this->service->count($filters, $lang);
-
+        $items = $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
+        $total = $this->service->count($tenantId, $filters, $lang);
         return [
             'items' => $items,
-            'total' => $total
+            'total' => $total,
         ];
     }
 

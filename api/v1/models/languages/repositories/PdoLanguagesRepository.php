@@ -7,6 +7,10 @@ final class PdoLanguagesRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'code', 'name', 'native_name', 'direction', 'is_active', 'flag_url'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -87,6 +91,7 @@ final class PdoLanguagesRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 

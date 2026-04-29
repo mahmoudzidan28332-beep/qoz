@@ -14,18 +14,18 @@ final class JobInterviewsController
      * List interviews with filters, ordering, and pagination
      */
     public function list(
+        ?int $tenantId = null,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'interview_date',
         string $orderDir = 'ASC'
     ): array {
-        $items = $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
-        $total = $this->service->count($filters);
-
+        $items = $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir);
+        $total = $this->service->count($tenantId, $filters);
         return [
             'items' => $items,
-            'total' => $total
+            'total' => $total,
         ];
     }
 

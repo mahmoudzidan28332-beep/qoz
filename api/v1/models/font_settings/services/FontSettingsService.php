@@ -39,6 +39,16 @@ final class FontSettingsService
         return $row;
     }
 
+    public function getById(int $tenantId, int $id): array
+    {
+        $row = $this->repo->findById($tenantId, $id);
+        if (!$row) {
+            throw new RuntimeException('Font setting not found');
+        }
+
+        return $row;
+    }
+
     public function save(int $tenantId, array $data): array
     {
         $errors = $this->validator->validate($data);
