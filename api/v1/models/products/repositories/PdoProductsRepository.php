@@ -1,10 +1,8 @@
 <?php
 declare(strict_types=1);
 
-final class PdoProductsRepository
+final class PdoProductsRepository extends BaseRepository
 {
-    private PDO $pdo;
-
     // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
         'id','sku','slug','barcode','brand_id','is_active',
@@ -22,14 +20,13 @@ final class PdoProductsRepository
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
     }
 
     // ================================
     // List with dynamic filters, search, ordering, pagination
     // ================================
-    public function all(
-        int $tenantId,
+    public function list(
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -37,6 +34,7 @@ final class PdoProductsRepository
         string $orderDir = 'DESC',
         string $lang = 'ar'
     ): array {
+        $tenantId = $this->getTenantId();
         $sql = "
             SELECT p.*,
                    COALESCE(pt.name, '') AS name,
@@ -62,17 +60,13 @@ final class PdoProductsRepository
                 ON i.owner_id = p.id
                AND i.is_main = 1
                AND i.image_type_id = it.id
-            LEFT JOIN product_pricing pp
-                ON pp.product_id = p.id
-               AND pp.variant_id IS NULL
-               AND pp.is_active = 1
-               AND pp.id = (
-                   SELECT MIN(pp2.id)
-                   FROM product_pricing pp2
-                   WHERE pp2.product_id = p.id
-                     AND pp2.variant_id IS NULL
-                     AND pp2.is_active = 1
-               )
+            LEFT JOIN (
+                SELECT product_id, MIN(id) AS min_id
+                FROM product_pricing
+                WHERE variant_id IS NULL AND is_active = 1
+                GROUP BY product_id
+            ) pp_min ON pp_min.product_id = p.id
+            LEFT JOIN product_pricing pp ON pp.id = pp_min.min_id
             WHERE p.tenant_id = :tenant_id
         ";
         $params = [':tenant_id' => $tenantId, ':lang' => $lang];
@@ -115,8 +109,9 @@ final class PdoProductsRepository
     // ================================
     // Count for pagination
     // ================================
-    public function count(int $tenantId, array $filters = []): int
+    public function count(array $filters = []): int
     {
+        $tenantId = $this->getTenantId();
         $sql = "SELECT COUNT(*) FROM products WHERE tenant_id = :tenant_id";
         $params = [':tenant_id' => $tenantId];
 
@@ -140,8 +135,9 @@ final class PdoProductsRepository
     // ================================
     // Find by ID
     // ================================
-    public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
+    public function find(int $id, string $lang = 'ar'): ?array
     {
+        $tenantId = $this->getTenantId();
         $stmt = $this->pdo->prepare("
             SELECT p.*,
                    COALESCE(pt.name, '') AS name,
@@ -183,8 +179,9 @@ final class PdoProductsRepository
         'rating_average', 'rating_count', 'views_count', 'published_at'
     ];
 
-    public function save(int $tenantId, array $data): int
+    public function save(array $data): int
     {
+        $tenantId = $this->getTenantId();
         $isUpdate = !empty($data['id']);
 
         // استخراج الأعمدة المسموح بها فقط من البيانات الواردة
@@ -277,8 +274,9 @@ final class PdoProductsRepository
     // ================================
     // Delete
     // ================================
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
+        $tenantId = $this->getTenantId();
         $stmt = $this->pdo->prepare(
             "DELETE FROM products WHERE tenant_id = :tenant_id AND id = :id"
         );
@@ -288,8 +286,9 @@ final class PdoProductsRepository
     // ================================
     // Check subscription product limit for tenant
     // ================================
-    public function getSubscriptionProductLimit(int $tenantId): ?array
+    public function getSubscriptionProductLimit(): ?array
     {
+        $tenantId = $this->getTenantId();
         $stmt = $this->pdo->prepare(
             "SELECT s.id, sp.max_products, sp.plan_name
              FROM subscriptions s
@@ -302,8 +301,9 @@ final class PdoProductsRepository
         return $row ?: null;
     }
 
-    public function countByTenant(int $tenantId): int
+    public function countByTenant(): int
     {
+        $tenantId = $this->getTenantId();
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tid");
         $stmt->execute([':tid' => $tenantId]);
         return (int)$stmt->fetchColumn();

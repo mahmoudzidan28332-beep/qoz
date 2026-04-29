@@ -13,7 +13,6 @@ final class ProductsController
     /**
      * List products with filters, ordering, and pagination
      *
-     * @param int $tenantId
      * @param int|null $limit
      * @param int|null $offset
      * @param array $filters
@@ -23,7 +22,6 @@ final class ProductsController
      * @return array
      */
     public function list(
-        int $tenantId,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
@@ -31,83 +29,71 @@ final class ProductsController
         string $orderDir = 'DESC',
         string $lang = 'ar'
     ): array {
-        $items = $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang);
-        $total = $this->service->count($tenantId, $filters);
-
-        return [
-            'items' => $items,
-            'total' => $total
-        ];
+        return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir, $lang);
     }
 
     /**
      * Get a single product by ID
      *
-     * @param int $tenantId
      * @param int $id
      * @param string $lang
      * @return array|null
      */
-    public function get(int $tenantId, int $id, string $lang = 'ar'): ?array
+    public function get(int $id, string $lang = 'ar'): ?array
     {
-        return $this->service->get($tenantId, $id, $lang);
+        return $this->service->get($id, $lang);
     }
 
     /**
      * Create a new product
      *
-     * @param int $tenantId
      * @param array $data
      * @return int New product ID
      */
-    public function create(int $tenantId, array $data): int
+    public function create(array $data): int
     {
-        return $this->service->create($tenantId, $data);
+        return $this->service->create($data);
     }
 
     /**
      * Update an existing product
      *
-     * @param int $tenantId
      * @param array $data Must include 'id'
      * @return int Updated product ID
      */
-    public function update(int $tenantId, array $data): int
+    public function update(array $data): int
     {
-        return $this->service->update($tenantId, $data);
+        return $this->service->update($data);
     }
 
     /**
      * Delete a product by ID
      *
-     * @param int $tenantId
      * @param int $id
      * @return bool
      */
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
-        return $this->service->delete($tenantId, $id);
+        return $this->service->delete($id);
     }
 
     /**
      * Get subscription product limit for a tenant
      *
-     * @param int $tenantId
      * @return array|null
      */
-    public function getSubscriptionProductLimit(int $tenantId): ?array
+    public function getSubscriptionProductLimit(): ?array
     {
-        return $this->service->getSubscriptionProductLimit($tenantId);
+        return $this->service->getSubscriptionProductLimit();
     }
 
     /**
      * Count products by tenant
      *
-     * @param int $tenantId
      * @return int
      */
-    public function countByTenant(int $tenantId): int
+    public function countByTenant(): int
     {
-        return $this->service->countByTenant($tenantId);
+        return $this->service->countByTenant();
     }
 }

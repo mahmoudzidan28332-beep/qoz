@@ -17,6 +17,11 @@ final class PdoProductPhysicalAttributesRepository
         'updated_at'
     ];
 
+    private const ALLOWED_COLUMNS = [
+        'product_id', 'variant_id', 'weight', 'weight_unit',
+        'length', 'width', 'height', 'dimension_unit'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -27,43 +32,50 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     // List + Filters + Pagination
     // =========================================================
-    public function all(
+    public function list(
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'created_at',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT * FROM product_physical_attributes WHERE 1=1";
-        $params = [];
+        $tenantId = TenantContext::require();
+        $params = [':tenant_id' => $tenantId];
+        
+        $sql = "SELECT ppa.* 
+                FROM product_physical_attributes ppa
+                LEFT JOIN products p ON ppa.product_id = p.id
+                LEFT JOIN product_variants pv ON ppa.variant_id = pv.id
+                LEFT JOIN products pv_p ON pv.product_id = pv_p.id
+                WHERE (p.tenant_id = :tenant_id OR pv_p.tenant_id = :tenant_id)";
 
         if (!empty($filters['product_id'])) {
-            $sql .= " AND product_id = :product_id";
+            $sql .= " AND ppa.product_id = :product_id";
             $params[':product_id'] = (int)$filters['product_id'];
         }
 
         if (!empty($filters['variant_id'])) {
-            $sql .= " AND variant_id = :variant_id";
+            $sql .= " AND ppa.variant_id = :variant_id";
             $params[':variant_id'] = (int)$filters['variant_id'];
         }
 
         if (isset($filters['min_weight']) && $filters['min_weight'] !== '') {
-            $sql .= " AND weight >= :min_weight";
+            $sql .= " AND ppa.weight >= :min_weight";
             $params[':min_weight'] = (float)$filters['min_weight'];
         }
 
         if (isset($filters['max_weight']) && $filters['max_weight'] !== '') {
-            $sql .= " AND weight <= :max_weight";
+            $sql .= " AND ppa.weight <= :max_weight";
             $params[':max_weight'] = (float)$filters['max_weight'];
         }
 
         if (!empty($filters['weight_unit'])) {
-            $sql .= " AND weight_unit = :weight_unit";
+            $sql .= " AND ppa.weight_unit = :weight_unit";
             $params[':weight_unit'] = $filters['weight_unit'];
         }
 
         if (!empty($filters['dimension_unit'])) {
-            $sql .= " AND dimension_unit = :dimension_unit";
+            $sql .= " AND ppa.dimension_unit = :dimension_unit";
             $params[':dimension_unit'] = $filters['dimension_unit'];
         }
 
@@ -72,7 +84,7 @@ final class PdoProductPhysicalAttributesRepository
             $orderBy = 'created_at';
         }
         $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
-        $sql .= " ORDER BY {$orderBy} {$orderDir}";
+        $sql .= " ORDER BY ppa.{$orderBy} {$orderDir}";
 
         // Pagination
         if ($limit !== null) {
@@ -93,16 +105,23 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     public function count(array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM product_physical_attributes WHERE 1=1";
-        $params = [];
+        $tenantId = TenantContext::require();
+        $params = [':tenant_id' => $tenantId];
+
+        $sql = "SELECT COUNT(*) 
+                FROM product_physical_attributes ppa
+                LEFT JOIN products p ON ppa.product_id = p.id
+                LEFT JOIN product_variants pv ON ppa.variant_id = pv.id
+                LEFT JOIN products pv_p ON pv.product_id = pv_p.id
+                WHERE (p.tenant_id = :tenant_id OR pv_p.tenant_id = :tenant_id)";
 
         if (!empty($filters['product_id'])) {
-            $sql .= " AND product_id = :product_id";
+            $sql .= " AND ppa.product_id = :product_id";
             $params[':product_id'] = (int)$filters['product_id'];
         }
 
         if (!empty($filters['variant_id'])) {
-            $sql .= " AND variant_id = :variant_id";
+            $sql .= " AND ppa.variant_id = :variant_id";
             $params[':variant_id'] = (int)$filters['variant_id'];
         }
 
@@ -116,26 +135,33 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     public function findByProduct(int $productId): ?array
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
-            SELECT *
-            FROM product_physical_attributes
-            WHERE product_id = :product_id
+            SELECT ppa.*
+            FROM product_physical_attributes ppa
+            INNER JOIN products p ON ppa.product_id = p.id
+            WHERE ppa.product_id = :product_id AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':product_id' => $productId]);
+        $stmt->execute([':product_id' => $productId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
 
     public function findByVariant(int $variantId): ?array
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
-            SELECT *
-            FROM product_physical_attributes
-            WHERE variant_id = :variant_id
+            SELECT ppa.*
+            FROM product_physical_attributes ppa
+            INNER JOIN product_variants pv ON ppa.variant_id = pv.id
+            INNER JOIN products p ON pv.product_id = p.id
+            WHERE ppa.variant_id = :variant_id AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
-        $stmt->execute([':variant_id' => $variantId]);
+        $stmt->execute([':variant_id' => $variantId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -145,6 +171,8 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     public function save(array $data): int
     {
+        $tenantId = TenantContext::require();
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
         $isProduct = !empty($data['product_id']);
         $isVariant = !empty($data['variant_id']);
 
@@ -162,9 +190,27 @@ final class PdoProductPhysicalAttributesRepository
         }
 
         if ($isProduct) {
-            return $this->saveForProduct((int)$data['product_id'], $data);
+            $productId = (int)$data['product_id'];
+            // Verify product belongs to tenant
+            $check = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $check->execute([$productId, $tenantId]);
+            if (!$check->fetch()) {
+                throw new InvalidArgumentException("Product not found or access denied.");
+            }
+            return $this->saveForProduct($productId, $data);
         } else {
-            return $this->saveForVariant((int)$data['variant_id'], $data);
+            $variantId = (int)$data['variant_id'];
+            // Verify variant belongs to tenant via product
+            $check = $this->pdo->prepare("
+                SELECT pv.id FROM product_variants pv 
+                JOIN products p ON pv.product_id = p.id 
+                WHERE pv.id = ? AND p.tenant_id = ?
+            ");
+            $check->execute([$variantId, $tenantId]);
+            if (!$check->fetch()) {
+                throw new InvalidArgumentException("Variant not found or access denied.");
+            }
+            return $this->saveForVariant($variantId, $data);
         }
     }
 
@@ -303,6 +349,15 @@ final class PdoProductPhysicalAttributesRepository
     // =========================================================
     public function deleteByProduct(int $productId): bool
     {
+        $tenantId = TenantContext::require();
+
+        // Verify product belongs to tenant
+        $check = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+        $check->execute([$productId, $tenantId]);
+        if (!$check->fetch()) {
+            return false;
+        }
+
         $stmt = $this->pdo->prepare("
             DELETE FROM product_physical_attributes
             WHERE product_id = :product_id
@@ -312,6 +367,19 @@ final class PdoProductPhysicalAttributesRepository
 
     public function deleteByVariant(int $variantId): bool
     {
+        $tenantId = TenantContext::require();
+
+        // Verify variant belongs to tenant via product
+        $check = $this->pdo->prepare("
+            SELECT pv.id FROM product_variants pv 
+            JOIN products p ON pv.product_id = p.id 
+            WHERE pv.id = ? AND p.tenant_id = ?
+        ");
+        $check->execute([$variantId, $tenantId]);
+        if (!$check->fetch()) {
+            return false;
+        }
+
         $stmt = $this->pdo->prepare("
             DELETE FROM product_physical_attributes
             WHERE variant_id = :variant_id

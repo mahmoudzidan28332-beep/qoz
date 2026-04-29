@@ -7,6 +7,10 @@ final class PdoProductAttributeValueTranslationsRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'attribute_value_id', 'language_code', 'label'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -77,6 +81,7 @@ final class PdoProductAttributeValueTranslationsRepository
 
     public function save(array $data, ?int $userId = null): int
     {
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 

@@ -26,7 +26,7 @@ final class ProductAttributeAssignmentsService
 
     public function list(?int $productId = null, ?int $attributeId = null): array
     {
-        return $this->repo->all($productId, $attributeId);
+        return $this->repo->list($productId, $attributeId);
     }
 
     public function get(int $id): array

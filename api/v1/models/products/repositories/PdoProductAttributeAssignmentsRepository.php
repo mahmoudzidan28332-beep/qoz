@@ -7,23 +7,30 @@ final class PdoProductAttributeAssignmentsRepository
 {
     private PDO $pdo;
 
+    private const ALLOWED_COLUMNS = [
+        'product_id', 'attribute_id', 'attribute_value_id', 'custom_value'
+    ];
+
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
-    public function all(?int $productId = null, ?int $attributeId = null): array
+    public function list(?int $productId = null, ?int $attributeId = null): array
     {
+        $tenantId = TenantContext::require();
+
         $sql = "
             SELECT paa.id, paa.product_id, paa.attribute_id, paa.attribute_value_id, paa.custom_value, paa.created_at, paa.updated_at,
                    pa.slug AS attribute_slug, pav.slug AS attribute_value_slug
             FROM product_attribute_assignments paa
+            INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE 1=1
+            WHERE p.tenant_id = :tenant_id
         ";
 
-        $params = [];
+        $params = [':tenant_id' => $tenantId];
 
         if ($productId) {
             $sql .= " AND paa.product_id = :productId";
@@ -45,42 +52,72 @@ final class PdoProductAttributeAssignmentsRepository
 
     public function find(int $id): ?array
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
             SELECT paa.*, pa.slug AS attribute_slug, pav.slug AS attribute_value_slug
             FROM product_attribute_assignments paa
+            INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE paa.id = :id
+            WHERE paa.id = :id AND p.tenant_id = :tenant_id
             LIMIT 1
         ");
 
-        $stmt->execute([':id' => $id]);
+        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
 
     public function getByProduct(int $productId): array
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
             SELECT paa.id, paa.attribute_id, paa.attribute_value_id, paa.custom_value,
                    pa.slug AS attribute_slug, pav.slug AS attribute_value_slug, pav.value AS attribute_value
             FROM product_attribute_assignments paa
+            INNER JOIN products p ON paa.product_id = p.id
             LEFT JOIN product_attributes pa ON paa.attribute_id = pa.id
             LEFT JOIN product_attribute_values pav ON paa.attribute_value_id = pav.id
-            WHERE paa.product_id = :productId
+            WHERE paa.product_id = :productId AND p.tenant_id = :tenant_id
             ORDER BY pa.sort_order ASC
         ");
 
-        $stmt->execute([':productId' => $productId]);
+        $stmt->execute([':productId' => $productId, ':tenant_id' => $tenantId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function save(array $data, ?int $userId = null): int
     {
+        $tenantId = TenantContext::require();
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
+
+        // Verify product belongs to tenant
+        $productId = (int)$data['product_id'];
+        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+        $checkStmt->execute([$productId, $tenantId]);
+        if (!$checkStmt->fetch()) {
+            throw new InvalidArgumentException("Product not found or access denied.");
+        }
+
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
 
         if ($isUpdate) {
+            $id = (int)$data['id'];
+            
+            // Security check: Verify assignment belongs to tenant
+            $assignCheck = $this->pdo->prepare("
+                SELECT paa.id FROM product_attribute_assignments paa 
+                JOIN products p ON paa.product_id = p.id 
+                WHERE paa.id = ? AND p.tenant_id = ?
+            ");
+            $assignCheck->execute([$id, $tenantId]);
+            if (!$assignCheck->fetch()) {
+                throw new InvalidArgumentException("Assignment record not found or access denied.");
+            }
+
             $stmt = $this->pdo->prepare("
                 UPDATE product_attribute_assignments
                 SET product_id = :product_id,
@@ -92,14 +129,12 @@ final class PdoProductAttributeAssignmentsRepository
             ");
 
             $stmt->execute([
-                ':product_id'        => (int)$data['product_id'],
+                ':product_id'        => $productId,
                 ':attribute_id'      => (int)$data['attribute_id'],
                 ':attribute_value_id' => $data['attribute_value_id'] ? (int)$data['attribute_value_id'] : null,
                 ':custom_value'      => $data['custom_value'] ?? null,
-                ':id'                => (int)$data['id']
+                ':id'                => $id
             ]);
-
-            $id = (int)$data['id'];
         } else {
             $stmt = $this->pdo->prepare("
                 INSERT INTO product_attribute_assignments
@@ -109,7 +144,7 @@ final class PdoProductAttributeAssignmentsRepository
             ");
 
             $stmt->execute([
-                ':product_id'        => (int)$data['product_id'],
+                ':product_id'        => $productId,
                 ':attribute_id'      => (int)$data['attribute_id'],
                 ':attribute_value_id' => $data['attribute_value_id'] ? (int)$data['attribute_value_id'] : null,
                 ':custom_value'      => $data['custom_value'] ?? null
@@ -120,7 +155,7 @@ final class PdoProductAttributeAssignmentsRepository
 
         // Log the action
         if ($userId) {
-            $this->logAction($userId, $isUpdate ? 'update' : 'create', $id, $oldData, $data);
+            $this->logAction($tenantId, $userId, $isUpdate ? 'update' : 'create', $id, $oldData, $data);
         }
 
         return $id;
@@ -128,6 +163,7 @@ final class PdoProductAttributeAssignmentsRepository
 
     public function delete(int $id, ?int $userId = null): bool
     {
+        $tenantId = TenantContext::require();
         $oldData = $this->find($id);
 
         if (!$oldData) {
@@ -135,15 +171,16 @@ final class PdoProductAttributeAssignmentsRepository
         }
 
         $stmt = $this->pdo->prepare("
-            DELETE FROM product_attribute_assignments
-            WHERE id = :id
+            DELETE paa FROM product_attribute_assignments paa
+            INNER JOIN products p ON paa.product_id = p.id
+            WHERE paa.id = :id AND p.tenant_id = :tenant_id
         ");
 
-        $result = $stmt->execute([':id' => $id]);
+        $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
 
         // Log the action
         if ($userId && $result) {
-            $this->logAction($userId, 'delete', $id, $oldData, null);
+            $this->logAction($tenantId, $userId, 'delete', $id, $oldData, null);
         }
 
         return $result;
@@ -151,6 +188,7 @@ final class PdoProductAttributeAssignmentsRepository
 
     public function deleteByProduct(int $productId, ?int $userId = null): bool
     {
+        $tenantId = TenantContext::require();
         $assignments = $this->getByProduct($productId);
 
         if (empty($assignments)) {
@@ -161,16 +199,17 @@ final class PdoProductAttributeAssignmentsRepository
 
         try {
             $stmt = $this->pdo->prepare("
-                DELETE FROM product_attribute_assignments
-                WHERE product_id = :productId
+                DELETE paa FROM product_attribute_assignments paa
+                INNER JOIN products p ON paa.product_id = p.id
+                WHERE paa.product_id = :productId AND p.tenant_id = :tenant_id
             ");
 
-            $result = $stmt->execute([':productId' => $productId]);
+            $result = $stmt->execute([':productId' => $productId, ':tenant_id' => $tenantId]);
 
             // Log the action for each deleted assignment
             if ($userId && $result) {
                 foreach ($assignments as $assignment) {
-                    $this->logAction($userId, 'delete', $assignment['id'], $assignment, null);
+                    $this->logAction($tenantId, $userId, 'delete', $assignment['id'], $assignment, null);
                 }
             }
 
@@ -182,7 +221,7 @@ final class PdoProductAttributeAssignmentsRepository
         }
     }
 
-    private function logAction(int $userId, string $action, int $entityId, ?array $oldData, ?array $newData): void
+    private function logAction(int $tenantId, int $userId, string $action, int $entityId, ?array $oldData, ?array $newData): void
     {
         $changes = null;
         if ($action === 'update' && $oldData && $newData) {
@@ -196,13 +235,13 @@ final class PdoProductAttributeAssignmentsRepository
             $changes = json_encode(['created' => $newData]);
         }
 
-        // Assuming entity_logs table exists and tenant_id is optional (set to 0 for global)
         $stmt = $this->pdo->prepare("
             INSERT INTO entity_logs (tenant_id, user_id, entity_type, entity_id, action, changes, ip_address, created_at)
-            VALUES (0, :userId, 'product_attribute_assignment', :entityId, :action, :changes, :ip, NOW())
+            VALUES (:tenantId, :userId, 'product_attribute_assignment', :entityId, :action, :changes, :ip, NOW())
         ");
 
         $stmt->execute([
+            ':tenantId' => $tenantId,
             ':userId'   => $userId,
             ':entityId' => $entityId,
             ':action'   => $action,

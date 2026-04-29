@@ -24,7 +24,7 @@ final class ProductPhysicalAttributesService
         string $orderBy = 'created_at',
         string $orderDir = 'DESC'
     ): array {
-        return $this->repo->all($limit, $offset, $filters, $orderBy, $orderDir);
+        return $this->repo->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
     // ===============================

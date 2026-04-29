@@ -15,8 +15,7 @@ final class PdoProductTranslationsRepository
     // ================================
     // List with filters, search, pagination
     // ================================
-    public function all(
-        int $tenantId,
+    public function list(
         ?string $languageCode = null,
         ?int $limit = null,
         ?int $offset = null,
@@ -24,6 +23,8 @@ final class PdoProductTranslationsRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
+        $tenantId = TenantContext::require();
+
         $sql = "SELECT pt.* 
                 FROM product_translations pt
                 INNER JOIN products p ON pt.product_id = p.id
@@ -64,11 +65,37 @@ final class PdoProductTranslationsRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function count(array $filters = []): int
+    {
+        $tenantId = TenantContext::require();
+
+        $sql = "SELECT COUNT(*) 
+                FROM product_translations pt
+                INNER JOIN products p ON pt.product_id = p.id
+                WHERE p.tenant_id = :tenant_id";
+        $params = [':tenant_id' => $tenantId];
+
+        if (!empty($filters['product_id'])) {
+            $sql .= " AND pt.product_id = :product_id";
+            $params[':product_id'] = (int)$filters['product_id'];
+        }
+        if (!empty($filters['language_code'])) {
+            $sql .= " AND pt.language_code = :language_code";
+            $params[':language_code'] = $filters['language_code'];
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
     // ================================
     // Find by ID
     // ================================
-    public function find(int $tenantId, int $id, ?string $languageCode = null): ?array
+    public function find(int $id, ?string $languageCode = null): ?array
     {
+        $tenantId = TenantContext::require();
+
         $sql = "SELECT pt.* 
                 FROM product_translations pt
                 INNER JOIN products p ON pt.product_id = p.id
@@ -90,11 +117,20 @@ final class PdoProductTranslationsRepository
     // ================================
     public function save(array $data): int
     {
+        $tenantId = TenantContext::require();
         $isUpdate = !empty($data['id']);
+
+        // Verify product belongs to tenant
+        $productId = (int)($data['product_id'] ?? 0);
+        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+        $checkStmt->execute([$productId, $tenantId]);
+        if (!$checkStmt->fetch()) {
+            throw new InvalidArgumentException("Product not found or access denied.");
+        }
 
         // Extract only valid translation columns to prevent SQLSTATE[HY093]
         $params = [
-            ':product_id'        => $data['product_id'] ?? null,
+            ':product_id'        => $productId,
             ':language_code'     => $data['language_code'] ?? null,
             ':name'              => $data['name'] ?? '',
             ':short_description' => $data['short_description'] ?? null,
@@ -106,7 +142,19 @@ final class PdoProductTranslationsRepository
         ];
 
         if ($isUpdate) {
-            $params[':id'] = $data['id'];
+            $params[':id'] = (int)$data['id'];
+            
+            // Verify translation record belongs to tenant via product
+            $transCheck = $this->pdo->prepare("
+                SELECT pt.id FROM product_translations pt 
+                JOIN products p ON pt.product_id = p.id 
+                WHERE pt.id = ? AND p.tenant_id = ?
+            ");
+            $transCheck->execute([$params[':id'], $tenantId]);
+            if (!$transCheck->fetch()) {
+                throw new InvalidArgumentException("Translation record not found or access denied.");
+            }
+
             $stmt = $this->pdo->prepare("
                 UPDATE product_translations SET
                     product_id = :product_id,
@@ -139,6 +187,19 @@ final class PdoProductTranslationsRepository
     // ================================
     public function delete(int $id): bool
     {
+        $tenantId = TenantContext::require();
+
+        // Verify translation record belongs to tenant via product
+        $transCheck = $this->pdo->prepare("
+            SELECT pt.id FROM product_translations pt 
+            JOIN products p ON pt.product_id = p.id 
+            WHERE pt.id = ? AND p.tenant_id = ?
+        ");
+        $transCheck->execute([$id, $tenantId]);
+        if (!$transCheck->fetch()) {
+            return false;
+        }
+
         $stmt = $this->pdo->prepare("DELETE FROM product_translations WHERE id = :id");
         return $stmt->execute([':id'=>$id]);
     }

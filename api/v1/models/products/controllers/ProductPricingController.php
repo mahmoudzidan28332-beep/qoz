@@ -11,36 +11,32 @@ final class ProductPricingController
     }
 
     public function list(
-        int $tenantId,
         ?int $limit,
         ?int $offset,
         array $filters,
         string $orderBy,
         string $orderDir
     ): array {
-        return [
-            'items' => $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir),
-            'total' => $this->service->count($tenantId, $filters)
-        ];
+        return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function get(int $tenantId, int $id): ?array
+    public function get(int $id): ?array
     {
-        return $this->service->get($tenantId, $id);
+        return $this->service->get($id);
     }
 
-    public function create(int $tenantId, array $data): int
+    public function create(array $data): int
     {
-        return $this->service->create($tenantId, $data);
+        return $this->service->create($data);
     }
 
-    public function update(int $tenantId, array $data): int
+    public function update(array $data): int
     {
-        return $this->service->update($tenantId, $data);
+        return $this->service->update($data);
     }
 
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
-        return $this->service->delete($tenantId, $id);
+        return $this->service->delete($id);
     }
 }

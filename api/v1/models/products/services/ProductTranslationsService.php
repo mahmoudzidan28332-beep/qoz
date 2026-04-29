@@ -10,14 +10,17 @@ final class ProductTranslationsService
         $this->repo = $repo;
     }
 
-    public function list(int $tenantId, ?string $languageCode, ?int $limit, ?int $offset, array $filters, string $orderBy, string $orderDir): array
+    public function list(?string $languageCode, ?int $limit, ?int $offset, array $filters, string $orderBy, string $orderDir): array
     {
-        return $this->repo->all($tenantId, $languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
+        return [
+            'items' => $this->repo->list($languageCode, $limit, $offset, $filters, $orderBy, $orderDir),
+            'total' => $this->repo->count($filters)
+        ];
     }
 
-    public function get(int $tenantId, int $id, ?string $languageCode): ?array
+    public function get(int $id, ?string $languageCode): ?array
     {
-        return $this->repo->find($tenantId, $id, $languageCode);
+        return $this->repo->find($id, $languageCode);
     }
 
     public function create(array $data): int

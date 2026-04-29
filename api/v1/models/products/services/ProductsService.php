@@ -11,7 +11,6 @@ final class ProductsService
     }
 
     public function list(
-        int $tenantId,
         ?int $limit,
         ?int $offset,
         array $filters,
@@ -19,46 +18,55 @@ final class ProductsService
         string $orderDir,
         string $lang = 'ar'
     ): array {
-        return $this->repo->all(
-            $tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $lang
+        if (!is_array($filters)) {
+            $filters = [];
+        }
+        $items = $this->repo->list(
+            $limit, $offset, $filters, $orderBy, $orderDir, $lang
         );
+        $total = $this->repo->count($filters);
+
+        return [
+            'items' => $items,
+            'total' => $total
+        ];
     }
 
-    public function count(int $tenantId, array $filters = []): int
+    public function count(array $filters = []): int
     {
-        return $this->repo->count($tenantId, $filters);
+        return $this->repo->count($filters);
     }
 
-    public function get(int $tenantId, int $id, string $lang = 'ar'): ?array
+    public function get(int $id, string $lang = 'ar'): ?array
     {
-        return $this->repo->find($tenantId, $id, $lang);
+        return $this->repo->find($id, $lang);
     }
 
-    public function create(int $tenantId, array $data): int
+    public function create(array $data): int
     {
-        return $this->repo->save($tenantId, $data);
+        return $this->repo->save($data);
     }
 
-    public function update(int $tenantId, array $data): int
+    public function update(array $data): int
     {
         if (empty($data['id'])) {
             throw new InvalidArgumentException('ID is required');
         }
-        return $this->repo->save($tenantId, $data);
+        return $this->repo->save($data);
     }
 
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
-        return $this->repo->delete($tenantId, $id);
+        return $this->repo->delete($id);
     }
 
-    public function getSubscriptionProductLimit(int $tenantId): ?array
+    public function getSubscriptionProductLimit(): ?array
     {
-        return $this->repo->getSubscriptionProductLimit($tenantId);
+        return $this->repo->getSubscriptionProductLimit();
     }
 
-    public function countByTenant(int $tenantId): int
+    public function countByTenant(): int
     {
-        return $this->repo->countByTenant($tenantId);
+        return $this->repo->countByTenant();
     }
 }

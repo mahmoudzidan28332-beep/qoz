@@ -25,14 +25,15 @@ final class PdoProductPricingRepository
     // ================================
     // List
     // ================================
-    public function all(
-        int $tenantId,
+    public function list(
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
+        $tenantId = TenantContext::require();
+
         $sql = "
             SELECT pp.*
             FROM product_pricing pp
@@ -71,8 +72,10 @@ final class PdoProductPricingRepository
     // ================================
     // Count
     // ================================
-    public function count(int $tenantId, array $filters = []): int
+    public function count(array $filters = []): int
     {
+        $tenantId = TenantContext::require();
+
         $sql = "
             SELECT COUNT(*)
             FROM product_pricing pp
@@ -97,8 +100,10 @@ final class PdoProductPricingRepository
     // ================================
     // Find
     // ================================
-    public function find(int $tenantId, int $id): ?array
+    public function find(int $id): ?array
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
             SELECT pp.*
             FROM product_pricing pp
@@ -119,8 +124,9 @@ final class PdoProductPricingRepository
     // ================================
     // Save (Create / Update)
     // ================================
-    public function save(int $tenantId, array $data): int
+    public function save(array $data): int
     {
+        $tenantId = TenantContext::require();
         $isUpdate = !empty($data['id']);
 
         // Extract only valid pricing columns to prevent SQLSTATE[HY093]
@@ -141,8 +147,18 @@ final class PdoProductPricingRepository
             ':is_active'        => $data['is_active'] ?? 1,
         ];
 
+        // Security check: Verify product belongs to tenant
+        $productId = (int)$params[':product_id'];
+        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+        $checkStmt->execute([$productId, $tenantId]);
+        if (!$checkStmt->fetch()) {
+            throw new \InvalidArgumentException('Product not found or access denied.');
+        }
+
         if ($isUpdate) {
-            $params[':id'] = $data['id'];
+            $params[':id'] = (int)$data['id'];
+            $params[':tenant_id'] = $tenantId;
+
             $stmt = $this->pdo->prepare("
                 UPDATE product_pricing SET
                     product_id = :product_id,
@@ -160,10 +176,17 @@ final class PdoProductPricingRepository
                     city_id = :city_id,
                     is_active = :is_active,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
+                WHERE id = :id AND EXISTS (SELECT 1 FROM products WHERE id = :product_id AND tenant_id = :tenant_id)
             ");
 
             $stmt->execute($params);
+            if ($stmt->rowCount() === 0) {
+                // Either ID doesn't exist or tenant ownership check failed
+                $check = $this->find((int)$data['id']);
+                if (!$check) {
+                    throw new \RuntimeException('Pricing record not found or access denied.');
+                }
+            }
             return (int)$data['id'];
         }
 
@@ -188,8 +211,10 @@ final class PdoProductPricingRepository
     // ================================
     // Delete
     // ================================
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
+        $tenantId = TenantContext::require();
+
         $stmt = $this->pdo->prepare("
             DELETE pp
             FROM product_pricing pp

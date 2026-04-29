@@ -11,41 +11,38 @@ final class ProductPricingService
     }
 
     public function list(
-        int $tenantId,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        return $this->repo->all($tenantId, $limit, $offset, $filters, $orderBy, $orderDir);
+        return [
+            'items' => $this->repo->list($limit, $offset, $filters, $orderBy, $orderDir),
+            'total' => $this->repo->count($filters)
+        ];
     }
 
-    public function count(int $tenantId, array $filters = []): int
+    public function get(int $id): ?array
     {
-        return $this->repo->count($tenantId, $filters);
+        return $this->repo->find($id);
     }
 
-    public function get(int $tenantId, int $id): ?array
+    public function create(array $data): int
     {
-        return $this->repo->find($tenantId, $id);
+        return $this->repo->save($data);
     }
 
-    public function create(int $tenantId, array $data): int
-    {
-        return $this->repo->save($tenantId, $data);
-    }
-
-    public function update(int $tenantId, array $data): int
+    public function update(array $data): int
     {
         if (empty($data['id'])) {
             throw new InvalidArgumentException("ID is required");
         }
-        return $this->repo->save($tenantId, $data);
+        return $this->repo->save($data);
     }
 
-    public function delete(int $tenantId, int $id): bool
+    public function delete(int $id): bool
     {
-        return $this->repo->delete($tenantId, $id);
+        return $this->repo->delete($id);
     }
 }

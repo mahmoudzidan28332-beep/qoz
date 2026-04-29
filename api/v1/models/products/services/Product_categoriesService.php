@@ -14,7 +14,7 @@ final class Product_categoriesService
 
     public function list(?int $limit = null, ?int $offset = null, array $filters = [], string $orderBy = 'id', string $orderDir = 'DESC'): array
     {
-        return $this->repository->all($limit, $offset, $filters, $orderBy, $orderDir);
+        return $this->repository->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
     public function count(array $filters = []): int

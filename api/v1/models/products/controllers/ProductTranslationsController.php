@@ -10,14 +10,14 @@ final class ProductTranslationsController
         $this->service = $service;
     }
 
-    public function list(int $tenantId, ?string $languageCode, ?int $limit, ?int $offset, array $filters, string $orderBy, string $orderDir): array
+    public function list(?string $languageCode, ?int $limit, ?int $offset, array $filters, string $orderBy, string $orderDir): array
     {
-        return $this->service->list($tenantId, $languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
+        return $this->service->list($languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function get(int $tenantId, int $id, ?string $languageCode): ?array
+    public function get(int $id, ?string $languageCode): ?array
     {
-        return $this->service->get($tenantId, $id, $languageCode);
+        return $this->service->get($id, $languageCode);
     }
 
     public function create(array $data): int
