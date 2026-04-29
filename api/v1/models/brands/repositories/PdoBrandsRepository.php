@@ -261,7 +261,7 @@ final class PdoBrandsRepository extends BaseRepository
 
         if ($isUpdate) {
             $sets = [];
-            $params = [':id' => $id, ':tenantId' => $targetTenantId];
+            $params = [':id' => $id];
             foreach ($fields as $col => $val) {
                 if (array_key_exists($col, $data)) {
                     if ($col === 'tenant_id') continue;
@@ -271,7 +271,11 @@ final class PdoBrandsRepository extends BaseRepository
             }
             $sets[] = "updated_at = NOW()";
 
-            $sql = "UPDATE brands SET " . implode(', ', $sets) . " WHERE tenant_id = :tenantId AND id = :id";
+            $sql = "UPDATE brands SET " . implode(', ', $sets) . " WHERE id = :id";
+            if ($contextTenantId > 0) {
+                $sql .= " AND tenant_id = :tenantId";
+                $params[':tenantId'] = $targetTenantId;
+            }
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
         } else {

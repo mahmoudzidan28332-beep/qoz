@@ -48,7 +48,7 @@ final class BrandsController
 
     public function create(array $data): array
     {
-        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
+        $userId = isset($data['user_id']) ? (int)$data['user_id'] : null;
         return $this->service->save($data, $userId);
     }
 
@@ -57,7 +57,7 @@ final class BrandsController
         if (empty($data['id']) && empty($data['slug'])) {
             throw new InvalidArgumentException('Either id or slug is required for update');
         }
-        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
+        $userId = isset($data['user_id']) ? (int)$data['user_id'] : null;
         return $this->service->save($data, $userId);
     }
 
