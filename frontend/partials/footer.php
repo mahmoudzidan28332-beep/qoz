@@ -1,18 +1,5 @@
 <?php
-/**
- * Frontend Footer Partial — QOOQZ Global Public Interface
- * Footer partial, updated with SVG icons.
- */
-$_year     = date('Y');
-$_ctx      = $GLOBALS['PUB_CONTEXT'] ?? [];
-$_appName  = $GLOBALS['PUB_APP_NAME'] ?? 'QOOQZ';
-$_basePath = rtrim($GLOBALS['PUB_BASE_PATH'] ?? '/frontend/public', '/');
-if (!function_exists('e')) {
-    function e($v): string { return htmlspecialchars((string)$v, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); }
-}
-if (!function_exists('t')) {
-    function t(string $key, string|array $r = []): string { return is_string($r) ? $r : $key; }
-}
+require_once __DIR__ . '/store_sections/icons.php';
 ?>
 
     </main><!-- .pub-main-content -->
@@ -28,12 +15,7 @@ if (!function_exists('t')) {
             <!-- Brand column with SVG icon -->
             <div class="pub-footer-col">
                 <p class="pub-footer-brand-name">
-                    <!-- SVG Globe icon -->
-                    <span class="pub-footer-brand-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </span>
+                    <span class="pub-footer-brand-icon"><?= icon('globe', 18) ?></span>
                     <?= e($_appName) ?>
                 </p>
                 <p class="pub-footer-brand-desc"><?= e(t('footer.tagline')) ?></p>
@@ -83,42 +65,49 @@ $_authPath   = '/frontend';
 <nav class="pub-bottom-nav" aria-label="<?= e(t('nav.actions', 'Navigation')) ?>">
     <!-- Home -->
     <a href="<?= e($_basePath . '/index.php') ?>" class="pub-bottom-nav__item">
-        <span class="pub-bottom-nav__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-        </span>
+        <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('house', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.home', 'Home')) ?></span>
     </a>
     <!-- Categories -->
     <a href="<?= e($_basePath . '/categories.php') ?>" class="pub-bottom-nav__item">
-        <span class="pub-bottom-nav__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-        </span>
+        <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('grid', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.categories', 'Categories')) ?></span>
     </a>
     <!-- Cart -->
     <a href="<?= e($_basePath . '/cart.php') ?>" class="pub-bottom-nav__item" style="position:relative;">
         <span class="pub-bottom-nav__icon" aria-hidden="true" style="position:relative;">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+            <?= icon('cart', 22) ?>
             <span id="pubCartCountFooter" style="position:absolute; top:-4px; right:-8px; background:var(--pub-danger, #ef4444); color:white; font-size:10px; font-weight:bold; padding:2px 5px; border-radius:10px; display:none; line-height:1;"></span>
         </span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.cart', 'Cart')) ?></span>
     </a>
     <!-- Profile -->
     <a href="<?= e($_isLoggedIn ? $_authPath . '/profile.php' : $_authPath . '/login.php') ?>" class="pub-bottom-nav__item">
-        <span class="pub-bottom-nav__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-        </span>
+        <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('user', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.profile', 'Profile')) ?></span>
     </a>
 </nav>
+
+<!-- Branch Conflict Modal -->
+<div id="pubCartConflictModal" class="pub-modal" hidden style="z-index:11000;">
+    <div class="pub-modal-backdrop" id="pubCartConflictCloseBackdrop"></div>
+    <div class="pub-modal-content" style="max-width:420px; text-align:center; padding:32px 24px; border-radius: 20px; box-shadow: var(--shadow-2xl);">
+        <button type="button" class="pub-modal-close" id="pubCartConflictCloseBtn" aria-label="<?= e(t('common.close')) ?>"><?= icon('x', 24) ?></button>
+        <div style="font-size:3.5rem; margin-bottom:16px; color: var(--pub-primary); opacity: 0.9;"><?= icon('cart-x', 56) ?></div>
+        <h3 style="font-size:1.3rem; font-weight: 700; margin:0 0 12px; color:var(--pub-text);"><?= e(t('cart.conflict_title')) ?></h3>
+        <p style="color:var(--pub-muted); font-size:0.92rem; line-height:1.6; margin:0 0 24px;">
+            <?= e(t('cart.conflict_msg')) ?>
+        </p>
+        <div style="display:grid; gap:10px;">
+            <button type="button" id="pubCartConflictSwitch" class="pub-btn pub-btn--primary" style="width:100%; padding:14px; border-radius: 12px;">
+                <?= e(t('cart.switch_and_clear')) ?>
+            </button>
+            <button type="button" id="pubCartConflictCancel" class="pub-btn" style="width:100%; padding:14px; background: rgba(0,0,0,0.05); color: var(--pub-text); border-radius: 12px;">
+                <?= e(t('common.cancel')) ?>
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Back-to-top button -->
 <?php $_btt_side = ($_ctx['dir'] ?? 'ltr') === 'rtl' ? 'left' : 'right'; ?>
@@ -128,9 +117,8 @@ $_authPath   = '/frontend';
                border:none;border-radius:50%;font-size:1.2rem;cursor:pointer;align-items:center;
                justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.2);">↑</button>
 
-<!-- Public JS — ?v= cache-busting -->
-<?php $_pubJsV = @filemtime(FRONTEND_BASE . '/assets/js/public.js') ?: '1'; ?>
-<script src="/frontend/assets/js/public.js?v=<?= $_pubJsV ?>"></script>
+
+<!-- Public JS moved to header.php for consistent loading -->
 
 <?php
 // ════════════════════════════════════════════════════════════
@@ -149,14 +137,24 @@ if ($_devRegUserId > 0):
 ?>
 <script>
 (function(){
-    var STORAGE_KEY='qz_dev_reg', DAY_MS=86400000;
+    var STORAGE_KEY='qz_dev_reg', ANON_KEY='qz_anon_token', DAY_MS=86400000;
     var lastReg=localStorage.getItem(STORAGE_KEY);
     if(lastReg && (Date.now()-parseInt(lastReg,10))<DAY_MS) return;
+
+    var anon = localStorage.getItem(ANON_KEY);
+    if (!anon) {
+        try {
+            anon = (typeof crypto!=='undefined' && crypto.randomUUID) ? crypto.randomUUID() : 
+                   (Math.random().toString(36).substring(2,15) + Math.random().toString(36).substring(2,15));
+            localStorage.setItem(ANON_KEY, anon);
+        } catch(e) { anon = 'fallback-' + Date.now(); }
+    }
+
     fetch('/api/public/user_devices',{
         method:'POST',
         credentials:'same-origin',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({})
+        body:JSON.stringify({ anonymous_token: anon })
     }).then(function(r){
         if(r.ok) localStorage.setItem(STORAGE_KEY,''+Date.now());
     }).catch(function(){});
@@ -222,17 +220,19 @@ if ($_fcmEnabled && $_fcmUserId > 0):
     if (!empty($_fcmCfg['projectId'])):
 ?>
 <script>
-window.APP_CONFIG = window.APP_CONFIG || {};
-Object.assign(window.APP_CONFIG, {
-    FCM_API_KEY:             <?= json_encode($_fcmCfg['apiKey']) ?>,
-    FCM_AUTH_DOMAIN:         <?= json_encode($_fcmCfg['authDomain']) ?>,
-    FCM_PROJECT_ID:          <?= json_encode($_fcmCfg['projectId']) ?>,
-    FCM_MESSAGING_SENDER_ID: <?= json_encode($_fcmCfg['messagingSenderId']) ?>,
-    FCM_APP_ID:              <?= json_encode($_fcmCfg['appId']) ?>,
-    FCM_VAPID_KEY:           <?= json_encode($_fcmCfg['vapidKey']) ?>,
-    API_BASE:                '/api',
-    USER_ID:                 <?= $_fcmUserId ?>
-});
+(function() {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    Object.assign(window.APP_CONFIG, {
+        FCM_API_KEY:             <?= json_encode($_fcmCfg['apiKey']) ?>,
+        FCM_AUTH_DOMAIN:         <?= json_encode($_fcmCfg['authDomain']) ?>,
+        FCM_PROJECT_ID:          <?= json_encode($_fcmCfg['projectId']) ?>,
+        FCM_MESSAGING_SENDER_ID: <?= json_encode($_fcmCfg['messagingSenderId']) ?>,
+        FCM_APP_ID:              <?= json_encode($_fcmCfg['appId']) ?>,
+        FCM_VAPID_KEY:           <?= json_encode($_fcmCfg['vapidKey']) ?>,
+        API_BASE:                '/api',
+        USER_ID:                 <?= $_fcmUserId ?>
+    });
+})();
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js" defer></script>

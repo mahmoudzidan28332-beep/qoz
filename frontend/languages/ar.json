@@ -253,7 +253,11 @@
         "total": "الإجمالي",
         "remove": "حذف",
         "add": "أضف إلى السلة",
-        "added": "تمت الإضافة!"
+        "added": "تمت الإضافة!",
+        "conflict_title": "تعارض السلة",
+        "conflict_msg": "لا يمكنك إضافة منتجات من فروع مختلفة في سلة واحدة، هل تود تفريغ السلة القديمة؟",
+        "switch_and_clear": "تفريغ واستبدال",
+        "conflict_error": "خطأ: السلة تحتوي منتجات من فروع مختلفة"
     },
     "checkout": {
         "title": "إتمام الشراء",
@@ -273,7 +277,31 @@
         "error_fields_required": "يرجى إدخال الاسم ورقم الهاتف.",
         "secure_transaction": "معاملاتك آمنة ومشفرة",
         "no_payment_methods": "لا توجد طرق دفع متاحة",
-        "cash_on_delivery": "الدفع عند الاستلام"
+        "additional_notes": "ملاحظات إضافية",
+        "delivery_info": "معلومات التوصيل",
+        "delivery_merchant": "توصيل المتجر",
+        "delivery_courier": "شركة شحن",
+        "delivery_pickup": "استلام من الفرع",
+        "my_location": "موقعي",
+        "map_hint": "حرك الدبوس لتحديد موقعك بدقة",
+        "cash_on_delivery": "الدفع عند الاستلام",
+        "no_delivery_zones": "لا توجد مناطق توصيل للمسافة المُحددة",
+        "no_couriers": "لا توجد شركات شحن متاحة",
+        "no_pickup_points": "لا توجد فروع استلام متاحة",
+        "standard_delivery": "توصيل قياسي للمتجر"
+    },
+    "checkout_js": {
+        "detecting": "جاري التحديد",
+        "merchant": "توصيل البائع",
+        "courier": "شركة شحن",
+        "fees": "الرسوم",
+        "calculating": "جاري الحساب",
+        "out_of_coverage": "خارج نطاق التغطية",
+        "in_coverage": "ضمن نطاق التغطية",
+        "mins": "دقيقة",
+        "err_load": "خطأ في التحميل",
+        "location_error": "تعذر تحديد الموقع",
+        "area": "المنطقة"
     },
     "entity": {
         "products_tab": "المنتجات",

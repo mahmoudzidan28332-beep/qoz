@@ -377,6 +377,53 @@ if (!function_exists('icon')) {
                 . "<path d='M2 10l5 5 11-11'/>"
                 . "</svg>",
 
+            'rocket' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M17.5 2.5s-4 0-7 3c-2 2-3 5-3 5l-4 4v3h3l4-4s3-1 5-3c3-3 3-7 3-7zM7.5 12.5L3 17'/>"
+                . "<circle cx='13.5' cy='6.5' r='1.5'/>"
+                . "</svg>",
+
+            'box' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M2.5 5.5l7.5-3 7.5 3v9l-7.5 3-7.5-3v-9zM10 2.5V17m-7.5-11.5l15 6M2.5 11l7.5 3 7.5-3'/>"
+                . "</svg>",
+
+            'inbox' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M3 3h14l1.5 6H13a3 3 0 01-6 0H1.5L3 3z'/>"
+                . "<path d='M2 10v6a2 2 0 002 2h12a2 2 0 002-2v-6'/>"
+                . "</svg>",
+
+            'funnel' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M2.5 3h15l-6 7.5v6.5l-3-3V10.5L2.5 3z'/>"
+                . "</svg>",
+
+            'headset' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M3.5 10v2a6.5 6.5 0 0013 0v-2'/>"
+                . "<path d='M2 10a8 8 0 0116 0M2.5 10c0-1 1-2 2-2h1c1 0 1.5.5 1.5 1.5v3c0 1-.5 1.5-1.5 1.5h-1c-1 0-2-1-2-2v-2zm15 0c0-1-1-2-2-2h-1c-1 0-1.5.5-1.5 1.5v3c0 1 .5 1.5 1.5 1.5h1c1 0 2-1 2-2v-2z'/>"
+                . "</svg>",
+
+            'wallet' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<path d='M16 6V4a2 2 0 00-2-2H3a2 2 0 00-2 2v12a2 2 0 002 2h11.5a2 2 0 002-2v-2'/>"
+                . "<path d='M14 6h3.5a1.5 1.5 0 011.5 1.5v5a1.5 1.5 0 01-1.5 1.5H14a2 2 0 01-2-2v-4a2 2 0 012-2z'/>"
+                . "<circle cx='15' cy='10' r='1' fill='$c' stroke='none'/>"
+                . "</svg>",
+
+            'award' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<circle cx='10' cy='7' r='5.5'/>"
+                . "<path d='M7 12l-1.5 6.5 4.5-2.5 4.5 2.5-1.5-6.5'/>"
+                . "</svg>",
+
+            'gear' =>
+                "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
+                . "<circle cx='10' cy='10' r='2.5'/>"
+                . "<path d='M10 2l1 2M15.5 4.5l-1.5 1.5M18 10l-2 1M15.5 15.5l-1.5-1.5M10 18l-1-2M4.5 15.5l1.5-1.5M2 10l2-1M4.5 4.5l1.5 1.5'/>"
+                . "</svg>",
+
             'heart' =>
                 "<svg width='$s' height='$s' viewBox='0 0 20 20' fill='none' stroke='$c' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'>"
                 . "<path d='M10 17.5l-1.35-1.24C4.1 12.1 1.5 9.5 1.5 6.4c0-2.4 1.9-4.3 4.3-4.3 1.4 0 2.7.7 3.6 1.7.9-1.1 2.2-1.7 3.6-1.7 2.4 0 4.3 1.9 4.3 4.3 0 3.1-2.6 5.7-7.15 9.86L10 17.5z'/>"
