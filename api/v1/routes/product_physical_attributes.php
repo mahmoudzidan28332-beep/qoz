@@ -34,11 +34,10 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
+
 
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$effectiveTenantId = resolve_tenant_id();
 TenantContext::set($effectiveTenantId);
 
 // Setup

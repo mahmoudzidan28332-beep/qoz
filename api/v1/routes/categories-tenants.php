@@ -92,8 +92,8 @@ try {
     // ─── Sync endpoint ───────────────────────────────────────────────
     if ($action === 'sync' && $method === 'POST') {
         // Force tenant_id from session — never trust payload unless platform admin
-        if (!($isPlatformAdmin && $tenantId === null) || !isset($data['tenant_id'])) {
-            $data['tenant_id'] = $tenantId;
+        if (!$isPlatformAdmin || !isset($data['tenant_id'])) {
+            $data['tenant_id'] = $tenantId ?? $effectiveTenantId;
         }
         $result = $controller->sync($data);
         ResponseFormatter::success($result, 'Categories synced successfully');
@@ -114,12 +114,12 @@ try {
             if ($idGet) {
                 $item = $controller->get($idGet);
                 if ($item) {
-                    // Verify tenant ownership (Bypass for true platform admin)
-                    if (!($isPlatformAdmin && $tenantId === null) && (int)($item['tenant_id'] ?? 0) !== $tenantId) {
+                    // Verify tenant ownership (Bypass for platform admin)
+                    if (!$isPlatformAdmin && (int)($item['tenant_id'] ?? 0) !== $tenantId) {
                         ResponseFormatter::error('Access denied', 403);
                         exit;
                     }
-                    ResponseFormatter::success([$item]);
+                    ResponseFormatter::success($item);
                 } else {
                     ResponseFormatter::error('Not found', 404);
                 }
@@ -134,8 +134,8 @@ try {
 
         case 'POST':
             // Force tenant_id from session — never trust payload unless platform admin
-            if (!($isPlatformAdmin && $tenantId === null) || !isset($data['tenant_id'])) {
-                $data['tenant_id'] = $tenantId;
+            if (!$isPlatformAdmin || !isset($data['tenant_id'])) {
+                $data['tenant_id'] = $tenantId ?? $effectiveTenantId;
             }
 
             if (empty($data['category_id'])) {
@@ -151,15 +151,15 @@ try {
                 throw new InvalidArgumentException('ID is required for update');
             }
 
-            // Verify ownership (Bypass for true platform admin)
-            if (!($isPlatformAdmin && $tenantId === null)) {
+            // Verify ownership (Bypass for platform admin)
+            if (!$isPlatformAdmin) {
                 $item = $controller->get($idPut);
                 if (!$item || (int)($item['tenant_id'] ?? 0) !== $tenantId) {
                     ResponseFormatter::error('Access denied', 403);
                     break;
                 }
-                // Strip tenant_id from payload for regular users
-                unset($data['tenant_id']);
+                // Force tenant_id from existing record for regular users (don't trust payload)
+                $data['tenant_id'] = (int)$item['tenant_id'];
             }
             
             $data['id'] = $idPut;
@@ -180,8 +180,8 @@ try {
                 throw new InvalidArgumentException('ID is required for deletion');
             }
 
-            // Verify ownership (Bypass for true platform admin)
-            if (!($isPlatformAdmin && $tenantId === null)) {
+            // Verify ownership (Bypass for platform admin)
+            if (!$isPlatformAdmin) {
                 $item = $controller->get($idDel);
                 if (!$item || (int)($item['tenant_id'] ?? 0) !== $tenantId) {
                     ResponseFormatter::error('Access denied', 403);

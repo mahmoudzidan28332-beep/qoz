@@ -24,11 +24,10 @@ require_once $variantsPath.'/controllers/ProductVariantController.php';
 if(session_status()===PHP_SESSION_NONE) session_start();
 
 // Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
+
 
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$effectiveTenantId = resolve_tenant_id();
 TenantContext::set($effectiveTenantId);
 
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
@@ -61,13 +60,13 @@ try {
 
         case 'GET':
             if(!empty($_GET['id'])){
-                $items = $controller->listWithTranslations($languageCode, null, null, ['id'=>$_GET['id']]);
+                $items = $controller->listWithTranslations($effectiveTenantId, $languageCode, null, null, ['id'=>$_GET['id']]);
                 ResponseFormatter::success($items[0] ?? []);
             } elseif(!empty($_GET['variant_id']) && !empty($_GET['translations'])){
                 $translations = $controller->getTranslations((int)$_GET['variant_id']);
                 ResponseFormatter::success($translations);
             } else {
-                $items = $controller->listWithTranslations($languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
+                $items = $controller->listWithTranslations($effectiveTenantId, $languageCode, $limit, $offset, $filters, $orderBy, $orderDir);
                 ResponseFormatter::success(['items'=>$items]);
             }
             break;
@@ -78,14 +77,14 @@ try {
                 $controller->saveTranslation((int)$data['variant_id'], $data['translation']['language_code'], $data['translation']['name']);
                 ResponseFormatter::success(['saved'=>true]);
             } else {
-                $id = $controller->createOrUpdate($data);
+                $id = $controller->createOrUpdate($effectiveTenantId, $data);
                 ResponseFormatter::success(['id'=>$id]);
             }
             break;
 
         case 'DELETE':
             if(empty($data['id'])) ResponseFormatter::error('Missing id',400);
-            $deleted = $controller->delete((int)$data['id']);
+            $deleted = $controller->delete($effectiveTenantId, (int)$data['id']);
             ResponseFormatter::success(['deleted'=>$deleted]);
             break;
 

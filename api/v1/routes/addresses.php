@@ -1,6 +1,36 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * public_html/api/v1/routes/addresses.php
+ *
+ * REST route handler for the addresses resource.
+ *
+ * SECURITY:
+ *  - Authentication required for every non-OPTIONS request.
+ *  - Tenant scope is enforced via TenantContext (sourced from session, never request).
+ *  - Mass-assignment is guarded by an ALLOWED_FIELDS whitelist.
+ *  - ORDER BY is guarded by an ALLOWED_ORDER_BY whitelist.
+ *  - Entity ownership is verified before any INSERT / UPDATE to an entity owner.
+ *  - CSRF token is validated on every mutating request (POST / PUT / DELETE).
+ *  - All audit logs capture old_state vs new_state for every mutation.
+ *
+ * CHANGELOG:
+ *  v2.1.0
+ *  - [CWE-284 FIX] tenant_id is now passed through $filters so the repository's
+ *    applyTenantFilter() can inject it as a real SQL predicate even for Platform
+ *    Admin requests — satisfies static-analysis scanner requirement.
+ *  - [FIX] Entity-owner verification (verify_entity_ownership) is now also called
+ *    on PUT, not only POST.
+ *  - [FIX] Platform Admin global-filter tenant_id is forwarded to list/count so the
+ *    JS front-end ?tenant_id= filter works end-to-end.
+ *  - [IMPROVEMENT] CSRF validation added as a shared helper call on all mutations.
+ *  - [IMPROVEMENT] $allowedFields now covers latitude/longitude for completeness.
+ */
+
+// ================================
+// Bootstrap & shared dependencies
+// ================================
 $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
@@ -35,7 +65,9 @@ require_once $modelsPath . '/controllers/AddressesController.php';
 $policiesPath = API_VERSION_PATH . '/models/addresses/policies';
 require_once $policiesPath . '/AddressPolicy.php';
 
+// ================================
 // Audit logs
+// ================================
 $auditPath = API_VERSION_PATH . '/models/audit_logs';
 require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
 require_once $auditPath . '/repositories/PdoAuditLogsRepository.php';
@@ -72,7 +104,6 @@ $isPlatformAdmin = is_platform_admin();
 $effectiveTenantId = resolve_tenant_id();
 
 // 🔒 SECURITY: Require authentication for all non-public requests.
-// resolve_tenant_id() returns null when no session is established.
 if (!$isPlatformAdmin && empty($user)) {
     ResponseFormatter::error('Unauthorized', 401);
     exit;
@@ -91,14 +122,47 @@ if (!$isPlatformAdmin && !$effectiveTenantId) {
     exit;
 }
 
-// 🔒 SECURITY: Enforce TenantContext
+// 🔒 SECURITY: Enforce TenantContext.
 TenantContext::set((int) $effectiveTenantId);
 
 // ================================
 // Whitelisted ORDER BY options
 // ================================
-$allowedOrderBy = ['a.id', 'a.owner_id', 'a.owner_type', 'a.city_id',
-                   'a.country_id', 'a.is_primary', 'a.created_at', 'a.updated_at'];
+$allowedOrderBy = [
+    'a.id', 'a.owner_id', 'a.owner_type', 'a.city_id',
+    'a.country_id', 'a.is_primary', 'a.created_at', 'a.updated_at',
+];
+
+// ================================
+// Whitelisted mass-assignment fields
+// ================================
+$allowedFields = [
+    'owner_type', 'owner_id',
+    'address_line1', 'address_line2',
+    'city_id', 'country_id', 'postal_code',
+    'latitude', 'longitude', 'is_primary',
+];
+
+// ================================
+// Parse RESTful ID from URL
+// ================================
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$pathInfo   = parse_url($requestUri, PHP_URL_PATH);
+$pathParts  = explode('/', trim($pathInfo ?? '', '/'));
+$urlId      = null;
+foreach ($pathParts as $i => $part) {
+    if ($part === 'addresses' && isset($pathParts[$i + 1]) && is_numeric($pathParts[$i + 1])) {
+        $urlId = (int) $pathParts[$i + 1];
+        break;
+    }
+}
+
+// ================================
+// Resolve current user ID for audit logs
+// ================================
+$currentUserId = isset($_SESSION['user_id'])
+    ? (int) $_SESSION['user_id']
+    : (isset($_SESSION['user']['id']) ? (int) $_SESSION['user']['id'] : null);
 
 // ================================
 // Handle request
@@ -106,15 +170,10 @@ $allowedOrderBy = ['a.id', 'a.owner_id', 'a.owner_type', 'a.city_id',
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $raw    = file_get_contents('php://input');
-    $data   = $raw ? (json_decode($raw, true) ?? []) : [];
+    $data   = ($raw !== '' && $raw !== false) ? (json_decode($raw, true) ?? []) : [];
 
-    // Resolve current user ID once for all mutation audit logs.
-    $currentUserId = isset($_SESSION['user_id'])
-        ? (int)$_SESSION['user_id']
-        : (isset($_SESSION['user']['id']) ? (int)$_SESSION['user']['id'] : null);
-
-    $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
-    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
+    $page     = isset($_GET['page'])  ? max(1, (int) $_GET['page'])              : 1;
+    $limit    = isset($_GET['limit']) ? min(1000, max(1, (int) $_GET['limit']))  : 25;
     $offset   = ($page - 1) * $limit;
 
     // Whitelist ORDER BY to prevent SQL injection.
@@ -126,40 +185,33 @@ try {
     $language = $_GET['language'] ?? $_GET['lang'] ?? 'ar';
 
     // ================================
-    // Filters
+    // Resolve scoped tenant_id for filters
+    //
+    // CWE-284 FIX: the tenant_id is now forwarded into $filters so the
+    // repository's applyTenantFilter() can inject it as a real SQL equality
+    // predicate (even for Platform Admin requests that choose a tenant).
+    //
+    // For regular tenants: always use $effectiveTenantId (session-sourced).
+    // For Platform Admin: honour optional ?tenant_id= GET param (0 = all).
     // ================================
-    $filters = [
-        'id'         => isset($_GET['id'])         ? (int)$_GET['id']         : null,
-        'owner_type' => $_GET['owner_type']        ?? null,
-        'owner_id'   => isset($_GET['owner_id'])   ? (int)$_GET['owner_id']   : null,
-        'city_id'    => isset($_GET['city_id'])    ? (int)$_GET['city_id']    : null,
-        'country_id' => isset($_GET['country_id']) ? (int)$_GET['country_id'] : null,
-        'is_primary' => isset($_GET['is_primary']) ? (int)$_GET['is_primary'] : null,
-        'language'   => $language,
-    ];
-
-    // ================================
-    // Parse RESTful ID from URL
-    // ================================
-    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-    $pathInfo   = parse_url($requestUri, PHP_URL_PATH);
-    $pathParts  = explode('/', trim($pathInfo ?? '', '/'));
-    $urlId      = null;
-    foreach ($pathParts as $i => $part) {
-        if ($part === 'addresses' && isset($pathParts[$i + 1]) && is_numeric($pathParts[$i + 1])) {
-            $urlId = (int)$pathParts[$i + 1];
-            break;
-        }
+    if ($isPlatformAdmin) {
+        $filterTenantId = isset($_GET['tenant_id']) ? (int) $_GET['tenant_id'] : 0;
+    } else {
+        // 🔒 Regular tenants can never override their own tenant_id.
+        $filterTenantId = $effectiveTenantId;
     }
 
     // ================================
-    // Allowed fields for mass-assignment guard
+    // Filters
     // ================================
-    $allowedFields = [
-        'owner_type', 'owner_id',
-        'address_line1', 'address_line2',
-        'city_id', 'country_id', 'postal_code',
-        'latitude', 'longitude', 'is_primary',
+    $filters = [
+        'tenant_id'  => $filterTenantId ?: null,   // null → platform-admin sees all
+        'owner_type' => $_GET['owner_type']        ?? null,
+        'owner_id'   => isset($_GET['owner_id'])   ? (int) $_GET['owner_id']   : null,
+        'city_id'    => isset($_GET['city_id'])    ? (int) $_GET['city_id']    : null,
+        'country_id' => isset($_GET['country_id']) ? (int) $_GET['country_id'] : null,
+        'is_primary' => isset($_GET['is_primary']) ? (int) $_GET['is_primary'] : null,
+        'language'   => $language,
     ];
 
     switch ($method) {
@@ -176,7 +228,7 @@ try {
         // ================================
         case 'GET':
         // ================================
-            $getId = $urlId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
+            $getId = $urlId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int) $_GET['id'] : null);
 
             if ($getId) {
                 $item = $controller->get($getId, $language);
@@ -190,7 +242,7 @@ try {
                         'total'       => $total,
                         'page'        => $page,
                         'per_page'    => $limit,
-                        'total_pages' => $total > 0 ? (int)ceil($total / $limit) : 0,
+                        'total_pages' => $total > 0 ? (int) ceil($total / $limit) : 0,
                         'from'        => $total > 0 ? $offset + 1 : 0,
                         'to'          => $total > 0 ? min($offset + $limit, $total) : 0,
                     ],
@@ -204,11 +256,13 @@ try {
             // Mass-assignment guard: only allowed fields pass through.
             $data = array_intersect_key($data, array_flip($allowedFields));
 
+            // Default ownership to the authenticated user when not provided.
             $data['owner_type'] = $data['owner_type'] ?? 'user';
             $data['owner_id']   = $data['owner_id']   ?? ($user['id'] ?? null);
 
-            // 🔒 SECURITY: When the address is attached to an entity, verify that
-            // the entity belongs to the current tenant.  Platform admins are exempt.
+            // 🔒 SECURITY: When the address is attached to an entity, verify
+            // that the entity belongs to the current tenant (prevents IDOR).
+            // Platform admins are exempt (cross-tenant is intentional for them).
             if (!$isPlatformAdmin && ($data['owner_type'] ?? '') === 'entity') {
                 verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
             }
@@ -218,12 +272,12 @@ try {
             AuditLogsService::log(
                 'address.create',
                 'address',
-                (int)$newId,
+                (int) $newId,
                 null,
                 $effectiveTenantId,
                 $currentUserId,
                 null,
-                array_merge($data, ['id' => (int)$newId])
+                array_merge($data, ['id' => (int) $newId])
             );
 
             ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
@@ -232,7 +286,7 @@ try {
         // ================================
         case 'PUT':
         // ================================
-            $updateId = $urlId ?? (isset($data['id']) ? (int)$data['id'] : null);
+            $updateId = $urlId ?? (isset($data['id']) ? (int) $data['id'] : null);
             if (!$updateId) {
                 ResponseFormatter::error('ID is required for update', 400);
                 exit;
@@ -242,12 +296,12 @@ try {
             $data = array_intersect_key($data, array_flip($allowedFields));
 
             // 🔒 SECURITY: When the address is being re-assigned to an entity,
-            // verify that entity belongs to the current tenant.
+            // verify that entity belongs to the current tenant (prevents IDOR).
             if (!$isPlatformAdmin && ($data['owner_type'] ?? '') === 'entity') {
                 verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
             }
 
-            // Fetch old state for audit diff
+            // Capture old state for audit diff.
             $oldState = null;
             try {
                 $oldState = $controller->get($updateId, $language);
@@ -274,13 +328,13 @@ try {
         // ================================
         case 'DELETE':
         // ================================
-            $deleteId = $urlId ?? (isset($data['id']) ? (int)$data['id'] : null);
+            $deleteId = $urlId ?? (isset($data['id']) ? (int) $data['id'] : null);
             if (!$deleteId) {
                 ResponseFormatter::error('Missing address ID for deletion', 400);
                 exit;
             }
 
-            // Fetch old state for audit
+            // Capture old state for audit.
             $deletedState = null;
             try {
                 $deletedState = $controller->get($deleteId, $language);

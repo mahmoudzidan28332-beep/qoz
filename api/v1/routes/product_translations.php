@@ -24,12 +24,11 @@ require_once $modelsPath . '/controllers/ProductTranslationsController.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
+
 
 $user = $_SESSION['user'] ?? [];
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$effectiveTenantId = resolve_tenant_id();
 TenantContext::set($effectiveTenantId);
 
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;

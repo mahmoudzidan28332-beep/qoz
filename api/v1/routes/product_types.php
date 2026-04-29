@@ -147,4 +147,3 @@ try {
     ]);
     ResponseFormatter::error('Internal server error', 500);
 }
-

@@ -37,15 +37,19 @@ if (!$pdo instanceof PDO) {
 
 $user     = $_SESSION['user'] ?? [];
 $isPlatformAdmin = is_platform_admin();
-$effectiveId     = resolve_tenant_id();
+$effectiveId     = resolve_tenant_id() ?? 0;
 
 // Platform Admin can override the effective ID via GET
 if ($isPlatformAdmin && isset($_GET['tenant_id'])) {
     $effectiveId = (int)$_GET['tenant_id'];
 }
 
+// Resolve user_id from session
+$_brandsUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] 
+    : (isset($user['id']) ? (int)$user['id'] : null);
+
 // 🔒 SECURITY: Enforce TenantContext
-TenantContext::set($effectiveId);
+TenantContext::set((int)$effectiveId);
 
 $repo       = new PdoBrandsRepository($pdo);
 $validator  = new BrandsValidator();
@@ -93,17 +97,29 @@ try {
             break;
 
         case 'POST':
-            $body['user_id'] = get_user_id();
+            $body['user_id'] = $_brandsUserId;
+            if (!isset($body['tenant_id']) && $effectiveId > 0) {
+                $body['tenant_id'] = $effectiveId;
+            }
             ResponseFormatter::success($controller->create($body), 'Created successfully', 201);
             break;
 
         case 'PUT':
-            $body['user_id'] = get_user_id();
+            $body['user_id'] = $_brandsUserId;
+            if ($id !== null && empty($body['id'])) {
+                $body['id'] = $id;
+            }
             ResponseFormatter::success($controller->update($body), 'Updated successfully');
             break;
 
         case 'DELETE':
-            $body['user_id'] = get_user_id();
+            $body['user_id'] = $_brandsUserId;
+            if ($id !== null && empty($body['id'])) {
+                $body['id'] = $id;
+            }
+            if ($slug !== null && empty($body['slug'])) {
+                $body['slug'] = $slug;
+            }
             $controller->delete($body);
             ResponseFormatter::success(['deleted' => true], 'Deleted successfully');
             break;
