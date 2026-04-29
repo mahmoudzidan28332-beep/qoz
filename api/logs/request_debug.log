@@ -1,0 +1,245 @@
+{
+    "timestamp": "2026-04-24 11:49:05",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "nct23fkjebjqv5um1jl56oncd6"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "nct23fkjebjqv5um1jl56oncd6",
+    "session_name": "APP_SESSID",
+    "session_user_id": 7,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity",
+        "resource_permissions"
+    ],
+    "session_cookie_value_now": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "timestamp": "2026-04-24 11:51:37",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "nct23fkjebjqv5um1jl56oncd6"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "nct23fkjebjqv5um1jl56oncd6",
+    "session_name": "APP_SESSID",
+    "session_user_id": 7,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity",
+        "resource_permissions"
+    ],
+    "session_cookie_value_now": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "timestamp": "2026-04-24 11:52:36",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "nct23fkjebjqv5um1jl56oncd6"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "nct23fkjebjqv5um1jl56oncd6",
+    "session_name": "APP_SESSID",
+    "session_user_id": 7,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity",
+        "resource_permissions"
+    ],
+    "session_cookie_value_now": "nct23fkjebjqv5um1jl56oncd6"
+}
+---
+{
+    "timestamp": "2026-04-24 12:00:31",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "1mu6upu6m30tk3iaab35joq1g2"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "1mu6upu6m30tk3iaab35joq1g2"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "1mu6upu6m30tk3iaab35joq1g2",
+    "session_name": "APP_SESSID",
+    "session_user_id": 41,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity",
+        "resource_permissions"
+    ],
+    "session_cookie_value_now": "1mu6upu6m30tk3iaab35joq1g2"
+}
+---
+{
+    "timestamp": "2026-04-24 12:27:52",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "is8fb3kh5h0m9t68mv53m9a1gd",
+        "PHPSESSID": "k6o899itj80l8kq9g2rbor9vd5"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "is8fb3kh5h0m9t68mv53m9a1gd"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "is8fb3kh5h0m9t68mv53m9a1gd",
+    "session_name": "APP_SESSID",
+    "session_user_id": 7,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity"
+    ],
+    "session_cookie_value_now": "is8fb3kh5h0m9t68mv53m9a1gd"
+}
+---
+{
+    "timestamp": "2026-04-24 12:37:41",
+    "request_uri": "/api/test_debug.php",
+    "request_method": "GET",
+    "remote_addr": "5.107.213.229",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "referer": "unknown",
+    "query_string": "",
+    "cookies": {
+        "qz_dvt": "79ff95801e878ae591a6ad533267556d5fc0dd9fe79b1ee8e7a98207bcad00e3",
+        "APP_SESSID": "82helfusijrqignhsmh5hj7v73"
+    },
+    "session_name": "PHPSESSID",
+    "session_cookie_exists": true,
+    "session_cookie_value": "82helfusijrqignhsmh5hj7v73"
+}
+---
+{
+    "session_status": 2,
+    "session_id": "82helfusijrqignhsmh5hj7v73",
+    "session_name": "APP_SESSID",
+    "session_user_id": 7,
+    "session_keys": [
+        "__initiated",
+        "csrf_token",
+        "identity_debug",
+        "user_id",
+        "user",
+        "permissions",
+        "roles",
+        "platform_admin",
+        "platform_role",
+        "platform_user_id",
+        "tenant_id",
+        "logged_in",
+        "last_activity"
+    ],
+    "session_cookie_value_now": "82helfusijrqignhsmh5hj7v73"
+}
+---

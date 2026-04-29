@@ -1,0 +1,41 @@
+{
+    "timestamp": "2026-04-24 11:49:52",
+    "request_id": "6ea74f8a7dfe8e1d",
+    "session_id": "nct23fkjebjqv5um1jl56oncd6",
+    "session_name": "APP_SESSID",
+    "cookie_value": "nct23fkjebjqv5um1jl56oncd6",
+    "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/147.0.0.0 Safari\/537.36",
+    "request_uri": "\/api\/track_identity.php",
+    "remote_ip": "5.107.213.229",
+    "session": {
+        "user_id": 7,
+        "tenant_id": 1,
+        "username": "admin28332",
+        "email": "zedanmahmoud99@gmail.com",
+        "is_authenticated": true,
+        "session_keys": [
+            "__initiated",
+            "csrf_token",
+            "identity_debug",
+            "user_id",
+            "user",
+            "permissions",
+            "roles",
+            "platform_admin",
+            "platform_role",
+            "platform_user_id",
+            "tenant_id",
+            "logged_in",
+            "last_activity",
+            "resource_permissions"
+        ]
+    },
+    "session_debug": {
+        "has_user_id": true,
+        "has_user_array": true,
+        "has_permissions": true,
+        "has_roles": true,
+        "has_tenant_id": true
+    }
+}
+================================================================================
