@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Shared\Application\Auth;
 
 use PDO;
-use Shared\Domain\Exceptions\DatabaseException;
 
 class IdentityHydrator
 {
@@ -76,7 +75,7 @@ class IdentityHydrator
             return new UserIdentity($userId, $tenantId, $roleId, $roles, $permissions, $resourcePermissions, true, (string)($candidate['source'] ?? 'db'), $requestId, $user, ['hydrated_from_db' => true]);
         } catch (\PDOException $e) {
             if (function_exists('safe_log')) safe_log('error', 'IdentityHydrator: Hydration failed', ['error' => $e->getMessage()]);
-            throw new DatabaseException('Identity hydration failed due to a database error', ['user_id' => $userId], $e);
+            throw \ExceptionFactory::database($e, ['user_id' => $userId], 'Identity hydration failed due to a database error');
         }
     }
 

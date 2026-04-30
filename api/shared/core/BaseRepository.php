@@ -181,10 +181,10 @@ abstract class BaseRepository
                     'sqlstate'  => $e->getCode(),
                 ]);
             }
-            throw new DatabaseException(
-                'Database query failed',
+            throw ExceptionFactory::database(
+                $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
-                $e
+                'Database query failed'
             );
         }
 
@@ -265,10 +265,10 @@ abstract class BaseRepository
                     'sqlstate' => $e->getCode(),
                 ]);
             }
-            throw new DatabaseException(
-                'Database query failed',
+            throw ExceptionFactory::database(
+                $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
-                $e
+                'Database query failed'
             );
         }
 
@@ -307,10 +307,10 @@ abstract class BaseRepository
                     'sqlstate' => $e->getCode(),
                 ]);
             }
-            throw new DatabaseException(
-                'Database query failed',
+            throw ExceptionFactory::database(
+                $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
-                $e
+                'Database query failed'
             );
         }
         return $stmt;
@@ -481,10 +481,10 @@ abstract class BaseRepository
                     'sqlstate'         => $e->getCode(),
                 ]);
             }
-            throw new DatabaseException(
-                'Cross-tenant database query failed',
+            throw ExceptionFactory::database(
+                $e,
                 ['table' => $table, 'target_tenant_id' => $targetTenantId, 'sqlstate' => $e->getCode()],
-                $e
+                'Cross-tenant database query failed'
             );
         }
 
