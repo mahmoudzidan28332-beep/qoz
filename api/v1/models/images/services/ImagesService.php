@@ -136,7 +136,7 @@ final class ImagesService
             $savedImage = $this->repo->find($tenantId, $id);
             if (!$savedImage) { throw new RuntimeException("Failed to retrieve saved image"); }
             return $savedImage;
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             if (file_exists($serverPath)) { unlink($serverPath); }
             if (isset($thumbPath) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath)) { unlink($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath); }
             throw new RuntimeException("Failed to process image {$originalName}: " . $e->getMessage());
@@ -218,7 +218,7 @@ final class ImagesService
                 'filename' => basename($thumbPath),
                 'path' => $thumbPath
             ];
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Log error but don't fail the upload
             error_log("Thumbnail creation failed: " . $e->getMessage());
             return null;
@@ -259,7 +259,7 @@ final class ImagesService
                     $imagesToDelete[] = $image;
                     $this->deleteImageFiles($image);
                 }
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 // Continue with other images even if one fails
                 error_log("Failed to delete image {$id}: " . $e->getMessage());
             }

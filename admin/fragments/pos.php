@@ -206,7 +206,7 @@ if (!empty($GLOBALS['ADMIN_DB']) && $GLOBALS['ADMIN_DB'] instanceof PDO) {
             $defaultCurrency = (string)$currRow['code'];
             $defaultCurrencySymbol = (string)($currRow['symbol'] ?? $currRow['code']);
         }
-    } catch (Throwable $e) { /* use fallback */ }
+    } catch (\RuntimeException $e) { /* use fallback */ }
 }
 ?>
 <!-- POS Config -->

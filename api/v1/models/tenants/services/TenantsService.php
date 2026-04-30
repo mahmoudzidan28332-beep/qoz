@@ -283,7 +283,7 @@ final class TenantsService
             }
         } catch (InvalidArgumentException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Bad-words service failure must not block the primary operation
             error_log('[TenantsService] Bad-words check failed: ' . $e->getMessage());
         }
@@ -301,7 +301,7 @@ final class TenantsService
         try {
             // whitelist allowed fields to prevent mass assignment
             $this->auditRepo->save($data);
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Audit failure must never break the primary operation
             error_log('[TenantsService] Audit log write failed: ' . $e->getMessage());
         }

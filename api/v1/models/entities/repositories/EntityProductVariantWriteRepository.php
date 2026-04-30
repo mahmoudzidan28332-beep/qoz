@@ -129,7 +129,7 @@ final class EntityProductVariantWriteRepository
         } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw new \RuntimeException('Failed to save entity variants: ' . $e->getMessage(), 0, $e);
-        } catch (\Exception $e) {
+        } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw $e;
         }

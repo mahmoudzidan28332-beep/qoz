@@ -149,7 +149,7 @@ if ($first === 'auctions') {
             $bidsRepo->updateAuctionAfterBid($auctionId, $bidAmount, $auctionUserId, $newBidId);
             $pdo->commit();
             ResponseFormatter::success(['ok' => true, 'bid_id' => $newBidId, 'new_price' => $bidAmount], 'Bid placed', 201);
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500);
         }
@@ -170,7 +170,7 @@ if ($first === 'auctions') {
             if ($maxBid < $abMinBid) { ResponseFormatter::error("Max bid must be at least $abMinBid", 422); exit; }
             $autoBidRepo->upsert($auctionId, $auctionUserId, $maxBid);
             ResponseFormatter::success(['ok' => true, 'max_bid' => $maxBid], 'Auto-bid set');
-        } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
         exit;
     }
 
@@ -185,7 +185,7 @@ if ($first === 'auctions') {
             } else {
                 ResponseFormatter::success(['ok' => true, 'watching' => false], 'Unwatched');
             }
-        } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
         exit;
     }
 
@@ -224,7 +224,7 @@ if ($first === 'auctions') {
             if ($aProductId && $bnOrderId) {
                 try {
                     $bidsRepo->insertAuctionOrderItem($aTenantId, $bnOrderId, $aEntityId, $aProductId, $prdName, $prdSku, $aBuyPrice);
-                } catch (Throwable $e) {
+                } catch (\RuntimeException $e) {
                     error_log('[auctions] insert order item failed: ' . $e->getMessage());
                 }
             }
@@ -233,11 +233,11 @@ if ($first === 'auctions') {
             try {
                 $bnPmNum = 'PAY-AUC-' . $auctionId . '-' . time();
                 $bidsRepo->insertAuctionPayment($aEntityId, $bnPmNum, $bnOrderId, $auctionUserId, $aBuyPrice, $_SERVER['REMOTE_ADDR'] ?? null);
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 error_log('[auctions] insert payment record failed: ' . $e->getMessage());
             }
             ResponseFormatter::success(['ok' => true, 'bid_id' => $bnId, 'amount' => $aBuyPrice, 'order_id' => $bnOrderId, 'order_number' => $bnOrderNum], 'Purchased!');
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500);
         }
@@ -282,7 +282,7 @@ if ($first === 'auctions') {
                 $pdo->commit();
                 ResponseFormatter::success(['ok' => true, 'transferred_to' => null], 'No second bidder — auction marked as ended without winner');
             }
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500);
         }

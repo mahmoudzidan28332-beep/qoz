@@ -213,7 +213,7 @@ final class PdoSubscriptionsRepository
                 ':due' => $data['start_date'] ?? date('Y-m-d')
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoSubscriptionsRepository] invoice creation failed: ' . $e->getMessage());
         }
 
@@ -286,7 +286,7 @@ final class PdoSubscriptionsRepository
                 ':due' => $startDate
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoSubscriptionsRepository] upgrade invoice creation failed: ' . $e->getMessage());
         }
 

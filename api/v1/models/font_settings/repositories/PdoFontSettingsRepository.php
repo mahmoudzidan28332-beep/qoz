@@ -212,7 +212,7 @@ final class PdoFontSettingsRepository
 
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

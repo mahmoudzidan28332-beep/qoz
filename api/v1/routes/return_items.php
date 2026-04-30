@@ -115,6 +115,6 @@ try {
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     ResponseFormatter::error('Server error: ' . $e->getMessage(), 500);
 }

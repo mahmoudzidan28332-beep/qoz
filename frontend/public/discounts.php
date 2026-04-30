@@ -231,7 +231,7 @@ if ($pdo) {
                 }
                 unset($d);
 
-            } catch (Throwable $se) {
+            } catch (\RuntimeException $se) {
                 error_log('[discounts.php] scopes: ' . $se->getMessage());
             }
         }
@@ -254,7 +254,7 @@ if ($pdo) {
             $merchantsRaw = $mStmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[discounts.php] PDO error: ' . $e->getMessage());
     }
 } else {

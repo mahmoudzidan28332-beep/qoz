@@ -182,7 +182,7 @@ try {
         'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
     ]);
     ResponseFormatter::error('Database error', 500);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'tenant_users.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

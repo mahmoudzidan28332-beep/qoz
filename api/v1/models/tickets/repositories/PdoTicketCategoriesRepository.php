@@ -209,7 +209,7 @@ final class PdoTicketCategoriesRepository implements TicketCategoriesRepositoryI
             $this->pdo->commit();
             return $categoryId;
 
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

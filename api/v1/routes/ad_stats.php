@@ -127,7 +127,7 @@ try {
         default:
             ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'ad_stats.fatal', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }

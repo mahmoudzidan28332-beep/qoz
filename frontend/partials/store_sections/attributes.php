@@ -24,7 +24,7 @@ if (empty($attrs) && $pdo && $_eid) {
         );
         $atStmt->execute([$lang, $_eid]);
         $attrs = $atStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         $attrs = [];
     }
 }

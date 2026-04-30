@@ -85,7 +85,7 @@ if ($first === 'entity') {
                   ORDER BY ss.position ASC",
                 [$lang, $entityRow['tenant_id']]
             );
-        } catch (\Throwable $_) {
+        } catch (\RuntimeException $_) {
             // Tables may not exist yet — fall back to defaults
             $sections = [];
         }
@@ -211,7 +211,7 @@ if ($first === 'entity') {
                   ORDER BY sort_order ASC, type ASC",
                 $params
             );
-        } catch (\Throwable $_) {
+        } catch (\RuntimeException $_) {
             // Table may not exist yet
             $rows = [];
         }
@@ -242,7 +242,7 @@ if ($first === 'entity') {
                   LIMIT 50",
                 [$lang, $entityId]
             );
-        } catch (\Throwable $_) {
+        } catch (\RuntimeException $_) {
             $rows = [];
         }
 
@@ -330,7 +330,7 @@ if ($first === 'entity') {
                     $msg = 'Rating submitted';
                 }
                 ResponseFormatter::success(['ok' => true, 'message' => $msg]);
-            } catch (Throwable $ex) {
+            } catch (\RuntimeException $ex) {
                 ResponseFormatter::error('Failed to save rating: ' . $ex->getMessage());
             }
             exit;

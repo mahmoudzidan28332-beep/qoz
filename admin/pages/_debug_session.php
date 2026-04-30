@@ -456,7 +456,7 @@ header('Content-Type: text/html; charset=utf-8');
                         echo '<p class="error">✗ User has no role assigned</p>';
                     }
                     
-                } catch (Exception $e) {
+                } catch (\RuntimeException $e) {
                     echo '<p class="error">✗ Error: ' . htmlspecialchars($e->getMessage()) . '</p>';
                 }
             else:

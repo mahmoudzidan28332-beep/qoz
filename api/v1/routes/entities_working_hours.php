@@ -117,7 +117,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), $code);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     // System errors
     safe_log('critical', 'entities_working_hours.system', [
         'error' => $e->getMessage(),
@@ -146,7 +146,7 @@ function handleGetRequest(
             verify_entity_ownership($pdo, $entityId, $tenantId);
             $result = $controller->getByEntity($entityId);
             ResponseFormatter::success($result);
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
         }
         return;
@@ -159,7 +159,7 @@ function handleGetRequest(
             verify_entity_ownership($pdo, $entityId, $tenantId);
             $result = $controller->getByEntity($entityId);
             ResponseFormatter::success($result);
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
         }
         return;
@@ -208,7 +208,7 @@ function handlePostRequest(
     try {
         $id = $controller->create($data);
         ResponseFormatter::success(['id' => $id], 'Created successfully', 201);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         throw $e;
     }
 }

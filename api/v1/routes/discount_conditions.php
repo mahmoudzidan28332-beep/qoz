@@ -94,7 +94,7 @@ try {
         default:
             ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
 

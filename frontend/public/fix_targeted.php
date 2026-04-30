@@ -19,7 +19,7 @@ foreach($tables as $t) {
         
         $pdo->exec("ALTER TABLE `$t` MODIFY `id` $type AUTO_INCREMENT");
         echo "  DONE.\n";
-    } catch(Exception $e) {
+    } catch (\RuntimeException $e) {
         echo "  FAILED: " . $e->getMessage() . "\n";
     }
 }

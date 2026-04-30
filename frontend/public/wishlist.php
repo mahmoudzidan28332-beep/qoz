@@ -46,7 +46,7 @@ if ($pdo) {
             $stItems->execute([$lang, $wishlistId]);
             $wishItems = $stItems->fetchAll(PDO::FETCH_ASSOC);
         }
-    } catch (Throwable $ex) {
+    } catch (\RuntimeException $ex) {
         $wishItems = [];
     }
 }

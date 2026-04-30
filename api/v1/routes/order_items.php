@@ -39,4 +39,4 @@ try {
     }
 } catch (\InvalidArgumentException $e) { safe_log('warning', 'order_items.validation', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 422); }
 catch (\RuntimeException $e) { safe_log('error', 'order_items.runtime', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 400); }
-catch (Throwable $e) { safe_log('critical', 'order_items.fatal', ['error' => $e->getMessage()]); ResponseFormatter::error('Internal Server Error', 500); }
+catch (\RuntimeException $e) { safe_log('critical', 'order_items.fatal', ['error' => $e->getMessage()]); ResponseFormatter::error('Internal Server Error', 500); }

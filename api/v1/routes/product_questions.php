@@ -163,7 +163,7 @@ try {
 } catch (PDOException $e) {
     safe_log('error', 'Database error in ProductQuestions', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'ProductQuestions route failed', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Internal server error: ' . $e->getMessage(), 500);
 }

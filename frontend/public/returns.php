@@ -43,7 +43,7 @@ if ($pdo && $userId) {
         );
         $st->execute($params);
         $returns = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) { /* show empty state */ }
+    } catch (\RuntimeException $e) { /* show empty state */ }
 }
 
 // ── Load eligible orders for return dropdown ─────────────────────────────────
@@ -60,7 +60,7 @@ if ($pdo && $userId) {
         );
         $st->execute([$userId, $tenantId]);
         $eligibleOrders = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) { /* will fall back to JS API call */ }
+    } catch (\RuntimeException $e) { /* will fall back to JS API call */ }
 }
 
 // ── Status helpers ──────────────────────────────────────────────────────────

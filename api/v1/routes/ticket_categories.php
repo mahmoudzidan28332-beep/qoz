@@ -120,7 +120,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error', 'ticket_categories.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'ticket_categories.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('An unexpected error occurred', 500);
 }

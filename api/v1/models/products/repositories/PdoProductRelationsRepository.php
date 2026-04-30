@@ -156,7 +156,7 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             $this->pdo->commit();
             return $newId;
 
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }
@@ -216,7 +216,7 @@ final class PdoProductRelationsRepository implements ProductRelationsRepositoryI
             $this->pdo->commit();
             return $result;
 
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

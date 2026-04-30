@@ -233,7 +233,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error', 'job_skills.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'job_skills.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

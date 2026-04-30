@@ -120,7 +120,7 @@ if (!$product && $pdo) {
                     } elseif (!empty($product['image_url']) && empty($product['image_thumb_url'])) {
                         $product['image_thumb_url'] = $product['image_url'];
                     }
-                } catch (Throwable $_) { $images = []; }
+                } catch (\RuntimeException $_) { $images = []; }
 
                 // Categories — own try-catch for same reason
                 try {
@@ -133,7 +133,7 @@ if (!$product && $pdo) {
                     );
                     $st->execute([$productId, $lang]);
                     $categories = $st->fetchAll();
-                } catch (Throwable $_) { $categories = []; }
+                } catch (\RuntimeException $_) { $categories = []; }
 
                 // Variants — load active variants with their pricing
                 try {
@@ -147,7 +147,7 @@ if (!$product && $pdo) {
                     );
                     $st->execute([$productId, $productId, $productId]);
                     $variants = $st->fetchAll();
-                } catch (Throwable $_) {
+                } catch (\RuntimeException $_) {
                     $variants = [];
                 }
 
@@ -173,7 +173,7 @@ if (!$product && $pdo) {
                         );
                         $st->execute([(int)$categories[0]['id'], $lang, $productId]);
                         $related = $st->fetchAll();
-                    } catch (Throwable $_) {
+                    } catch (\RuntimeException $_) {
                         $related = []; // non-critical: related products failing must not affect main product
                     }
                 }
@@ -187,14 +187,14 @@ if (!$product && $pdo) {
                          VALUES (?, ?, ?, NOW())
                          ON DUPLICATE KEY UPDATE viewed_at = NOW()'
                     )->execute([$rvUid, $rvSid, $productId]);
-                } catch (Throwable $_) {
+                } catch (\RuntimeException $_) {
                     try {
                         $rvUid2 = $_SESSION['user_id'] ?? null;
                         $pdo->prepare(
                             'INSERT IGNORE INTO recently_viewed_products (user_id, session_id, product_id, viewed_at)
                              VALUES (?, ?, ?, NOW())'
                         )->execute([$rvUid2, session_id() ?: null, $productId]);
-                    } catch (Throwable $__) { /* non-fatal */ }
+                    } catch (\RuntimeException $__) { /* non-fatal */ }
                 }
 
                 // Reviews — approved only
@@ -210,7 +210,7 @@ if (!$product && $pdo) {
                     );
                     $st->execute([$productId]);
                     $reviews = $st->fetchAll();
-                } catch (Throwable $_) { $reviews = []; }
+                } catch (\RuntimeException $_) { $reviews = []; }
 
                 // Q&A — approved questions + approved answers
                 try {
@@ -237,7 +237,7 @@ if (!$product && $pdo) {
                         $qRow['answers'] = $sta->fetchAll();
                     }
                     unset($qRow);
-                } catch (Throwable $_) { $questions = []; }
+                } catch (\RuntimeException $_) { $questions = []; }
 
                 // Product relations (upsell/cross_sell/accessory/alternative)
                 try {
@@ -255,10 +255,10 @@ if (!$product && $pdo) {
                     );
                     $st->execute([$lang, $productId]);
                     $relations = $st->fetchAll();
-                } catch (Throwable $_) { $relations = []; }
+                } catch (\RuntimeException $_) { $relations = []; }
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[product.php] PDO product load failed: ' . $e->getMessage());
         $product = null;
     }
@@ -298,7 +298,7 @@ if ($product && $pdo && $productId) {
             );
             $st->execute([$productId, $productId, $productId]);
             $variants = $st->fetchAll();
-        } catch (Throwable $_) { $variants = []; }
+        } catch (\RuntimeException $_) { $variants = []; }
     }
     // Reviews
     if (empty($reviews)) {
@@ -314,7 +314,7 @@ if ($product && $pdo && $productId) {
             );
             $st->execute([$productId]);
             $reviews = $st->fetchAll();
-        } catch (Throwable $_) { $reviews = []; }
+        } catch (\RuntimeException $_) { $reviews = []; }
     }
 }
 

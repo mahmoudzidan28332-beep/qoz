@@ -139,7 +139,7 @@ final class JobAlertsService
                     $this->repo->toggleActive($userId, (int)$alertId);
                     $updated++;
                 }
-            } catch (Exception $e) {
+            } catch (\RuntimeException $e) {
                 // تسجيل الخطأ والمتابعة
                 continue;
             }

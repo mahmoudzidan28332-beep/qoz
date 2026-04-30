@@ -181,7 +181,7 @@ try {
 
     ResponseFormatter::error('Method not allowed', 405);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log(sprintf(
         '[UserDevices API] %s in %s:%d | URI: %s',
         $e->getMessage(), $e->getFile(), $e->getLine(),

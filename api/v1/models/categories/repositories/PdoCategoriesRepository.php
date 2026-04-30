@@ -219,7 +219,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 
             $this->pdo->commit();
             return $categoryId;
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }
@@ -348,7 +348,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             $this->pdo->commit();
             return true;
 
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

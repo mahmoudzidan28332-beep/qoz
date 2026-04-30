@@ -97,7 +97,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'Product_categories route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

@@ -215,7 +215,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error','entities_attribute_values.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log("Error in entities_attribute_values: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
     safe_log('critical','entities_attribute_values.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);

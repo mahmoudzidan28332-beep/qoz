@@ -109,7 +109,7 @@ try {
             break;
     }
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log("Coupons route error: " . $e->getMessage());
     Response::error('Server error', 500);
 }

@@ -260,7 +260,7 @@ final class PdoThemesRepository
                 ->execute([':id' => $id]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -297,7 +297,7 @@ final class PdoThemesRepository
                 ->execute([':id' => (int)$theme['id']]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -334,7 +334,7 @@ final class PdoThemesRepository
                 ->execute([':id' => (int)$theme['id']]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -424,7 +424,7 @@ final class PdoThemesRepository
 
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

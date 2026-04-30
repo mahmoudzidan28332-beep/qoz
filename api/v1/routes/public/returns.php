@@ -280,7 +280,7 @@ if ($retMethod === 'POST' && $retSub === '') {
                 if (!$oiId) continue;
                 try {
                     $returnItemsRepo->createReturnItem($returnId, $oiId, $qty, $retTenantId);
-                } catch (Throwable $riEx) {
+                } catch (\RuntimeException $riEx) {
                     error_log('[returns] insert return item failed: ' . $riEx->getMessage());
                 }
             }
@@ -293,8 +293,8 @@ if ($retMethod === 'POST' && $retSub === '') {
             'return_number' => $returnNumber,
             'success'       => true,
         ], 'Return request submitted successfully', 201);
-    } catch (Throwable $ex) {
-        try { $pdo->rollBack(); } catch (Throwable $rb) { error_log('[returns] rollback failed: ' . $rb->getMessage()); }
+    } catch (\RuntimeException $ex) {
+        try { $pdo->rollBack(); } catch (\RuntimeException $rb) { error_log('[returns] rollback failed: ' . $rb->getMessage()); }
         ResponseFormatter::error('Failed to create return request', 500);
     }
     exit;

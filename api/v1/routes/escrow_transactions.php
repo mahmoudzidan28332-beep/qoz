@@ -115,7 +115,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error', 'escrow_transactions.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'escrow_transactions.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('An unexpected error occurred', 500);
 }

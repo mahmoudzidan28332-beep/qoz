@@ -181,7 +181,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred.', 500);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', '[DeliveryZones] Unexpected error', [
         'tenant_id' => $tenantId,
         'error'     => $e->getMessage(),

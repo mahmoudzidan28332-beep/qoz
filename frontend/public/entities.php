@@ -75,7 +75,7 @@ if ($pdo) {
         );
         $stmt->execute(array_merge([$lang], $params));
         $entities = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[entities.php] PDO error: ' . $e->getMessage());
     }
 }

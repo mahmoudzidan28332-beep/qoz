@@ -140,7 +140,7 @@ try {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'permissions.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'permissions.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

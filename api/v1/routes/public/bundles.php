@@ -39,7 +39,7 @@ if ($first === 'bundles') {
             $bundle['description_text'] = $lang === 'ar' ? ($bundle['description_ar'] ?? $bundle['description']) : $bundle['description'];
             $bundle['items'] = $items;
             ResponseFormatter::success(['ok' => true, 'bundle' => $bundle]);
-        } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
         exit;
     }
 
@@ -75,6 +75,6 @@ if ($first === 'bundles') {
             array_merge([$lang], $bundleParams, [$per, $offset])
         );
         ResponseFormatter::success(['ok' => true, 'data' => $rows]);
-    } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+    } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
     exit;
 }

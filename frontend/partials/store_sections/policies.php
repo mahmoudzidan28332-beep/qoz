@@ -45,7 +45,7 @@ if ($pdo && $_eid) {
         foreach ($rows as $row) {
             $policies[$row['type']] = $row;
         }
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         // Table may not exist yet — no policies to show
         $policies = [];
     }

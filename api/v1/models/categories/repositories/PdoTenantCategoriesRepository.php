@@ -295,7 +295,7 @@ final class PdoTenantCategoriesRepository extends BaseRepository
 
             $this->pdo->commit();
             return ['added' => $added, 'removed' => $removed];
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

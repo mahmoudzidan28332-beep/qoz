@@ -31,7 +31,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
         );
         $jStmt->execute([$lang, $entityId, $jobLimit]);
         $entityJobs = $jStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         // jobs table may not exist — silently skip
         $entityJobs = [];
     }

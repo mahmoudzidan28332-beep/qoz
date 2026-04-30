@@ -34,7 +34,7 @@ function debug_store_hours($entityId) {
             'dow' => (int)$now->format('w'),
             'mins' => (int)$now->format('H') * 60 + (int)$now->format('i')
         ];
-    } catch (Exception $ex) {
+    } catch (\RuntimeException $ex) {
         $res['error'] = $ex->getMessage();
     }
     

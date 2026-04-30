@@ -180,7 +180,7 @@ try {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'cart_events.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'cart_events.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

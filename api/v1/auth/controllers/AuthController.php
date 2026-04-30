@@ -60,7 +60,7 @@ class AuthController
                 'user' => $_SESSION['user']
             ], 'Login successful');
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthController::login ' . $e->getMessage());
             ResponseFormatter::serverError();
         }
@@ -95,7 +95,7 @@ class AuthController
 
             ResponseFormatter::success([], 'Logout successful');
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthController::logout ' . $e->getMessage());
             ResponseFormatter::serverError();
         }
@@ -119,7 +119,7 @@ class AuthController
                 'user' => $_SESSION['user']
             ]);
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthController::me ' . $e->getMessage());
             ResponseFormatter::serverError();
         }
@@ -155,7 +155,7 @@ class AuthController
                 'id' => (int)$id
             ], 'Registration successful');
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthController::register ' . $e->getMessage());
             ResponseFormatter::serverError();
         }

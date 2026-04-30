@@ -87,7 +87,7 @@ try {
             exit;
     }
     
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     Logger::error('Users Route Error: ' . $e->getMessage(), [
         'method' => $requestMethod,
         'params' => $routeParams,

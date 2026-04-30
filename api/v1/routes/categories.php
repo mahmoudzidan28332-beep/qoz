@@ -182,7 +182,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[categories] SEO sync on create failed: ' . $e->getMessage());
         }
 
@@ -207,7 +207,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[categories] SEO sync on update failed: ' . $e->getMessage());
         }
 
@@ -235,7 +235,7 @@ try {
         // Auto-delete SEO meta
         try {
             SeoAutoManager::delete($pdo, 'category', $id);
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[categories] SEO delete failed: ' . $e->getMessage());
         }
 
@@ -254,7 +254,7 @@ try {
             if ($delId) {
                 SeoAutoManager::delete($pdo, 'category', (int)$delId);
             }
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[categories] SEO delete on bulk delete failed: ' . $e->getMessage());
         }
 
@@ -277,7 +277,7 @@ try {
     }
 } catch (RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'Categories route failed', [
         'error' => $e->getMessage(),
         'file' => $e->getFile(),

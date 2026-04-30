@@ -117,7 +117,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error','resource_permissions.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical','resource_permissions.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal server error', 500);
 }

@@ -297,7 +297,7 @@ if ($first === 'cart') {
 
             ResponseFormatter::success(['ok' => true, 'cart_id' => $cid], 'Item added', 201);
 
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             ResponseFormatter::error('Failed to add item: ' . $ex->getMessage(), 500);
         }
         exit;
@@ -342,7 +342,7 @@ if ($first === 'cart') {
             $refreshTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
 
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             ResponseFormatter::error('Failed to update item', 500);
         }
         exit;
@@ -379,7 +379,7 @@ if ($first === 'cart') {
             $refreshTotals((int)$item['cart_id']);
             ResponseFormatter::success(['ok' => true]);
 
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             ResponseFormatter::error('Failed to remove item', 500);
         }
         exit;
@@ -407,7 +407,7 @@ if ($first === 'cart') {
 
             ResponseFormatter::success(['ok' => true]);
 
-        } catch (Throwable $ex) {
+        } catch (\RuntimeException $ex) {
             ResponseFormatter::error('Failed to clear cart', 500);
         }
         exit;

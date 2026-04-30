@@ -387,7 +387,7 @@ final class PdoEntitiesAttributeValuesRepository
             
             $this->pdo->commit();
             return $savedIds;
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

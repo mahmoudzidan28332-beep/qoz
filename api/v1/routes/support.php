@@ -136,7 +136,7 @@ try {
             break;
     }
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log("Support route error: " . $e->getMessage());
     Response::error('Server error', 500);
 }

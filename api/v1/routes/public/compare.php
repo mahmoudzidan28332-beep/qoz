@@ -30,7 +30,7 @@ if ($first === 'compare') {
             if ($cmpCount >= 4) { ResponseFormatter::error('Max 4 products in comparison', 400); exit; }
             $cmpItemRepo->addItem($cmpId, $cmpPid);
             ResponseFormatter::success(['ok' => true, 'comparison_id' => $cmpId]);
-        } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
         exit;
     }
 
@@ -42,7 +42,7 @@ if ($first === 'compare') {
                 $cmpItemRepo->removeItem($cmpId, $cmpPid);
             }
             ResponseFormatter::success(['ok' => true]);
-        } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
         exit;
     }
 
@@ -53,7 +53,7 @@ if ($first === 'compare') {
                 $cmpItemRepo->clearItems($cmpId);
             }
             ResponseFormatter::success(['ok' => true]);
-        } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+        } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
         exit;
     }
 
@@ -81,7 +81,7 @@ if ($first === 'compare') {
             );
         }
         ResponseFormatter::success(['ok' => true, 'products' => $rows]);
-    } catch (Throwable $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
+    } catch (\RuntimeException $ex) { ResponseFormatter::error($ex->getMessage(), 500); }
     exit;
 }
 

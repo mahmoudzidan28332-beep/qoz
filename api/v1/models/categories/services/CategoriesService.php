@@ -387,7 +387,7 @@ final class CategoriesService
             try {
                 $this->deleteById($tenantId, (int)$id, $userId);
                 $deletedCount++;
-            } catch (Exception $e) {
+            } catch (\RuntimeException $e) {
                 error_log("Failed to delete category {$id}: " . $e->getMessage());
             }
         }

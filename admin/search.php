@@ -182,7 +182,7 @@ foreach ($sources as $key => $cfg) {
                 $totalCount++;
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         // ignore this table if it doesn't exist or query fails; do not stop entire search
         // optionally: log error to server logs
         error_log('search.php: skipping table ' . $table . ' error: ' . $e->getMessage());

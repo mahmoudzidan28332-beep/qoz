@@ -135,7 +135,7 @@ try {
 } catch (RuntimeException $e) {
     safe_log('error', 'notification_channels.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'notification_channels.fatal', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

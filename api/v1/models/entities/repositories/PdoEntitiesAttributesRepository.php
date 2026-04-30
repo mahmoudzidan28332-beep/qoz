@@ -325,7 +325,7 @@ final class PdoEntitiesAttributesRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

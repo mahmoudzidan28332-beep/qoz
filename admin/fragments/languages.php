@@ -15,7 +15,7 @@ $ADMIN_UI_PAYLOAD = [];
 if (!$isExternal) {
     $bootstrap = __DIR__ . '/../../api/bootstrap_admin_ui.php';
     if (is_readable($bootstrap)) {
-        try { require_once $bootstrap; } catch (Throwable $e) {}
+        try { require_once $bootstrap; } catch (\RuntimeException $e) {}
     }
     $ADMIN_UI_PAYLOAD = $GLOBALS['ADMIN_UI'] ?? [];
 }

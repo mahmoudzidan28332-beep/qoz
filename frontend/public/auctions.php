@@ -67,7 +67,7 @@ if ($pdo) {
             if (empty($a['title'])) $a['title'] = $a['slug'];
         }
         unset($a);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[auctions.php] ' . $e->getMessage());
         echo '<!-- [auctions] query error: ' . htmlspecialchars($e->getMessage()) . ' -->';
     }

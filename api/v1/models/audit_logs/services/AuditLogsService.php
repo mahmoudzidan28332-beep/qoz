@@ -85,7 +85,7 @@ final class AuditLogsService
             ];
 
             $repo->save($data);
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Audit logging must never break the main flow
             error_log('AuditLog Exception: ' . $e->getMessage());
         }

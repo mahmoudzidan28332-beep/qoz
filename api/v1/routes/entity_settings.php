@@ -191,7 +191,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error','entity_settings.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical','entity_settings.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error', 500);
 }

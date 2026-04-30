@@ -201,7 +201,7 @@ final class PdoBannersRepository
 
             $this->pdo->commit();
             return (bool)$ok;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }
@@ -273,7 +273,7 @@ final class PdoBannersRepository
                 ':tenantId' => $tenantId,
                 ':typeId'   => self::IMAGE_TYPE_ID,
             ]);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoBannersRepository] attachImage failed: ' . $e->getMessage());
         }
     }
@@ -357,7 +357,7 @@ final class PdoBannersRepository
                 ':changes'  => $changes,
                 ':ip'       => $_SERVER['REMOTE_ADDR'] ?? null,
             ]);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoBannersRepository] logAction failed: ' . $e->getMessage());
         }
     }

@@ -174,7 +174,7 @@ try {
     pos_json_error($e->getMessage(), 400);
 } catch (RuntimeException $e) {
     pos_json_error($e->getMessage(), 404);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'pos_sessions.fatal', ['error' => $e->getMessage()]);
     pos_json_error('Internal Server Error: ' . $e->getMessage(), 500);
 }

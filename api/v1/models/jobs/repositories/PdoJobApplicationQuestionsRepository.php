@@ -255,7 +255,7 @@ final class PdoJobApplicationQuestionsRepository
             }
             $this->pdo->commit();
             return true;
-        } catch (\Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

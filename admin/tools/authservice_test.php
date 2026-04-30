@@ -72,13 +72,13 @@ try {
         try {
             $row = $pdo->query("SELECT DATABASE() AS db, NOW() AS now")->fetch(PDO::FETCH_ASSOC);
             echo "DB: " . ($row['db'] ?? '(unknown)') . "  | now: " . ($row['now'] ?? '') . PHP_EOL;
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             echo "Note: failed to run sample query: " . $e->getMessage() . PHP_EOL;
         }
     } else {
         echo "WARNING: DatabaseConnection class not found. AuthService will attempt internal connection." . PHP_EOL;
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "DB connect error: " . $e->getMessage() . PHP_EOL;
     echo $e->getTraceAsString() . PHP_EOL;
     exit(1);
@@ -88,7 +88,7 @@ try {
 try {
     $auth = new AuthService($pdo ?? null);
     echo "✅ AuthService loaded!" . PHP_EOL;
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "ERROR: failed to instantiate AuthService: " . $e->getMessage() . PHP_EOL;
     echo $e->getTraceAsString() . PHP_EOL;
     exit(1);
@@ -114,7 +114,7 @@ if ($identifier === '' || $password === '') {
         }
         echo "To test, re-run with ?id=username&pw=yourpassword or via CLI.\n";
         exit(0);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         echo "Failed to query users: " . $e->getMessage() . PHP_EOL;
         exit(1);
     }
@@ -158,7 +158,7 @@ foreach ($tests as $id) {
                         if ($pv === 'NO' && preg_match('/^[a-f0-9]{32}$/i', $hp)) {
                             echo " -> Stored hash looks like MD5. md5(password) === stored ? " . (md5($password) === $hp ? 'YES' : 'NO') . PHP_EOL;
                         }
-                    } catch (Throwable $e) {
+                    } catch (\RuntimeException $e) {
                         echo " -> password_verify threw: " . $e->getMessage() . PHP_EOL;
                     }
                 }
@@ -166,7 +166,7 @@ foreach ($tests as $id) {
                 echo " -> No PDO available to inspect DB further.\n";
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         echo "ERROR while testing login for '{$id}': " . $e->getMessage() . PHP_EOL;
         echo $e->getTraceAsString() . PHP_EOL;
     }

@@ -328,7 +328,7 @@ final class PdoImagesRepository
 
             $this->pdo->commit();
             return $res;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

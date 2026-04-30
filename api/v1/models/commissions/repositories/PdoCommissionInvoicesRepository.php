@@ -320,7 +320,7 @@ final class PdoCommissionInvoicesRepository
             $this->pdo->commit();
 
             return $number;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

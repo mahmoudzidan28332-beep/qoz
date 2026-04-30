@@ -63,7 +63,7 @@ if (!$isPlatformAdmin && $tenantId) {
             $stmt->execute([$tenantId]);
             $tenantName = $stmt->fetchColumn() ?: '';
         }
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
     if (empty($tenantName)) {
         $tenantName = $lang === 'ar' ? "المستأجر #{$tenantId}" : "Tenant #{$tenantId}";
     }

@@ -107,7 +107,7 @@ try {
 } catch (PDOException $e) {
     safe_log('error', '[DeliveryTracking] DB Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error', 500);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', '[DeliveryTracking] Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Unexpected error', 500);
 }

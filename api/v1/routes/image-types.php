@@ -91,7 +91,7 @@ try {
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'ImageTypes route failed', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

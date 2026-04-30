@@ -32,7 +32,7 @@ foreach ($tables as $t) {
                 }
             }
         }
-    } catch (Exception $e) {
+    } catch (\RuntimeException $e) {
         echo "  ERROR: " . $e->getMessage() . "\n";
     }
     echo "---------------------------\n";

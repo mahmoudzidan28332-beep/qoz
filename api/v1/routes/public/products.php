@@ -27,7 +27,7 @@ if ($first === 'products') {
                     $reviewService = new ProductReviewsService($reviewRepo);
                     $reviewId = $reviewRepo->createPublicReview($subPid, $subUserId, $rating, $title ?: null, $comment ?: null);
                     ResponseFormatter::success(['ok' => true, 'id' => $reviewId], 'Review submitted pending approval', 201);
-                } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
+                } catch (\RuntimeException $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             } else {
                 $question = trim($_POST['question'] ?? '');
                 if (strlen($question) < 5) { ResponseFormatter::error('Question too short', 422); exit; }
@@ -35,7 +35,7 @@ if ($first === 'products') {
                     $questionRepo = new PdoProductQuestionsRepository($pdo);
                     $questionId = $questionRepo->createPublicQuestion($subPid, $subUserId, $question);
                     ResponseFormatter::success(['ok' => true, 'id' => $questionId], 'Question submitted pending review', 201);
-                } catch (Throwable $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
+                } catch (\RuntimeException $ex) { ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500); }
             }
             exit;
         }

@@ -65,7 +65,7 @@ if ($pdo && $tenantId) {
         );
         $stmt->execute(array_merge([$lang], $params));
         $brands = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[brands.php] PDO error: ' . $e->getMessage());
     }
 }

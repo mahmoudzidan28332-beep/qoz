@@ -197,7 +197,7 @@ try {
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log("Error in bad_words: " . $e->getMessage());
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }

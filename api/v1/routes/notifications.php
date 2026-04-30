@@ -308,7 +308,7 @@ try {
                             'error'        => $result['error'] ?? 'unknown error',
                         ];
                     }
-                } catch (Throwable $e) {
+                } catch (\RuntimeException $e) {
                     $failCount++;
                     $details[] = [
                         'recipient_id' => $recipientId,
@@ -389,7 +389,7 @@ try {
     safe_log('error', 'notifications.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error('خطأ في المعالجة: ' . $e->getMessage(), 400);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'notifications.fatal', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

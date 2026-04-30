@@ -32,7 +32,7 @@ if (isset($pdo) && $pdo instanceof PDO && $entityTid > 0) {
         );
         $reStmt->execute([$entityTid, $entityId, $relLimit]);
         $relatedEntities = $reStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[entities-section] query error: ' . $e->getMessage());
         $relatedEntities = [];
     }
@@ -68,7 +68,7 @@ if (isset($pdo) && $pdo instanceof PDO && !empty($relatedEntities)) {
                 $_reLogos[$_eid] = $_lr['url'];
             }
         }
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         // images table structure mismatch — skip logos gracefully
         $_reLogos = [];
     }

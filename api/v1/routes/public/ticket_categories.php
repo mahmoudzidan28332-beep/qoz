@@ -53,7 +53,7 @@ try {
         [$lang, $tcTenantId]
     );
     ResponseFormatter::success(['items' => $cats]);
-} catch (Throwable $ex) {
+} catch (\RuntimeException $ex) {
     // Fallback: ticket_category_translations table may not exist yet.
     try {
         $cats = $pdoList(
@@ -64,7 +64,7 @@ try {
             [$tcTenantId]
         );
         ResponseFormatter::success(['items' => $cats]);
-    } catch (Throwable $ex2) {
+    } catch (\RuntimeException $ex2) {
         ResponseFormatter::error('Failed to load ticket categories', 500);
     }
 }

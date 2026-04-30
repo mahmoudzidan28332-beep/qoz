@@ -78,7 +78,7 @@ try {
         default:
             ResponseFormatter::error('Method not allowed',405);
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error','entity_types', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(),500);
 }

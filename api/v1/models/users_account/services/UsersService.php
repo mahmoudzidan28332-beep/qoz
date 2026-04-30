@@ -211,7 +211,7 @@ final class UsersService
             } elseif (!empty($roles)) {
                 $perms = array_merge($perms, $this->rbacRepo->getPermissionKeysByRoleKeys($roles));
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('RBAC: ' . $e->getMessage());
         }
         return [

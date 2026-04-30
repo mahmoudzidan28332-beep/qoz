@@ -190,7 +190,7 @@ try {
             $oldState = null;
             try {
                 $oldState = $controller->get($updateId, $language);
-            } catch (\Throwable $e) {
+            } catch (\RuntimeException $e) {
                 safe_log('warning', 'addresses.fetch_old_state', ['error' => $e->getMessage()]);
             }
 
@@ -223,7 +223,7 @@ try {
             $deletedState = null;
             try {
                 $deletedState = $controller->get($deleteId, $language);
-            } catch (\Throwable $e) {
+            } catch (\RuntimeException $e) {
                 safe_log('warning', 'addresses.fetch_deleted_state', ['error' => $e->getMessage()]);
             }
 
@@ -257,7 +257,7 @@ try {
     $httpCode = in_array($code, [400, 403, 404, 422]) ? $code : 400;
     safe_log('error', 'addresses.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (\Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('critical', 'addresses.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

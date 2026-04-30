@@ -243,7 +243,7 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
             $this->recordPosPayment($entityId, $orderId, $customerId, $paymentMethod, $grandTotal);
             $this->pdo->commit();
             return ['order_id' => $orderId, 'order_number' => $orderNumber, 'grand_total' => $grandTotal, 'change' => max(0.0, $amountPaid - $grandTotal)];
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

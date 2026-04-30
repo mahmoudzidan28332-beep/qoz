@@ -197,8 +197,8 @@ if ($first === 'orders') {
             'id'           => $orderId,
             'order_number' => $orderNumber,
         ], 'Order created', 201);
-    } catch (Throwable $ex) {
-        try { $pdo->rollBack(); } catch (Throwable $rb) { error_log('[orders] rollback failed: ' . $rb->getMessage()); }
+    } catch (\RuntimeException $ex) {
+        try { $pdo->rollBack(); } catch (\RuntimeException $rb) { error_log('[orders] rollback failed: ' . $rb->getMessage()); }
         ResponseFormatter::error('Order creation failed', 500);
     }
     exit;

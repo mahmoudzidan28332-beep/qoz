@@ -135,7 +135,7 @@ try {
 } catch (\RuntimeException $e) {
     safe_log('error', 'platform_report.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     error_log("Error in platform_report: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
     safe_log('critical', 'platform_report.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);

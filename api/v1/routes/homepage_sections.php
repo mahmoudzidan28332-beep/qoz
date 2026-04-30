@@ -220,7 +220,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred. Please try again later.', 500);
 
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', '[HomepageSections] Unexpected error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

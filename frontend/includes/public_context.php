@@ -294,7 +294,7 @@ if (!function_exists('pub_get_product_discounts')) {
                     default => (string)$v,
                 };
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[pub_get_product_discounts] Error: ' . $e->getMessage());
         }
         return $discounts;
@@ -438,7 +438,7 @@ if (!function_exists('pub_load_theme')) {
                     if ($thRow && isset($thRow['settings_tenant_id'])) {
                         $settingsTenantId = max(1, (int)$thRow['settings_tenant_id']);
                     }
-                } catch (Throwable $_) {
+                } catch (\RuntimeException $_) {
                     // themes table missing or inaccessible â€” continue without theme_id filter.
                     // To log: error_log('[pub_load_theme] themes table unavailable: ' . $_->getMessage());
                     $themeDbId = null;
@@ -467,7 +467,7 @@ if (!function_exists('pub_load_theme')) {
                         $st = $pdo->prepare($sql);
                         $st->execute($params);
                         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                    } catch (Throwable $_) {
+                    } catch (\RuntimeException $_) {
                         if ($themeDbId !== null && $thExtraParamCount > 0) {
                             // theme_id column may not exist in the target table â€” retry without the filter.
                             // $thP() always appends theme_id as the LAST param, so array_pop() removes it.
@@ -477,7 +477,7 @@ if (!function_exists('pub_load_theme')) {
                                 $st2 = $pdo->prepare($sqlFallback);
                                 $st2->execute($params);
                                 return $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                            } catch (Throwable $__) {}
+                            } catch (\RuntimeException $__) {}
                         }
                         return [];
                     }
@@ -666,7 +666,7 @@ if (!function_exists('pub_load_theme')) {
                             if ($logoRow && !empty($logoRow['url'])) {
                                 $theme['logo_url'] = (string)$logoRow['url'];
                             }
-                        } catch (Throwable $_) {}
+                        } catch (\RuntimeException $_) {}
                     }
 
                     // Generate complete CSS string (mirrors AdminUiThemeLoader::generateCss)
@@ -996,7 +996,7 @@ if (!function_exists('pub_load_theme')) {
 
                     return $theme;
                 }
-            } catch (Throwable $_) {
+            } catch (\RuntimeException $_) {
                 // Silently fall through to HTTP fallback
             }
         }
@@ -1119,7 +1119,7 @@ if (!function_exists('pub_load_identity')) {
                 'platform_role'      => $identity->platformRole(),
                 'user'               => $identity->toArray(),
             ];
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[pub_load_identity] ' . $e->getMessage());
             return $fallback;
         }
@@ -1182,7 +1182,7 @@ if (!function_exists('pub_resolve_context_tenant_id')) {
                     if ($entityTenantId > 0) {
                         return $entityTenantId;
                     }
-                } catch (Throwable $e) {
+                } catch (\RuntimeException $e) {
                     error_log('[pub_resolve_context_tenant_id] ' . $e->getMessage());
                 }
             }
@@ -1242,7 +1242,7 @@ if (!function_exists('pub_get_seo_meta')) {
                 'og_image'       => $row['og_image']          ?? '',
                 'schema_markup'  => $row['schema_markup']     ?? '',
             ];
-        } catch (Throwable $_) { return []; }
+        } catch (\RuntimeException $_) { return []; }
     }
 }
 
@@ -1303,7 +1303,7 @@ if (!function_exists('pub_get_pdo')) {
                 PDO::ATTR_EMULATE_PREPARES   => true,  // ensures LIMIT/OFFSET bound params work on MySQL 5.x
             ]);
             return $__pdo;
-        } catch (Throwable $_) {
+        } catch (\RuntimeException $_) {
             $__pdo = null;
             return null;
         }
@@ -1622,7 +1622,7 @@ if (!function_exists('pub_load_notifications')) {
             }
             unset($row);
             return $rows;
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[pub_load_notifications] ' . $e->getMessage());
             return [];
         }
@@ -1819,7 +1819,7 @@ if (!function_exists('pub_list_entity_contexts')) {
                     foreach ($hoursStmt->fetchAll(PDO::FETCH_ASSOC) as $hourRow) {
                         $hoursMap[(int)$hourRow['entity_id']][] = $hourRow;
                     }
-                } catch (Throwable) {
+                } catch (\RuntimeException) {
                     $hoursMap = [];
                 }
             }
@@ -1890,7 +1890,7 @@ if (!function_exists('pub_list_entity_contexts')) {
             });
 
             return array_slice($items, 0, max(1, $limit));
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[pub_list_entity_contexts] ' . $e->getMessage());
             return [];
         }
@@ -2083,7 +2083,7 @@ if (empty($_pubUser['id']) && !empty($_SESSION['user_id'])) {
             $__us->execute([(int)$_SESSION['user_id']]);
             $_pubUser = $__us->fetch() ?: null;
             if ($_pubUser) $_SESSION['user'] = $_pubUser; // cache for next request
-        } catch (Throwable $_) {}
+        } catch (\RuntimeException $_) {}
     }
     unset($_pdo2, $__us);
 }

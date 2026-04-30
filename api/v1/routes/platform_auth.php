@@ -87,7 +87,7 @@ try {
     } else {
         ResponseFormatter::error('Method not allowed.', 405);
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     _pa_log('error', 'platform_auth exception', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Internal server error.', 500);
 }

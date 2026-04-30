@@ -225,7 +225,7 @@ final class PdoCommissionTransactionsRepository
             $stmt->execute([':id' => $id]);
             $this->pdo->commit();
             return true;
-        } catch (\Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw $e;
         }

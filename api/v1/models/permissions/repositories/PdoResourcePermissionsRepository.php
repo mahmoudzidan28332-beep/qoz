@@ -112,7 +112,7 @@ class PdoResourcePermissionsRepository
 
         try {
             return $this->upsertFastPath($norm);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.failed', ['error' => $e->getMessage(), 'payload' => $norm]); }
             return $this->upsertFallback($norm);
         }
@@ -176,7 +176,7 @@ class PdoResourcePermissionsRepository
             $this->pdo->commit();
             if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.fallback.inserted', ['id' => $newId, 'payload' => $norm]); }
             return $newId;
-        } catch (Throwable $e2) {
+        } catch (\PDOException $e2) {
             if ($this->pdo->inTransaction()) { $this->pdo->rollBack(); }
             if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.fallback.failed', ['error' => $e2->getMessage(), 'payload' => $norm]); }
             throw new RuntimeException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
@@ -274,7 +274,7 @@ class PdoResourcePermissionsRepository
                         if ($newId > 0) $inserted++;
                         else $updated++; // defensive (should not happen now)
                     }
-                } catch (Throwable $e) {
+                } catch (\PDOException $e) {
                     $errors[] = "Index {$idx}: " . $e->getMessage();
                 }
             }
@@ -286,7 +286,7 @@ class PdoResourcePermissionsRepository
 
             $this->pdo->commit();
             return ['inserted'=>$inserted,'updated'=>$updated,'skipped'=>$skipped,'errors'=>[]];
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw $e;
         }

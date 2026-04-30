@@ -252,7 +252,7 @@ if ($needsReload) {
                 . count($userPermissions) . ' permissions, ' 
                 . count($userResourcePermissions) . ' resource permissions');
         }
-    } catch (Exception $e) {
+    } catch (\RuntimeException $e) {
         error_log('[admin_context] Error loading permissions: ' . $e->getMessage());
     }
 }
@@ -377,7 +377,7 @@ $isSuperAdminFlag = in_array('super_admin', $finalUser['roles'] ?? [], true)
 if (empty($_SESSION['csrf_token'])) {
     try {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         $_SESSION['csrf_token'] = bin2hex(openssl_random_pseudo_bytes(32));
     }
 }
@@ -469,7 +469,7 @@ if ($pdo instanceof PDO && $finalUser['tenant_id'] > 0) {
                 $GLOBALS['ADMIN_UI']['theme']['generated_css'] = $theme['generated_css'] ?? '';
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[admin_context] Theme load error: ' . $e->getMessage());
     }
 }

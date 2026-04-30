@@ -242,7 +242,7 @@ trait PdoCategoriesQueryTrait
                 ':http_url'    => $_SERVER['REQUEST_URI']    ?? null,
                 ':session_id'  => session_id()               ?: null,
             ]);
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('AuditLog (categories fallback) failed: ' . $e->getMessage());
         }
     }

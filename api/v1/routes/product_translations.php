@@ -79,7 +79,7 @@ try {
                     'description' => $data['description'] ?? '',
                 ]);
             }
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[product_translations] SEO sync on create failed: ' . $e->getMessage());
         }
 
@@ -100,7 +100,7 @@ try {
                     'description' => $data['description'] ?? '',
                 ]);
             }
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[product_translations] SEO sync on update failed: ' . $e->getMessage());
         }
 
@@ -117,7 +117,7 @@ try {
     }
 
     ResponseFormatter::error('Method not allowed', 405);
-} catch(Throwable $e){
+} catch (\RuntimeException $e){
     safe_log('critical','product_translations.fatal',['error'=>$e->getMessage()]);
     $msg = ($e instanceof InvalidArgumentException) ? $e->getMessage() : 'Internal server error';
     ResponseFormatter::error($msg,500);

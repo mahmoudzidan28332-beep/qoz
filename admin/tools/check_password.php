@@ -24,7 +24,7 @@ if ($identifier === '' || $password === '') {
 
 try {
     $pdo = DatabaseConnection::getConnection();
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "DB connect error: " . $e->getMessage() . PHP_EOL;
     exit;
 }

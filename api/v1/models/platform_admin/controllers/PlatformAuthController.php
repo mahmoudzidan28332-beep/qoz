@@ -48,7 +48,7 @@ class PlatformAuthController
                 'redirect' => '/admin/dashboard.php'
             ], 'Authentication successful.');
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             $code = $e->getCode() ?: 401;
             ResponseFormatter::error($e->getMessage(), is_int($code) ? $code : 401);
         }

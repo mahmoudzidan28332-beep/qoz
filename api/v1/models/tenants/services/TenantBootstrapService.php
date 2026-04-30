@@ -165,7 +165,7 @@ final class TenantBootstrapService
             $this->pdo->commit();
             return $tenantId;
 
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }

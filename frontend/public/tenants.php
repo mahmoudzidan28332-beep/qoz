@@ -62,7 +62,7 @@ if ($pdo) {
         );
         $stmt->execute($params);
         $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[tenants.php] PDO error: ' . $e->getMessage());
     }
 }
