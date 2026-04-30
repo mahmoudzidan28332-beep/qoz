@@ -53,6 +53,7 @@ final class CrudService
     {
         $cfg = $this->entity($entity);
 
+        // TODO: Replace SELECT * with explicit columns; add a 'columns' key to the entity config ($cfg['columns'])
         $stmt = $this->pdo->prepare(
             "SELECT * FROM {$cfg['table']} WHERE {$cfg['primary']} = :id LIMIT 1"
         );
@@ -105,6 +106,7 @@ final class CrudService
     {
         $cfg = $this->entity($entity);
 
+        // TODO: Replace SELECT * with explicit columns; add a 'columns' key to the entity config ($cfg['columns'])
         $stmt = $this->pdo->prepare(
             "SELECT * FROM {$cfg['table']} LIMIT :o, :l"
         );

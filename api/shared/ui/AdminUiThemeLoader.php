@@ -70,7 +70,10 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM themes
+                SELECT id, name, slug, description, thumbnail_url, preview_url,
+                       version, author, is_active, is_default, created_at, updated_at,
+                       tenant_id, theme_scope, theme_target
+                FROM themes
                 WHERE id = ?
                 LIMIT 1
             ");
@@ -95,7 +98,9 @@ final class AdminUiThemeLoader
             //    Try the exact target key first, then fallback to tenant_store
             $key = $target . '_active_theme_id';
             $stmt = $this->pdo->prepare("
-                SELECT t.*
+                SELECT t.id, t.name, t.slug, t.description, t.thumbnail_url, t.preview_url,
+                       t.version, t.author, t.is_active, t.is_default, t.created_at, t.updated_at,
+                       t.tenant_id, t.theme_scope, t.theme_target
                 FROM tenant_theme_overrides o
                 INNER JOIN themes t ON t.id = o.theme_id
                 WHERE o.tenant_id = ?
@@ -114,7 +119,9 @@ final class AdminUiThemeLoader
             if ($target !== PdoThemesRepository::TARGET_TENANT_STORE) {
                 $fallbackKey = PdoThemesRepository::TARGET_TENANT_STORE . '_active_theme_id';
                 $stmt = $this->pdo->prepare("
-                    SELECT t.*
+                    SELECT t.id, t.name, t.slug, t.description, t.thumbnail_url, t.preview_url,
+                           t.version, t.author, t.is_active, t.is_default, t.created_at, t.updated_at,
+                           t.tenant_id, t.theme_scope, t.theme_target
                     FROM tenant_theme_overrides o
                     INNER JOIN themes t ON t.id = o.theme_id
                     WHERE o.tenant_id = ?
@@ -133,7 +140,9 @@ final class AdminUiThemeLoader
             // 2. Fallback for platform targets — handle tenant_id = NULL or PLATFORM_TENANT_ID
             if ($target === PdoThemesRepository::TARGET_PLATFORM_ADMIN || $target === PdoThemesRepository::TARGET_PLATFORM_HOME) {
                 $stmt = $this->pdo->prepare("
-                    SELECT *
+                    SELECT id, name, slug, description, thumbnail_url, preview_url,
+                           version, author, is_active, is_default, created_at, updated_at,
+                           tenant_id, theme_scope, theme_target
                     FROM themes
                     WHERE (tenant_id = ? OR tenant_id IS NULL)
                       AND theme_scope = 'platform'
@@ -151,7 +160,9 @@ final class AdminUiThemeLoader
 
             // 3. Tenant-specific or global fallback
             $stmt = $this->pdo->prepare("
-                SELECT *
+                SELECT id, name, slug, description, thumbnail_url, preview_url,
+                       version, author, is_active, is_default, created_at, updated_at,
+                       tenant_id, theme_scope, theme_target
                 FROM themes
                 WHERE theme_target = ?
                   AND (
@@ -183,7 +194,9 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM design_settings
+                SELECT id, theme_id, setting_key, setting_name, setting_value, setting_type,
+                       category, is_active, sort_order, created_at, updated_at, tenant_id
+                FROM design_settings
                 WHERE theme_id = ? AND is_active = 1
                 ORDER BY category, sort_order
             ");
@@ -199,7 +212,9 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM color_settings
+                SELECT id, theme_id, setting_key, setting_name, color_value,
+                       category, is_active, sort_order, created_at, updated_at, tenant_id
+                FROM color_settings
                 WHERE theme_id = ? AND is_active = 1
                 ORDER BY category, sort_order
             ");
@@ -215,7 +230,10 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM font_settings
+                SELECT id, theme_id, setting_key, setting_name, font_family, font_size,
+                       font_weight, line_height, category, is_active, sort_order,
+                       created_at, updated_at, tenant_id
+                FROM font_settings
                 WHERE theme_id = ? AND is_active = 1
                 ORDER BY category, sort_order
             ");
@@ -231,7 +249,12 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM button_styles
+                SELECT id, tenant_id, theme_id, name, slug, button_type,
+                       background_color, text_color, border_color, border_width,
+                       border_radius, padding, font_size, font_weight,
+                       hover_background_color, hover_text_color, hover_border_color,
+                       is_active, created_at, updated_at
+                FROM button_styles
                 WHERE theme_id = ? AND is_active = 1
                 ORDER BY button_type, name
             ");
@@ -247,7 +270,11 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM card_styles
+                SELECT id, tenant_id, theme_id, name, slug, card_type,
+                       background_color, border_color, text_color, border_width,
+                       border_radius, shadow_style, padding, hover_effect,
+                       text_align, image_aspect_ratio, is_active, created_at, updated_at
+                FROM card_styles
                 WHERE theme_id = ? AND is_active = 1
                 ORDER BY card_type, name
             ");
@@ -312,7 +339,9 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM system_settings
+                SELECT id, tenant_id, setting_key, setting_value, setting_type,
+                       category, description, is_public, is_editable, created_at, updated_at
+                FROM system_settings
                 WHERE tenant_id = ? AND is_public = 1
                 ORDER BY category, setting_key
             ");
@@ -328,7 +357,8 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT t.*, u.username AS owner_username
+                SELECT t.id, t.name, t.owner_user_id, t.status, t.created_at, t.updated_at,
+                       t.domain, u.username AS owner_username
                 FROM tenants t
                 LEFT JOIN tenant_users tu ON t.id = tu.tenant_id AND tu.user_id = t.owner_user_id
                 LEFT JOIN users u ON tu.user_id = u.id
@@ -348,7 +378,9 @@ final class AdminUiThemeLoader
     {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT tu.*, u.username, r.name AS role_name
+                SELECT tu.id, tu.tenant_id, tu.user_id, tu.role_id, tu.entity_id,
+                       tu.joined_at, tu.is_active, tu.updated_at,
+                       u.username, r.name AS role_name
                 FROM tenant_users tu
                 LEFT JOIN users u ON tu.user_id = u.id
                 LEFT JOIN roles r ON tu.role_id = r.id

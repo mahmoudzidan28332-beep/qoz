@@ -76,7 +76,7 @@ class UploadRepository
     public function findFileById(int $fileId): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM files WHERE id = ? LIMIT 1"
+            "SELECT id, file_name, file_path, folder, type, mime_type, size, width, height, user_id, thumbnail_path, created_at, updated_at FROM files WHERE id = ? LIMIT 1"
         );
         $stmt->bindValue(1, $fileId, PDO::PARAM_INT);
         $stmt->execute();
@@ -91,7 +91,7 @@ class UploadRepository
     public function findFilesByUserId(int $userId, int $limit = 50, int $offset = 0): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            "SELECT id, file_name, file_path, folder, type, mime_type, size, width, height, user_id, thumbnail_path, created_at, updated_at FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
         );
         $stmt->bindValue(1, $userId, PDO::PARAM_INT);
         $stmt->bindValue(2, $limit,  PDO::PARAM_INT);
