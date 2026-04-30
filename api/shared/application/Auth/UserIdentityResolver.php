@@ -284,7 +284,7 @@ final class UserIdentityResolver
     {
         try {
             return bin2hex(random_bytes(8));
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             return uniqid('rid_', true);
         }
     }
