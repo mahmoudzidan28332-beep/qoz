@@ -18,6 +18,22 @@ define('BASE_DIR', __DIR__);
 define('API_BASE_PATH', realpath(__DIR__));
 define('API_SHARED_PATH', API_BASE_PATH . '/shared');
 
+// PSR-4 autoloader for the Shared\ namespace.
+// Maps Shared\Foo\Bar\Baz → BASE_DIR/shared/foo/Bar/Baz.php
+// (only the first segment after Shared\ is lowercased to match the on-disk directory names).
+spl_autoload_register(function (string $class): void {
+    if (strncmp($class, 'Shared\\', 7) !== 0) {
+        return;
+    }
+    $relative = substr($class, 7);
+    $parts    = explode('\\', $relative);
+    $parts[0] = strtolower($parts[0]);
+    $file     = BASE_DIR . '/shared/' . implode('/', $parts) . '.php';
+    if (is_readable($file)) {
+        require_once $file;
+    }
+});
+
 require_once __DIR__ . '/bootstrap_helpers.php';
 
 // ==============================================
