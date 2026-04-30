@@ -33,7 +33,6 @@ final class UserIdentityResolver
         $pdo ??= self::resolvePdo();
         $container = $GLOBALS['app_container']
             ?? throw new \SystemException('Container not initialized');
-        $hydrator = $container->identityHydrator();
 
         $identity = null;
 
@@ -41,6 +40,7 @@ final class UserIdentityResolver
             if (!empty($candidate['is_platform_admin'])) {
                 $identity = self::hydratePlatformAdmin($candidate, $requestId, $defaultTenantId);
             } elseif ($pdo instanceof PDO) {
+                $hydrator = $container->identityHydrator();
                 $identity = $hydrator->hydrateFromDatabase($candidate, $requestId, $defaultTenantId);
             }
 

@@ -34,6 +34,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // ==============================================
 $requiredFiles = [
     __DIR__ . '/shared/core/DatabaseConnection.php',
+    __DIR__ . '/shared/domain/Exceptions/ExceptionFactory.php',
     __DIR__ . '/shared/application/Auth/UserIdentity.php',
     __DIR__ . '/shared/application/Auth/UserIdentityResolver.php',
 ];
@@ -244,21 +245,17 @@ $GLOBALS['ADMIN_UI'] = $ADMIN_UI;
 if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
     header('Content-Type: application/json; charset=utf-8');
     
-    $identityDebug = $_SESSION['identity_debug'] ?? null;
-    
-    if (!$identityDebug && $identity->isAuthenticated()) {
-        $identityDebug = [
-            'resolved_user_id' => $identity->id(),
-            'resolved_tenant_id' => $identity->tenantId(),
-            'identity_source' => $identity->source(),
-            'source' => $identity->source(),
-            'is_platform_admin' => $identity->isPlatformAdmin(),
-            'platform_role' => $identity->platformRole(),
-            'preferred_language' => $identity->preferredLanguage(),
-            'session_id' => session_id(),
-            'request_id' => $identity->requestId(),
-        ];
-    }
+    $identityDebug = [
+        'resolved_user_id' => $identity->id(),
+        'resolved_tenant_id' => $identity->tenantId(),
+        'identity_source' => $identity->source(),
+        'is_authenticated' => $identity->isAuthenticated(),
+        'is_platform_admin' => $identity->isPlatformAdmin(),
+        'platform_role' => $identity->platformRole(),
+        'preferred_language' => $identity->preferredLanguage(),
+        'session_id' => session_id(),
+        'request_id' => $identity->requestId(),
+    ];
     
     // ── Theme Debug: run direct queries to see what the DB returns ──
     $themeDebug = ['error' => null, 'steps' => []];
@@ -319,6 +316,9 @@ if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
             'name' => session_name(),
             'cookie_received' => $_COOKIE[session_name()] ?? null,
             'keys' => array_keys($_SESSION),
+            'platform_admin' => $_SESSION['platform_admin'] ?? null,
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'logged_in' => $_SESSION['logged_in'] ?? null,
         ],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
