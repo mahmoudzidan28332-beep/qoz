@@ -527,8 +527,6 @@ if (!function_exists('pub_load_theme')) {
                     ($themeTarget === 'platform_home' && $themeDbId) ? $thP([]) : $thP([$settingsTenantId])
                 );
 
-                // card_styles â€” use SELECT * to match AdminUiThemeLoader::getCardStyles() and remain
-                // safe even when optional columns (e.g. text_color) haven't been added via migration yet.
                 $cards = $safeList(
                     (($themeTarget === 'platform_home' && $themeDbId)
                         ? 'SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE is_active = 1'
