@@ -510,6 +510,13 @@ if (class_exists('CacheManager', false)) {
 }
 
 // ==============================================
+// 12b. Early Container Boot (required before identity resolution)
+// ==============================================
+// $GLOBALS['app_container'] must exist before UserIdentityResolver::resolve() is called.
+// Container.php is already loaded via the PSR-4 autoloader registered at the top.
+$GLOBALS['app_container'] = new \Shared\Application\Container($container['pdo'] ?? null);
+
+// ==============================================
 // 13. Unified Identity Resolution - WITH PLATFORM ADMIN SUPPORT
 // ==============================================
 $authMethodsUsed = [];
@@ -664,6 +671,7 @@ $GLOBALS['CONTAINER']      = $container;
 $GLOBALS['ADMIN_DB']       = $container['pdo'];
 $GLOBALS['ADMIN_USER']     = $container['current_user'];
 $GLOBALS['ADMIN_IDENTITY'] = $identity;
+// app_container was already created in section 12b; rebuild with the confirmed ADMIN_DB.
 $GLOBALS['app_container']  = new \Shared\Application\Container($GLOBALS['ADMIN_DB']);
 
 // ==============================================
