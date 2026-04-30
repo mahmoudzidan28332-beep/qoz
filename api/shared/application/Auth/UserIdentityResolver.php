@@ -32,7 +32,8 @@ final class UserIdentityResolver
         $candidate = $candidateResolver->resolve();
 
         $pdo ??= self::resolvePdo();
-        $hydrator = (new Container($pdo))->identityHydrator();
+        $container = $GLOBALS['app_container'] ?? new Container($pdo);
+        $hydrator = $container->identityHydrator();
 
         $identity = null;
 
