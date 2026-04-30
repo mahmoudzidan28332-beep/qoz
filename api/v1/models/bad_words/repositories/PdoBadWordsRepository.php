@@ -22,7 +22,7 @@ final class PdoBadWordsRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT bw.* FROM bad_words bw WHERE 1=1";
+        $sql = "SELECT bw.id, bw.word, bw.severity, bw.is_regex, bw.is_active, bw.created_at FROM bad_words bw WHERE 1=1";
         $params = [];
 
         if (isset($filters['severity']) && in_array($filters['severity'], ['low', 'medium', 'high'], true)) {
@@ -109,7 +109,7 @@ final class PdoBadWordsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM bad_words WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, word, severity, is_regex, is_active, created_at FROM bad_words WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -180,7 +180,7 @@ final class PdoBadWordsRepository
     public function getTranslations(int $badWordId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM bad_word_translations
+            SELECT id, bad_word_id, language_code, word FROM bad_word_translations
             WHERE bad_word_id = :bad_word_id
         ");
         $stmt->execute([':bad_word_id' => $badWordId]);

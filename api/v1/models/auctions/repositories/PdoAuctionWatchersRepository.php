@@ -17,7 +17,7 @@ final class PdoAuctionWatchersRepository implements AuctionWatchersRepositoryInt
     public function all(int $auctionId): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id ORDER BY created_at DESC"
+            "SELECT id, auction_id, user_id, notify_before_end, notify_on_outbid, notify_on_winner, created_at FROM " . self::TABLE . " WHERE auction_id = :auction_id ORDER BY created_at DESC"
         );
         $stmt->execute([':auction_id' => $auctionId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -26,7 +26,7 @@ final class PdoAuctionWatchersRepository implements AuctionWatchersRepositoryInt
     public function find(int $auctionId, int $userId): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id AND user_id = :user_id LIMIT 1"
+            "SELECT id, auction_id, user_id, notify_before_end, notify_on_outbid, notify_on_winner, created_at FROM " . self::TABLE . " WHERE auction_id = :auction_id AND user_id = :user_id LIMIT 1"
         );
         $stmt->execute([':auction_id' => $auctionId, ':user_id' => $userId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

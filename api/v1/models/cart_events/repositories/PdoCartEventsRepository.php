@@ -17,7 +17,7 @@ final class PdoCartEventsRepository
      */
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM cart_events WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, entity_id, cart_id, event_type, actor_type, actor_id, related_item_id, old_value, new_value, note, created_at FROM cart_events WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -51,7 +51,7 @@ final class PdoCartEventsRepository
         $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
         $whereStr = implode(' AND ', $where);
 
-        $sql = "SELECT ce.* FROM cart_events ce";
+        $sql = "SELECT ce.id, ce.entity_id, ce.cart_id, ce.event_type, ce.actor_type, ce.actor_id, ce.related_item_id, ce.old_value, ce.new_value, ce.note, ce.created_at FROM cart_events ce";
         $sql .= " WHERE " . $whereStr . " ORDER BY ce." . $orderBy . " " . $orderDir . " LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) {

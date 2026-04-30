@@ -67,7 +67,10 @@ final class PdoBannersRepository
     public function find(int $tenantId, int $id, string $lang = 'en', bool $allTranslations = false): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT b.*,
+            SELECT b.id, b.tenant_id, b.entity_id, b.theme_id, b.link_url,
+                   b.position, b.background_color, b.text_color, b.button_style,
+                   b.sort_order, b.is_active, b.start_date, b.end_date,
+                   b.created_at, b.updated_at,
                    COALESCE(bt.title,    b.title)    AS title,
                    COALESCE(bt.subtitle, b.subtitle) AS subtitle,
                    COALESCE(bt.link_text, b.link_text) AS link_text
@@ -90,7 +93,10 @@ final class PdoBannersRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM banners
+            SELECT id, tenant_id, title, subtitle, link_url, link_text, position,
+                   theme_id, background_color, text_color, button_style,
+                   sort_order, is_active, start_date, end_date, created_at, updated_at
+            FROM banners
             WHERE tenant_id = :tenantId AND id = :id
             LIMIT 1
         ");

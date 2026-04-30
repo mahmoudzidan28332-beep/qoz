@@ -43,7 +43,9 @@ final class PdoButtonStylesRepository
     public function find(int $tenantId, string $slug, ?int $themeId = null): ?array
     {
         $sql = "
-            SELECT *
+            SELECT id, tenant_id, theme_id, name, slug, button_type, background_color, text_color,
+                   border_color, border_width, border_radius, padding, font_size, font_weight,
+                   hover_background_color, hover_text_color, hover_border_color, is_active, created_at, updated_at
             FROM button_styles
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
@@ -66,7 +68,9 @@ final class PdoButtonStylesRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, theme_id, name, slug, button_type, background_color, text_color,
+                   border_color, border_width, border_radius, padding, font_size, font_weight,
+                   hover_background_color, hover_text_color, hover_border_color, is_active, created_at, updated_at
             FROM button_styles
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1

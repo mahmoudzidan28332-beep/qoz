@@ -17,7 +17,7 @@ final class PdoAuctionTranslationsRepository implements AuctionTranslationsRepos
     public function all(int $auctionId): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id ORDER BY language_code ASC"
+            "SELECT id, auction_id, language_code, title, description, terms_conditions FROM " . self::TABLE . " WHERE auction_id = :auction_id ORDER BY language_code ASC"
         );
         $stmt->execute([':auction_id' => $auctionId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -26,7 +26,7 @@ final class PdoAuctionTranslationsRepository implements AuctionTranslationsRepos
     public function find(int $auctionId, string $languageCode): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id AND language_code = :language_code LIMIT 1"
+            "SELECT id, auction_id, language_code, title, description, terms_conditions FROM " . self::TABLE . " WHERE auction_id = :auction_id AND language_code = :language_code LIMIT 1"
         );
         $stmt->execute([':auction_id' => $auctionId, ':language_code' => $languageCode]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -24,7 +24,7 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id";
+        $sql    = "SELECT id, auction_id, user_id, bid_amount, max_auto_bid, bid_type, is_winning, is_auto_outbid, ip_address, user_agent, created_at FROM " . self::TABLE . " WHERE auction_id = :auction_id";
         $params = [':auction_id' => $auctionId];
 
         if (isset($filters['user_id']) && $filters['user_id'] !== '') {
@@ -84,7 +84,7 @@ final class PdoAuctionBidsRepository implements AuctionBidsRepositoryInterface
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, auction_id, user_id, bid_amount, max_auto_bid, bid_type, is_winning, is_auto_outbid, ip_address, user_agent, created_at FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
