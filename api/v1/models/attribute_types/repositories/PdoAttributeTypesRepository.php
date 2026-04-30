@@ -38,7 +38,7 @@ final class PdoAttributeTypesRepository
     public function find(string $code): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, code, name, has_values, is_multi, is_visual, is_active
             FROM attribute_types
             WHERE code = :code
             LIMIT 1
@@ -52,7 +52,7 @@ final class PdoAttributeTypesRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, code, name, has_values, is_multi, is_visual, is_active
             FROM attribute_types
             WHERE id = :id
             LIMIT 1

@@ -248,7 +248,7 @@ final class PdoTenant_usersRepository extends BaseRepository
     public function getByUserAndTenant(int $tenantId, int $userId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, user_id, role_id, entity_id, joined_at, is_active, updated_at
             FROM tenant_users
             WHERE tenant_id = :tenantId AND user_id = :userId
             LIMIT 1

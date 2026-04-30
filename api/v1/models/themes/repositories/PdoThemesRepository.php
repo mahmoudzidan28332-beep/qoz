@@ -108,7 +108,7 @@ final class PdoThemesRepository
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE (tenant_id = :tenant_id OR tenant_id IS NULL)
               AND theme_scope = :theme_scope
@@ -134,7 +134,7 @@ final class PdoThemesRepository
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE (tenant_id = :tenant_id OR tenant_id IS NULL)
               AND theme_scope = :theme_scope
@@ -360,7 +360,7 @@ final class PdoThemesRepository
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row && is_numeric($row['value'])) {
             // Override found — load the theme directly by ID (no target filter)
-            $stmtTheme = $this->pdo->prepare("SELECT * FROM themes WHERE id = ? LIMIT 1");
+            $stmtTheme = $this->pdo->prepare("SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target FROM themes WHERE id = ? LIMIT 1");
             $stmtTheme->execute([(int)$row['value']]);
             $theme = $stmtTheme->fetch(PDO::FETCH_ASSOC);
             if ($theme) {
@@ -370,7 +370,7 @@ final class PdoThemesRepository
 
         $legacyColumn = $mode === 'active' ? 'is_active' : 'is_default';
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE theme_target = :theme_target
               AND (

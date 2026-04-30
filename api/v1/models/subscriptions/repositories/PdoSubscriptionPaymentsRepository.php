@@ -31,7 +31,7 @@ final class PdoSubscriptionPaymentsRepository
         $limit  = isset($filters['limit'])  ? (int)$filters['limit']  : 25;
         $offset = isset($filters['offset']) ? (int)$filters['offset'] : 0;
 
-        $sql = "SELECT sp.* FROM subscription_payments sp WHERE 1=1";
+        $sql = "SELECT sp.id, sp.payment_number, sp.invoice_id, sp.subscription_id, sp.tenant_id, sp.amount, sp.currency_code, sp.payment_gateway, sp.gateway_transaction_id, sp.gateway_response, sp.status, sp.paid_at, sp.refunded_at, sp.created_at FROM subscription_payments sp WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -126,7 +126,7 @@ final class PdoSubscriptionPaymentsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_payments WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, payment_number, invoice_id, subscription_id, tenant_id, amount, currency_code, payment_gateway, gateway_transaction_id, gateway_response, status, paid_at, refunded_at, created_at FROM subscription_payments WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

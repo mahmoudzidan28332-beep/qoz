@@ -58,7 +58,7 @@ final class PdoEscrowTransactionsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT et.* FROM escrow_transactions et WHERE 1=1";
+        $sql = "SELECT et.id, et.escrow_number, et.order_id, et.buyer_id, et.seller_id, et.seller_type, et.amount, et.currency_code, et.escrow_fee, et.status, et.tenant_id, et.funded_at, et.shipped_at, et.delivered_at, et.released_at, et.disputed_at, et.refunded_at, et.cancelled_at, et.created_at, et.updated_at FROM escrow_transactions et WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -139,7 +139,7 @@ final class PdoEscrowTransactionsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM escrow_transactions WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, escrow_number, order_id, buyer_id, seller_id, seller_type, amount, currency_code, escrow_fee, status, tenant_id, funded_at, shipped_at, delivered_at, released_at, disputed_at, refunded_at, cancelled_at, created_at, updated_at FROM escrow_transactions WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
