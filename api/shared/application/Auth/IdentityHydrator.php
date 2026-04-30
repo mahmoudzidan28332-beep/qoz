@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Shared\Application\Auth;
 
 use PDO;
+use Shared\Domain\Exceptions\DatabaseException;
 
 class IdentityHydrator
 {
