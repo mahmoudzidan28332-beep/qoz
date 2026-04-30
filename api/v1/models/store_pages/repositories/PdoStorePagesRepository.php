@@ -221,7 +221,7 @@ final class PdoStorePagesRepository
     private function findSectionById(int $pageId, int $sectionId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, page_id, type, position, is_active, settings, created_at, updated_at
             FROM store_sections
             WHERE page_id = :pageId AND id = :sectionId
             LIMIT 1
@@ -238,7 +238,7 @@ final class PdoStorePagesRepository
     public function findSectionByIdOnly(int $sectionId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, page_id, type, position, is_active, settings, created_at, updated_at
             FROM store_sections
             WHERE id = :sectionId
             LIMIT 1

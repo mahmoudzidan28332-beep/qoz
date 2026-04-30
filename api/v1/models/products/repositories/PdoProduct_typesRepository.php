@@ -45,7 +45,7 @@ final class PdoProduct_typesRepository
     ): array {
         $params = [];
 
-        $sql = 'SELECT * FROM ' . self::TABLE;
+        $sql = 'SELECT id, code, name, description, is_active FROM ' . self::TABLE;
         $sql .= $this->buildWhere($filters, $params);
 
         if (!in_array($orderBy, self::ALLOWED_ORDER_BY, true)) {
@@ -99,7 +99,7 @@ final class PdoProduct_typesRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT * FROM ' . self::TABLE . ' WHERE id = :id LIMIT 1'
+            'SELECT id, code, name, description, is_active FROM ' . self::TABLE . ' WHERE id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);
 
@@ -111,7 +111,7 @@ final class PdoProduct_typesRepository
      * ===================================================== */
     public function findByCode(string $code, ?int $ignoreId = null): ?array
     {
-        $sql = 'SELECT * FROM ' . self::TABLE . ' WHERE code = :code';
+        $sql = 'SELECT id, code, name, description, is_active FROM ' . self::TABLE . ' WHERE code = :code';
         $params = ['code' => $code];
 
         if ($ignoreId !== null) {

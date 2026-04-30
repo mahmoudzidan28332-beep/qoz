@@ -12,7 +12,7 @@ final class PdoProductStockAlertsRepository
 
     public function all(int $tenantId, ?int $limit = null, ?int $offset = null, array $filters = [], string $orderBy = 'id', string $orderDir = 'DESC'): array
     {
-        $sql = "SELECT * FROM product_stock_alerts WHERE 1=1";
+        $sql = "SELECT id, product_id, variant_id, user_id, email, is_notified, notified_at, created_at FROM product_stock_alerts WHERE 1=1";
         $params = [];
 
         if (isset($filters['product_id'])) {
@@ -46,7 +46,7 @@ final class PdoProductStockAlertsRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM product_stock_alerts WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, product_id, variant_id, user_id, email, is_notified, notified_at, created_at FROM product_stock_alerts WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

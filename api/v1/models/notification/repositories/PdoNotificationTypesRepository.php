@@ -25,7 +25,7 @@ final class PdoNotificationTypesRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT * FROM notification_types WHERE 1=1";
+        $sql = "SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -96,7 +96,7 @@ final class PdoNotificationTypesRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_types WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -104,7 +104,7 @@ final class PdoNotificationTypesRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_types WHERE code = :code");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE code = :code");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

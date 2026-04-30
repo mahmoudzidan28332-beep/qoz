@@ -20,7 +20,7 @@ final class PdoNotificationChannelsRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT * FROM notification_channels WHERE 1=1";
+        $sql    = "SELECT id, code, name, is_active, created_at FROM notification_channels WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -85,7 +85,7 @@ final class PdoNotificationChannelsRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_channels WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, is_active, created_at FROM notification_channels WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -93,7 +93,7 @@ final class PdoNotificationChannelsRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_channels WHERE code = :code");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, is_active, created_at FROM notification_channels WHERE code = :code");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

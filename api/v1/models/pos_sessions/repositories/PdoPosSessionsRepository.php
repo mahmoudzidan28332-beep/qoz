@@ -227,7 +227,7 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         $cashierUserId = isset($data['cashier_user_id']) ? (int)$data['cashier_user_id'] : null;
         $customerId    = isset($data['customer_id']) ? (int)$data['customer_id'] : 1;
 
-        $session = $this->fetchOne("SELECT * FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
+        $session = $this->fetchOne("SELECT id, tenant_id, entity_id, cashier_user_id, opened_at, closed_at, opening_balance, closing_balance, total_cash, total_card, status, total_sales FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
         if (!$session) { throw new ApplicationException('Session not found or not open'); }
 
         $calculated = $this->calculatePosOrderTotals($data['items'] ?? []);

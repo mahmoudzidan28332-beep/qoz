@@ -24,7 +24,7 @@ class PdoResourcePermissionsRepository
 
     public function list(array $filters = []): array
     {
-        $sql = "SELECT * FROM resource_permissions rp WHERE 1=1";
+        $sql = "SELECT rp.id, rp.permission_id, rp.role_id, rp.tenant_id, rp.resource_type, rp.can_view_all, rp.can_view_own, rp.can_view_tenant, rp.can_create, rp.can_edit_all, rp.can_edit_own, rp.can_delete_all, rp.can_delete_own, rp.created_at FROM resource_permissions rp WHERE 1=1";
         $params = [];
 
         if (array_key_exists('tenant_id', $filters)) {
@@ -73,7 +73,7 @@ class PdoResourcePermissionsRepository
 
     public function get(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM resource_permissions WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
@@ -189,7 +189,7 @@ class PdoResourcePermissionsRepository
      */
     public function findByUnique(?int $roleId, string $resourceType, $tenantId): ?array
     {
-        $sql = "SELECT * FROM resource_permissions WHERE resource_type = :resource_type";
+        $sql = "SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE resource_type = :resource_type";
         $params = [':resource_type' => $resourceType];
 
         if ($roleId === null) {
@@ -221,7 +221,7 @@ class PdoResourcePermissionsRepository
      */
     private function findByUniqueForUpdate(?int $roleId, string $resourceType, $tenantId): ?array
     {
-        $sql = "SELECT * FROM resource_permissions WHERE resource_type = :resource_type";
+        $sql = "SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE resource_type = :resource_type";
         $params = [':resource_type' => $resourceType];
 
         if ($roleId === null) {

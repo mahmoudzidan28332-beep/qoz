@@ -17,7 +17,7 @@ final class PdoSeoMetaRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM seo_meta WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, tenant_id, entity_type, entity_id, canonical_url, robots, schema_markup, created_at, updated_at FROM seo_meta WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -198,7 +198,7 @@ final class PdoSeoMetaRepository
     // ================================
     public function getByEntity(string $entityType, int $entityId, ?int $tenantId = null): ?array
     {
-        $sql = "SELECT * FROM seo_meta WHERE entity_type = :entity_type AND entity_id = :entity_id";
+        $sql = "SELECT id, tenant_id, entity_type, entity_id, canonical_url, robots, schema_markup, created_at, updated_at FROM seo_meta WHERE entity_type = :entity_type AND entity_id = :entity_id";
         $params = [
             ':entity_type' => $entityType,
             ':entity_id'   => $entityId,
@@ -227,7 +227,7 @@ final class PdoSeoMetaRepository
     public function getTranslations(int $seoMetaId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM seo_meta_translations
+            SELECT id, seo_meta_id, language_code, meta_title, meta_description, meta_keywords, og_title, og_description, og_image, created_at, updated_at FROM seo_meta_translations
             WHERE seo_meta_id = :seo_meta_id
         ");
         $stmt->execute([':seo_meta_id' => $seoMetaId]);
