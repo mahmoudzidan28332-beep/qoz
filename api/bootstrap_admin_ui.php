@@ -58,6 +58,23 @@ if (!$db instanceof PDO && class_exists('DatabaseConnection', false)) {
 }
 
 // ==============================================
+// ⭐ Boot app_container if not already booted
+// (bootstrap.php boots it in section 12b; when this file is loaded
+//  directly — e.g. from admin pages that skip bootstrap — it must be
+//  created here so UserIdentityResolver::resolve() can find it)
+// ==============================================
+if (!isset($GLOBALS['app_container']) && $db instanceof PDO) {
+    $containerPath = __DIR__ . '/shared/application/Container.php';
+    if (is_file($containerPath)) {
+        require_once $containerPath;
+    }
+    if (class_exists('\Shared\Application\Container', false)) {
+        $GLOBALS['app_container'] = new \Shared\Application\Container($db);
+        _aui_log('app_container booted from bootstrap_admin_ui');
+    }
+}
+
+// ==============================================
 // ⭐ Resolve identity using UserIdentityResolver
 // ==============================================
 $identity = null;
