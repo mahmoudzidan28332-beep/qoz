@@ -219,7 +219,7 @@ final class SecurityValidator
         try {
             $interfaces = class_implements($className, false);
             return is_array($interfaces) && in_array($interfaceName, $interfaces, true);
-        } catch (\Throwable) {
+        } catch (\Error $e) {
             return false;
         }
     }

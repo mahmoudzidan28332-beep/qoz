@@ -30,7 +30,7 @@ class AuditLogger {
             );
         } catch (\PDOException $e) {
             error_log('[AuditLogger] audit log failed: ' . $e->getMessage());
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException|\Error $e) {
             error_log('[AuditLogger] critical audit log failure: ' . $e->getMessage());
         }
     }

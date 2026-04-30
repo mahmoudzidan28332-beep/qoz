@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+namespace Shared\Domain\Exceptions;
+
 final class ValidationException extends DomainException
 {
     protected string $errorCode = 'validation_failed';

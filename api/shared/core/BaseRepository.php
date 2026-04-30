@@ -169,8 +169,24 @@ abstract class BaseRepository
             QueryGuard::validate($sql, $table);
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+        } catch (\PDOException $e) {
+            if (class_exists('Logger', false)) {
+                Logger::error('DatabaseException in execute()', [
+                    'table'     => $table,
+                    'sql'       => $sql,
+                    'error'     => $e->getMessage(),
+                    'sqlstate'  => $e->getCode(),
+                ]);
+            }
+            throw new DatabaseException(
+                'Database query failed',
+                ['table' => $table, 'sqlstate' => $e->getCode()],
+                $e
+            );
+        }
 
         $this->autoAudit($sql, $table);
 
@@ -227,18 +243,34 @@ abstract class BaseRepository
             QueryGuard::validate($sql, $table);
         }
 
-        $stmt = $this->pdo->prepare($sql);
+        try {
+            $stmt = $this->pdo->prepare($sql);
 
-        // Bind non-pagination params.
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+            // Bind non-pagination params.
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+            }
+
+            // Bind pagination as PARAM_INT — required for MySQL LIMIT/OFFSET.
+            if ($limit  !== null) $stmt->bindValue(':limit',  $limit,  \PDO::PARAM_INT);
+            if ($offset !== null) $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+
+            $stmt->execute();
+        } catch (\PDOException $e) {
+            if (class_exists('Logger', false)) {
+                Logger::error('DatabaseException in executePaginated()', [
+                    'table'    => $table,
+                    'sql'      => $sql,
+                    'error'    => $e->getMessage(),
+                    'sqlstate' => $e->getCode(),
+                ]);
+            }
+            throw new DatabaseException(
+                'Database query failed',
+                ['table' => $table, 'sqlstate' => $e->getCode()],
+                $e
+            );
         }
-
-        // Bind pagination as PARAM_INT — required for MySQL LIMIT/OFFSET.
-        if ($limit  !== null) $stmt->bindValue(':limit',  $limit,  \PDO::PARAM_INT);
-        if ($offset !== null) $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
-
-        $stmt->execute();
 
         $this->autoAudit($sql, $table);
 
@@ -263,8 +295,24 @@ abstract class BaseRepository
             );
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+        } catch (\PDOException $e) {
+            if (class_exists('Logger', false)) {
+                Logger::error('DatabaseException in executeGlobal()', [
+                    'table'    => $table,
+                    'sql'      => $sql,
+                    'error'    => $e->getMessage(),
+                    'sqlstate' => $e->getCode(),
+                ]);
+            }
+            throw new DatabaseException(
+                'Database query failed',
+                ['table' => $table, 'sqlstate' => $e->getCode()],
+                $e
+            );
+        }
         return $stmt;
     }
 
@@ -421,8 +469,24 @@ abstract class BaseRepository
             reason:       trim($reason)
         );
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+        } catch (\PDOException $e) {
+            if (class_exists('Logger', false)) {
+                Logger::error('DatabaseException in executeCrossTenant()', [
+                    'table'            => $table,
+                    'target_tenant_id' => $targetTenantId,
+                    'error'            => $e->getMessage(),
+                    'sqlstate'         => $e->getCode(),
+                ]);
+            }
+            throw new DatabaseException(
+                'Cross-tenant database query failed',
+                ['table' => $table, 'target_tenant_id' => $targetTenantId, 'sqlstate' => $e->getCode()],
+                $e
+            );
+        }
 
         $this->autoAuditCrossTenant($sql, $table, $targetTenantId, $reason);
 

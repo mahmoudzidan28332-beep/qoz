@@ -111,12 +111,12 @@ class CandidateResolver
                 safe_log('warning', 'CandidateResolver: Token resolution failed', ['error' => $e->getMessage()]);
             }
             return ['source' => 'guest'];
-        } catch (\Throwable $e) {
-            if (function_exists('safe_log')) {
-                safe_log('error', 'CandidateResolver: Fatal error in resolution', ['error' => $e->getMessage()]);
+        } catch (\Error $e) {
+                if (function_exists('safe_log')) {
+                    safe_log('error', 'CandidateResolver: Fatal error in resolution', ['error' => $e->getMessage()]);
+                }
+                return ['source' => 'guest'];
             }
-            return ['source' => 'guest'];
-        }
     }
 
     private function normalizeNullableInt(mixed $value): ?int

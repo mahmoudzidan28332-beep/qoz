@@ -334,7 +334,7 @@ final class Security
 
             return base64_encode($versionByte . $iv . $tag . $cipher);
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Encryption error: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,
@@ -396,7 +396,7 @@ final class Security
 
             return $plainText;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Decryption error: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId
@@ -484,7 +484,7 @@ final class Security
 
             return $decrypted;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Legacy decryption failed: ' . $e->getMessage());
             throw new RuntimeException('Decryption failed', 0, $e);
         }
@@ -525,7 +525,7 @@ final class Security
 
             return $newEncrypted;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Key rotation failed: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,
@@ -553,7 +553,7 @@ final class Security
 
             return ord($data[0]);
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             throw new RuntimeException('Cannot determine encryption version', 0, $e);
         }
     }

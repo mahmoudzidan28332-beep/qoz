@@ -33,12 +33,11 @@ if (!$pdo instanceof PDO) {
             $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             ]);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Database connection failed']);
             exit;
         }
-    }
 }
 
 if (!$pdo instanceof PDO) {
@@ -114,7 +113,7 @@ try {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Repository classes not available']);
     }
-} catch (Throwable $e) {
+} catch (\PDOException|\RuntimeException $e) {
     http_response_code(500);
     echo json_encode([
         'success' => false,

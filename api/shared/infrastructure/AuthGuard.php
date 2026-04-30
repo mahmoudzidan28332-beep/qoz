@@ -15,7 +15,7 @@ final class AuthGuard
 
         try {
             $claims = JWT::decode($token);
-        } catch (Throwable) {
+        } catch (\RuntimeException $e) {
             return null;
         }
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Shared\Application\Auth;
 
 use PDO;
-use Throwable;
 
 class IdentityHydrator
 {
@@ -48,7 +47,7 @@ class IdentityHydrator
                     $rbacData = $rbac->loadPermissionsForUser($userId);
                     $roles = $rbacData['roles'] ?? $roles;
                     $permissions = $rbacData['permissions'] ?? $permissions;
-                } catch (Throwable $e) {
+                } catch (\PDOException|\RuntimeException $e) {
                     if (function_exists('safe_log')) safe_log('warning', 'IdentityHydrator: RBAC failed', ['error' => $e->getMessage()]);
                 }
             }
@@ -74,7 +73,7 @@ class IdentityHydrator
             ]);
 
             return new UserIdentity($userId, $tenantId, $roleId, $roles, $permissions, $resourcePermissions, true, (string)($candidate['source'] ?? 'db'), $requestId, $user, ['hydrated_from_db' => true]);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             if (function_exists('safe_log')) safe_log('error', 'IdentityHydrator: Hydration failed', ['error' => $e->getMessage()]);
             return null;
         }
@@ -85,7 +84,7 @@ class IdentityHydrator
         try {
             $stmt = $this->pdo->query("SELECT DISTINCT key_name FROM permissions WHERE key_name IS NOT NULL AND key_name <> ''");
             return $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
-        } catch (Throwable) { return []; }
+        } catch (\PDOException $e) { return []; }
     }
 
     private function loadResourcePermissions(?int $roleId, ?int $tenantId, bool $isSuperAdmin): array
@@ -114,7 +113,7 @@ class IdentityHydrator
                 }
             }
             return $permissions;
-        } catch (Throwable) { return []; }
+        } catch (\PDOException $e) { return []; }
     }
 
     private function loadSuperAdminResourcePermissions(?int $tenantId): array
@@ -132,6 +131,6 @@ class IdentityHydrator
                 ];
             }
             return $permissions;
-        } catch (Throwable) { return []; }
+        } catch (\PDOException $e) { return []; }
     }
 }

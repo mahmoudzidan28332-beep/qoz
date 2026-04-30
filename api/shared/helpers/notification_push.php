@@ -307,7 +307,7 @@ trait NotificationPushTrait
 
             return self::$cachedAccessToken;
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             self::logError('FCM getAccessToken: ' . $e->getMessage());
             return null;
         }

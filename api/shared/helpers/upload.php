@@ -143,7 +143,7 @@ class Upload {
                 ]
             ];
             
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Image upload failed:  ' . $e->getMessage());
             return self::error('Upload failed: ' . $e->getMessage());
         }
@@ -227,7 +227,7 @@ class Upload {
                 'mime_type' => $mimeType
             ];
             
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Document upload failed: ' . $e->getMessage());
             return self::error('Upload failed: ' . $e->getMessage());
         }
@@ -328,7 +328,7 @@ class Upload {
                 self::logUpload('delete', basename(dirname($filePath)), basename($filePath), 0);
                 return true;
             }
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Failed to delete file: ' . $e->getMessage());
         }
         

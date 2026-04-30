@@ -43,7 +43,7 @@ if (!IS_DEBUG) {
                 ResponseFormatter::error('Too many requests', 429);
                 exit;
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             // FALLBACK: File-based rate limiting if Redis is unavailable
             $maxRequests = getenv('RATE_LIMIT_MAX') ?: 1000;
             if (strpos($route, 'register') !== false || strpos($route, 'verify_phone') !== false) {

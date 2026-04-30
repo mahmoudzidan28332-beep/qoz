@@ -179,7 +179,7 @@ if (!function_exists('verify_entity_ownership')) {
                 }
                 exit;
             }
-        } catch (Throwable $e) {
+        } catch (\PDOException|\RuntimeException $e) {
             if (function_exists('safe_log')) {
                 safe_log('error', 'ownership_verification_failed', ['error' => $e->getMessage()]);
             }

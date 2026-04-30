@@ -47,7 +47,7 @@ class PluginManager
                 if (class_exists($class)) {
                     self::$plugins[] = $class;
                 }
-            } catch (Throwable $e) {
+            } catch (\RuntimeException|\Error $e) {
                 Logger::error(
                     'Plugin load failed: ' . $file . ' | ' . $e->getMessage()
                 );
@@ -69,7 +69,7 @@ class PluginManager
 
             try {
                 $payload = call_user_func([$plugin, $hook], $payload);
-            } catch (Throwable $e) {
+            } catch (\RuntimeException|\Error $e) {
                 Logger::error(
                     "Plugin {$plugin}::{$hook} failed | " . $e->getMessage()
                 );
@@ -88,7 +88,7 @@ class PluginManager
             if (method_exists($plugin, 'boot')) {
                 try {
                     call_user_func([$plugin, 'boot']);
-                } catch (Throwable $e) {
+                } catch (\RuntimeException|\Error $e) {
                     Logger::error(
                         "Plugin {$plugin}::boot failed | " . $e->getMessage()
                     );

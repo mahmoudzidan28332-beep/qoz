@@ -214,7 +214,7 @@ class JWT
         } catch (\JsonException $e) {
             self::logError('JSON decode error: ' . $e->getMessage());
             return false;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException|\Error $e) {
             self::logError('Exception during decode: ' . $e->getMessage());
             return false;
         }
@@ -610,7 +610,7 @@ class JWT
         } catch (\JsonException $e) {
             self::logError('JWT header JSON decode error: ' . $e->getMessage());
             return null;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException|\Error $e) {
             self::logError('JWT header decode failed: ' . $e->getMessage());
             return null;
         }

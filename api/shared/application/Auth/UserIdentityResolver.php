@@ -7,7 +7,6 @@ require_once __DIR__ . '/CandidateResolver.php';
 require_once __DIR__ . '/IdentityHydrator.php';
 
 use PDO;
-use Throwable;
 
 final class UserIdentityResolver
 {
@@ -153,7 +152,7 @@ final class UserIdentityResolver
                     safe_log('warning', 'IdentityResolver: PDO resolution failed', ['error' => $e->getMessage()]);
                 }
                 return null;
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 if (function_exists('safe_log')) {
                     safe_log('error', 'IdentityResolver: Critical failure during PDO resolution', ['error' => $e->getMessage()]);
                 }
@@ -283,7 +282,7 @@ final class UserIdentityResolver
     {
         try {
             return bin2hex(random_bytes(8));
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
             return uniqid('rid_', true);
         }
     }

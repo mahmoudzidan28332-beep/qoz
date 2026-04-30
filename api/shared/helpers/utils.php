@@ -41,7 +41,7 @@ class Utils {
             $date->setTimezone(new DateTimeZone($timezone));
             return $date->format($format);
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return $datetime;
         }
     }
