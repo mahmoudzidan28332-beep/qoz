@@ -15,21 +15,21 @@ final class PdoImagesRepository
     /* ===================== IMAGE TYPES ===================== */
     public function getImageType(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->imageTypesTable} WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, width, height, crop, quality, format, is_thumbnail, icon, color FROM {$this->imageTypesTable} WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     public function getImageTypeByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->imageTypesTable} WHERE code = :code LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, width, height, crop, quality, format, is_thumbnail, icon, color FROM {$this->imageTypesTable} WHERE code = :code LIMIT 1");
         $stmt->execute([':code' => $code]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     public function getAllImageTypes(): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM {$this->imageTypesTable} ORDER BY name ASC");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, width, height, crop, quality, format, is_thumbnail, icon, color FROM {$this->imageTypesTable} ORDER BY name ASC");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -48,7 +48,9 @@ final class PdoImagesRepository
         $params = [':tenant_id' => $tenantId];
         $countParams = [':tenant_id' => $tenantId];
         
-        $sql = "SELECT i.*, it.name as image_type_name, it.code as image_type_code 
+        $sql = "SELECT i.id, i.tenant_id, i.owner_id, i.image_type_id, i.user_id, i.url,
+                       i.filename, i.is_main, i.sort_order, i.visibility, i.created_at, i.updated_at,
+                       it.name as image_type_name, it.code as image_type_code 
                 FROM {$this->table} i 
                 LEFT JOIN {$this->imageTypesTable} it ON i.image_type_id = it.id 
                 WHERE i.tenant_id = :tenant_id";
@@ -107,7 +109,9 @@ final class PdoImagesRepository
     public function find(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT i.*, it.name as image_type_name, it.code as image_type_code 
+            "SELECT i.id, i.tenant_id, i.owner_id, i.image_type_id, i.user_id, i.url,
+                    i.filename, i.is_main, i.sort_order, i.visibility, i.created_at, i.updated_at,
+                    it.name as image_type_name, it.code as image_type_code 
              FROM {$this->table} i 
              LEFT JOIN {$this->imageTypesTable} it ON i.image_type_id = it.id 
              WHERE i.id = :id AND i.tenant_id = :tenant_id LIMIT 1"
@@ -120,7 +124,9 @@ final class PdoImagesRepository
     public function findByUrl(int $tenantId, string $url): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} WHERE url = :url AND tenant_id = :tenant_id LIMIT 1"
+            "SELECT id, tenant_id, owner_id, image_type_id, user_id, url, filename,
+                    is_main, sort_order, visibility, created_at, updated_at
+             FROM {$this->table} WHERE url = :url AND tenant_id = :tenant_id LIMIT 1"
         );
         $stmt->execute([':url' => $url, ':tenant_id' => $tenantId]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
@@ -232,7 +238,9 @@ final class PdoImagesRepository
     public function getByOwner(int $tenantId, int $ownerId, int $imageTypeId): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT i.*, it.name as image_type_name 
+            "SELECT i.id, i.tenant_id, i.owner_id, i.image_type_id, i.user_id, i.url,
+                    i.filename, i.is_main, i.sort_order, i.visibility, i.created_at, i.updated_at,
+                    it.name as image_type_name 
              FROM {$this->table} i 
              LEFT JOIN {$this->imageTypesTable} it ON i.image_type_id = it.id 
              WHERE i.tenant_id = :tenant_id 
@@ -267,7 +275,9 @@ final class PdoImagesRepository
     public function getMainImage(int $tenantId, int $ownerId, int $imageTypeId): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM {$this->table} 
+            "SELECT id, tenant_id, owner_id, image_type_id, user_id, url, filename,
+                    is_main, sort_order, visibility, created_at, updated_at
+             FROM {$this->table} 
              WHERE tenant_id = :tenant_id 
              AND owner_id = :owner_id 
              AND image_type_id = :image_type_id 

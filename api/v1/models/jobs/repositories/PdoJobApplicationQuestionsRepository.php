@@ -32,7 +32,8 @@ final class PdoJobApplicationQuestionsRepository
         string $orderDir = 'ASC'
     ): array {
         $sql = "
-            SELECT jaq.*,
+            SELECT jaq.id, jaq.job_id, jaq.question_text, jaq.question_type,
+                   jaq.options, jaq.is_required, jaq.sort_order,
                    j.slug AS job_slug
             FROM job_application_questions jaq
             LEFT JOIN jobs j ON jaq.job_id = j.id
@@ -125,7 +126,8 @@ final class PdoJobApplicationQuestionsRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT jaq.*,
+            SELECT jaq.id, jaq.job_id, jaq.question_text, jaq.question_type,
+                   jaq.options, jaq.is_required, jaq.sort_order,
                    j.slug AS job_slug
             FROM job_application_questions jaq
             LEFT JOIN jobs j ON jaq.job_id = j.id
@@ -143,7 +145,7 @@ final class PdoJobApplicationQuestionsRepository
     public function getByJob(int $jobId, bool $requiredOnly = false): array
     {
         $sql = "
-            SELECT * 
+            SELECT id, job_id, question_text, question_type, options, is_required, sort_order
             FROM job_application_questions 
             WHERE job_id = :job_id
         ";

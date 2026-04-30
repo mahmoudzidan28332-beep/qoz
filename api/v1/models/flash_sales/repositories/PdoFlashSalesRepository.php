@@ -128,7 +128,10 @@ class PdoFlashSalesRepository
         $total = (int)$stmt->fetchColumn();
 
         // ─── Data query ────────────────────────────────────────────
-        $sql = "SELECT fs.* FROM flash_sales fs 
+        $sql = "SELECT fs.id, fs.entity_id, fs.sale_name, fs.description, fs.start_date, fs.end_date,
+                       fs.discount_type, fs.discount_value, fs.max_discount_amount, fs.is_active,
+                       fs.banner_image, fs.total_sales, fs.created_at, fs.updated_at
+                FROM flash_sales fs 
                 {$whereSQL} 
                 ORDER BY fs.created_at DESC 
                 LIMIT :lim OFFSET :off";
@@ -162,7 +165,10 @@ class PdoFlashSalesRepository
      */
     public function find(int $id, ?int $entityId = null, ?int $tenantId = null): ?array 
     {
-        $sql = "SELECT * FROM flash_sales WHERE id = :id";
+        $sql = "SELECT id, entity_id, sale_name, description, start_date, end_date, discount_type,
+                       discount_value, max_discount_amount, is_active, banner_image, total_sales,
+                       created_at, updated_at
+                FROM flash_sales WHERE id = :id";
         $params = [':id' => $id];
 
         // 🔒 Multi-tenant scope validation (MANDATORY)
@@ -296,7 +302,7 @@ class PdoFlashSalesRepository
      */
     public function getTranslations(int $flashSaleId, ?string $lang = null): array 
     {
-        $sql = "SELECT * FROM flash_sales_translations WHERE flash_sale_id = :fid";
+        $sql = "SELECT id, flash_sale_id, language_code, field_name, value FROM flash_sales_translations WHERE flash_sale_id = :fid";
         $params = [':fid' => $flashSaleId];
         
         if ($lang) {
@@ -376,7 +382,9 @@ class PdoFlashSalesRepository
             $lang = 'ar'; 
         }
         
-        $sql = "SELECT fsp.*, 
+        $sql = "SELECT fsp.id, fsp.flash_sale_id, fsp.product_id, fsp.entity_id, fsp.original_price,
+                       fsp.sale_price, fsp.discount_percentage, fsp.stock_quantity,
+                       fsp.max_quantity_per_user, fsp.is_active, fsp.sold_quantity,
                        p.sku AS product_sku, 
                        p.slug AS product_slug,
                        COALESCE(pt.name, p.slug) AS product_name

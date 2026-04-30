@@ -58,7 +58,10 @@ final class PdoHomepageSectionsRepository
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT hs.*, 
+            SELECT hs.id, hs.tenant_id, hs.theme_id, hs.section_type, hs.component,
+                   hs.layout_type, hs.layout_config, hs.items_per_row,
+                   hs.background_color, hs.text_color, hs.padding, hs.custom_css, hs.custom_html,
+                   hs.data_source, hs.is_active, hs.sort_order, hs.created_at, hs.updated_at,
                    COALESCE(hst.title, hs.title) AS title,
                    COALESCE(hst.subtitle, hs.subtitle) AS subtitle
             FROM homepage_sections hs
@@ -76,7 +79,10 @@ final class PdoHomepageSectionsRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, theme_id, section_type, title, subtitle, component,
+                   layout_type, layout_config, items_per_row, background_color, text_color,
+                   padding, custom_css, custom_html, data_source, is_active, sort_order,
+                   created_at, updated_at
             FROM homepage_sections
             WHERE tenant_id = :tenantId AND id = :id
             LIMIT 1

@@ -21,7 +21,7 @@ final class PdoEscrowDisputeEvidenceRepository implements EscrowDisputeEvidenceR
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT * FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
+        $sql = "SELECT id, tenant_id, dispute_id, file_url, uploaded_by_entity_id, uploaded_by_entity_type, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -71,7 +71,7 @@ final class PdoEscrowDisputeEvidenceRepository implements EscrowDisputeEvidenceR
     public function find(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
+            "SELECT id, tenant_id, dispute_id, file_url, uploaded_by_entity_id, uploaded_by_entity_type, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -43,7 +43,8 @@ final class PdoFontSettingsRepository
     public function find(int $tenantId, string $key, ?int $themeId = null): ?array
     {
         $sql = "
-            SELECT *
+            SELECT id, theme_id, setting_key, setting_name, font_family, font_size, font_weight,
+                   line_height, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM font_settings
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
         ";
@@ -66,7 +67,8 @@ final class PdoFontSettingsRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, theme_id, setting_key, setting_name, font_family, font_size, font_weight,
+                   line_height, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM font_settings
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1

@@ -17,7 +17,7 @@ final class PdoLanguagesRepository
     public function all(?int $limit = null, ?int $offset = null, array $filters = []): array
     {
         $sql = "
-            SELECT l.*
+            SELECT l.id, l.code, l.name, l.native_name, l.direction, l.is_active, l.flag_url, l.created_at
             FROM languages l
             WHERE 1=1
         ";
@@ -73,7 +73,7 @@ final class PdoLanguagesRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM languages WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, native_name, direction, is_active, flag_url, created_at FROM languages WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -81,7 +81,7 @@ final class PdoLanguagesRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM languages WHERE code = :code LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, native_name, direction, is_active, flag_url, created_at FROM languages WHERE code = :code LIMIT 1");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
