@@ -32,7 +32,7 @@ class IdentityHydrator
             $membershipStmt = $this->pdo->prepare(
                 "SELECT tu.tenant_id, tu.role_id, r.key_name AS role_key
                  FROM tenant_users tu LEFT JOIN roles r ON r.id = tu.role_id
-                 WHERE tu.user_id = ? AND tu.is_active = 1 ORDER BY tu.joined_at DESC LIMIT 1"
+                 WHERE tu.user_id = ? AND tu.is_active = 1 ORDER BY tu.id DESC LIMIT 1"
             );
             $membershipStmt->execute([$userId]);
             $membership = $membershipStmt->fetch(PDO::FETCH_ASSOC) ?: [];

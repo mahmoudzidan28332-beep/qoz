@@ -40,8 +40,14 @@ final class UserIdentityResolver
             if (!empty($candidate['is_platform_admin'])) {
                 $identity = self::hydratePlatformAdmin($candidate, $requestId, $defaultTenantId);
             } elseif ($pdo instanceof PDO) {
-                $hydrator = $container->identityHydrator();
-                $identity = $hydrator->hydrateFromDatabase($candidate, $requestId, $defaultTenantId);
+                try {
+                    $hydrator = $container->identityHydrator();
+                    $identity = $hydrator->hydrateFromDatabase($candidate, $requestId, $defaultTenantId);
+                } catch (\RuntimeException $e) {
+                    if (function_exists('safe_log')) {
+                        safe_log('warning', 'IdentityResolver: DB hydration failed, falling back to session snapshot', ['error' => $e->getMessage()]);
+                    }
+                }
             }
 
             if (!$identity instanceof UserIdentity) {

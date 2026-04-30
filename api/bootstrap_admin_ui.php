@@ -34,6 +34,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // ==============================================
 $requiredFiles = [
     __DIR__ . '/shared/core/DatabaseConnection.php',
+    __DIR__ . '/shared/core/DomainException.php',
+    __DIR__ . '/shared/core/DatabaseException.php',
     __DIR__ . '/shared/domain/Exceptions/ExceptionFactory.php',
     __DIR__ . '/shared/application/Auth/UserIdentity.php',
     __DIR__ . '/shared/application/Auth/UserIdentityResolver.php',
