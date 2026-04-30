@@ -75,16 +75,14 @@ class IdentityHydrator
             return new UserIdentity($userId, $tenantId, $roleId, $roles, $permissions, $resourcePermissions, true, (string)($candidate['source'] ?? 'db'), $requestId, $user, ['hydrated_from_db' => true]);
         } catch (\PDOException $e) {
             if (function_exists('safe_log')) safe_log('error', 'IdentityHydrator: Hydration failed', ['error' => $e->getMessage()]);
-            return null;
+            throw new DatabaseException('Identity hydration failed due to a database error', ['user_id' => $userId], $e);
         }
     }
 
     private function loadAllPermissionKeys(): array
     {
-        try {
-            $stmt = $this->pdo->query("SELECT DISTINCT key_name FROM permissions WHERE key_name IS NOT NULL AND key_name <> ''");
-            return $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
-        } catch (\PDOException) { return []; }
+        $stmt = $this->pdo->query("SELECT DISTINCT key_name FROM permissions WHERE key_name IS NOT NULL AND key_name <> ''");
+        return $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
     }
 
     private function loadResourcePermissions(?int $roleId, ?int $tenantId, bool $isSuperAdmin): array
@@ -92,45 +90,41 @@ class IdentityHydrator
         if ($isSuperAdmin) return $this->loadSuperAdminResourcePermissions($tenantId);
         if (!$tenantId) return [];
 
-        try {
-            $stmt = $this->pdo->prepare(
-                "SELECT rp.resource_type, p.key_name AS permission_key, rp.can_view_all, rp.can_view_own, rp.can_view_tenant, rp.can_create, rp.can_edit_all, rp.can_edit_own, rp.can_delete_all, rp.can_delete_own
-                 FROM resource_permissions rp LEFT JOIN permissions p ON p.id = rp.permission_id
-                 WHERE (rp.role_id = ? OR rp.role_id IS NULL) AND (rp.tenant_id = ? OR rp.tenant_id IS NULL)
-                 ORDER BY rp.resource_type, (rp.role_id IS NULL) DESC, (rp.tenant_id IS NULL) DESC"
-            );
-            $stmt->execute([$roleId, $tenantId]);
-            
-            $permissions = [];
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $type = $row['resource_type'];
-                if (!$type) continue;
-                if (!isset($permissions[$type])) {
-                    $permissions[$type] = ['permission_key' => $row['permission_key']];
-                }
-                foreach (['can_view_all', 'can_view_own', 'can_view_tenant', 'can_create', 'can_edit_all', 'can_edit_own', 'can_delete_all', 'can_delete_own'] as $flag) {
-                    if ($row[$flag] !== null) $permissions[$type][$flag] = (bool)$row[$flag];
-                }
+        $stmt = $this->pdo->prepare(
+            "SELECT rp.resource_type, p.key_name AS permission_key, rp.can_view_all, rp.can_view_own, rp.can_view_tenant, rp.can_create, rp.can_edit_all, rp.can_edit_own, rp.can_delete_all, rp.can_delete_own
+             FROM resource_permissions rp LEFT JOIN permissions p ON p.id = rp.permission_id
+             WHERE (rp.role_id = ? OR rp.role_id IS NULL) AND (rp.tenant_id = ? OR rp.tenant_id IS NULL)
+             ORDER BY rp.resource_type, (rp.role_id IS NULL) DESC, (rp.tenant_id IS NULL) DESC"
+        );
+        $stmt->execute([$roleId, $tenantId]);
+        
+        $permissions = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $type = $row['resource_type'];
+            if (!$type) continue;
+            if (!isset($permissions[$type])) {
+                $permissions[$type] = ['permission_key' => $row['permission_key']];
             }
-            return $permissions;
-        } catch (\PDOException) { return []; }
+            foreach (['can_view_all', 'can_view_own', 'can_view_tenant', 'can_create', 'can_edit_all', 'can_edit_own', 'can_delete_all', 'can_delete_own'] as $flag) {
+                if ($row[$flag] !== null) $permissions[$type][$flag] = (bool)$row[$flag];
+            }
+        }
+        return $permissions;
     }
 
     private function loadSuperAdminResourcePermissions(?int $tenantId): array
     {
-        try {
-            $sql = "SELECT DISTINCT resource_type FROM resource_permissions WHERE resource_type IS NOT NULL AND resource_type <> ''";
-            if ($tenantId) $sql .= " AND (tenant_id = $tenantId OR tenant_id IS NULL)";
-            $stmt = $this->pdo->query($sql);
-            $permissions = [];
-            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $type) {
-                $permissions[$type] = [
-                    'can_view_all' => true, 'can_view_own' => true, 'can_view_tenant' => true,
-                    'can_create' => true, 'can_edit_all' => true, 'can_edit_own' => true,
-                    'can_delete_all' => true, 'can_delete_own' => true, 'permission_key' => '*'
-                ];
-            }
-            return $permissions;
-        } catch (\PDOException) { return []; }
+        $sql = "SELECT DISTINCT resource_type FROM resource_permissions WHERE resource_type IS NOT NULL AND resource_type <> ''";
+        if ($tenantId) $sql .= " AND (tenant_id = $tenantId OR tenant_id IS NULL)";
+        $stmt = $this->pdo->query($sql);
+        $permissions = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $type) {
+            $permissions[$type] = [
+                'can_view_all' => true, 'can_view_own' => true, 'can_view_tenant' => true,
+                'can_create' => true, 'can_edit_all' => true, 'can_edit_own' => true,
+                'can_delete_all' => true, 'can_delete_own' => true, 'permission_key' => '*'
+            ];
+        }
+        return $permissions;
     }
 }

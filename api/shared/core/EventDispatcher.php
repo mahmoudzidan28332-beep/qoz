@@ -46,9 +46,7 @@ final class EventDispatcher
                     }
 
                 } catch (\RuntimeException $e) {
-                    Logger::error("Event '{$event}' runtime error: " . $e->getMessage());
-                } catch (\Error $e) {
-                    Logger::error("Event '{$event}' fatal failure: " . $e->getMessage());
+                    Logger::error("Event '{$event}' listener error: " . $e->getMessage());
                 }
             }
         }

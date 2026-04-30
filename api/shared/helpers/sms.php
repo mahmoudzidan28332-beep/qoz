@@ -91,7 +91,7 @@ class SMS {
             
             return $result;
             
-        } catch (\RuntimeException $e) {
+        } catch (\Exception $e) {
             self::logError('SMS send failed: ' . $e->getMessage());
             self::saveSMSLog($phone, $message, 'error', null, $lang);
             return [
@@ -232,7 +232,7 @@ class SMS {
                 'message_id' => $result->sid
             ];
             
-        } catch (\RuntimeException $e) {
+        } catch (\Exception $e) {
             self::logError('Twilio Error: ' . $e->getMessage());
             
             return [

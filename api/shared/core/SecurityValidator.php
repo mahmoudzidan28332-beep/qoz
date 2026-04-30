@@ -216,12 +216,8 @@ final class SecurityValidator
      */
     private static function implementsInterface(string $className, string $interfaceName): bool
     {
-        try {
-            $interfaces = class_implements($className, false);
-            return is_array($interfaces) && in_array($interfaceName, $interfaces, true);
-        } catch (\Error) {
-            return false;
-        }
+        $interfaces = class_implements($className, false);
+        return is_array($interfaces) && in_array($interfaceName, $interfaces, true);
     }
 
     /**

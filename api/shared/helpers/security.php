@@ -334,7 +334,7 @@ final class Security
 
             return base64_encode($versionByte . $iv . $tag . $cipher);
 
-        } catch (\RuntimeException $e) {
+        } catch (\Exception $e) {
             self::logError('Encryption error: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,
@@ -525,7 +525,7 @@ final class Security
 
             return $newEncrypted;
 
-        } catch (\RuntimeException $e) {
+        } catch (\Exception $e) {
             self::logError('Key rotation failed: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,

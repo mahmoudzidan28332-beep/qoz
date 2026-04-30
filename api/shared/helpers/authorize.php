@@ -164,7 +164,7 @@ if (!function_exists('audit_log')) {
 
         try {
             AuditLogger::log($action, $entityType, $entityId, $payload);
-        } catch (\RuntimeException|\Error $e) {
+        } catch (\RuntimeException $e) {
             error_log('[audit_log] Failed to write audit record: ' . $e->getMessage());
         } finally {
             // Restore original session values so we don't corrupt ongoing request state.
