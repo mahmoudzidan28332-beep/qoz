@@ -11,10 +11,10 @@ class IdentityHydrator
     private ?PDO $pdo;
     private ExceptionFactory $exceptions;
 
-    public function __construct(?PDO $pdo, ?ExceptionFactory $factory = null)
+    public function __construct(?PDO $pdo, ExceptionFactory $exceptions)
     {
         $this->pdo        = $pdo;
-        $this->exceptions = $factory ?? new ExceptionFactory();
+        $this->exceptions = $exceptions;
     }
 
     public function hydrateFromDatabase(array $candidate, string $requestId, ?int $defaultTenantId): ?UserIdentity

@@ -14,7 +14,7 @@ namespace Shared\Domain\Exceptions;
  *   {
  *       public function __construct(
  *           private \PDO $pdo,
- *           private ExceptionFactory $exceptions = new ExceptionFactory()
+ *           private ExceptionFactory $exceptions
  *       ) {}
  *
  *       private function doQuery(): void

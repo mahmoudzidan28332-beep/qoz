@@ -12,9 +12,9 @@ final class UserRepository implements UserRepositoryInterface
 {
     private ExceptionFactory $exceptions;
 
-    public function __construct(private PDO $pdo, ?ExceptionFactory $factory = null)
+    public function __construct(private PDO $pdo, ExceptionFactory $exceptions)
     {
-        $this->exceptions = $factory ?? new ExceptionFactory();
+        $this->exceptions = $exceptions;
     }
 
     public function create(CreateUserDTO $dto): int

@@ -7,6 +7,7 @@ require_once __DIR__ . '/CandidateResolver.php';
 require_once __DIR__ . '/IdentityHydrator.php';
 
 use PDO;
+use Shared\Domain\Exceptions\ExceptionFactory;
 
 final class UserIdentityResolver
 {
@@ -31,7 +32,7 @@ final class UserIdentityResolver
         $candidate = $candidateResolver->resolve();
 
         $pdo ??= self::resolvePdo();
-        $hydrator = new IdentityHydrator($pdo);
+        $hydrator = new IdentityHydrator($pdo, new ExceptionFactory());
 
         $identity = null;
 

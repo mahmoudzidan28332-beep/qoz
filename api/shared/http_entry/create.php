@@ -4,6 +4,7 @@ declare(strict_types=1);
 use Shared\Application\Context\RequestContext;
 use Shared\Application\DTO\CreateUserDTO;
 use Shared\Application\Actions\User\CreateUserAction;
+use Shared\Domain\Exceptions\ExceptionFactory;
 use Shared\Infrastructure\Persistence\MySQL\UserRepository;
 
 /**
@@ -28,7 +29,7 @@ $payload = $context->input();
 $dto = new CreateUserDTO($payload);
 
 /* ───── Action ───── */
-$repository = new UserRepository($GLOBALS['ADMIN_DB']);
+$repository = new UserRepository($GLOBALS['ADMIN_DB'], new ExceptionFactory());
 $action = new CreateUserAction($repository);
 
 $result = $action->execute($context, $dto);
