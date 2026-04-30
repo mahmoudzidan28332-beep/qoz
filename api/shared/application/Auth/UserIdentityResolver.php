@@ -7,7 +7,6 @@ require_once __DIR__ . '/CandidateResolver.php';
 require_once __DIR__ . '/IdentityHydrator.php';
 
 use PDO;
-use Shared\Application\Container;
 
 final class UserIdentityResolver
 {
@@ -32,7 +31,8 @@ final class UserIdentityResolver
         $candidate = $candidateResolver->resolve();
 
         $pdo ??= self::resolvePdo();
-        $container = $GLOBALS['app_container'] ?? new Container($pdo);
+        $container = $GLOBALS['app_container']
+            ?? throw new \RuntimeException('Container not initialized');
         $hydrator = $container->identityHydrator();
 
         $identity = null;
