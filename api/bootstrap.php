@@ -632,6 +632,7 @@ $GLOBALS['CONTAINER']      = $container;
 $GLOBALS['ADMIN_DB']       = $container['pdo'];
 $GLOBALS['ADMIN_USER']     = $container['current_user'];
 $GLOBALS['ADMIN_IDENTITY'] = $identity;
+$GLOBALS['app_container']  = new \Shared\Application\Container($GLOBALS['ADMIN_DB']);
 
 // ==============================================
 // 16. Admin UI Bootstrap (Conditional)

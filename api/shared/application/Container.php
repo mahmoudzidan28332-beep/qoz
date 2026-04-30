@@ -11,16 +11,15 @@ use Shared\Infrastructure\Persistence\MySQL\UserRepository;
 /**
  * Lightweight composition-root container for the Shared layer.
  *
- * Instantiate ONCE per request entry point and pass it down; never
- * let inner layers create their own ExceptionFactory instances.
+ * Booted ONCE per request in bootstrap.php and stored in $GLOBALS['app_container'].
+ * HTTP entry files consume it via $GLOBALS['app_container']->userRepository(), etc.
+ * Never instantiate Container inside individual request handlers.
  *
- * Usage (HTTP entry point):
- *   $container  = new Container($GLOBALS['ADMIN_DB']);
- *   $repository = $container->userRepository();
+ * Usage (bootstrap):
+ *   $GLOBALS['app_container'] = new Container($GLOBALS['ADMIN_DB']);
  *
- * Usage (static resolver):
- *   $container = new Container($pdo);
- *   $hydrator  = $container->identityHydrator();
+ * Usage (HTTP entry):
+ *   $repository = $GLOBALS['app_container']->userRepository();
  */
 final class Container
 {
