@@ -90,7 +90,7 @@ final class PdoEntityBankAccountsRepository
                 $row['account_number'] = Security::decryptForEntity(
                     $row['account_number'], $decTenant, $decEntity
                 );
-            } catch (\PDOException $e) {
+            } catch (\RuntimeException $e) {
                 $row['account_number'] = null;
             }
 
@@ -98,7 +98,7 @@ final class PdoEntityBankAccountsRepository
                 $row['iban'] = $row['iban']
                     ? Security::decryptForEntity($row['iban'], $decTenant, $decEntity)
                     : null;
-            } catch (\PDOException $e) {
+            } catch (\RuntimeException $e) {
                 $row['iban'] = null;
             }
 
@@ -106,7 +106,7 @@ final class PdoEntityBankAccountsRepository
                 $row['swift_code'] = $row['swift_code']
                     ? Security::decryptForEntity($row['swift_code'], $decTenant, $decEntity)
                     : null;
-            } catch (\PDOException $e) {
+            } catch (\RuntimeException $e) {
                 $row['swift_code'] = null;
             }
 
@@ -143,7 +143,7 @@ final class PdoEntityBankAccountsRepository
             $row['account_number'] = Security::decryptForEntity(
                 $row['account_number'], $tenantId, $entityId
             );
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             $row['account_number'] = null;
         }
 
@@ -151,7 +151,7 @@ final class PdoEntityBankAccountsRepository
             $row['iban'] = $row['iban']
                 ? Security::decryptForEntity($row['iban'], $tenantId, $entityId)
                 : null;
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             $row['iban'] = null;
         }
 
@@ -159,7 +159,7 @@ final class PdoEntityBankAccountsRepository
             $row['swift_code'] = $row['swift_code']
                 ? Security::decryptForEntity($row['swift_code'], $tenantId, $entityId)
                 : null;
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             $row['swift_code'] = null;
         }
 

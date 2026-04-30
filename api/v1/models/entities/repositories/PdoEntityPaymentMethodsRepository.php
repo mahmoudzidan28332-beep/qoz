@@ -89,7 +89,7 @@ final class PdoEntityPaymentMethodsRepository
                 $row['account_email'] = $row['account_email']
                     ? Security::decryptForEntity($row['account_email'], $decTenant, $decEntity)
                     : null;
-            } catch (\PDOException $e) {
+            } catch (\RuntimeException $e) {
                 $row['account_email'] = null;
             }
 
@@ -97,7 +97,7 @@ final class PdoEntityPaymentMethodsRepository
                 $row['account_id'] = $row['account_id']
                     ? Security::decryptForEntity($row['account_id'], $decTenant, $decEntity)
                     : null;
-            } catch (\PDOException $e) {
+            } catch (\RuntimeException $e) {
                 $row['account_id'] = null;
             }
 
@@ -135,7 +135,7 @@ final class PdoEntityPaymentMethodsRepository
             $row['account_email'] = $row['account_email']
                 ? Security::decryptForEntity($row['account_email'], $tenantId, $entityId)
                 : null;
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             $row['account_email'] = null;
         }
 
@@ -143,7 +143,7 @@ final class PdoEntityPaymentMethodsRepository
             $row['account_id'] = $row['account_id']
                 ? Security::decryptForEntity($row['account_id'], $tenantId, $entityId)
                 : null;
-        } catch (\PDOException $e) {
+        } catch (\RuntimeException $e) {
             $row['account_id'] = null;
         }
 
