@@ -227,7 +227,7 @@ final class PdoCommissionTransactionsRepository
             return true;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

@@ -35,7 +35,7 @@ final class ReturnStatusHistoryService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Status history record not found');
+            throw new ApplicationException('Status history record not found');
         }
         return $data;
     }

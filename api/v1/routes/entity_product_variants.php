@@ -207,10 +207,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'entity_product_variants.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'entity_product_variants.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     error_log("Error in entity_product_variants: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
     safe_log('critical', 'entity_product_variants.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);

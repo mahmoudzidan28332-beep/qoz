@@ -31,7 +31,7 @@ try {
 
     echo json_encode(['success'=>true, 'data'=>$data]);
 
-} catch (\RuntimeException $e){
+} catch (ApplicationException|\RuntimeException $e){
     require_once __DIR__ . '/../../shared/core/ResponseFormatter.php';
     ResponseFormatter::serverError($e);
 }

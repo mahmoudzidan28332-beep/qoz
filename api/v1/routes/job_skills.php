@@ -219,7 +219,7 @@ try {
             try {
                 $deleted = $controller->delete((int)$data['id']);
                 ResponseFormatter::success(['deleted' => $deleted], 'Skill deleted');
-            } catch (RuntimeException $e) {
+            } catch (ApplicationException|RuntimeException $e) {
                 ResponseFormatter::error($e->getMessage(), 400);
             }
             break;
@@ -230,10 +230,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'job_skills.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'job_skills.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'job_skills.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

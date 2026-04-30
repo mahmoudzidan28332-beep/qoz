@@ -116,7 +116,7 @@ final class Tenant_usersService
                 'data' => $data,
                 'error' => $ex->getMessage()
             ]);
-            throw $ex;
+            throw new DatabaseException($ex->getMessage(), ['sqlstate' => $ex->getCode()], $ex);
         }
 
         // Try to fetch created row by tenant+id
@@ -151,7 +151,7 @@ final class Tenant_usersService
         // Check if tenant user exists
         $existing = $this->repo->find($tenantId, (int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Tenant user not found');
+            throw new ApplicationException('Tenant user not found');
         }
 
         // Validate input (update mode)
@@ -186,7 +186,7 @@ final class Tenant_usersService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete tenant user');
+            throw new ApplicationException('Failed to delete tenant user');
         }
     }
 
@@ -285,7 +285,7 @@ final class Tenant_usersService
     public function get(int $tenantId, int $id): array
     {
         $row = $this->repo->find($tenantId, $id);
-        if (!$row) throw new RuntimeException('Tenant user not found');
+        if (!$row) throw new ApplicationException('Tenant user not found');
         return $row;
     }
 

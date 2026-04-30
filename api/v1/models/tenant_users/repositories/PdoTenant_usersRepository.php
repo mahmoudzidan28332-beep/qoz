@@ -386,7 +386,7 @@ final class PdoTenant_usersRepository extends BaseRepository
         } catch (PDOException $ex) {
             // Log helpful context for debugging
             error_log('[PdoTenant_usersRepository::save] PDOException: ' . $ex->getMessage() . ' | Tenant: ' . $tenantId . ' | Data: ' . json_encode($data));
-            throw $ex;
+            throw new DatabaseException($ex->getMessage(), ['sqlstate' => $ex->getCode()], $ex);
         }
     }
 

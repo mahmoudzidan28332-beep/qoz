@@ -30,7 +30,7 @@ final class AuctionBidsService
     {
         $data = $this->repo->find($id);
         if (!$data) {
-            throw new RuntimeException('Auction bid not found');
+            throw new ApplicationException('Auction bid not found');
         }
         return $data;
     }

@@ -79,7 +79,7 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'ProductReviews API failed', [
         'message' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

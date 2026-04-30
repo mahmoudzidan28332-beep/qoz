@@ -59,7 +59,7 @@ try {
 
     $controller->handleRequest($method, $subRoute, $data, $_GET);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'Critical error in queues route: ' . $e->getMessage(), [
         'file' => $e->getFile(),
         'line' => $e->getLine()

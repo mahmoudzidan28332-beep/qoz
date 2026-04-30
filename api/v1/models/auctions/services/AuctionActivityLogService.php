@@ -30,7 +30,7 @@ final class AuctionActivityLogService
     {
         $data = $this->repo->find($id);
         if (!$data) {
-            throw new RuntimeException('Auction activity log entry not found');
+            throw new ApplicationException('Auction activity log entry not found');
         }
         return $data;
     }

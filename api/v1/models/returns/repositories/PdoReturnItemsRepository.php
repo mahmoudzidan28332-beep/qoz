@@ -107,7 +107,7 @@ final class PdoReturnItemsRepository implements ReturnItemsRepositoryInterface
 
         // التحقق من ملكية return_id للمستأجر قبل الحفظ
         if (!$this->validateReturnOwnership($tenantId, (int)$data['return_id'])) {
-            throw new RuntimeException('Return request does not belong to tenant');
+            throw new ApplicationException('Return request does not belong to tenant');
         }
 
         if ($isUpdate) {

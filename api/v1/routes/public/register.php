@@ -82,7 +82,7 @@ if ($first === 'register') {
             );
             ResponseFormatter::success(['ok' => true, 'id' => $newEntityId, 'slug' => $slug, 'status' => 'pending'],
                 'Application submitted — pending review', 201);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Registration failed: ' . $ex->getMessage(), 500);
         }
         exit;
@@ -114,9 +114,9 @@ if ($first === 'register') {
             try {
                 $tenantUsersRepo = new PdoTenant_usersRepository($pdo);
                 $tenantUsersRepo->addUserToTenant($newTenantId, $regUserId);
-            } catch (\RuntimeException $_) { /* tenant_users is optional */ }
+            } catch (ApplicationException|\RuntimeException $_) { /* tenant_users is optional */ }
             ResponseFormatter::success(['ok' => true, 'id' => $newTenantId], 'Tenant created', 201);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Tenant creation failed: ' . $ex->getMessage(), 500);
         }
         exit;

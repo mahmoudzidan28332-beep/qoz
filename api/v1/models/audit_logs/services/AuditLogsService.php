@@ -112,7 +112,7 @@ final class AuditLogsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new \RuntimeException('Log entry not found');
+            throw new ApplicationException('Log entry not found');
         }
         return $data;
     }

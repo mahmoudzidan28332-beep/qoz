@@ -142,7 +142,7 @@ try {
     // في وضع التطوير فقط - أظهر التفاصيل
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
     
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'ProductPhysicalAttributes route failed', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

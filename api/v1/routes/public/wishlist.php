@@ -35,7 +35,7 @@ if ($first === 'wishlist') {
     $refreshWishlistCount = function(int $wlId) use ($wishlistRepo) {
         try {
             $wishlistRepo->updateTotalItems($wlId);
-        } catch (\RuntimeException $__) { /* cached count is optional */ }
+        } catch (ApplicationException|\RuntimeException $__) { /* cached count is optional */ }
     };
 
     // GET /api/public/wishlist — list items in default wishlist
@@ -45,7 +45,7 @@ if ($first === 'wishlist') {
             $lang = $_GET['lang'] ?? $lang;
             $items = $wishlistRepo->listItems($wlId, $lang);
             ResponseFormatter::success(['wishlist_id' => $wlId, 'items' => $items, 'total' => count($items)]);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Failed to load wishlist: ' . $ex->getMessage(), 500);
         }
         exit;
@@ -57,7 +57,7 @@ if ($first === 'wishlist') {
             $wlId = $getDefaultWishlist();
             $ids = $wishlistRepo->listItemProductIds($wlId);
             ResponseFormatter::success(['ids' => $ids]);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::success(['ids' => []]);
         }
         exit;
@@ -99,7 +99,7 @@ if ($first === 'wishlist') {
             }
             $refreshWishlistCount($wlId);
             ResponseFormatter::success(['ok' => true, 'wishlist_id' => $wlId], 'Added to wishlist', 201);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Failed to add to wishlist: ' . $ex->getMessage(), 500);
         }
         exit;
@@ -115,7 +115,7 @@ if ($first === 'wishlist') {
             $wishlistRepo->softRemoveItem($wlId, $productId);
             $refreshWishlistCount($wlId);
             ResponseFormatter::success(['ok' => true]);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Failed to remove: ' . $ex->getMessage(), 500);
         }
         exit;
@@ -128,7 +128,7 @@ if ($first === 'wishlist') {
             $wishlistRepo->softRemoveAllItems($wlId);
             $refreshWishlistCount($wlId);
             ResponseFormatter::success(['ok' => true]);
-        } catch (\RuntimeException $ex) {
+        } catch (ApplicationException|\RuntimeException $ex) {
             ResponseFormatter::error('Failed to clear: ' . $ex->getMessage(), 500);
         }
         exit;

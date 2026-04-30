@@ -26,7 +26,7 @@ final class CurrenciesService
     {
         $data = $this->repository->findByCode($code);
         if (!$data) {
-            throw new RuntimeException('Currency not found');
+            throw new ApplicationException('Currency not found');
         }
         return $data;
     }
@@ -47,7 +47,7 @@ final class CurrenciesService
             throw new InvalidArgumentException('Code is required');
         }
         if (!$this->repository->delete($data['code'])) {
-            throw new RuntimeException('Failed to delete currency');
+            throw new ApplicationException('Failed to delete currency');
         }
     }
 }

@@ -30,7 +30,7 @@ final class EscrowStatusHistoryService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Escrow status history not found');
+            throw new ApplicationException('Escrow status history not found');
         }
         return $data;
     }

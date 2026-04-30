@@ -98,7 +98,7 @@ final class PdoLanguagesRepository
         // Check uniqueness
         if (!$isUpdate || ($oldData && $oldData['code'] !== $data['code'])) {
             if ($this->findByCode($data['code'])) {
-                throw new RuntimeException('Language code already exists');
+                throw new ApplicationException('Language code already exists');
             }
         }
 

@@ -136,10 +136,10 @@ try {
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'product_types route error', [
         'message' => $e->getMessage(),
         'file'    => $e->getFile(),

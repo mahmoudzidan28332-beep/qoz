@@ -22,7 +22,7 @@ class AuthService
             $this->pdo = DatabaseConnection::getConnection();
         } catch (\RuntimeException $e) {
             Logger::error('AuthService DB connection failed: ' . $e->getMessage());
-            throw new RuntimeException('Database unavailable');
+            throw new DatabaseException('Database unavailable');
         }
     }
 

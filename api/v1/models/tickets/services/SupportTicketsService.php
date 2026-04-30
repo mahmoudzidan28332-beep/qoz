@@ -36,7 +36,7 @@ final class SupportTicketsService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Ticket not found');
+            throw new ApplicationException('Ticket not found');
         }
         return $data;
     }

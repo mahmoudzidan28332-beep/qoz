@@ -154,7 +154,7 @@ final class PdoTenantCategoriesRepository extends BaseRepository
             // Verify ownership if tenant-scoped
             $existing = $this->find((int)$data['id']);
             if (!$existing) {
-                throw new RuntimeException('Tenant Category not found or access denied');
+                throw new ApplicationException('Tenant Category not found or access denied');
             }
 
             $updateFields = [];
@@ -247,7 +247,7 @@ final class PdoTenantCategoriesRepository extends BaseRepository
         // 🔒 Verify context
         $contextTenantId = $this->getTenantId();
         if ($contextTenantId > 0 && $contextTenantId !== $tenantId) {
-            throw new RuntimeException('Access denied to sync categories for another tenant');
+            throw new ApplicationException('Access denied to sync categories for another tenant');
         }
 
         $this->pdo->beginTransaction();
@@ -297,7 +297,7 @@ final class PdoTenantCategoriesRepository extends BaseRepository
             return ['added' => $added, 'removed' => $removed];
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

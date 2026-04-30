@@ -158,7 +158,7 @@ final class PdoThemesRepository
         $target = $this->normalizeTarget($data['theme_target'] ?? null);
         $ownerTenantId = $this->normalizeOwnerTenantId($data['owner_tenant_id'] ?? ($data['tenant_id'] ?? null), $scope, $target, $viewerTenantId);
         if ($scope !== self::SCOPE_TENANT && $viewerTenantId !== self::PLATFORM_TENANT_ID) {
-            throw new RuntimeException('Only platform themes owner can create shared themes');
+            throw new ApplicationException('Only platform themes owner can create shared themes');
         }
 
         if (!empty($data['id'])) {
@@ -168,10 +168,10 @@ final class PdoThemesRepository
                 'owner_tenant_id' => $ownerTenantId,
             ]);
             if (!$existing) {
-                throw new RuntimeException('Theme not found');
+                throw new ApplicationException('Theme not found');
             }
             if (!$this->canMutateTheme($viewerTenantId, $existing)) {
-                throw new RuntimeException('Theme is read only for this tenant');
+                throw new ApplicationException('Theme is read only for this tenant');
             }
 
             $stmt = $this->pdo->prepare("

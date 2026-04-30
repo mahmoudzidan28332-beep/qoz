@@ -60,7 +60,7 @@ final class UsersService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('User not found');
+            throw new ApplicationException('User not found');
         }
 
         return $row;
@@ -77,7 +77,7 @@ final class UsersService
         if ($isUpdate) {
             $existing = $this->repo->find((int)$whitelisted['id']);
             if (!$existing) {
-                throw new RuntimeException('User not found');
+                throw new ApplicationException('User not found');
             }
             $whitelisted = array_merge($existing, $whitelisted);
         }
@@ -93,7 +93,7 @@ final class UsersService
 
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved user');
+            throw new ApplicationException('Failed to load saved user');
         }
 
         return $row;
@@ -102,7 +102,7 @@ final class UsersService
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete user');
+            throw new ApplicationException('Failed to delete user');
         }
     }
 

@@ -30,7 +30,7 @@ final class EscrowDisputesService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Escrow dispute not found');
+            throw new ApplicationException('Escrow dispute not found');
         }
         return $data;
     }

@@ -140,10 +140,10 @@ try {
 } catch (InvalidArgumentException $e) {
     safe_log('warning', 'notification_types.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     safe_log('error', 'notification_types.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'notification_types.fatal', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

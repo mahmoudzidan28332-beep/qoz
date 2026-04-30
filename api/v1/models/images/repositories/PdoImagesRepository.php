@@ -158,7 +158,7 @@ final class PdoImagesRepository
             foreach ($data as $k => $v) {
                 if ($v !== null) { $fields[] = "$k = :$k"; $params[":$k"] = $v; }
             }
-            if (empty($fields)) { throw new RuntimeException('No fields to update'); }
+            if (empty($fields)) { throw new ApplicationException('No fields to update'); }
 
             $params[':id'] = $id; $params[':tenant_id'] = $tenantId;
             $stmt = $this->pdo->prepare("UPDATE {$this->table} SET " . implode(', ', $fields) . " WHERE id = :id AND tenant_id = :tenant_id");
@@ -330,7 +330,7 @@ final class PdoImagesRepository
             return $res;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

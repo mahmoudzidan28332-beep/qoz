@@ -328,6 +328,12 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // 7. Load Core Classes
 // ==============================================
 $coreFiles = [
+    'DomainException.php',
+    'DatabaseException.php',
+    'ApplicationException.php',
+    'AuthException.php',
+    'SystemException.php',
+    'ExceptionHandler.php',
     'DatabaseConnection.php',
     'ResponseFormatter.php',
     'BaseModel.php',
@@ -340,6 +346,10 @@ foreach ($coreFiles as $file) {
     if (file_exists($path)) {
         require_once $path;
     }
+}
+
+if (class_exists('ExceptionHandler', false)) {
+    ExceptionHandler::register();
 }
 
 // ==============================================

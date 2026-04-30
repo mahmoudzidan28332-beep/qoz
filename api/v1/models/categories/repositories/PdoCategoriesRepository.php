@@ -221,7 +221,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             return $categoryId;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -350,7 +350,7 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

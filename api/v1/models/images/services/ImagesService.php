@@ -28,7 +28,7 @@ final class ImagesService
     {
         $row = $this->repo->find($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Image not found');
+            throw new ApplicationException('Image not found');
         }
         return $row;
     }
@@ -70,7 +70,7 @@ final class ImagesService
         $imageTypeId = (int)($data['image_type_id'] ?? 0);
         if ($imageTypeId <= 0) { throw new InvalidArgumentException('Image type ID is required'); }
         $imageType = $this->repo->getImageType($imageTypeId);
-        if (!$imageType) { throw new RuntimeException('Image type not found'); }
+        if (!$imageType) { throw new ApplicationException('Image type not found'); }
 
         $ownerId = (int)($data['owner_id'] ?? 0);
         if ($ownerId <= 0) { throw new InvalidArgumentException('Owner ID is required'); }
@@ -111,7 +111,7 @@ final class ImagesService
         $serverBase = $_SERVER['DOCUMENT_ROOT'] . '/admin';
         $serverPath = $serverBase . $uploadDir . $filename;
 
-        if (!move_uploaded_file($tmpName, $serverPath)) { throw new RuntimeException("Failed to move uploaded file: {$originalName}"); }
+        if (!move_uploaded_file($tmpName, $serverPath)) { throw new ApplicationException("Failed to move uploaded file: {$originalName}"); }
 
         try {
             $processedInfo = $this->processImageFile($serverPath, $imageType, $baseFilename);
@@ -134,12 +134,12 @@ final class ImagesService
 
             $id = $this->repo->insertDirect($imageData);
             $savedImage = $this->repo->find($tenantId, $id);
-            if (!$savedImage) { throw new RuntimeException("Failed to retrieve saved image"); }
+            if (!$savedImage) { throw new ApplicationException("Failed to retrieve saved image"); }
             return $savedImage;
         } catch (\RuntimeException $e) {
             if (file_exists($serverPath)) { unlink($serverPath); }
             if (isset($thumbPath) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath)) { unlink($_SERVER['DOCUMENT_ROOT'] . '/admin' . $thumbPath); }
-            throw new RuntimeException("Failed to process image {$originalName}: " . $e->getMessage());
+            throw new ApplicationException("Failed to process image {$originalName}: " . $e->getMessage());
         }
     }
 
@@ -230,7 +230,7 @@ final class ImagesService
     {
         $image = $this->repo->find($tenantId, $id);
         if (!$image) {
-            throw new RuntimeException('Image not found');
+            throw new ApplicationException('Image not found');
         }
 
         // Delete physical files
@@ -238,7 +238,7 @@ final class ImagesService
 
         // Delete from database
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete image from database');
+            throw new ApplicationException('Failed to delete image from database');
         }
 
         // If this was the main image, set another image as main
@@ -267,7 +267,7 @@ final class ImagesService
         
         // Delete from database
         if (!$this->repo->deleteMultiple($tenantId, $ids)) {
-            throw new RuntimeException('Failed to delete images from database');
+            throw new ApplicationException('Failed to delete images from database');
         }
         
         // Check if we need to set new main images
@@ -341,11 +341,11 @@ final class ImagesService
         // Verify the image exists and belongs to the specified owner
         $image = $this->repo->find($tenantId, $imageId);
         if (!$image) {
-            throw new RuntimeException('Image not found');
+            throw new ApplicationException('Image not found');
         }
         
         if ($image['owner_id'] != $ownerId || $image['image_type_id'] != $imageTypeId) {
-            throw new RuntimeException('Image does not belong to specified owner and type');
+            throw new ApplicationException('Image does not belong to specified owner and type');
         }
         
         $this->repo->setMain($tenantId, $ownerId, $imageTypeId, $imageId, $userId);
@@ -361,7 +361,7 @@ final class ImagesService
     {
         $type = $this->repo->getImageType($imageTypeId);
         if (!$type) {
-            throw new RuntimeException('Image type not found');
+            throw new ApplicationException('Image type not found');
         }
         return $type;
     }
@@ -382,13 +382,13 @@ final class ImageProcessor
         string $baseFilename = null
     ): string {
         if (!file_exists($sourcePath)) {
-            throw new RuntimeException("Source file not found: {$sourcePath}");
+            throw new ApplicationException("Source file not found: {$sourcePath}");
         }
 
         // Get original image info
         $imageInfo = @getimagesize($sourcePath);
         if (!$imageInfo) {
-            throw new RuntimeException("Invalid image file: {$sourcePath}");
+            throw new ApplicationException("Invalid image file: {$sourcePath}");
         }
 
         list($originalWidth, $originalHeight, $imageType) = $imageInfo;
@@ -396,7 +396,7 @@ final class ImageProcessor
         // Create image resource
         $sourceImage = $this->createImageResource($sourcePath, $imageType);
         if (!$sourceImage) {
-            throw new RuntimeException("Failed to create image resource");
+            throw new ApplicationException("Failed to create image resource");
         }
 
         // Calculate dimensions
@@ -541,7 +541,7 @@ final class ImageProcessor
                 imagewebp($image, $path, $quality);
                 break;
             default:
-                throw new RuntimeException("Unsupported format: {$format}");
+                throw new ApplicationException("Unsupported format: {$format}");
         }
     }
 }

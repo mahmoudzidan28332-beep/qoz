@@ -90,10 +90,10 @@ try {
         default:
             ResponseFormatter::error('Method not allowed. Audit logs are read-only via API.', 405);
     }
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'audit_logs.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'audit_logs.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('An unexpected error occurred', 500);
 }

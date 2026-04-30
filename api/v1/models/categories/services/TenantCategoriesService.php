@@ -26,7 +26,7 @@ final class TenantCategoriesService
     public function get(int $id, string $lang = 'ar'): array
     {
         $row = $this->repo->find($id, $lang);
-        if (!$row) throw new RuntimeException('Tenant Category not found');
+        if (!$row) throw new ApplicationException('Tenant Category not found');
         return $row;
     }
 
@@ -44,7 +44,7 @@ final class TenantCategoriesService
     public function toggleStatus(int $id, int $isActive): array
     {
         $row = $this->repo->find($id);
-        if (!$row) throw new RuntimeException('Tenant Category not found');
+        if (!$row) throw new ApplicationException('Tenant Category not found');
 
         $data = ['id' => $id, 'is_active' => $isActive];
         $this->repo->save($data);
@@ -57,7 +57,7 @@ final class TenantCategoriesService
     public function delete(int $id): void
     {
         if (!$this->repo->delete($id)) {
-            throw new RuntimeException('Failed to delete Tenant Category');
+            throw new ApplicationException('Failed to delete Tenant Category');
         }
     }
 

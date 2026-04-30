@@ -82,7 +82,7 @@ try {
         default:
             ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
 }
 

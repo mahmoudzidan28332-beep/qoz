@@ -19,7 +19,7 @@ final class AuctionTranslationsService
     {
         $data = $this->repo->find($auctionId, $languageCode);
         if (!$data) {
-            throw new RuntimeException('Auction translation not found');
+            throw new ApplicationException('Auction translation not found');
         }
         return $data;
     }

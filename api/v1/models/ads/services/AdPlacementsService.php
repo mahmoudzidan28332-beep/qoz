@@ -30,7 +30,7 @@ final class AdPlacementsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Ad placement not found');
+            throw new ApplicationException('Ad placement not found');
         }
         return $data;
     }

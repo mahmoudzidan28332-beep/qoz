@@ -238,7 +238,7 @@ final class PdoBrandsRepository extends BaseRepository
         if ($isUpdate) {
             $existing = $this->findById((int)$data['id']);
             if (!$existing) {
-                throw new RuntimeException('Brand not found or access denied');
+                throw new ApplicationException('Brand not found or access denied');
             }
             $id = (int)$data['id'];
             $targetTenantId = (int)$existing['tenant_id'];

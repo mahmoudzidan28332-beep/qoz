@@ -54,7 +54,7 @@ if ($stMethod === 'GET' && $stSub === 'categories') {
             [$lang, $stTenantId]
         );
         ResponseFormatter::success(['items' => $cats]);
-    } catch (\RuntimeException $ex) {
+    } catch (ApplicationException|\RuntimeException $ex) {
         // Fallback: ticket_category_translations table may not exist yet.
         try {
             $cats = $pdoList(
@@ -64,7 +64,7 @@ if ($stMethod === 'GET' && $stSub === 'categories') {
                 [$stTenantId]
             );
             ResponseFormatter::success(['items' => $cats]);
-        } catch (\RuntimeException $ex2) {
+        } catch (ApplicationException|\RuntimeException $ex2) {
             ResponseFormatter::error('Failed to load categories', 500);
         }
     }
@@ -190,7 +190,7 @@ if ($stMethod === 'POST' && $stSub === '') {
         $ticketService = new SupportTicketsService($ticketRepo);
         $newId = $ticketRepo->createPublic($stTenantId, $stUserId, $categoryId, $subject, $description, $priority);
         ResponseFormatter::success(['id' => $newId, 'success' => true], 'Ticket submitted successfully', 201);
-    } catch (\RuntimeException $ex) {
+    } catch (ApplicationException|\RuntimeException $ex) {
         ResponseFormatter::error('Failed to create ticket', 500);
     }
     exit;

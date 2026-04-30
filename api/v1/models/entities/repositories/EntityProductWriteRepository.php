@@ -118,10 +118,10 @@ final class EntityProductWriteRepository
 
         } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw new \RuntimeException('Failed to save entity products: ' . $e->getMessage(), 0, $e);
+            throw new ApplicationException('Failed to save entity products: ' . $e->getMessage(), 0, $e);
         } catch (\RuntimeException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -206,7 +206,7 @@ final class EntityProductWriteRepository
         );
         $stmt->execute([':id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new \RuntimeException('Entity not found or tenant mismatch');
+            throw new ApplicationException('Entity not found or tenant mismatch');
         }
 
         $stmt = $this->pdo->prepare(
@@ -214,7 +214,7 @@ final class EntityProductWriteRepository
         );
         $stmt->execute([':id' => $productId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new \RuntimeException('Product not found or tenant mismatch');
+            throw new ApplicationException('Product not found or tenant mismatch');
         }
     }
 }

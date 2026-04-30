@@ -30,7 +30,7 @@ final class AdTranslationsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Ad translation not found');
+            throw new ApplicationException('Ad translation not found');
         }
         return $data;
     }

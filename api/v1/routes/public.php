@@ -47,7 +47,7 @@ if (!$pdo instanceof PDO) {
                     );
                     $GLOBALS['ADMIN_DB'] = $pdo;
                     break;
-                } catch (\RuntimeException $e) {
+                } catch (ApplicationException|\RuntimeException $e) {
                     error_log('[Public API] PDO Connection Failed: ' . $e->getMessage());
                     $pdo = null;
                 }

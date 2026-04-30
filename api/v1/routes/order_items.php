@@ -38,5 +38,5 @@ try {
         default: ResponseFormatter::error('Method not allowed', 405);
     }
 } catch (\InvalidArgumentException $e) { safe_log('warning', 'order_items.validation', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 422); }
-catch (\RuntimeException $e) { safe_log('error', 'order_items.runtime', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 400); }
-catch (\RuntimeException $e) { safe_log('critical', 'order_items.fatal', ['error' => $e->getMessage()]); ResponseFormatter::error('Internal Server Error', 500); }
+catch (ApplicationException|\RuntimeException $e) { safe_log('error', 'order_items.runtime', ['error' => $e->getMessage()]); ResponseFormatter::error($e->getMessage(), 400); }
+catch (ApplicationException|\RuntimeException $e) { safe_log('critical', 'order_items.fatal', ['error' => $e->getMessage()]); ResponseFormatter::error('Internal Server Error', 500); }

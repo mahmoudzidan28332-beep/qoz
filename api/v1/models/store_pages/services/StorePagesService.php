@@ -37,7 +37,7 @@ final class StorePagesService
     {
         $row = $this->repo->findPage($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Store page not found', 404);
+            throw new ApplicationException('Store page not found', 404);
         }
 
         return $row;
@@ -47,7 +47,7 @@ final class StorePagesService
     {
         $row = $this->repo->findPageByType($tenantId, $type, $entityId);
         if (!$row) {
-            throw new RuntimeException('Store page not found', 404);
+            throw new ApplicationException('Store page not found', 404);
         }
 
         return $row;
@@ -66,7 +66,7 @@ final class StorePagesService
 
         $row = $this->repo->findPage($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved store page');
+            throw new ApplicationException('Failed to load saved store page');
         }
 
         return $row;
@@ -75,7 +75,7 @@ final class StorePagesService
     public function deletePage(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repo->deletePage($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete store page');
+            throw new ApplicationException('Failed to delete store page');
         }
     }
 
@@ -92,7 +92,7 @@ final class StorePagesService
     {
         $row = $this->repo->findSection($pageId, $sectionId, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Store section not found', 404);
+            throw new ApplicationException('Store section not found', 404);
         }
 
         return $row;
@@ -111,7 +111,7 @@ final class StorePagesService
 
         $row = $this->repo->findSection($pageId, $id, 'en', true);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved store section');
+            throw new ApplicationException('Failed to load saved store section');
         }
 
         return $row;
@@ -120,7 +120,7 @@ final class StorePagesService
     public function deleteSection(int $pageId, int $sectionId, ?int $userId = null): void
     {
         if (!$this->repo->deleteSection($pageId, $sectionId, $userId)) {
-            throw new RuntimeException('Failed to delete store section');
+            throw new ApplicationException('Failed to delete store section');
         }
     }
 

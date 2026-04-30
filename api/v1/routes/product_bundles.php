@@ -131,7 +131,7 @@ try {
 } catch (PDOException $e) {
     safe_log('error', 'Database error in ProductBundles', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'ProductBundles route failed', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Internal server error: ' . $e->getMessage(), 500);
 }

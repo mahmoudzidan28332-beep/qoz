@@ -60,7 +60,7 @@ final class BadWordsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("Bad word not found with ID: $id");
+            throw new ApplicationException("Bad word not found with ID: $id");
         }
         return $this->repo->update($id, $data);
     }
@@ -69,7 +69,7 @@ final class BadWordsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("Bad word not found with ID: $id");
+            throw new ApplicationException("Bad word not found with ID: $id");
         }
         return $this->repo->delete($id);
     }

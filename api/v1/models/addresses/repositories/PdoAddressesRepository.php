@@ -176,7 +176,7 @@ final class PdoAddressesRepository extends BaseRepository
     {
         $existing = $this->find($id);
         if (!$existing) {
-            throw new \RuntimeException('Address not found or access denied.', 404);
+            throw new ApplicationException('Address not found or access denied.', 404);
         }
 
         unset($data['id'], $data['csrf_token'], $data['tenant_id']);
@@ -215,7 +215,7 @@ final class PdoAddressesRepository extends BaseRepository
     {
         $existing = $this->find($id);
         if (!$existing) {
-            throw new \RuntimeException('Address not found or access denied.', 404);
+            throw new ApplicationException('Address not found or access denied.', 404);
         }
 
         return $this->pdo

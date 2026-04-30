@@ -308,7 +308,7 @@ try {
                             'error'        => $result['error'] ?? 'unknown error',
                         ];
                     }
-                } catch (\RuntimeException $e) {
+                } catch (ApplicationException|\RuntimeException $e) {
                     $failCount++;
                     $details[] = [
                         'recipient_id' => $recipientId,
@@ -385,11 +385,11 @@ try {
     safe_log('warning', 'notifications.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error('خطأ في البيانات: ' . $e->getMessage(), 422);
 
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     safe_log('error', 'notifications.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error('خطأ في المعالجة: ' . $e->getMessage(), 400);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'notifications.fatal', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

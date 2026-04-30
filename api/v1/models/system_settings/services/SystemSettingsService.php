@@ -38,7 +38,7 @@ final class SystemSettingsService
     {
         $row = $this->repo->find($tenantId, $key);
         if (!$row) {
-            throw new RuntimeException('Setting not found');
+            throw new ApplicationException('Setting not found');
         }
 
         return $row;
@@ -48,7 +48,7 @@ final class SystemSettingsService
     {
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Setting not found');
+            throw new ApplicationException('Setting not found');
         }
 
         return $row;
@@ -75,7 +75,7 @@ final class SystemSettingsService
         }
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved setting');
+            throw new ApplicationException('Failed to load saved setting');
         }
 
         return $row;

@@ -228,7 +228,7 @@ final class PdoStockMovementsRepository
             return $movementId;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -326,7 +326,7 @@ final class PdoStockMovementsRepository
             return $result;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

@@ -219,7 +219,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred. Please try again later.', 500);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[ProductRelations] Unexpected error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

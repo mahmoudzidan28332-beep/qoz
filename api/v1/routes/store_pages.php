@@ -306,7 +306,7 @@ try {
     $decoded = json_decode($e->getMessage(), true);
     ResponseFormatter::error($decoded ?? $e->getMessage(), 422);
 
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     $code = in_array((int)$e->getCode(), [400, 404, 409, 422], true)
         ? (int)$e->getCode() : 400;
     ResponseFormatter::error($e->getMessage(), $code);
@@ -322,7 +322,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred. Please try again later.', 500);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[StorePages] Unexpected error', [
         'tenant_id' => $tenantId ?? 0,
         'method'    => $method ?? '',

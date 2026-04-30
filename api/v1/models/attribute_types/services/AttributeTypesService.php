@@ -33,7 +33,7 @@ final class AttributeTypesService
     {
         $row = $this->repo->find($code);
         if (!$row) {
-            throw new RuntimeException('Attribute type not found');
+            throw new ApplicationException('Attribute type not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class AttributeTypesService
 
         $row = $this->repo->findById($id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved attribute type');
+            throw new ApplicationException('Failed to load saved attribute type');
         }
 
         return $row;
@@ -61,14 +61,14 @@ final class AttributeTypesService
     public function delete(string $code, ?int $userId = null): void
     {
         if (!$this->repo->delete($code, $userId)) {
-            throw new RuntimeException('Failed to delete attribute type');
+            throw new ApplicationException('Failed to delete attribute type');
         }
     }
 
     public function deleteById(int $id, ?int $userId = null): void
     {
         if (!$this->repo->deleteById($id, $userId)) {
-            throw new RuntimeException('Failed to delete attribute type');
+            throw new ApplicationException('Failed to delete attribute type');
         }
     }
 

@@ -179,7 +179,7 @@ class PdoResourcePermissionsRepository
         } catch (\PDOException $e2) {
             if ($this->pdo->inTransaction()) { $this->pdo->rollBack(); }
             if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.fallback.failed', ['error' => $e2->getMessage(), 'payload' => $norm]); }
-            throw new RuntimeException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
+            throw new ApplicationException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
         }
     }
 
@@ -288,7 +288,7 @@ class PdoResourcePermissionsRepository
             return ['inserted'=>$inserted,'updated'=>$updated,'skipped'=>$skipped,'errors'=>[]];
         } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

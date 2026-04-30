@@ -30,7 +30,7 @@ final class EscrowDisputeEvidenceService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Escrow dispute evidence not found');
+            throw new ApplicationException('Escrow dispute evidence not found');
         }
         return $data;
     }

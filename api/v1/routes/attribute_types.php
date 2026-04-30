@@ -109,11 +109,11 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'attribute_types.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'attribute_types.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'attribute_types.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

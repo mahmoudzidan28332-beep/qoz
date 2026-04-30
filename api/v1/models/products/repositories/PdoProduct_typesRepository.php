@@ -137,7 +137,7 @@ final class PdoProduct_typesRepository
         if (!empty($data['code'])) {
             $exists = $this->findByCode($data['code'], $isUpdate ? (int)$data['id'] : null);
             if ($exists) {
-                throw new RuntimeException('Product type code already exists');
+                throw new ApplicationException('Product type code already exists');
             }
         }
 

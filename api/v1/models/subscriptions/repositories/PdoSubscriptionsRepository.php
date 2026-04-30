@@ -163,7 +163,7 @@ final class PdoSubscriptionsRepository
         // Check for existing active/trial subscription
         $existing = $this->hasActiveSubscription($tenantId);
         if ($existing) {
-            throw new \RuntimeException(
+            throw new ApplicationException(
                 'Tenant already has an active subscription (Plan: ' . ($existing['plan_name'] ?? $existing['plan_id']) . '). Use upgrade instead.'
             );
         }

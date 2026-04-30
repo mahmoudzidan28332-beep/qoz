@@ -69,7 +69,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error in all(): " . $e->getMessage());
-            throw new RuntimeException('Failed to fetch categories', 0, $e);
+            throw new ApplicationException('Failed to fetch categories', 0, $e);
         }
     }
 
@@ -104,7 +104,7 @@ final class PdoJobCategoriesRepository
             return (int)$stmt->fetchColumn();
         } catch (PDOException $e) {
             error_log("Error in count(): " . $e->getMessage());
-            throw new RuntimeException('Failed to count categories', 0, $e);
+            throw new ApplicationException('Failed to count categories', 0, $e);
         }
     }
 
@@ -130,7 +130,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         } catch (PDOException $e) {
             error_log("Error in find(): " . $e->getMessage());
-            throw new RuntimeException('Failed to find category', 0, $e);
+            throw new ApplicationException('Failed to find category', 0, $e);
         }
     }
 
@@ -156,7 +156,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         } catch (PDOException $e) {
             error_log("Error in findBySlug(): " . $e->getMessage());
-            throw new RuntimeException('Failed to find category by slug', 0, $e);
+            throw new ApplicationException('Failed to find category by slug', 0, $e);
         }
     }
 
@@ -196,7 +196,7 @@ final class PdoJobCategoriesRepository
             return $categories;
         } catch (PDOException $e) {
             error_log("Error in getTree(): " . $e->getMessage());
-            throw new RuntimeException('Failed to get category tree', 0, $e);
+            throw new ApplicationException('Failed to get category tree', 0, $e);
         }
     }
 
@@ -219,7 +219,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error in getChildren(): " . $e->getMessage());
-            throw new RuntimeException('Failed to get children categories', 0, $e);
+            throw new ApplicationException('Failed to get children categories', 0, $e);
         }
     }
 
@@ -242,7 +242,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error in getRootCategories(): " . $e->getMessage());
-            throw new RuntimeException('Failed to get root categories', 0, $e);
+            throw new ApplicationException('Failed to get root categories', 0, $e);
         }
     }
 
@@ -261,7 +261,7 @@ final class PdoJobCategoriesRepository
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error in getTranslations(): " . $e->getMessage());
-            throw new RuntimeException('Failed to get translations', 0, $e);
+            throw new ApplicationException('Failed to get translations', 0, $e);
         }
     }
 
@@ -316,7 +316,7 @@ final class PdoJobCategoriesRepository
         } catch (PDOException $e) {
             $this->pdo->rollBack();
             error_log("Error in save(): " . $e->getMessage());
-            throw new RuntimeException('Failed to save category', 0, $e);
+            throw new ApplicationException('Failed to save category', 0, $e);
         }
     }
 
@@ -328,7 +328,7 @@ final class PdoJobCategoriesRepository
             $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM job_categories WHERE parent_id = :id AND tenant_id = :tenant_id");
             $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
             if ((int)$stmt->fetchColumn() > 0) {
-                throw new RuntimeException('Cannot delete category with children');
+                throw new ApplicationException('Cannot delete category with children');
             }
 
             $stmt = $this->pdo->prepare("DELETE FROM job_categories WHERE tenant_id = :tenant_id AND id = :id");
@@ -339,7 +339,7 @@ final class PdoJobCategoriesRepository
         } catch (PDOException $e) {
             $this->pdo->rollBack();
             error_log("Error in delete(): " . $e->getMessage());
-            throw new RuntimeException('Failed to delete category', 0, $e);
+            throw new ApplicationException('Failed to delete category', 0, $e);
         }
     }
 
@@ -350,7 +350,7 @@ final class PdoJobCategoriesRepository
             return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id, ':sort_order' => $sortOrder]);
         } catch (PDOException $e) {
             error_log("Error in updateSortOrder(): " . $e->getMessage());
-            throw new RuntimeException('Failed to update sort order', 0, $e);
+            throw new ApplicationException('Failed to update sort order', 0, $e);
         }
     }
 
@@ -358,14 +358,14 @@ final class PdoJobCategoriesRepository
     {
         try {
             if ($newParentId !== null && $this->isDescendantOf($id, $newParentId)) {
-                throw new RuntimeException('Cannot move to descendant');
+                throw new ApplicationException('Cannot move to descendant');
             }
 
             $stmt = $this->pdo->prepare("UPDATE job_categories SET parent_id = :parent_id WHERE tenant_id = :tenant_id AND id = :id");
             return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id, ':parent_id' => $newParentId]);
         } catch (PDOException $e) {
             error_log("Error in moveToParent(): " . $e->getMessage());
-            throw new RuntimeException('Failed to move category', 0, $e);
+            throw new ApplicationException('Failed to move category', 0, $e);
         }
     }
 

@@ -33,7 +33,7 @@ final class ButtonStylesService
     {
         $row = $this->repo->find($tenantId, $slug, $themeId);
         if (!$row) {
-            throw new RuntimeException('Button style not found');
+            throw new ApplicationException('Button style not found');
         }
 
         return $row;
@@ -43,7 +43,7 @@ final class ButtonStylesService
     {
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Button style not found');
+            throw new ApplicationException('Button style not found');
         }
 
         return $row;
@@ -67,7 +67,7 @@ final class ButtonStylesService
         }
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved button style');
+            throw new ApplicationException('Failed to load saved button style');
         }
 
         return $row;

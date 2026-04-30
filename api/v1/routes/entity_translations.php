@@ -112,7 +112,7 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     error_log("Error in entity_translations: " . $e->getMessage(), 3, __DIR__ . '/../../error_log.txt');
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }

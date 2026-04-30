@@ -270,10 +270,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'jobs.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'jobs.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'jobs.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

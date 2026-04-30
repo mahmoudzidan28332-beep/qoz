@@ -389,7 +389,7 @@ final class PdoEntitiesAttributeValuesRepository
             return $savedIds;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -470,14 +470,14 @@ final class PdoEntitiesAttributeValuesRepository
         $entityStmt = $this->pdo->prepare($entitySql);
         $entityStmt->execute($entityParams);
         if (!$entityStmt->fetch()) {
-            throw new RuntimeException("Entity not found");
+            throw new ApplicationException("Entity not found");
         }
 
         // التحقق من وجود الخاصية
         $attributeStmt = $this->pdo->prepare("SELECT id FROM entities_attributes WHERE id = :attribute_id LIMIT 1");
         $attributeStmt->execute([':attribute_id' => $attributeId]);
         if (!$attributeStmt->fetch()) {
-            throw new RuntimeException("Attribute not found");
+            throw new ApplicationException("Attribute not found");
         }
     }
 }

@@ -225,7 +225,7 @@ try {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['success'=>true,'data'=>$data], JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     pm_log("Unhandled exception in product_meta: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     http_response_code(500);
     echo json_encode(['success'=>false,'message'=>'Internal server error']);

@@ -101,7 +101,7 @@ final class PdoRolesRepository
         // Check uniqueness
         if (!$isUpdate || ($oldData && $oldData['key_name'] !== ($filtered['key_name'] ?? ''))) {
             if ($this->findByKey($tenantId, $filtered['key_name'] ?? '')) {
-                throw new RuntimeException('Role key already exists in this tenant');
+                throw new ApplicationException('Role key already exists in this tenant');
             }
         }
 

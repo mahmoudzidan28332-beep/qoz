@@ -117,7 +117,7 @@ try {
 } catch (PDOException $e) {
     safe_log('error', '[DriverLocations] DB Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error', 500);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[DriverLocations] Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Unexpected error', 500);
 }

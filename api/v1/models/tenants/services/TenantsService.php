@@ -74,7 +74,7 @@ final class TenantsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
         return $row;
     }
@@ -83,7 +83,7 @@ final class TenantsService
     {
         $row = $this->repo->findByDomain($domain);
         if (!$row) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
         return $row;
     }
@@ -125,7 +125,7 @@ final class TenantsService
         $row = $this->repo->find($id);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve created tenant');
+            throw new ApplicationException('Failed to retrieve created tenant');
         }
 
         // Audit log
@@ -150,7 +150,7 @@ final class TenantsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
 
         $data       = array_merge($existing, $data);
@@ -179,7 +179,7 @@ final class TenantsService
         $row     = $this->repo->find($savedId);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve updated tenant');
+            throw new ApplicationException('Failed to retrieve updated tenant');
         }
 
         // Audit log (with diff)
@@ -205,11 +205,11 @@ final class TenantsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
 
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete tenant');
+            throw new ApplicationException('Failed to delete tenant');
         }
 
         // Audit log

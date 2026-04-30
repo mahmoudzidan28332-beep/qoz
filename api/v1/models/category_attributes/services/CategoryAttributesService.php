@@ -33,7 +33,7 @@ final class CategoryAttributesService
     {
         $row = $this->repo->find($tenantId, $id, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Category attribute not found');
+            throw new ApplicationException('Category attribute not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class CategoryAttributesService
 
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved category attribute');
+            throw new ApplicationException('Failed to load saved category attribute');
         }
 
         // Add translations to response
@@ -64,7 +64,7 @@ final class CategoryAttributesService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete category attribute');
+            throw new ApplicationException('Failed to delete category attribute');
         }
     }
 

@@ -61,7 +61,7 @@ if ($first === 'job_applications') {
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
         ResponseFormatter::success(['ok' => true, 'id' => $appId], 'Application submitted', 201);
-    } catch (\RuntimeException $ex) {
+    } catch (ApplicationException|\RuntimeException $ex) {
         ResponseFormatter::error('Application submission failed', 500);
     }
     exit;

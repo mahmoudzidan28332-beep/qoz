@@ -30,7 +30,7 @@ final class RolesService
     {
         $data = $this->repository->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Role not found');
+            throw new ApplicationException('Role not found');
         }
         return $data;
     }
@@ -53,7 +53,7 @@ final class RolesService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repository->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete role');
+            throw new ApplicationException('Failed to delete role');
         }
     }
 

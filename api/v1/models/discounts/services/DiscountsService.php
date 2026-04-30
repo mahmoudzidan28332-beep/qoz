@@ -57,7 +57,7 @@ final class DiscountsService
     {
         $existing = $this->discounts->find($id);
         if (!$existing) {
-            throw new RuntimeException("Discount not found with ID: $id");
+            throw new ApplicationException("Discount not found with ID: $id");
         }
         return $this->discounts->update($id, $data);
     }
@@ -66,7 +66,7 @@ final class DiscountsService
     {
         $existing = $this->discounts->find($id);
         if (!$existing) {
-            throw new RuntimeException("Discount not found with ID: $id");
+            throw new ApplicationException("Discount not found with ID: $id");
         }
         return $this->discounts->delete($id);
     }

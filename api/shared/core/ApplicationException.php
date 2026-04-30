@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-final class DatabaseException extends AppException
+class ApplicationException extends AppException
 {
-    protected int $statusCode = 503;
+    protected int $statusCode = 400;
 
     public function __construct(
-        string $message = 'Database error',
+        string $message = 'Application error',
         array $context = [],
         ?\Throwable $previous = null
     ) {

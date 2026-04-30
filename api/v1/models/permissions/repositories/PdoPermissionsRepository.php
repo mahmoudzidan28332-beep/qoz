@@ -114,7 +114,7 @@ final class PdoPermissionsRepository
         // Check uniqueness
         if (!$isUpdate || ($oldData && $oldData['key_name'] !== ($filtered['key_name'] ?? ''))) {
             if ($this->findByKey($tenantId, $filtered['key_name'] ?? '')) {
-                throw new RuntimeException('Permission key already exists in this tenant');
+                throw new ApplicationException('Permission key already exists in this tenant');
             }
         }
 

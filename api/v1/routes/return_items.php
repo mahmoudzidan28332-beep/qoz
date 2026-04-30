@@ -113,8 +113,8 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     ResponseFormatter::error('Server error: ' . $e->getMessage(), 500);
 }

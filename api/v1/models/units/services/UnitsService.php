@@ -26,7 +26,7 @@ final class UnitsService
     public function get(int $id,string $lang='en',bool $allTranslations=false): array
     {
         $row=$this->repo->findWithTranslation($id,$lang,$allTranslations);
-        if(!$row) throw new RuntimeException('Unit not found');
+        if(!$row) throw new ApplicationException('Unit not found');
 
         return ['success'=>true,'data'=>$row];
     }
@@ -51,7 +51,7 @@ final class UnitsService
     public function delete(int $id): void
     {
         if(!$this->repo->delete($id)){
-            throw new RuntimeException('Delete failed');
+            throw new ApplicationException('Delete failed');
         }
     }
 }

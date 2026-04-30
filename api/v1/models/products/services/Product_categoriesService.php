@@ -26,7 +26,7 @@ final class Product_categoriesService
     {
         $data = $this->repository->find($id);
         if (!$data) {
-            throw new RuntimeException('Product category not found');
+            throw new ApplicationException('Product category not found');
         }
         return $data;
     }
@@ -45,7 +45,7 @@ final class Product_categoriesService
     public function delete(int $id): void
     {
         if (!$this->repository->delete($id)) {
-            throw new RuntimeException('Failed to delete product category');
+            throw new ApplicationException('Failed to delete product category');
         }
     }
 }

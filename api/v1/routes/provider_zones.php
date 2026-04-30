@@ -131,7 +131,7 @@ try {
         safe_log('error', '[ProviderZones] DB Error', ['error' => $e->getMessage()]);
         ResponseFormatter::error('Database error', 500);
     }
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[ProviderZones] Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Unexpected error', 500);
 }

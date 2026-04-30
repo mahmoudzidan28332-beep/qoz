@@ -200,10 +200,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'categories_tenants.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'categories_tenants.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'categories_tenants.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

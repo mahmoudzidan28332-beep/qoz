@@ -68,7 +68,7 @@ final class JobAlertsService
         // التحقق من أن التنبيه ينتمي للمستخدم
         $existing = $this->repo->find($userId, (int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Alert not found or does not belong to this user');
+            throw new ApplicationException('Alert not found or does not belong to this user');
         }
 
         return $this->repo->save($userId, $data);
@@ -82,7 +82,7 @@ final class JobAlertsService
         // التحقق من أن التنبيه ينتمي للمستخدم
         $existing = $this->repo->find($userId, $id);
         if (!$existing) {
-            throw new RuntimeException('Alert not found or does not belong to this user');
+            throw new ApplicationException('Alert not found or does not belong to this user');
         }
 
         return $this->repo->delete($userId, $id);
@@ -96,7 +96,7 @@ final class JobAlertsService
         // التحقق من أن التنبيه ينتمي للمستخدم
         $existing = $this->repo->find($userId, $id);
         if (!$existing) {
-            throw new RuntimeException('Alert not found or does not belong to this user');
+            throw new ApplicationException('Alert not found or does not belong to this user');
         }
 
         return $this->repo->toggleActive($userId, $id);
