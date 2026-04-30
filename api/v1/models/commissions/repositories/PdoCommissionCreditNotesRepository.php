@@ -56,7 +56,7 @@ final class PdoCommissionCreditNotesRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT ccn.* FROM commission_credit_notes ccn WHERE 1=1";
+        $sql = "SELECT ccn.id, ccn.tenant_id, ccn.credit_note_number, ccn.invoice_id, ccn.related_transaction_id, ccn.credit_amount, ccn.credit_commission, ccn.credit_vat, ccn.net_credit, ccn.reason, ccn.status, ccn.issued_at, ccn.created_by, ccn.issued_by, ccn.cancelled_by, ccn.created_at FROM commission_credit_notes ccn WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -132,7 +132,7 @@ final class PdoCommissionCreditNotesRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM commission_credit_notes WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, tenant_id, credit_note_number, invoice_id, related_transaction_id, credit_amount, credit_commission, credit_vat, net_credit, reason, status, issued_at, created_by, issued_by, cancelled_by, created_at FROM commission_credit_notes WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

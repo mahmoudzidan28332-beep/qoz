@@ -18,7 +18,7 @@ final class PdoDiscountRedemptionsRepository
     // ================================
     public function listByDiscount(int $discountId, ?int $limit = null, ?int $offset = null): array
     {
-        $sql = "SELECT * FROM discount_redemptions WHERE discount_id = :discount_id ORDER BY redeemed_at DESC";
+        $sql = "SELECT id, discount_id, user_id, order_id, amount_discounted, currency_code, redeemed_at FROM discount_redemptions WHERE discount_id = :discount_id ORDER BY redeemed_at DESC";
         $params = [':discount_id' => $discountId];
 
         if ($limit !== null) $sql .= " LIMIT :limit";

@@ -29,7 +29,7 @@ final class PdoDiscountConditionsRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_conditions
+            SELECT id, discount_id, condition_type, operator, condition_value FROM discount_conditions
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

@@ -16,7 +16,7 @@ final class PdoCurrenciesRepository
 
     public function all(?int $limit = null, ?int $offset = null, array $filters = []): array
     {
-        $sql = "SELECT * FROM currencies WHERE 1=1";
+        $sql = "SELECT id, code, name, symbol, symbol_position, decimal_places, is_active FROM currencies WHERE 1=1";
         $params = [];
 
         if (isset($filters['is_active'])) {
@@ -68,7 +68,7 @@ final class PdoCurrenciesRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM currencies WHERE code = :code LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, symbol, symbol_position, decimal_places, is_active FROM currencies WHERE code = :code LIMIT 1");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

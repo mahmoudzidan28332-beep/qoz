@@ -23,7 +23,7 @@ final class PdoDiscountScopesRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_scopes
+            SELECT id, discount_id, scope_type, scope_id FROM discount_scopes
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

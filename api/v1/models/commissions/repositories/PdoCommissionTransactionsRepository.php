@@ -55,7 +55,7 @@ final class PdoCommissionTransactionsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT ct.* FROM commission_transactions ct WHERE 1=1";
+        $sql = "SELECT ct.id, ct.tenant_id, ct.entity_id, ct.order_id, ct.order_date, ct.transaction_type, ct.order_amount, ct.commission_amount, ct.vat_amount, ct.net_commission, ct.status, ct.is_locked, ct.locked_at, ct.created_by, ct.updated_by, ct.cancelled_by, ct.created_at, ct.updated_at FROM commission_transactions ct WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -141,7 +141,7 @@ final class PdoCommissionTransactionsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM commission_transactions WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, tenant_id, entity_id, order_id, order_date, transaction_type, order_amount, commission_amount, vat_amount, net_commission, status, is_locked, locked_at, created_by, updated_by, cancelled_by, created_at, updated_at FROM commission_transactions WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
