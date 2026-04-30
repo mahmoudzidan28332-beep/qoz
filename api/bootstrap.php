@@ -328,6 +328,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // 7. Load Core Classes
 // ==============================================
 $coreFiles = [
+    'ConfigLoader.php',
     'DomainException.php',
     'DatabaseException.php',
     'ApplicationException.php',
@@ -639,6 +640,10 @@ if (class_exists('\Shared\Application\Context\RequestContext', false)) {
 // ==============================================
 // 15. Global Container Setup
 // ==============================================
+$containerPath = BASE_DIR . '/shared/application/Container.php';
+if (file_exists($containerPath)) {
+    require_once $containerPath;
+}
 $GLOBALS['CONTAINER']      = $container;
 $GLOBALS['ADMIN_DB']       = $container['pdo'];
 $GLOBALS['ADMIN_USER']     = $container['current_user'];
