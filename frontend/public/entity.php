@@ -130,7 +130,7 @@ $entitySettings = [];
 if ($pdo) {
     try {
         $esStmt = $pdo->prepare(
-            "SELECT * FROM entity_settings WHERE entity_id = ? LIMIT 1"
+            "SELECT is_visible, maintenance_mode, show_reviews, show_contact_info FROM entity_settings WHERE entity_id = ? LIMIT 1"
         );
         $esStmt->execute([$entity['id'] ?? $entityId]);
         $entitySettings = $esStmt->fetch(PDO::FETCH_ASSOC) ?: [];

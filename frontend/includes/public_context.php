@@ -531,8 +531,8 @@ if (!function_exists('pub_load_theme')) {
                 // safe even when optional columns (e.g. text_color) haven't been added via migration yet.
                 $cards = $safeList(
                     (($themeTarget === 'platform_home' && $themeDbId)
-                        ? 'SELECT * FROM card_styles WHERE is_active = 1'
-                        : 'SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1')
+                        ? 'SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE is_active = 1'
+                        : 'SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE tenant_id = ? AND is_active = 1')
                     . $thIdCond . ' ORDER BY card_type',
                     ($themeTarget === 'platform_home' && $themeDbId) ? $thP([]) : $thP([$settingsTenantId])
                 );

@@ -78,20 +78,20 @@ if ($first === 'ui') {
             $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE is_active = 1 AND theme_id = ? ORDER BY sort_order', [$uiThemeId]);
             $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE is_active = 1 AND theme_id = ? ORDER BY sort_order', [$uiThemeId]);
             $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE is_active = 1 AND theme_id = ? ORDER BY button_type', [$uiThemeId]);
-            $cards = $pdoList('SELECT * FROM card_styles WHERE is_active = 1 AND theme_id = ? ORDER BY card_type', [$uiThemeId]);
+            $cards = $pdoList('SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE is_active = 1 AND theme_id = ? ORDER BY card_type', [$uiThemeId]);
         } else {
             $colors = $pdoList('SELECT setting_key AS key, color_value AS value, category FROM color_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order, id', [$uiThemeId, $uiThemeTenantId]);
             $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order', [$uiThemeId, $uiThemeTenantId]);
             $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY sort_order', [$uiThemeId, $uiThemeTenantId]);
             $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY button_type', [$uiThemeId, $uiThemeTenantId]);
-            $cards = $pdoList('SELECT * FROM card_styles WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY card_type', [$uiThemeId, $uiThemeTenantId]);
+            $cards = $pdoList('SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE is_active = 1 AND (theme_id = ? OR (theme_id IS NULL AND (tenant_id = ? OR tenant_id IS NULL))) ORDER BY card_type', [$uiThemeId, $uiThemeTenantId]);
         }
     } else {
         $colors = $pdoList('SELECT setting_key AS key, color_value AS value, category FROM color_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order, id', [$tid]);
         $fonts = $pdoList('SELECT setting_key, font_family, font_size, font_weight, line_height, category FROM font_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
         $designs = $pdoList('SELECT setting_key, setting_value, setting_type, category FROM design_settings WHERE tenant_id = ? AND is_active = 1 ORDER BY sort_order', [$tid]);
         $buttons = $pdoList('SELECT slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color FROM button_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY button_type', [$tid]);
-        $cards = $pdoList('SELECT * FROM card_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY card_type', [$tid]);
+        $cards = $pdoList('SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE tenant_id = ? AND is_active = 1 ORDER BY card_type', [$tid]);
     }
 
     // Generate CSS string â€” mirrors AdminUiThemeLoader::generateCss() exactly.

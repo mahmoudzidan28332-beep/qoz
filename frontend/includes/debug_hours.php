@@ -17,7 +17,7 @@ function debug_store_hours($entityId) {
         $res['entity'] = $row;
         
         // 2. Get hours
-        $st = $pdo->prepare("SELECT * FROM entities_working_hours WHERE entity_id = ?");
+        $st = $pdo->prepare("SELECT entity_id, day_of_week, open_time, close_time, is_open FROM entities_working_hours WHERE entity_id = ?");
         $st->execute([$entityId]);
         $res['hours'] = $st->fetchAll(PDO::FETCH_ASSOC);
         

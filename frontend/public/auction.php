@@ -46,7 +46,7 @@ if ($pdo) {
     if (!$auction) {
         // Fallback: try without translation
         try {
-            $st = $pdo->prepare("SELECT * FROM auctions WHERE id=? LIMIT 1");
+            $st = $pdo->prepare("SELECT id, slug, status, auction_type, current_price, starting_price, bid_increment, buy_now_price, reserve_price, total_bids, total_bidders, end_date, winner_user_id, created_by, description FROM auctions WHERE id=? LIMIT 1");
             $st->execute([$auctionId]);
             $auction = $st->fetch(PDO::FETCH_ASSOC) ?: null;
             if ($auction) $auction['title'] = $auction['slug'];

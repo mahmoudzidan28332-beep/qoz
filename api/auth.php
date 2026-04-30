@@ -458,7 +458,7 @@ if ($identifier === '' || $password === '') {
 }
 
 try {
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, username, email, password_hash, password, is_active FROM users WHERE username = ? OR email = ? LIMIT 1');
     $stmt->execute([$identifier, $identifier]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

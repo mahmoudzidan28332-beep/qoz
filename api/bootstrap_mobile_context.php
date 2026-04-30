@@ -27,7 +27,7 @@ if (!$payload || $userId <= 0) {
 
 $pdo = DatabaseConnection::get();
 
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id=? AND is_active=1");
+$stmt = $pdo->prepare("SELECT id, username, email, is_active, role_id, tenant_id, preferred_language FROM users WHERE id=? AND is_active=1");
 $stmt->execute([$userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

@@ -49,6 +49,7 @@ try {
     function get_translations_map(mysqli $conn, $table, $foreign_field, $lang) {
         $out = [];
         if (!table_exists($conn,$table)) return $out;
+        // TODO: $table is runtime-determined; all non-id/foreign-key/language_code columns are returned as translation payload
         $stmt = $conn->prepare("SELECT * FROM {$table} WHERE language_code = ?");
         if (!$stmt) return $out;
         $stmt->bind_param('s',$lang);

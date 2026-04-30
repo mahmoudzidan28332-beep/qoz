@@ -256,7 +256,7 @@ if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
             $themeDebug['steps']['class_loaded'] = class_exists('PdoThemesRepository', false);
             
             // Step 2: Direct query - tenant_theme_overrides
-            $s = $db->prepare("SELECT * FROM tenant_theme_overrides WHERE tenant_id = ? AND setting_type = 'theme_selection' ORDER BY id DESC");
+            $s = $db->prepare("SELECT id, tenant_id, theme_id, setting_type, setting_key, created_at FROM tenant_theme_overrides WHERE tenant_id = ? AND setting_type = 'theme_selection' ORDER BY id DESC");
             $s->execute([$tid]);
             $themeDebug['steps']['tenant_overrides'] = $s->fetchAll(PDO::FETCH_ASSOC);
             
