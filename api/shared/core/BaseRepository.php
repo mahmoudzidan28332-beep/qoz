@@ -310,7 +310,7 @@ abstract class BaseRepository
     protected function executeGlobal(string $sql, array $params = [], string $table = ''): \PDOStatement
     {
         if ($table !== '' && !QueryGuard::isGlobal($table)) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 "BaseRepository::executeGlobal() called for table '{$table}' which is not "
                 . 'in the QueryGuard global whitelist. Use execute() with a tenant_id condition, '
                 . 'or whitelist the table with QueryGuard::allowGlobal().'
@@ -453,14 +453,14 @@ abstract class BaseRepository
         string $reason
     ): \PDOStatement {
         if (!class_exists('PlatformContext', false) || !PlatformContext::isSuperAdmin()) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'BaseRepository::executeCrossTenant() may only be called in Platform Admin '
                 . 'context. Call PlatformContext::bootSuperAdmin() at the entry-point first.'
             );
         }
 
         if (!class_exists('AuditContext', false) || !AuditContext::isBooted()) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'BaseRepository::executeCrossTenant() requires AuditContext to be booted. '
                 . 'Call AuditContext::boot() at the API entry-point.'
             );

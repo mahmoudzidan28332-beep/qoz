@@ -261,7 +261,7 @@ final class SecurityValidator
         error_log($message);
 
         if ($isDev) {
-            throw new \RuntimeException($message);
+            throw new \SystemException($message);
         }
 
         // Production: send a minimal, non-leaking error response.

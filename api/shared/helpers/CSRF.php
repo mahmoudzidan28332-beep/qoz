@@ -85,7 +85,7 @@ class CSRF
     {
         if (!self::validate($token, $maxAge, $invalidateAfterUse)) {
             http_response_code(400);
-            throw new RuntimeException('Invalid CSRF token.');
+            throw new AuthException('Invalid CSRF token.');
         }
     }
 }

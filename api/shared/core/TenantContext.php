@@ -62,7 +62,7 @@ final class TenantContext
     public static function getId(): int
     {
         if (self::$tenantId === null) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'TenantContext has not been initialized. '
                 . 'Call TenantContext::set(resolve_tenant_id()) at the API entry-point.'
             );
@@ -92,7 +92,7 @@ final class TenantContext
     public static function require(): int
     {
         if (self::$tenantId === null) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'TenantContext::require() — tenant scope is not initialised. '
                 . 'The API entry-point MUST call TenantContext::set(resolve_tenant_id()) '
                 . 'before any tenant-scoped operation is attempted.'

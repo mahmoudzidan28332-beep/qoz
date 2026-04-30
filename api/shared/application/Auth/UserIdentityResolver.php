@@ -32,7 +32,7 @@ final class UserIdentityResolver
 
         $pdo ??= self::resolvePdo();
         $container = $GLOBALS['app_container']
-            ?? throw new \RuntimeException('Container not initialized');
+            ?? throw new \SystemException('Container not initialized');
         $hydrator = $container->identityHydrator();
 
         $identity = null;

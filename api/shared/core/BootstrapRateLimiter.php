@@ -19,7 +19,7 @@ if (!IS_DEBUG) {
         try {
             $redis = RedisHelper::getInstance();
             if ($redis === null) {
-                throw new RuntimeException('Redis unavailable');
+                throw new SystemException('Redis unavailable');
             }
             $requests = $redis->incr($rateLimitKey);
             $redis->expire($rateLimitKey, 60); // 1 minute window

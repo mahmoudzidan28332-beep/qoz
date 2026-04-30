@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-use RuntimeException;
-
 final class PdoLanguagesRepository
 {
     private PDO $pdo;

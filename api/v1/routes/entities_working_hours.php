@@ -205,12 +205,8 @@ function handlePostRequest(
     }
 
     // Single create
-    try {
-        $id = $controller->create($data);
-        ResponseFormatter::success(['id' => $id], 'Created successfully', 201);
-    } catch (ApplicationException|\RuntimeException $e) {
-        throw $e;
-    }
+    $id = $controller->create($data);
+    ResponseFormatter::success(['id' => $id], 'Created successfully', 201);
 }
 
 /**

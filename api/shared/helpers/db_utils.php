@@ -32,7 +32,7 @@ function pdo_bind_params(PDOStatement $stmt, array $params): void {
         // ربط المعامل (دعم المفاتيح الرقمية أو النصية)
         $paramName = is_int($key) ? $key + 1 : $key; // للمفاتيح الرقمية، ابدأ من 1
         if (!$stmt->bindValue($paramName, $value, $type)) {
-            throw new RuntimeException('bindValue failed for parameter: ' . $paramName);
+            throw new DatabaseException('bindValue failed for parameter: ' . $paramName);
         }
     }
 }

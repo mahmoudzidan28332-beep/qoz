@@ -31,7 +31,7 @@ final class CryptoConfig
 
             if (!file_exists($path)) {
                 // If neither local nor production key exists, throw error
-                throw new RuntimeException('Crypto key file missing. Please create api/shared/config/crypto_key.php');
+                throw new SystemException('Crypto key file missing. Please create api/shared/config/crypto_key.php');
             }
 
             $config = require $path;
@@ -41,7 +41,7 @@ final class CryptoConfig
                 !is_string($config['master_key']) ||
                 strlen($config['master_key']) !== 32
             ) {
-                throw new RuntimeException('Invalid crypto master key');
+                throw new SystemException('Invalid crypto master key');
             }
 
             self::$masterKey = $config['master_key'];

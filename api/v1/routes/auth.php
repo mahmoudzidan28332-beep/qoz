@@ -347,7 +347,7 @@ function _provider_login(PDO $dbConn, UsersController $controller, string $provi
 
     // Load full record
     $uRow = $controller->findWithTenantInfo($userId);
-    if (!$uRow) throw new RuntimeException("User not found after {$provider} upsert (id={$userId})");
+    if (!$uRow) throw new ApplicationException("User not found after {$provider} upsert (id={$userId})");
 
     // Re-activate if needed
     if (!(bool)$uRow['is_active']) {

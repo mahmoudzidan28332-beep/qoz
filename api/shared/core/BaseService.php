@@ -137,9 +137,8 @@ abstract class BaseService
                 'entity_type' => $this->entityType,
                 'description' => "Policy check failed for action: {$action}",
             ]);
-            throw new \RuntimeException(
-                "Forbidden: you do not have permission to {$action} this {$this->entityType}.",
-                403
+            throw new \AuthorizationException(
+                "Forbidden: you do not have permission to {$action} this {$this->entityType}."
             );
         }
     }
@@ -182,7 +181,7 @@ abstract class BaseService
         foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $frame) {
             $class = $frame['class'] ?? '';
             if ($class === 'PDO' || $class === 'PDOStatement') {
-                throw new \RuntimeException(
+                throw new \SystemException(
                     'SecurityException: Direct database access (PDO) detected inside a Service class. '
                     . 'Services MUST only call repositories. Move all SQL into a BaseRepository subclass.'
                 );
@@ -202,7 +201,7 @@ abstract class BaseService
      */
     final protected function forbidDirectDb(): never
     {
-        throw new \RuntimeException(
+        throw new \SystemException(
             'SecurityException: Services MUST NOT access PDO directly. '
             . 'Inject a repository (extends BaseRepository) instead.'
         );

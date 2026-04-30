@@ -332,6 +332,7 @@ $coreFiles = [
     'DatabaseException.php',
     'ApplicationException.php',
     'AuthException.php',
+    'AuthorizationException.php',
     'SystemException.php',
     'ExceptionHandler.php',
     'DatabaseConnection.php',

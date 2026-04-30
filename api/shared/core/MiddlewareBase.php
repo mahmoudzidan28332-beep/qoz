@@ -85,7 +85,7 @@ abstract class MiddlewareBase
     protected function requireAuth(): void
     {
         if (!$this->isAuthenticated()) {
-            throw new RuntimeException('Unauthorized');
+            throw new AuthException('Unauthorized');
         }
     }
 }
