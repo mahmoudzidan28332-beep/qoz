@@ -84,7 +84,7 @@ class IdentityHydrator
         try {
             $stmt = $this->pdo->query("SELECT DISTINCT key_name FROM permissions WHERE key_name IS NOT NULL AND key_name <> ''");
             return $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
-        } catch (\PDOException $e) { return []; }
+        } catch (\PDOException) { return []; }
     }
 
     private function loadResourcePermissions(?int $roleId, ?int $tenantId, bool $isSuperAdmin): array
@@ -113,7 +113,7 @@ class IdentityHydrator
                 }
             }
             return $permissions;
-        } catch (\PDOException $e) { return []; }
+        } catch (\PDOException) { return []; }
     }
 
     private function loadSuperAdminResourcePermissions(?int $tenantId): array
@@ -131,6 +131,6 @@ class IdentityHydrator
                 ];
             }
             return $permissions;
-        } catch (\PDOException $e) { return []; }
+        } catch (\PDOException) { return []; }
     }
 }

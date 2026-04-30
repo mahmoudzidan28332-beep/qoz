@@ -112,11 +112,11 @@ class CandidateResolver
             }
             return ['source' => 'guest'];
         } catch (\Error $e) {
-                if (function_exists('safe_log')) {
-                    safe_log('error', 'CandidateResolver: Fatal error in resolution', ['error' => $e->getMessage()]);
-                }
-                return ['source' => 'guest'];
+            if (function_exists('safe_log')) {
+                safe_log('error', 'CandidateResolver: Fatal error in resolution', ['error' => $e->getMessage()]);
             }
+            return ['source' => 'guest'];
+        }
     }
 
     private function normalizeNullableInt(mixed $value): ?int
