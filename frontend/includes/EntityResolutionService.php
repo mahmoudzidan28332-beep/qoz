@@ -123,7 +123,7 @@ class EntityResolutionService {
                     $stmt = $pdo->prepare("SELECT entity_id FROM carts WHERE user_id = ? AND tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1");
                     $stmt->execute([$userId, $tenantId]);
                     return (int)$stmt->fetchColumn() ?: 0;
-                } catch (Throwable $e) {}
+                } catch (\RuntimeException $e) {}
             }
         }
 
@@ -171,7 +171,7 @@ class EntityResolutionService {
                 if ($c['is_available']) return $c;
             }
             return $candidates[0] ?? null;
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             error_log('[EntityResolutionService] findNearestWithStock error: ' . $e->getMessage());
             return null;
         }

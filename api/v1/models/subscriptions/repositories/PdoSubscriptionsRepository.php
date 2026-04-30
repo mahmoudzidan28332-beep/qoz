@@ -58,7 +58,7 @@ final class PdoSubscriptionsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT s.* FROM subscriptions s /* tenant_id filterable via filters */ WHERE 1=1";
+        $sql = "SELECT s.id, s.subscription_number, s.tenant_id, s.plan_id, s.status, s.billing_period, s.price, s.currency_code, s.start_date, s.end_date, s.trial_end_date, s.next_billing_date, s.auto_renew, s.cancelled_at, s.cancellation_reason, s.suspended_at, s.suspension_reason, s.created_at, s.updated_at FROM subscriptions s /* tenant_id filterable via filters */ WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -129,7 +129,7 @@ final class PdoSubscriptionsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscriptions WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, subscription_number, tenant_id, plan_id, status, billing_period, price, currency_code, start_date, end_date, trial_end_date, next_billing_date, auto_renew, cancelled_at, cancellation_reason, suspended_at, suspension_reason, created_at, updated_at FROM subscriptions WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -142,7 +142,7 @@ final class PdoSubscriptionsRepository
     public function hasActiveSubscription(int $tenantId): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT s.*, sp.plan_name, sp.max_products, sp.max_branches, sp.max_orders_per_month, sp.max_staff
+            "SELECT s.id, s.subscription_number, s.tenant_id, s.plan_id, s.status, s.billing_period, s.price, s.currency_code, s.start_date, s.end_date, s.trial_end_date, s.next_billing_date, s.auto_renew, s.cancelled_at, s.cancellation_reason, s.suspended_at, s.suspension_reason, s.created_at, s.updated_at, sp.plan_name, sp.max_products, sp.max_branches, sp.max_orders_per_month, sp.max_staff
              FROM subscriptions s
              LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
              WHERE s.tenant_id = :tenant_id AND s.status IN ('active','trial')
@@ -163,7 +163,7 @@ final class PdoSubscriptionsRepository
         // Check for existing active/trial subscription
         $existing = $this->hasActiveSubscription($tenantId);
         if ($existing) {
-            throw new \RuntimeException(
+            throw new ApplicationException(
                 'Tenant already has an active subscription (Plan: ' . ($existing['plan_name'] ?? $existing['plan_id']) . '). Use upgrade instead.'
             );
         }
@@ -213,7 +213,7 @@ final class PdoSubscriptionsRepository
                 ':due' => $data['start_date'] ?? date('Y-m-d')
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoSubscriptionsRepository] invoice creation failed: ' . $e->getMessage());
         }
 
@@ -286,7 +286,7 @@ final class PdoSubscriptionsRepository
                 ':due' => $startDate
             ]);
             $invoiceId = (int)$this->pdo->lastInsertId();
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoSubscriptionsRepository] upgrade invoice creation failed: ' . $e->getMessage());
         }
 
@@ -321,7 +321,7 @@ final class PdoSubscriptionsRepository
     // ================================
     public function findActivePlan(int $planId): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plans WHERE id = :id AND is_active = 1 LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, plan_name, code, plan_type, billing_period, price, currency_code, setup_fee, commission_rate, max_products, max_branches, max_orders_per_month, max_staff, analytics_access, priority_support, featured_listing, custom_domain, api_access, trial_period_days, is_active, is_featured, sort_order, created_at, updated_at FROM subscription_plans WHERE id = :id AND is_active = 1 LIMIT 1");
         $stmt->execute([':id' => $planId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

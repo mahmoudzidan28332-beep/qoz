@@ -19,7 +19,7 @@ if (!IS_DEBUG) {
         try {
             $redis = RedisHelper::getInstance();
             if ($redis === null) {
-                throw new RuntimeException('Redis unavailable');
+                throw new SystemException('Redis unavailable');
             }
             $requests = $redis->incr($rateLimitKey);
             $redis->expire($rateLimitKey, 60); // 1 minute window
@@ -43,7 +43,7 @@ if (!IS_DEBUG) {
                 ResponseFormatter::error('Too many requests', 429);
                 exit;
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             // FALLBACK: File-based rate limiting if Redis is unavailable
             $maxRequests = getenv('RATE_LIMIT_MAX') ?: 1000;
             if (strpos($route, 'register') !== false || strpos($route, 'verify_phone') !== false) {

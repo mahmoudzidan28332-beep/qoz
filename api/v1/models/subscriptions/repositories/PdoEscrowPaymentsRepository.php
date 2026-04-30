@@ -30,7 +30,7 @@ final class PdoEscrowPaymentsRepository
         $limit  = isset($filters['limit'])  ? (int)$filters['limit']  : 25;
         $offset = isset($filters['offset']) ? (int)$filters['offset'] : 0;
 
-        $sql = "SELECT ep.* FROM escrow_payments ep WHERE 1=1";
+        $sql = "SELECT ep.id, ep.escrow_id, ep.amount, ep.currency_code, ep.payment_gateway, ep.gateway_transaction_id, ep.status, ep.paid_at, ep.created_at FROM escrow_payments ep WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -110,7 +110,7 @@ final class PdoEscrowPaymentsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM escrow_payments WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, escrow_id, amount, currency_code, payment_gateway, gateway_transaction_id, status, paid_at, created_at FROM escrow_payments WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

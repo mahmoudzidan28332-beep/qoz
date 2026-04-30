@@ -49,7 +49,7 @@ final class DatabaseConnection
 
         // ── 3. Final check ────────────────────────────────────────────────
         if (!$host || !$db || !$user) {
-            throw new RuntimeException(
+            throw new SystemException(
                 'Database configuration missing: neither environment variables nor db.php config found.'
             );
         }

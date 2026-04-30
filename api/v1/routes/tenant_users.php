@@ -171,10 +171,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'tenant_users.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'tenant_users.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (\PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'tenant_users.db_error', [
         'message'     => $e->getMessage(),
         'file'        => $e->getFile(),
@@ -182,7 +182,7 @@ try {
         'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
     ]);
     ResponseFormatter::error('Database error', 500);
-} catch (\Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'tenant_users.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

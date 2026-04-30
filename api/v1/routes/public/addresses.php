@@ -28,7 +28,7 @@ if ($first === 'addresses') {
             $addrRepo = new PdoAddressesRepository($pdo);
             $addrRepo->deleteByOwner($addrId, $addrSessUserId);
             ResponseFormatter::success(['ok' => true]);
-        } catch (Throwable $_) { ResponseFormatter::error('Delete failed', 500); }
+        } catch (ApplicationException|\RuntimeException $_) { ResponseFormatter::error('Delete failed', 500); }
         exit;
     }
 
@@ -49,7 +49,7 @@ if ($first === 'addresses') {
             // tenant_id = null for regular user addresses
             $newAddrId = $addrRepo->createAddress($addrSessUserId, $addrLine1, $addrLine2 ?: null, $cityId ?: null, $countryId ?: null, $postalCode ?: null, $isPrimary, null);
             ResponseFormatter::success(['ok' => true, 'id' => $newAddrId], 'Address added', 201);
-        } catch (Throwable $_) { ResponseFormatter::error('Failed to save address', 500); }
+        } catch (ApplicationException|\RuntimeException $_) { ResponseFormatter::error('Failed to save address', 500); }
         exit;
     }
 

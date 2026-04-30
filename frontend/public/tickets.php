@@ -33,7 +33,7 @@ if ($pdo) {
         );
         $st->execute([$lang, $tenantId]);
         $categories = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         // Fallback: ticket_category_translations table may not exist yet — use id as name.
         try {
             $st = $pdo->prepare(
@@ -43,7 +43,7 @@ if ($pdo) {
             );
             $st->execute([$tenantId]);
             $categories = $st->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e2) { /* ignore – form will still show */ }
+        } catch (\RuntimeException $e2) { /* ignore – form will still show */ }
     }
 }
 
@@ -73,7 +73,7 @@ if ($pdo && $userId) {
         );
         $st->execute(array_merge([$lang], $params));
         $tickets = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         // Fallback: ticket_category_translations table may not exist yet.
         try {
             $where  = 'WHERE st.tenant_id = ? AND st.user_id = ?';
@@ -93,7 +93,7 @@ if ($pdo && $userId) {
             );
             $st->execute($params);
             $tickets = $st->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e2) { /* show empty state */ }
+        } catch (\RuntimeException $e2) { /* show empty state */ }
     }
 }
 

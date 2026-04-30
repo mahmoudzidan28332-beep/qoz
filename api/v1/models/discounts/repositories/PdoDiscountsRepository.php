@@ -58,7 +58,7 @@ final class PdoDiscountsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT d.* FROM discounts d WHERE 1=1";
+        $sql = "SELECT d.id, d.entity_id, d.type, d.code, d.auto_apply, d.priority, d.is_stackable, d.currency_code, d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions, d.starts_at, d.ends_at, d.status, d.created_by, d.created_at, d.updated_at FROM discounts d WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -133,7 +133,7 @@ final class PdoDiscountsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM discounts WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, entity_id, type, code, auto_apply, priority, is_stackable, currency_code, max_redemptions, max_redemptions_per_user, current_redemptions, starts_at, ends_at, status, created_by, created_at, updated_at FROM discounts WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

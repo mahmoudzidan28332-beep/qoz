@@ -46,7 +46,10 @@ final class PdoCardStylesRepository
     public function find(int $tenantId, string $slug, ?int $themeId = null): ?array
     {
         $sql = "
-            SELECT *
+            SELECT id, tenant_id, theme_id, name, slug, card_type,
+                   background_color, text_color, border_color, border_width, border_radius,
+                   shadow_style, padding, hover_effect, text_align, image_aspect_ratio,
+                   is_active, created_at, updated_at
             FROM card_styles
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND slug = :slug
         ";
@@ -69,7 +72,10 @@ final class PdoCardStylesRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, theme_id, name, slug, card_type,
+                   background_color, text_color, border_color, border_width, border_radius,
+                   shadow_style, padding, hover_effect, text_align, image_aspect_ratio,
+                   is_active, created_at, updated_at
             FROM card_styles
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1
@@ -237,7 +243,7 @@ final class PdoCardStylesRepository
 
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

@@ -204,12 +204,12 @@ try {
     $decoded = json_decode($e->getMessage(), true);
     ResponseFormatter::error($decoded ?? $e->getMessage(), 422);
 
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     $code = in_array((int) $e->getCode(), [400, 404, 409, 422], true)
                 ? (int) $e->getCode() : 400;
     ResponseFormatter::error($e->getMessage(), $code);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[HomepageSections] Database error', [
         'tenant_id' => $tenantId,
         'method'    => $method,
@@ -220,7 +220,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred. Please try again later.', 500);
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[HomepageSections] Unexpected error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

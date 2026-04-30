@@ -32,7 +32,7 @@ class CSRF
         if ($regenerate || empty($_SESSION[self::TOKEN_KEY])) {
             try {
                 $token = bin2hex(random_bytes(32));
-            } catch (Exception $e) {
+            } catch (\RuntimeException $e) {
                 // fallback
                 $token = bin2hex(openssl_random_pseudo_bytes(32));
             }
@@ -85,7 +85,7 @@ class CSRF
     {
         if (!self::validate($token, $maxAge, $invalidateAfterUse)) {
             http_response_code(400);
-            throw new RuntimeException('Invalid CSRF token.');
+            throw new AuthException('Invalid CSRF token.');
         }
     }
 }

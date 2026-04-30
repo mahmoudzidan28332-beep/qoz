@@ -33,7 +33,8 @@ final class PdoEntitiesAttributesRepository
         string $lang = 'ar'
     ): array {
         $sql = "
-            SELECT ea.*,
+            SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
+                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,
@@ -158,7 +159,8 @@ final class PdoEntitiesAttributesRepository
     public function find(int $id, string $lang = 'ar'): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT ea.*,
+            SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
+                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,
@@ -181,7 +183,8 @@ final class PdoEntitiesAttributesRepository
     public function findBySlug(string $slug, string $lang = 'ar'): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT ea.*,
+            SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
+                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,
@@ -204,7 +207,8 @@ final class PdoEntitiesAttributesRepository
     public function getTranslations(int $attributeId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT eat.*, l.name as language_name, l.direction as language_direction
+            SELECT eat.id, eat.attribute_id, eat.language_code, eat.name, eat.description,
+                   l.name as language_name, l.direction as language_direction
             FROM entities_attribute_translations eat
             LEFT JOIN languages l ON eat.language_code = l.code
             WHERE eat.attribute_id = :attribute_id
@@ -325,9 +329,9 @@ final class PdoEntitiesAttributesRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -336,7 +340,7 @@ final class PdoEntitiesAttributesRepository
     // ================================
     public function getLanguages(): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM languages ORDER BY name");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, native_name, direction, is_active, flag_url, created_at FROM languages ORDER BY name");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

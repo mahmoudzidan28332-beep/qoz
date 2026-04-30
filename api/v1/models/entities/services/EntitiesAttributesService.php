@@ -89,7 +89,7 @@ final class EntitiesAttributesService
         // التحقق من وجود الخاصية
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("Attribute not found");
+            throw new ApplicationException("Attribute not found");
         }
         
         EntitiesAttributesValidator::validateUpdate($data);
@@ -122,7 +122,7 @@ final class EntitiesAttributesService
     {
         // التحقق من وجود الخاصية
         if (!$this->repo->find($id)) {
-            throw new RuntimeException("Attribute not found");
+            throw new ApplicationException("Attribute not found");
         }
         
         $this->repo->delete($id);
@@ -134,7 +134,7 @@ final class EntitiesAttributesService
     public function getTranslations(int $id): array
     {
         if (!$this->repo->find($id)) {
-            throw new RuntimeException("Attribute not found");
+            throw new ApplicationException("Attribute not found");
         }
         
         return $this->repo->getTranslations($id);

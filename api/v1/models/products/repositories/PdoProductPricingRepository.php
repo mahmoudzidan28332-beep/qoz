@@ -184,7 +184,7 @@ final class PdoProductPricingRepository
                 // Either ID doesn't exist or tenant ownership check failed
                 $check = $this->find((int)$data['id']);
                 if (!$check) {
-                    throw new \RuntimeException('Pricing record not found or access denied.');
+                    throw new ApplicationException('Pricing record not found or access denied.');
                 }
             }
             return (int)$data['id'];

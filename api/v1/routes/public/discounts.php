@@ -44,7 +44,7 @@ if ($first === 'discounts') {
     $total = 0;
     try {
         $total = $discountsRepo->publicCount($tenantId, $entityId, $dType, $activeOnly, $expiresToday);
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         error_log('[public/discounts] count error: ' . $e->getMessage());
     }
 
@@ -57,7 +57,7 @@ if ($first === 'discounts') {
     $rows = [];
     try {
         $rows = $discountsRepo->publicList($tenantId, $entityId, $dType, $activeOnly, $expiresToday, $lang, $perPage, $off);
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         error_log('[public/discounts] fetch error: ' . $e->getMessage());
     }
 
@@ -106,7 +106,7 @@ if ($first === 'discounts') {
                 $row['scope_summary'] = !empty($myScopes) ? implode(', ', array_unique($myScopes)) : null;
             }
             unset($row);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[public/discounts] enrichment error: ' . $e->getMessage());
         }
     }

@@ -165,10 +165,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning','entities_attributes.validation', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','entities_attributes.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical','entities_attributes.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error', 500);
 }

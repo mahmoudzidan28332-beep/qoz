@@ -217,7 +217,7 @@ final class PdoCartsRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT id FROM carts WHERE id = :id AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)");
         $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart not found or access denied'); }
         $params[':id'] = (int)$data['id'];
         $setParts = array_map(fn($c) => "$c = :$c", self::CART_COLUMNS);
         $stmt = $this->pdo->prepare("UPDATE carts SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
@@ -229,7 +229,7 @@ final class PdoCartsRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id");
         $checkStmt->execute([':entity_id' => $params[':entity_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('Entity not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('Entity not found or access denied'); }
         $colStr = implode(', ', self::CART_COLUMNS);
         $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_COLUMNS));
         $stmt = $this->pdo->prepare("INSERT INTO carts ($colStr) VALUES ($phStr)");

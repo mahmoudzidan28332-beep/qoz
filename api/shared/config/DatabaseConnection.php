@@ -18,7 +18,7 @@ final class DatabaseConnection
         $charset = 'utf8mb4';
 
         if (!$host || !$db || !$user) {
-            throw new RuntimeException('Database environment variables missing');
+            throw new SystemException('Database environment variables missing');
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";

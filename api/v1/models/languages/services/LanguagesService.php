@@ -26,7 +26,7 @@ final class LanguagesService
     {
         $data = $this->repository->find($id);
         if (!$data) {
-            throw new RuntimeException('Language not found');
+            throw new ApplicationException('Language not found');
         }
         return $data;
     }
@@ -46,7 +46,7 @@ final class LanguagesService
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repository->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete language');
+            throw new ApplicationException('Failed to delete language');
         }
     }
 }

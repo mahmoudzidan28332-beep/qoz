@@ -110,7 +110,7 @@ function _current_user(): ?array
             if ($identity->isAuthenticated()) {
                 return $identity->toArray();
             }
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) {
                 Logger::error('auth route identity resolve failed: ' . $e->getMessage());
             }
@@ -211,7 +211,7 @@ function _commit_authenticated_session(array $user): array
                 'request_id' => defined('REQUEST_ID') ? REQUEST_ID : bin2hex(random_bytes(8)),
                 'force' => true,
             ]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) {
                 Logger::error('auth route session commit resolve failed: ' . $e->getMessage());
             }
@@ -309,7 +309,7 @@ function _link_device_on_login(PDO $dbConn, int $userId): void
         $newAnon = bin2hex(random_bytes(32));
         $devices->createForLogin($userId, $newAnon, $type, $name, $ua, $ip);
         _set_device_cookie($newAnon);
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         if (class_exists('Logger')) Logger::error('Device link: '.$e->getMessage());
     }
 }
@@ -347,7 +347,7 @@ function _provider_login(PDO $dbConn, UsersController $controller, string $provi
 
     // Load full record
     $uRow = $controller->findWithTenantInfo($userId);
-    if (!$uRow) throw new RuntimeException("User not found after {$provider} upsert (id={$userId})");
+    if (!$uRow) throw new ApplicationException("User not found after {$provider} upsert (id={$userId})");
 
     // Re-activate if needed
     if (!(bool)$uRow['is_active']) {
@@ -485,7 +485,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'email_verified'=>(bool)($ui['verified_email'] ?? false),'name'=>$name,'picture'=>$ui['picture'] ?? null,
             ]);
             header('Location: '.$appUrl.'/frontend/public/index.php');
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Google callback DB: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Google callback error: '.$e->getMessage());
             header('Location: '.$loginUrl.'?google_error=server_error');
@@ -556,7 +556,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             ResponseFormatter::success(['ok'=>true,'device_id'=>$deviceId,'anonymous_token'=>$anonToken,'fcm_saved'=>($fcmToken!==null)]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('register_device: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] register_device error: '.$e->getMessage());
             ResponseFormatter::serverError('Could not register device.');
@@ -604,7 +604,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             ResponseFormatter::success(['ok'=>true,'device_id'=>$targetId,'anonymous_token'=>$anonToken]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('update_fcm: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] update_fcm error: '.$e->getMessage());
             ResponseFormatter::serverError('Could not update FCM token.');
@@ -684,9 +684,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sf = __DIR__.'/../../../shared/helpers/sms.php';
                     if (file_exists($sf)) require_once $sf;
                     if (class_exists('SMS')) { SMS::setPDO($pdo); SMS::sendVerificationLink($regPhone,$activationLink,$regLang ?: 'ar'); }
-                } catch (Throwable $smsE) { if (class_exists('Logger')) Logger::error('SMS: '.$smsE->getMessage()); }
+                } catch (ApplicationException|\RuntimeException $smsE) { if (class_exists('Logger')) Logger::error('SMS: '.$smsE->getMessage()); }
             }
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Register: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Register error: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
             ResponseFormatter::serverError('Registration failed.');
@@ -727,7 +727,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sf = __DIR__.'/../../../shared/helpers/sms.php';
             if (file_exists($sf)) require_once $sf;
             if (class_exists('SMS')) { SMS::setPDO($pdo); SMS::sendVerificationLink($uData['phone'],$activationLink,$resendLang); }
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Resend verification: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Resend verification error: '.$e->getMessage());
             ResponseFormatter::serverError('Failed to resend verification SMS.');
@@ -790,7 +790,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!headers_sent()) { header('Content-Type: application/json; charset=utf-8'); _no_cache(); }
             echo json_encode(['ok'=>true,'message'=>'Account verified and activated','user'=>$user]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Verify OTP: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Verify OTP error: '.$e->getMessage());
             ResponseFormatter::serverError('Verification failed.');
@@ -826,7 +826,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = _provider_login($pdo, $controller, 'google', $sub, $email, $name,
                 ['email_verified'=>(bool)($ti['email_verified'] ?? false),'name'=>$name,'picture'=>$ti['picture'] ?? null]);
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Google login: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Google login error: '.$e->getMessage());
             ResponseFormatter::serverError('Google sign-in failed. Please try again.');
@@ -864,7 +864,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = _provider_login($pdo, $controller, 'facebook', $sub, $email, $name,
                 ['email_verified'=>true,'name'=>$name,'picture'=>$me['picture']['data']['url'] ?? null]);
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Facebook login: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Facebook login error: '.$e->getMessage());
             ResponseFormatter::serverError('Facebook sign-in failed. Please try again.');
@@ -927,7 +927,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
-        } catch (Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             if (class_exists('Logger')) Logger::error('Apple login: '.$e->getMessage());
             if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Apple login error: '.$e->getMessage());
             ResponseFormatter::serverError('Apple sign-in failed. Please try again.');
@@ -1011,7 +1011,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         _link_device_on_login($pdo, (int)$user['id']);
 
         ResponseFormatter::success(['ok'=>true,'message'=>'Authenticated','user'=>$user]);
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         if (class_exists('Logger')) Logger::error('Login: '.$e->getMessage());
         if (function_exists('_kernel_log')) _kernel_log('[routes/auth.php] Login error: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
         ResponseFormatter::serverError('Authentication failed.');

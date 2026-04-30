@@ -40,7 +40,7 @@ final class AuctionsService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Auction not found');
+            throw new ApplicationException('Auction not found');
         }
         return $data;
     }

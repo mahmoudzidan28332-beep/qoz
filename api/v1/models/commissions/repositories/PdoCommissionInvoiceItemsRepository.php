@@ -55,7 +55,7 @@ final class PdoCommissionInvoiceItemsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT cii.* FROM commission_invoice_items cii WHERE 1=1";
+        $sql = "SELECT cii.id, cii.invoice_id, cii.transaction_id, cii.order_id, cii.order_date, cii.order_amount, cii.commission_amount, cii.vat_amount, cii.net_commission, cii.transaction_type FROM commission_invoice_items cii WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -116,7 +116,7 @@ final class PdoCommissionInvoiceItemsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM commission_invoice_items WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, invoice_id, transaction_id, order_id, order_date, order_amount, commission_amount, vat_amount, net_commission, transaction_type FROM commission_invoice_items WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -128,7 +128,7 @@ final class PdoCommissionInvoiceItemsRepository
     // ================================
     public function listByInvoice(int $invoiceId): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM commission_invoice_items WHERE invoice_id = :invoice_id ORDER BY id ASC");
+        $stmt = $this->pdo->prepare("SELECT id, invoice_id, transaction_id, order_id, order_date, order_amount, commission_amount, vat_amount, net_commission, transaction_type FROM commission_invoice_items WHERE invoice_id = :invoice_id ORDER BY id ASC");
         $stmt->execute([':invoice_id' => $invoiceId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

@@ -86,7 +86,7 @@ final class CategoriesService
         $row = $this->repo->findById($tenantId, $id);
 
         if (!$row) {
-            throw new RuntimeException('Category not found');
+            throw new ApplicationException('Category not found');
         }
 
         $translations = $this->repo->getTranslations($id);
@@ -162,7 +162,7 @@ final class CategoriesService
 
         $row = $this->repo->findByIdWithTranslations($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved category');
+            throw new ApplicationException('Failed to load saved category');
         }
 
         return $row;
@@ -289,15 +289,15 @@ final class CategoriesService
     ): void {
         $category = $this->repo->findByIdWithTranslations($tenantId, $id);
         if (!$category) {
-            throw new RuntimeException('Category not found');
+            throw new ApplicationException('Category not found');
         }
 
         if ($this->repo->hasChildren($id)) {
-            throw new RuntimeException('Cannot delete category with subcategories');
+            throw new ApplicationException('Cannot delete category with subcategories');
         }
 
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete category');
+            throw new ApplicationException('Failed to delete category');
         }
     }
 
@@ -311,7 +311,7 @@ final class CategoriesService
     ): void {
         $categoryId = $this->repo->findIdBySlug($tenantId, $slug);
         if (!$categoryId) {
-            throw new RuntimeException('Category not found');
+            throw new ApplicationException('Category not found');
         }
 
         $this->deleteById($tenantId, $categoryId, $userId);
@@ -328,16 +328,16 @@ final class CategoriesService
     ): void {
         $category = $this->repo->findByIdWithTranslations($tenantId, $categoryId);
         if (!$category) {
-            throw new RuntimeException('Category not found');
+            throw new ApplicationException('Category not found');
         }
 
         if (empty($category['translations'][$languageCode])) {
-            throw new RuntimeException('Translation not found');
+            throw new ApplicationException('Translation not found');
         }
 
         $deleted = $this->repo->deleteTranslation($categoryId, $languageCode);
         if (!$deleted) {
-            throw new RuntimeException('Failed to delete translation');
+            throw new ApplicationException('Failed to delete translation');
         }
     }
 
@@ -387,7 +387,7 @@ final class CategoriesService
             try {
                 $this->deleteById($tenantId, (int)$id, $userId);
                 $deletedCount++;
-            } catch (Exception $e) {
+            } catch (\RuntimeException $e) {
                 error_log("Failed to delete category {$id}: " . $e->getMessage());
             }
         }

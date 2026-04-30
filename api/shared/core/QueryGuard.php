@@ -82,7 +82,7 @@ final class QueryGuard
         }
 
         if (!str_contains(strtolower($sql), 'tenant_id')) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'QueryGuard: tenant isolation missing in SQL query'
                 . ($table !== '' ? " for table '{$table}'" : '')
                 . '. Add a tenant_id condition or whitelist the table with'

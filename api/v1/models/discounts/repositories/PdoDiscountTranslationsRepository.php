@@ -19,7 +19,7 @@ final class PdoDiscountTranslationsRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_translations
+            SELECT id, discount_id, language_code, name, description, terms_conditions, marketing_badge FROM discount_translations
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);
@@ -31,7 +31,7 @@ final class PdoDiscountTranslationsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM discount_translations WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, discount_id, language_code, name, description, terms_conditions, marketing_badge FROM discount_translations WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

@@ -33,7 +33,7 @@ final class ColorSettingsService
     {
         $row = $this->repo->find($tenantId, $key, $themeId);
         if (!$row) {
-            throw new RuntimeException('Color setting not found');
+            throw new ApplicationException('Color setting not found');
         }
 
         return $row;
@@ -43,7 +43,7 @@ final class ColorSettingsService
     {
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Color setting not found');
+            throw new ApplicationException('Color setting not found');
         }
 
         return $row;
@@ -67,7 +67,7 @@ final class ColorSettingsService
         }
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved color setting');
+            throw new ApplicationException('Failed to load saved color setting');
         }
 
         return $row;

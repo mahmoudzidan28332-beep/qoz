@@ -18,6 +18,22 @@ define('BASE_DIR', __DIR__);
 define('API_BASE_PATH', realpath(__DIR__));
 define('API_SHARED_PATH', API_BASE_PATH . '/shared');
 
+// PSR-4 autoloader for the Shared\ namespace.
+// Maps Shared\Foo\Bar\Baz → BASE_DIR/shared/foo/Bar/Baz.php
+// (only the first segment after Shared\ is lowercased to match the on-disk directory names).
+spl_autoload_register(function (string $class): void {
+    if (strncmp($class, 'Shared\\', 7) !== 0) {
+        return;
+    }
+    $relative = substr($class, 7);
+    $parts    = explode('\\', $relative);
+    $parts[0] = strtolower($parts[0]);
+    $file     = BASE_DIR . '/shared/' . implode('/', $parts) . '.php';
+    if (is_readable($file)) {
+        require_once $file;
+    }
+});
+
 require_once __DIR__ . '/bootstrap_helpers.php';
 
 // ==============================================
@@ -328,6 +344,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // 7. Load Core Classes
 // ==============================================
 $coreFiles = [
+    'ConfigLoader.php',
+    'DomainException.php',
+    'DatabaseException.php',
+    'ApplicationException.php',
+    'AuthException.php',
+    'AuthorizationException.php',
+    'SystemException.php',
+    'ExceptionHandler.php',
     'DatabaseConnection.php',
     'ResponseFormatter.php',
     'BaseModel.php',
@@ -340,6 +364,10 @@ foreach ($coreFiles as $file) {
     if (file_exists($path)) {
         require_once $path;
     }
+}
+
+if (class_exists('ExceptionHandler', false)) {
+    ExceptionHandler::register();
 }
 
 // ==============================================
@@ -480,6 +508,13 @@ if (class_exists('CacheManager', false)) {
         }
     }
 }
+
+// ==============================================
+// 12b. Early Container Boot (required before identity resolution)
+// ==============================================
+// $GLOBALS['app_container'] must exist before UserIdentityResolver::resolve() is called.
+// Container.php is already loaded via the PSR-4 autoloader registered at the top.
+$GLOBALS['app_container'] = new \Shared\Application\Container($container['pdo'] ?? null);
 
 // ==============================================
 // 13. Unified Identity Resolution - WITH PLATFORM ADMIN SUPPORT
@@ -628,10 +663,16 @@ if (class_exists('\Shared\Application\Context\RequestContext', false)) {
 // ==============================================
 // 15. Global Container Setup
 // ==============================================
+$containerPath = BASE_DIR . '/shared/application/Container.php';
+if (file_exists($containerPath)) {
+    require_once $containerPath;
+}
 $GLOBALS['CONTAINER']      = $container;
 $GLOBALS['ADMIN_DB']       = $container['pdo'];
 $GLOBALS['ADMIN_USER']     = $container['current_user'];
 $GLOBALS['ADMIN_IDENTITY'] = $identity;
+// app_container was already created in section 12b; rebuild with the confirmed ADMIN_DB.
+$GLOBALS['app_container']  = new \Shared\Application\Container($GLOBALS['ADMIN_DB']);
 
 // ==============================================
 // 16. Admin UI Bootstrap (Conditional)

@@ -216,12 +216,8 @@ final class SecurityValidator
      */
     private static function implementsInterface(string $className, string $interfaceName): bool
     {
-        try {
-            $interfaces = class_implements($className, false);
-            return is_array($interfaces) && in_array($interfaceName, $interfaces, true);
-        } catch (\Throwable) {
-            return false;
-        }
+        $interfaces = class_implements($className, false);
+        return is_array($interfaces) && in_array($interfaceName, $interfaces, true);
     }
 
     /**
@@ -265,7 +261,7 @@ final class SecurityValidator
         error_log($message);
 
         if ($isDev) {
-            throw new \RuntimeException($message);
+            throw new \SystemException($message);
         }
 
         // Production: send a minimal, non-leaking error response.

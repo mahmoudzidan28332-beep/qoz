@@ -29,7 +29,7 @@ function detect_db_handle() {
 function execute_select($sql, $params = []) {
     $dbh = detect_db_handle();
     if (!$dbh) {
-        throw new RuntimeException('No DB handle detected. Please ensure bootstrap provides $pdo or $DB or $mysqli.');
+        throw new SystemException('No DB handle detected. Please ensure bootstrap provides $pdo or $DB or $mysqli.');
     }
 
     // PDO
@@ -50,7 +50,7 @@ function execute_select($sql, $params = []) {
         } else {
             // prepare + bind generically as strings
             $stmt = $dbh->prepare($sql);
-            if ($stmt === false) throw new RuntimeException('MySQLi prepare failed: ' . $dbh->error);
+            if ($stmt === false) throw new DatabaseException('MySQLi prepare failed: ' . $dbh->error);
             // build types
             $types = str_repeat('s', count($params));
             $refs = [];
@@ -67,7 +67,7 @@ function execute_select($sql, $params = []) {
     }
 
     // fallback: if $dbh is array-like with connection (rare)
-    throw new RuntimeException('Unsupported DB handle type: ' . gettype($dbh));
+    throw new SystemException('Unsupported DB handle type: ' . gettype($dbh));
 }
 
 /* ----------------------
@@ -182,7 +182,7 @@ foreach ($sources as $key => $cfg) {
                 $totalCount++;
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         // ignore this table if it doesn't exist or query fails; do not stop entire search
         // optionally: log error to server logs
         error_log('search.php: skipping table ' . $table . ' error: ' . $e->getMessage());

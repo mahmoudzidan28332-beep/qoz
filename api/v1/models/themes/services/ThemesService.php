@@ -32,7 +32,7 @@ final class ThemesService
     {
         $row = $this->repo->find($tenantId, $slug, $options);
         if (!$row) {
-            throw new RuntimeException('Theme not found');
+            throw new ApplicationException('Theme not found');
         }
 
         return $row;
@@ -42,7 +42,7 @@ final class ThemesService
     {
         $row = $this->repo->getActive($tenantId, $options);
         if (!$row) {
-            throw new RuntimeException('No active theme found');
+            throw new ApplicationException('No active theme found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class ThemesService
     {
         $row = $this->repo->getDefault($tenantId, $options);
         if (!$row) {
-            throw new RuntimeException('No default theme found');
+            throw new ApplicationException('No default theme found');
         }
 
         return $row;
@@ -76,7 +76,7 @@ final class ThemesService
 
         $row = $this->repo->findById($tenantId, $id, $lookupOptions);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved theme');
+            throw new ApplicationException('Failed to load saved theme');
         }
 
         return $row;
@@ -95,14 +95,14 @@ final class ThemesService
     public function activate(int $tenantId, string $slug, array $options = []): void
     {
         if (!$this->repo->activate($tenantId, $slug, $options)) {
-            throw new RuntimeException('Failed to activate theme');
+            throw new ApplicationException('Failed to activate theme');
         }
     }
 
     public function setDefault(int $tenantId, string $slug, array $options = []): void
     {
         if (!$this->repo->setDefault($tenantId, $slug, $options)) {
-            throw new RuntimeException('Failed to set default theme');
+            throw new ApplicationException('Failed to set default theme');
         }
     }
 }

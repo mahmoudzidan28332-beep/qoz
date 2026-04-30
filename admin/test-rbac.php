@@ -19,7 +19,7 @@ if (is_readable($base)) {
     try {
         require_once $base;
         echo "Included rbac helper successfully.\n";
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         echo "Include failed: " . $e->getMessage() . "\n";
         exit(1);
     }
@@ -52,12 +52,12 @@ if (function_exists('get_db')) {
             echo "get_db(): mysqli instance OK\n";
             // show server info safely
             $hi = '';
-            try { $hi = $db->host_info ?? ''; } catch (Throwable $e) { $hi = ''; }
+            try { $hi = $db->host_info ?? ''; } catch (\RuntimeException $e) { $hi = ''; }
             echo "mysqli host_info: " . ($hi ?: '(unknown)') . "\n";
         } else {
             echo "get_db(): returned null or non-mysqli (" . gettype($db) . ")\n";
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         echo "get_db() threw: " . $e->getMessage() . "\n";
     }
 } else {
@@ -73,7 +73,7 @@ try {
     } else {
         echo "get_current_user() function not defined\n";
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "get_current_user() threw: " . $e->getMessage() . "\n";
 }
 
@@ -96,7 +96,7 @@ try {
     } else {
         echo "No user id in session or function missing (user_id: " . var_export($uid, true) . ")\n";
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "load_user_permissions_into_session() threw: " . $e->getMessage() . "\n";
 }
 
@@ -115,13 +115,13 @@ try {
             } else {
                 echo "RBAC class exists but getPermissions method not found\n";
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             echo "RBAC instantiation or method threw: " . $e->getMessage() . "\n";
         }
     } else {
         echo "RBAC class not defined\n";
     }
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     echo "RBAC class check threw: " . $e->getMessage() . "\n";
 }
 
@@ -131,7 +131,7 @@ echo "\nuser_has() checks:\n";
 foreach ($tests as $t) {
     try {
         $res = function_exists('user_has') ? (user_has($t) ? 'yes' : 'no') : '(user_has not defined)';
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         $res = 'threw: ' . $e->getMessage();
     }
     echo " - $t: $res\n";

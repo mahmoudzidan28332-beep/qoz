@@ -137,7 +137,7 @@ final class PlatformContext
         ?int   $userId = null
     ): void {
         if (!self::$superAdmin) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'PlatformContext::beginSupportSession() requires super-admin privileges. '
                 . 'Call PlatformContext::bootSuperAdmin() first.'
             );
@@ -203,7 +203,7 @@ final class PlatformContext
     public static function getTargetTenantId(): int
     {
         if (self::$supportTargetTenantId === null) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'PlatformContext::getTargetTenantId() — no support session is active. '
                 . 'Call beginSupportSession($targetTenantId, $reason) first.'
             );
@@ -219,7 +219,7 @@ final class PlatformContext
     public static function getActiveReason(): string
     {
         if (self::$supportTargetTenantId === null) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'PlatformContext::getActiveReason() — no support session is active. '
                 . 'Call beginSupportSession($targetTenantId, $reason) first.'
             );
@@ -254,7 +254,7 @@ final class PlatformContext
     public static function assertTenantAccess(?int $tenantId): void
     {
         if ($tenantId === null && !self::$superAdmin) {
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'PlatformContext: access denied — a valid tenant scope is required '
                 . 'for non-super-admin actors. '
                 . 'Call TenantContext::set(resolve_tenant_id()) at the API entry-point.'
@@ -351,7 +351,7 @@ final class PlatformContext
                     'description' => 'Non-super-admin attempted a platform-level operation.',
                 ]);
             }
-            throw new \RuntimeException(
+            throw new \SystemException(
                 'PlatformContext: platform-level operation requires super-admin privileges.',
                 403
             );

@@ -63,7 +63,7 @@ class JWT
 
         $signature = '';
         if (!openssl_sign($signingInput, $signature, $privateKey, self::resolveOpenSslAlgorithm(self::DEFAULT_ALGORITHM))) {
-            throw new \RuntimeException('JWT signing failed: ' . openssl_error_string());
+            throw new \SystemException('JWT signing failed: ' . openssl_error_string());
         }
 
         return "$headerEncoded.$payloadEncoded." . self::base64UrlEncode($signature);
@@ -214,7 +214,7 @@ class JWT
         } catch (\JsonException $e) {
             self::logError('JSON decode error: ' . $e->getMessage());
             return false;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException|\UnexpectedValueException $e) {
             self::logError('Exception during decode: ' . $e->getMessage());
             return false;
         }
@@ -519,13 +519,13 @@ class JWT
         $path = defined('JWT_PRIVATE_KEY_PATH') ? JWT_PRIVATE_KEY_PATH : '';
 
         if (empty($path) || !is_readable($path)) {
-            throw new \RuntimeException('JWT private key file not found or not readable');
+            throw new \SystemException('JWT private key file not found or not readable');
         }
 
         $key = openssl_pkey_get_private(file_get_contents($path));
 
         if ($key === false) {
-            throw new \RuntimeException('Failed to load JWT private key: ' . openssl_error_string());
+            throw new \SystemException('Failed to load JWT private key: ' . openssl_error_string());
         }
 
         return $key;
@@ -539,13 +539,13 @@ class JWT
         $path = defined('JWT_PUBLIC_KEY_PATH') ? JWT_PUBLIC_KEY_PATH : '';
 
         if (empty($path) || !is_readable($path)) {
-            throw new \RuntimeException('JWT public key file not found or not readable');
+            throw new \SystemException('JWT public key file not found or not readable');
         }
 
         $key = openssl_pkey_get_public(file_get_contents($path));
 
         if ($key === false) {
-            throw new \RuntimeException('Failed to load JWT public key: ' . openssl_error_string());
+            throw new \SystemException('Failed to load JWT public key: ' . openssl_error_string());
         }
 
         return $key;
@@ -610,7 +610,7 @@ class JWT
         } catch (\JsonException $e) {
             self::logError('JWT header JSON decode error: ' . $e->getMessage());
             return null;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException|\UnexpectedValueException $e) {
             self::logError('JWT header decode failed: ' . $e->getMessage());
             return null;
         }
@@ -765,7 +765,7 @@ class JWT
             $base64 .= str_repeat('=', 4 - $pad);
         }
 
-        return base64_decode($base64, true) ?: throw new \RuntimeException('base64url decode failed');
+        return base64_decode($base64, true) ?: throw new \SystemException('base64url decode failed');
     }
 
     private static function logError(string $message): void

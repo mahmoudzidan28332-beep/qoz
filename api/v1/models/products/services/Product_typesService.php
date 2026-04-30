@@ -45,7 +45,7 @@ final class Product_typesService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Product type not found');
+            throw new ApplicationException('Product type not found');
         }
         return $row;
     }
@@ -78,7 +78,7 @@ final class Product_typesService
     public function delete(int $id): void
     {
         if (!$this->repo->delete($id)) {
-            throw new RuntimeException('Failed to delete product type');
+            throw new ApplicationException('Failed to delete product type');
         }
     }
 }

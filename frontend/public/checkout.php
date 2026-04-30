@@ -25,7 +25,7 @@ try {
         }
         $pdo->exec("ALTER TABLE `$t` MODIFY `id` BIGINT AUTO_INCREMENT");
     }
-} catch (Throwable $dbEx) {
+} catch (\RuntimeException $dbEx) {
     // Ignore silentyly
 }
 
@@ -102,7 +102,7 @@ if ($pdo) {
             }
             $cartTotal = round($cartTotal, 2);
         }
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 }
 
 /* ─── Payment Methods ───────────────────────────────────────── */
@@ -118,7 +118,7 @@ if ($pdo) {
         );
         $ps->execute([$entityId]);
         $entityPMs = $ps->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 
     if (empty($entityPMs)) {
         try {
@@ -130,7 +130,7 @@ if ($pdo) {
             );
             $ps->execute([$tenantId]);
             $entityPMs = $ps->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable) {}
+        } catch (\RuntimeException) {}
     }
 }
 
@@ -329,7 +329,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                            (product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
                          VALUES (?, NULL, ?, 'sale', ?, 'Order placed', NOW())"
                     )->execute([$pId, -$qty, $orderId]);
-                } catch (Throwable) {}
+                } catch (\RuntimeException) {}
             }
 
             /* Convert cart */
@@ -361,10 +361,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                     $pmCode ?: 'cod', $grandTotal, $displayCurrency,
                     $_SERVER['REMOTE_ADDR'] ?? null,
                 ]);
-            } catch (Throwable) {}
+            } catch (\RuntimeException) {}
 
-        } catch (Throwable $ex) {
-            try { $pdo->rollBack(); } catch (Throwable) {}
+        } catch (\RuntimeException $ex) {
+            try { $pdo->rollBack(); } catch (\RuntimeException) {}
             @file_put_contents(__DIR__ . '/checkout_error_debug.log', date('Y-m-d H:i:s') . "\n" . $ex->getMessage() . "\n" . $ex->getTraceAsString() . "\n\n");
             $checkoutError = t('common.error') . ': ' . $ex->getMessage();
         }

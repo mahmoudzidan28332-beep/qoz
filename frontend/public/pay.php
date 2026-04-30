@@ -46,7 +46,7 @@ if ($pdo && $orderId) {
         );
         $st->execute([$lang, $orderId, $userId]);
         $order = $st->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 }
 
 if (!$order) {
@@ -80,7 +80,7 @@ if ($pdo) {
         );
         $is->execute([$orderId]);
         $orderItems = $is->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 }
 
 // Load payment methods
@@ -96,7 +96,7 @@ if ($pdo) {
         );
         $ps->execute([$entityId]);
         $entityPMs = $ps->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 }
 if (empty($entityPMs) && $pdo) {
     try {
@@ -106,7 +106,7 @@ if (empty($entityPMs) && $pdo) {
         );
         $ps->execute([]);
         $entityPMs = $ps->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable) {}
+    } catch (\RuntimeException) {}
 }
 // Always have COD fallback
 if (empty($entityPMs)) {
@@ -152,13 +152,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
                  VALUES (?, 'confirmed', ?, ?)"
             );
             $hst->execute([$orderId, 'Payment ' . $pmCode . ($notes ? ': ' . $notes : ''), $userId]);
-        } catch (Throwable) {}
+        } catch (\RuntimeException) {}
 
         $pdo->commit();
         $paySuccess = true;
         header('Location: /frontend/public/orders.php?view=' . $orderId . '&paid=1');
         exit;
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         $pdo->rollBack();
         $payError = t('checkout.error_try_again') . ' (' . $e->getMessage() . ')';
     }

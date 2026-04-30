@@ -49,6 +49,7 @@ try {
     function get_translations_map(mysqli $conn, $table, $foreign_field, $lang) {
         $out = [];
         if (!table_exists($conn,$table)) return $out;
+        // TODO: $table is runtime-determined; all non-id/foreign-key/language_code columns are returned as translation payload
         $stmt = $conn->prepare("SELECT * FROM {$table} WHERE language_code = ?");
         if (!$stmt) return $out;
         $stmt->bind_param('s',$lang);
@@ -225,7 +226,7 @@ try {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['success'=>true,'data'=>$data], JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     pm_log("Unhandled exception in product_meta: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     http_response_code(500);
     echo json_encode(['success'=>false,'message'=>'Internal server error']);

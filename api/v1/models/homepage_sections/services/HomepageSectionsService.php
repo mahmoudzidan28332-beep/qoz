@@ -33,7 +33,7 @@ final class HomepageSectionsService
     {
         $row = $this->repo->find($tenantId, $id, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Homepage section not found');
+            throw new ApplicationException('Homepage section not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class HomepageSectionsService
 
         $row = $this->repo->find($tenantId, $id, 'en', true); // Get with all translations
         if (!$row) {
-            throw new RuntimeException('Failed to load saved homepage section');
+            throw new ApplicationException('Failed to load saved homepage section');
         }
 
         return $row;
@@ -61,7 +61,7 @@ final class HomepageSectionsService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete homepage section');
+            throw new ApplicationException('Failed to delete homepage section');
         }
     }
 
@@ -79,7 +79,7 @@ final class HomepageSectionsService
     {
         $row = $this->repo->find($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Homepage section not found');
+            throw new ApplicationException('Homepage section not found');
         }
         return $this->repo->getTranslations($id);
     }
@@ -88,7 +88,7 @@ final class HomepageSectionsService
     {
         $row = $this->repo->find($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Homepage section not found');
+            throw new ApplicationException('Homepage section not found');
         }
         $this->repo->saveTranslations($id, $translations);
         return $this->repo->getTranslations($id);

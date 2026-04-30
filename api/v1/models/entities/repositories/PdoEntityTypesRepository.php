@@ -28,7 +28,7 @@ final class PdoEntityTypesRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT * FROM entity_types WHERE 1=1";
+        $sql = "SELECT id, code, name, description, created_at, updated_at FROM entity_types WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -89,7 +89,7 @@ final class PdoEntityTypesRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM entity_types WHERE id = :id LIMIT 1"
+            "SELECT id, code, name, description, created_at, updated_at FROM entity_types WHERE id = :id LIMIT 1"
         );
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

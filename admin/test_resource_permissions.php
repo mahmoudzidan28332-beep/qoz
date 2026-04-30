@@ -176,7 +176,7 @@ header('Content-Type: text/html; charset=utf-8');
             } else {
                 echo '<p class="warning">⚠ Database not available or user not logged in</p>';
             }
-        } catch(Exception $e){
+        } catch (\RuntimeException $e){
             echo '<p class="error">✗ Error: '.htmlspecialchars($e->getMessage()).'</p>';
         }
         ?>

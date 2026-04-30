@@ -34,6 +34,9 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 // ==============================================
 $requiredFiles = [
     __DIR__ . '/shared/core/DatabaseConnection.php',
+    __DIR__ . '/shared/core/DomainException.php',
+    __DIR__ . '/shared/core/DatabaseException.php',
+    __DIR__ . '/shared/domain/Exceptions/ExceptionFactory.php',
     __DIR__ . '/shared/application/Auth/UserIdentity.php',
     __DIR__ . '/shared/application/Auth/UserIdentityResolver.php',
 ];
@@ -54,6 +57,23 @@ if (!$db instanceof PDO && class_exists('DatabaseConnection', false)) {
         $GLOBALS['ADMIN_DB'] = $db;
     } catch (Throwable $e) {
         _aui_log('DB connection failed: ' . $e->getMessage());
+    }
+}
+
+// ==============================================
+// ⭐ Boot app_container if not already booted
+// (bootstrap.php boots it in section 12b; when this file is loaded
+//  directly — e.g. from admin pages that skip bootstrap — it must be
+//  created here so UserIdentityResolver::resolve() can find it)
+// ==============================================
+if (!isset($GLOBALS['app_container']) && $db instanceof PDO) {
+    $containerPath = __DIR__ . '/shared/application/Container.php';
+    if (is_file($containerPath)) {
+        require_once $containerPath;
+    }
+    if (class_exists('\Shared\Application\Container', false)) {
+        $GLOBALS['app_container'] = new \Shared\Application\Container($db);
+        _aui_log('app_container booted from bootstrap_admin_ui');
     }
 }
 
@@ -227,21 +247,17 @@ $GLOBALS['ADMIN_UI'] = $ADMIN_UI;
 if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
     header('Content-Type: application/json; charset=utf-8');
     
-    $identityDebug = $_SESSION['identity_debug'] ?? null;
-    
-    if (!$identityDebug && $identity->isAuthenticated()) {
-        $identityDebug = [
-            'resolved_user_id' => $identity->id(),
-            'resolved_tenant_id' => $identity->tenantId(),
-            'identity_source' => $identity->source(),
-            'source' => $identity->source(),
-            'is_platform_admin' => $identity->isPlatformAdmin(),
-            'platform_role' => $identity->platformRole(),
-            'preferred_language' => $identity->preferredLanguage(),
-            'session_id' => session_id(),
-            'request_id' => $identity->requestId(),
-        ];
-    }
+    $identityDebug = [
+        'resolved_user_id' => $identity->id(),
+        'resolved_tenant_id' => $identity->tenantId(),
+        'identity_source' => $identity->source(),
+        'is_authenticated' => $identity->isAuthenticated(),
+        'is_platform_admin' => $identity->isPlatformAdmin(),
+        'platform_role' => $identity->platformRole(),
+        'preferred_language' => $identity->preferredLanguage(),
+        'session_id' => session_id(),
+        'request_id' => $identity->requestId(),
+    ];
     
     // ── Theme Debug: run direct queries to see what the DB returns ──
     $themeDebug = ['error' => null, 'steps' => []];
@@ -256,7 +272,7 @@ if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
             $themeDebug['steps']['class_loaded'] = class_exists('PdoThemesRepository', false);
             
             // Step 2: Direct query - tenant_theme_overrides
-            $s = $db->prepare("SELECT * FROM tenant_theme_overrides WHERE tenant_id = ? AND setting_type = 'theme_selection' ORDER BY id DESC");
+            $s = $db->prepare("SELECT id, tenant_id, theme_id, setting_type, setting_key, created_at FROM tenant_theme_overrides WHERE tenant_id = ? AND setting_type = 'theme_selection' ORDER BY id DESC");
             $s->execute([$tid]);
             $themeDebug['steps']['tenant_overrides'] = $s->fetchAll(PDO::FETCH_ASSOC);
             
@@ -302,6 +318,9 @@ if (!empty($_GET['__admin_ui_debug']) && $_GET['__admin_ui_debug'] === '1') {
             'name' => session_name(),
             'cookie_received' => $_COOKIE[session_name()] ?? null,
             'keys' => array_keys($_SESSION),
+            'platform_admin' => $_SESSION['platform_admin'] ?? null,
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'logged_in' => $_SESSION['logged_in'] ?? null,
         ],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;

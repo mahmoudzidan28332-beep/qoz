@@ -30,7 +30,7 @@ final class EscrowTransactionsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Escrow transaction not found');
+            throw new ApplicationException('Escrow transaction not found');
         }
         return $data;
     }

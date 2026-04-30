@@ -101,7 +101,7 @@ if ($pdo && $userId) {
         $iSt->execute($params);
         $notifItems = $iSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         $notifError = true;
         error_log('[notifications.php] ' . $e->getMessage());
     }
@@ -121,7 +121,7 @@ if ($pdo && $userId) {
             );
             $ucSt->execute([$userId, $tenantId]);
             $unreadCount = (int)$ucSt->fetchColumn();
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             $unreadCount = 0;
             error_log('[notifications.php] unread-count: ' . $e->getMessage());
         }

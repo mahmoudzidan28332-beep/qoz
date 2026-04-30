@@ -124,7 +124,7 @@ if ($pdo) {
             $pids = array_column($products, 'id');
             $productDiscounts = pub_get_product_discounts($pdo, $pids);
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[products.php] PDO error: ' . $e->getMessage());
     }
 }

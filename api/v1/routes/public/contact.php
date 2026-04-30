@@ -81,7 +81,7 @@ if ($ctMethod === 'POST') {
             'id'      => $msgId,
             'message' => 'Your message has been sent successfully.',
         ]);
-    } catch (Throwable $ex) {
+    } catch (ApplicationException|\RuntimeException $ex) {
         error_log('[contact.php POST] ' . $ex->getMessage());
         ResponseFormatter::error('Failed to send your message. Please try again.', 500);
     }

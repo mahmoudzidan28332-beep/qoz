@@ -30,7 +30,7 @@ final class EscrowLedgerService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Escrow ledger entry not found');
+            throw new ApplicationException('Escrow ledger entry not found');
         }
         return $data;
     }

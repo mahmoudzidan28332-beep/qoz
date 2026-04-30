@@ -120,7 +120,7 @@ try {
 
             $row = $controller->getById($tenantId, $id, $lang, $allTranslations);
             ResponseFormatter::success($row);
-        } catch (RuntimeException $e) {
+        } catch (ApplicationException|RuntimeException $e) {
             ResponseFormatter::error($e->getMessage(), 404);
         }
         return;
@@ -182,7 +182,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[categories] SEO sync on create failed: ' . $e->getMessage());
         }
 
@@ -207,7 +207,7 @@ try {
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'category', (int)$catId);
             }
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[categories] SEO sync on update failed: ' . $e->getMessage());
         }
 
@@ -235,7 +235,7 @@ try {
         // Auto-delete SEO meta
         try {
             SeoAutoManager::delete($pdo, 'category', $id);
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[categories] SEO delete failed: ' . $e->getMessage());
         }
 
@@ -254,7 +254,7 @@ try {
             if ($delId) {
                 SeoAutoManager::delete($pdo, 'category', (int)$delId);
             }
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[categories] SEO delete on bulk delete failed: ' . $e->getMessage());
         }
 
@@ -275,9 +275,9 @@ try {
     } else {
         ResponseFormatter::error($message, 422);
     }
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'Categories route failed', [
         'error' => $e->getMessage(),
         'file' => $e->getFile(),

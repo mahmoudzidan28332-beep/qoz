@@ -33,7 +33,7 @@ final class DesignSettingsService
     {
         $row = $this->repo->find($tenantId, $key, $themeId);
         if (!$row) {
-            throw new RuntimeException('Design setting not found');
+            throw new ApplicationException('Design setting not found');
         }
 
         return $row;
@@ -57,7 +57,7 @@ final class DesignSettingsService
         }
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved design setting');
+            throw new ApplicationException('Failed to load saved design setting');
         }
 
         return $row;

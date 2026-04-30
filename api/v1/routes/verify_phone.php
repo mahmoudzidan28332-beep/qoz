@@ -237,7 +237,7 @@ try {
         $_SESSION['user']      = $user;
         $GLOBALS['ADMIN_USER'] = $user;
         unset($_SESSION['pending_user_id']);
-    } catch (Throwable $sessionErr) {
+    } catch (ApplicationException|\RuntimeException $sessionErr) {
         if (class_exists('Logger')) Logger::warning('verify_phone: session setup failed after activation: ' . $sessionErr->getMessage());
     }
 
@@ -252,7 +252,7 @@ try {
                 setcookie('qz_dvt', '', time() - 3600, '/', '', $secure, true);
             }
         }
-    } catch (Throwable $cookieErr) {
+    } catch (ApplicationException|\RuntimeException $cookieErr) {
         if (class_exists('Logger')) Logger::warning('verify_phone: cookie cleanup failed: ' . $cookieErr->getMessage());
     }
 
@@ -265,7 +265,7 @@ try {
         if (!headers_sent()) header('Location: ' . $dest, true, 302);
     }
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     if (class_exists('Logger')) Logger::error('verify_phone error: ' . $e->getMessage());
     _vpError('حدث خطأ أثناء التفعيل. يرجى المحاولة مجدداً.', 500, $isJsonReq);
 }

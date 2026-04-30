@@ -30,7 +30,7 @@ final class PermissionsService
     {
         $data = $this->repository->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Permission not found');
+            throw new ApplicationException('Permission not found');
         }
         return $data;
     }
@@ -53,7 +53,7 @@ final class PermissionsService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repository->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete permission');
+            throw new ApplicationException('Failed to delete permission');
         }
     }
 }

@@ -38,7 +38,7 @@ final class PdoSystemSettingsRepository
     public function find(int $tenantId, string $key): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, setting_key, setting_value, setting_type, category, description, is_public, is_editable, created_at, updated_at
             FROM system_settings
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND setting_key = :key
             LIMIT 1
@@ -52,7 +52,7 @@ final class PdoSystemSettingsRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, setting_key, setting_value, setting_type, category, description, is_public, is_editable, created_at, updated_at
             FROM system_settings
             WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
             LIMIT 1

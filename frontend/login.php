@@ -82,7 +82,7 @@ try {
         unset($__pdoL, $__stL, $__dbc, $__dsn);
     }
     unset($__dbFile);
-} catch (Throwable $_) {}
+} catch (\RuntimeException $_) {}
 
 // Translations (inline — login page doesn't include public_context.php)
 $tr = $isRtl ? [

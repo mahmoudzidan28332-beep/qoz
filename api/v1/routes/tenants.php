@@ -270,9 +270,9 @@ try {
     } else {
         ResponseFormatter::error($e->getMessage(), 422);
     }
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'Tenants route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

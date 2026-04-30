@@ -336,7 +336,7 @@ final class RateLimitValidator
             // Increment
             $pdo->prepare("UPDATE rate_limits SET hits = hits + 1 WHERE key_hash = ?")->execute([$hash]);
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException|\RuntimeException $e) {
             error_log('[RateLimitValidator] Error: ' . $e->getMessage());
             return true; // Fail open to not block users on DB issues
         }

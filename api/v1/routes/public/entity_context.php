@@ -107,7 +107,7 @@ if ($first === 'entity_context') {
                 foreach ($ctxRepo->getWorkingHours($ids) as $hourRow) {
                     $hoursMap[(int)$hourRow['entity_id']][] = $hourRow;
                 }
-            } catch (Throwable) {
+            } catch (ApplicationException|\RuntimeException) {
                 $hoursMap = [];
             }
         }
@@ -352,7 +352,7 @@ if ($first === 'entity_context') {
 
         ResponseFormatter::error('Unknown entity_context action', 404);
         exit;
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         ResponseFormatter::error('Entity context error: ' . $e->getMessage(), 500);
         exit;
     }

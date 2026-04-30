@@ -45,7 +45,8 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 
         $sql = "
             SELECT
-                c.*,
+                c.id, c.tenant_id, c.parent_id, c.sort_order, c.is_active, c.is_featured,
+                c.created_at, c.updated_at,
                 COALESCE(ct.name,             c.name)        AS name,
                 COALESCE(ct.description,      c.description) AS description,
                 COALESCE(ct.slug,             c.slug)        AS slug,
@@ -163,12 +164,12 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
     {
         if ($tenantId === null) {
             $stmt = $this->pdo->prepare(
-                "SELECT * FROM categories WHERE id = :id LIMIT 1"
+                "SELECT id, tenant_id, parent_id, slug, name, description, sort_order, is_active, is_featured, created_at, updated_at FROM categories WHERE id = :id LIMIT 1"
             );
             $stmt->execute([':id' => $id]);
         } else {
             $stmt = $this->pdo->prepare("
-                SELECT * FROM categories
+                SELECT id, tenant_id, parent_id, slug, name, description, sort_order, is_active, is_featured, created_at, updated_at FROM categories
                 WHERE (tenant_id = :tenantId OR tenant_id IS NULL) AND id = :id
                 LIMIT 1
             ");
@@ -219,9 +220,9 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
 
             $this->pdo->commit();
             return $categoryId;
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -348,9 +349,9 @@ final class PdoCategoriesRepository implements CategoriesRepositoryInterface
             $this->pdo->commit();
             return true;
 
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

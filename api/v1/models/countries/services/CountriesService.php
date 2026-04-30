@@ -41,7 +41,7 @@ final class CountriesService
 
         // check uniqueness for iso2
         if ($this->repo->getByIdentifierExists($data['iso2'] ?? null)) {
-            throw new RuntimeException('Country with same ISO code already exists');
+            throw new ApplicationException('Country with same ISO code already exists');
         }
 
         $id = $this->repo->insert($data);
@@ -65,18 +65,18 @@ final class CountriesService
 
         $existing = $this->repo->getById($id);
         if (!$existing) {
-            throw new RuntimeException('Country not found');
+            throw new ApplicationException('Country not found');
         }
 
         // if iso2 changed, ensure uniqueness
         if (!empty($data['iso2']) && $data['iso2'] !== $existing['iso2']) {
             if ($this->repo->getByIdentifierExists($data['iso2'])) {
-                throw new RuntimeException('Country with same ISO2 exists');
+                throw new ApplicationException('Country with same ISO2 exists');
             }
         }
 
         $ok = $this->repo->update($id, $data);
-        if (!$ok) throw new RuntimeException('Failed to update country');
+        if (!$ok) throw new ApplicationException('Failed to update country');
 
         return ['id' => $id, 'updated' => true];
     }
@@ -103,11 +103,11 @@ final class CountriesService
     {
         $existing = $this->repo->getById($id);
         if (!$existing) {
-            throw new RuntimeException('Country not found');
+            throw new ApplicationException('Country not found');
         }
 
         $ok = $this->repo->delete($id);
-        if (!$ok) throw new RuntimeException('Failed to delete country');
+        if (!$ok) throw new ApplicationException('Failed to delete country');
 
         return ['deleted' => true, 'id' => $id];
     }

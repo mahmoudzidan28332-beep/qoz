@@ -142,7 +142,7 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','product_pricing', ['error'=>$e->getMessage()]);
     $msg = ($e instanceof InvalidArgumentException) ? $e->getMessage() : 'Internal server error';
     ResponseFormatter::error($msg, 500);

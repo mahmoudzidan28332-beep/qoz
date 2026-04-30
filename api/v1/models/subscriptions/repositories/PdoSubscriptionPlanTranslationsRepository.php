@@ -18,7 +18,7 @@ final class PdoSubscriptionPlanTranslationsRepository
     // ================================
     public function listByPlan(int $planId): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plan_translations WHERE plan_id = :plan_id ORDER BY language_code");
+        $stmt = $this->pdo->prepare("SELECT id, plan_id, language_code, plan_name, description, features, created_at, updated_at FROM subscription_plan_translations WHERE plan_id = :plan_id ORDER BY language_code");
         $stmt->execute([':plan_id' => $planId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -28,7 +28,7 @@ final class PdoSubscriptionPlanTranslationsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plan_translations WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, plan_id, language_code, plan_name, description, features, created_at, updated_at FROM subscription_plan_translations WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -39,7 +39,7 @@ final class PdoSubscriptionPlanTranslationsRepository
     // ================================
     public function findByPlanAndLang(int $planId, string $langCode): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plan_translations WHERE plan_id = :plan_id AND language_code = :language_code LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, plan_id, language_code, plan_name, description, features, created_at, updated_at FROM subscription_plan_translations WHERE plan_id = :plan_id AND language_code = :language_code LIMIT 1");
         $stmt->execute([':plan_id' => $planId, ':language_code' => $langCode]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

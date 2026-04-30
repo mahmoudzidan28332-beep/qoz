@@ -87,7 +87,7 @@ final class QueuesController
                 default:
                     ResponseFormatter::error('Method not allowed', 405);
             }
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             safe_log('error', 'Error in QueuesController: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             ResponseFormatter::error($e->getMessage(), 500);
         }

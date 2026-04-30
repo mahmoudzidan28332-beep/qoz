@@ -19,7 +19,7 @@ final class AuctionWatchersService
     {
         $data = $this->repo->find($auctionId, $userId);
         if (!$data) {
-            throw new RuntimeException('Auction watcher not found');
+            throw new ApplicationException('Auction watcher not found');
         }
         return $data;
     }

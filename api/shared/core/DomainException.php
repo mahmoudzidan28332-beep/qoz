@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-abstract class DomainException extends RuntimeException
+abstract class AppException extends \RuntimeException
 {
     protected int $statusCode = 400;
     protected array $context = [];

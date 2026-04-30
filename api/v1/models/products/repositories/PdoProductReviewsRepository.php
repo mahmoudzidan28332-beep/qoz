@@ -10,7 +10,7 @@ final class PdoProductReviewsRepository
     }
 
     public function all(array $filters = [], ?int $limit = null, ?int $offset = null, string $orderBy = 'created_at', string $orderDir = 'DESC'): array {
-        $sql = "SELECT * FROM product_reviews WHERE 1=1";
+        $sql = "SELECT id, product_id, user_id, rating, title, comment, is_verified_purchase, is_approved, helpful_count, created_at, updated_at FROM product_reviews WHERE 1=1";
         $params = [];
 
         foreach (['product_id','user_id','is_verified_purchase','is_approved'] as $f) {
@@ -54,7 +54,7 @@ final class PdoProductReviewsRepository
     }
 
     public function find(int $id): ?array {
-        $stmt = $this->pdo->prepare("SELECT * FROM product_reviews WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, product_id, user_id, rating, title, comment, is_verified_purchase, is_approved, helpful_count, created_at, updated_at FROM product_reviews WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }

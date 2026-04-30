@@ -45,7 +45,7 @@ final class EntitySettingsService
     {
         // التحقق من عدم وجود إعدادات مسبقة لنفس الكيان
         if ($this->get($entityId)) {
-            throw new RuntimeException("Entity settings already exist for entity ID: $entityId");
+            throw new ApplicationException("Entity settings already exist for entity ID: $entityId");
         }
         
         // Remove entity_id from data since save() handles it as a separate parameter
@@ -68,7 +68,7 @@ final class EntitySettingsService
     {
         // التحقق من وجود الإعدادات قبل الحذف
         if (!$this->get($entityId)) {
-            throw new RuntimeException("Entity settings not found for entity ID: $entityId");
+            throw new ApplicationException("Entity settings not found for entity ID: $entityId");
         }
         
         return $this->repo->delete($entityId);
@@ -92,7 +92,7 @@ final class EntitySettingsService
 
         $currentSettings = $this->get($entityId);
         if (!$currentSettings) {
-            throw new RuntimeException("Entity settings not found for entity ID: $entityId");
+            throw new ApplicationException("Entity settings not found for entity ID: $entityId");
         }
         
         $newValue = $currentSettings[$field] ? 0 : 1;

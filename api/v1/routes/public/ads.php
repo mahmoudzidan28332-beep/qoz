@@ -80,11 +80,11 @@ if ($adId > 0 && $method === 'POST' && in_array($action, ['click', 'view'], true
             $adId, $trackUserId, $trackSessionId, $trackIp, $trackUserAgent,
             $isView, $isClick, $trackEventType
         );
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         error_log('[ads.php] ad_stats insert failed for ad_id=' . $adId . ': ' . $e->getMessage());
         try {
             $adStatRepo->incrementStat($adId, $isView, $isClick);
-        } catch (Throwable $e2) {
+        } catch (ApplicationException|\RuntimeException $e2) {
             error_log('[ads.php] ad_stats fallback insert failed for ad_id=' . $adId . ': ' . $e2->getMessage());
         }
     }

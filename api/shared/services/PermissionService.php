@@ -220,7 +220,10 @@ final class PermissionService
         try {
             // 1) global rows (role_id IS NULL, tenant_id IS NULL)
             $stmt = $this->pdo->prepare("
-                SELECT * FROM resource_permissions
+                SELECT can_view_all, can_view_own, can_view_tenant,
+                       can_create, can_edit_all, can_edit_own,
+                       can_delete_all, can_delete_own
+                FROM resource_permissions
                 WHERE permission_id = :pid AND resource_type = :resource
                   AND role_id IS NULL AND tenant_id IS NULL
             ");
@@ -236,7 +239,10 @@ final class PermissionService
             // 2) role-global (role-specific but tenant IS NULL)
             if ($roleId !== null) {
                 $stmt = $this->pdo->prepare("
-                    SELECT * FROM resource_permissions
+                    SELECT can_view_all, can_view_own, can_view_tenant,
+                           can_create, can_edit_all, can_edit_own,
+                           can_delete_all, can_delete_own
+                    FROM resource_permissions
                     WHERE permission_id = :pid AND resource_type = :resource
                       AND role_id = :role AND tenant_id IS NULL
                 ");
@@ -246,7 +252,10 @@ final class PermissionService
 
             // 3) tenant-global (role_id IS NULL AND tenant_id = current)
             $stmt = $this->pdo->prepare("
-                SELECT * FROM resource_permissions
+                SELECT can_view_all, can_view_own, can_view_tenant,
+                       can_create, can_edit_all, can_edit_own,
+                       can_delete_all, can_delete_own
+                FROM resource_permissions
                 WHERE permission_id = :pid AND resource_type = :resource
                   AND role_id IS NULL AND tenant_id = :tenant
             ");
@@ -256,7 +265,10 @@ final class PermissionService
             // 4) role+tenant (most specific)
             if ($roleId !== null) {
                 $stmt = $this->pdo->prepare("
-                    SELECT * FROM resource_permissions
+                    SELECT can_view_all, can_view_own, can_view_tenant,
+                           can_create, can_edit_all, can_edit_own,
+                           can_delete_all, can_delete_own
+                    FROM resource_permissions
                     WHERE permission_id = :pid AND resource_type = :resource
                       AND role_id = :role AND tenant_id = :tenant
                 ");

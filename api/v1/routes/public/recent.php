@@ -20,11 +20,11 @@ if ($first === 'recent') {
         try {
             // upsert: update viewed_at if already exists, otherwise insert
             $recentRepo->upsert($recentUid, $recentSid, $recentPid);
-        } catch (Throwable $_) {
+        } catch (ApplicationException|\RuntimeException $_) {
             // table may not have unique constraint — try insert ignore
             try {
                 $recentRepo->insertIgnore($recentUid, $recentSid, $recentPid);
-            } catch (Throwable $__) { /* non-fatal */ }
+            } catch (ApplicationException|\RuntimeException $__) { /* non-fatal */ }
         }
         ResponseFormatter::success(['ok' => true]);
         exit;
@@ -51,7 +51,7 @@ if ($first === 'recent') {
             [$lang, $recentParam]
         );
         ResponseFormatter::success(['ok' => true, 'data' => $rows]);
-    } catch (Throwable $ex) {
+    } catch (ApplicationException|\RuntimeException $ex) {
         ResponseFormatter::error('Failed: ' . $ex->getMessage(), 500);
     }
     exit;

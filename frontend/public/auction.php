@@ -41,16 +41,16 @@ if ($pdo) {
         );
         $st->execute([$lang, $lang, $lang, $auctionId]);
         $auction = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-    } catch (Throwable $e) { error_log('[auction.php] ' . $e->getMessage()); }
+    } catch (\RuntimeException $e) { error_log('[auction.php] ' . $e->getMessage()); }
 
     if (!$auction) {
         // Fallback: try without translation
         try {
-            $st = $pdo->prepare("SELECT * FROM auctions WHERE id=? LIMIT 1");
+            $st = $pdo->prepare("SELECT id, slug, status, auction_type, current_price, starting_price, bid_increment, buy_now_price, reserve_price, total_bids, total_bidders, end_date, winner_user_id, created_by, description FROM auctions WHERE id=? LIMIT 1");
             $st->execute([$auctionId]);
             $auction = $st->fetch(PDO::FETCH_ASSOC) ?: null;
             if ($auction) $auction['title'] = $auction['slug'];
-        } catch (Throwable $e) {}
+        } catch (\RuntimeException $e) {}
     }
 
     if ($auction) {
@@ -64,7 +64,7 @@ if ($pdo) {
             );
             $st->execute([$auctionId]);
             $bids = $st->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {}
+        } catch (\RuntimeException $e) {}
 
         // Watch status
         if ($_isLoggedIn && !empty($_user['id'])) {
@@ -72,14 +72,14 @@ if ($pdo) {
                 $st = $pdo->prepare('SELECT id FROM auction_watchers WHERE auction_id=? AND user_id=? LIMIT 1');
                 $st->execute([$auctionId, $_user['id']]);
                 $isWatching = (bool)$st->fetchColumn();
-            } catch (Throwable $e) {}
+            } catch (\RuntimeException $e) {}
 
             // Auto-bid
             try {
                 $st = $pdo->prepare('SELECT max_bid_amount, is_active FROM auto_bid_settings WHERE auction_id=? AND user_id=? AND is_active=1 LIMIT 1');
                 $st->execute([$auctionId, $_user['id']]);
                 $autoBidData = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-            } catch (Throwable $e) {}
+            } catch (\RuntimeException $e) {}
         }
     }
 }

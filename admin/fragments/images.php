@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Bootstrap UI
 $bootstrap = __DIR__ . '/../../api/bootstrap_admin_ui.php';
 if (is_readable($bootstrap)) {
-    try { require_once $bootstrap; } catch (Throwable $e) {}
+    try { require_once $bootstrap; } catch (\RuntimeException $e) {}
 }
 
 $ADMIN_UI_PAYLOAD = $ADMIN_UI_PAYLOAD ?? ($GLOBALS['ADMIN_UI'] ?? []);
@@ -36,7 +36,7 @@ $imageTypes = [];
 try {
     $stmt = $GLOBALS['ADMIN_DB']->query("SELECT id, name, description FROM image_types ORDER BY id");
     $imageTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
+} catch (\RuntimeException $e) {
     $imageTypes = [
         ['id' => 1, 'name' => 'product', 'description' => 'صور المنتجات'],
         ['id' => 2, 'name' => 'category', 'description' => 'صور الأقسام'],
@@ -80,7 +80,7 @@ try {
         $images = $data['data'] ?? [];
         $total = $data['meta']['total'] ?? count($images);
     }
-} catch (Exception $e) {
+} catch (\RuntimeException $e) {
     error_log("Media Studio API Error: " . $e->getMessage());
 }
 

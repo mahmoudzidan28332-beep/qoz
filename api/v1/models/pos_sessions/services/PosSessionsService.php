@@ -41,7 +41,7 @@ final class PosSessionsService
     {
         $session = $this->repository->find($tenantId, $id);
         if (!$session) {
-            throw new RuntimeException('POS session not found');
+            throw new ApplicationException('POS session not found');
         }
         return $session;
     }

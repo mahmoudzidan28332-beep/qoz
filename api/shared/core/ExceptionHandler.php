@@ -102,7 +102,18 @@ final class ExceptionHandler
     {
         $debug = (bool) ConfigLoader::get('app.debug', false);
 
-        if ($e instanceof DomainException) {
+        // Handle global DomainException hierarchy (core layer)
+        if ($e instanceof AppException) {
+            ResponseFormatter::error(
+                $e->getMessage(),
+                $e->getStatusCode(),
+                $e->getContext()
+            );
+            return;
+        }
+
+        // Handle namespaced DomainException hierarchy (domain layer)
+        if ($e instanceof \Shared\Domain\Exceptions\DomainException) {
             ResponseFormatter::error(
                 $e->getMessage(),
                 $e->getStatusCode(),

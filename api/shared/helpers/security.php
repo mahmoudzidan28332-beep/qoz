@@ -107,7 +107,7 @@ final class Security
         $hash = password_hash($password, $algo, $options);
 
         if ($hash === false) {
-            throw new RuntimeException('Password hashing failed');
+            throw new SystemException('Password hashing failed');
         }
 
         return $hash;
@@ -326,7 +326,7 @@ final class Security
             );
 
             if ($cipher === false) {
-                throw new RuntimeException('Encryption failed');
+                throw new SystemException('Encryption failed');
             }
 
             // Version byte for key rotation support
@@ -334,13 +334,13 @@ final class Security
 
             return base64_encode($versionByte . $iv . $tag . $cipher);
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Encryption error: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,
                 'version' => $version
             ]);
-            throw new RuntimeException('Encryption failed', 0, $e);
+            throw new SystemException('Encryption failed', [], $e);
         }
     }
 
@@ -366,14 +366,14 @@ final class Security
             $data = base64_decode($encrypted, true);
 
             if ($data === false || strlen($data) < 29) {
-                throw new RuntimeException('Invalid encrypted data format');
+                throw new SystemException('Invalid encrypted data format');
             }
 
             // Extract version for key derivation
             $version = ord($data[0]);
 
             if ($version < 1 || $version > 255) {
-                throw new RuntimeException('Unsupported encryption version');
+                throw new SystemException('Unsupported encryption version');
             }
 
             $key = self::deriveEntityKey($tenantId, $entityId, $version);
@@ -391,17 +391,17 @@ final class Security
             );
 
             if ($plainText === false) {
-                throw new RuntimeException('Decryption failed - invalid tag or corrupted data');
+                throw new SystemException('Decryption failed - invalid tag or corrupted data');
             }
 
             return $plainText;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Decryption error: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId
             ]);
-            throw new RuntimeException('Decryption failed', 0, $e);
+            throw new SystemException('Decryption failed', [], $e);
         }
     }
 
@@ -435,7 +435,7 @@ final class Security
         $encrypted = openssl_encrypt($data, $method, $key, OPENSSL_RAW_DATA, $iv);
 
         if ($encrypted === false) {
-            throw new RuntimeException('Encryption failed');
+            throw new SystemException('Encryption failed');
         }
 
         return base64_encode($iv . $encrypted);
@@ -469,7 +469,7 @@ final class Security
             $data = base64_decode($encryptedData, true);
 
             if ($data === false) {
-                throw new RuntimeException('Invalid base64 data');
+                throw new SystemException('Invalid base64 data');
             }
 
             $ivLength = openssl_cipher_iv_length($method);
@@ -479,14 +479,14 @@ final class Security
             $decrypted = openssl_decrypt($encrypted, $method, $key, OPENSSL_RAW_DATA, $iv);
 
             if ($decrypted === false) {
-                throw new RuntimeException('Decryption failed');
+                throw new SystemException('Decryption failed');
             }
 
             return $decrypted;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Legacy decryption failed: ' . $e->getMessage());
-            throw new RuntimeException('Decryption failed', 0, $e);
+            throw new SystemException('Decryption failed', [], $e);
         }
     }
 
@@ -525,13 +525,13 @@ final class Security
 
             return $newEncrypted;
 
-        } catch (Exception $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Key rotation failed: ' . $e->getMessage(), [
                 'tenant' => $tenantId,
                 'entity' => $entityId,
                 'target_version' => $newVersion
             ]);
-            throw new RuntimeException('Key rotation failed', 0, $e);
+            throw new SystemException('Key rotation failed', [], $e);
         }
     }
 
@@ -548,13 +548,13 @@ final class Security
             $data = base64_decode($encrypted, true);
 
             if ($data === false || strlen($data) < 1) {
-                throw new RuntimeException('Invalid encrypted data');
+                throw new SystemException('Invalid encrypted data');
             }
 
             return ord($data[0]);
 
-        } catch (Exception $e) {
-            throw new RuntimeException('Cannot determine encryption version', 0, $e);
+        } catch (\RuntimeException $e) {
+            throw new SystemException('Cannot determine encryption version', [], $e);
         }
     }
 

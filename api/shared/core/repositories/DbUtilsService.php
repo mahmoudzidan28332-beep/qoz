@@ -18,19 +18,19 @@ class DbUtilsService
         try {
             $stmt = $pdo->prepare($query);
             if (!$stmt) {
-                throw new RuntimeException('Prepare failed: ' . implode(' ', $pdo->errorInfo()));
+                throw new DatabaseException('Prepare failed: ' . implode(' ', $pdo->errorInfo()));
             }
 
             self::bindParams($stmt, $params);
 
             if (!$stmt->execute()) {
-                throw new RuntimeException('Execute failed: ' . implode(' ', $stmt->errorInfo()));
+                throw new DatabaseException('Execute failed: ' . implode(' ', $stmt->errorInfo()));
             }
 
             $stmt->setFetchMode($fetchMode);
             return $stmt;
-        } catch (PDOException $e) {
-            throw new RuntimeException('PDO Query Error: ' . $e->getMessage());
+        } catch (\PDOException $e) {
+            throw new DatabaseException('PDO Query Error: ' . $e->getMessage(), [], $e);
         }
     }
 
@@ -57,7 +57,7 @@ class DbUtilsService
 
             $paramName = is_int($key) ? $key + 1 : $key;
             if (!$stmt->bindValue($paramName, $value, $type)) {
-                throw new RuntimeException('bindValue failed for parameter: ' . $paramName);
+                throw new DatabaseException('bindValue failed for parameter: ' . $paramName);
             }
         }
     }

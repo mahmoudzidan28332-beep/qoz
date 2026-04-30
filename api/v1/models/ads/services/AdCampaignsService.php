@@ -30,7 +30,7 @@ final class AdCampaignsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Ad campaign not found');
+            throw new ApplicationException('Ad campaign not found');
         }
         return $data;
     }

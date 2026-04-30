@@ -84,7 +84,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'Category attributes route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

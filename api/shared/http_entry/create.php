@@ -4,7 +4,6 @@ declare(strict_types=1);
 use Shared\Application\Context\RequestContext;
 use Shared\Application\DTO\CreateUserDTO;
 use Shared\Application\Actions\User\CreateUserAction;
-use Shared\Infrastructure\Persistence\MySQL\UserRepository;
 
 /**
  * HTTP ENTRY – CREATE USER
@@ -28,7 +27,7 @@ $payload = $context->input();
 $dto = new CreateUserDTO($payload);
 
 /* ───── Action ───── */
-$repository = new UserRepository($GLOBALS['ADMIN_DB']);
+$repository = $GLOBALS['app_container']->userRepository();
 $action = new CreateUserAction($repository);
 
 $result = $action->execute($context, $dto);

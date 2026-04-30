@@ -238,7 +238,7 @@ final class PdoBrandsRepository extends BaseRepository
         if ($isUpdate) {
             $existing = $this->findById((int)$data['id']);
             if (!$existing) {
-                throw new RuntimeException('Brand not found or access denied');
+                throw new ApplicationException('Brand not found or access denied');
             }
             $id = (int)$data['id'];
             $targetTenantId = (int)$existing['tenant_id'];
@@ -340,7 +340,7 @@ final class PdoBrandsRepository extends BaseRepository
             }
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -367,7 +367,7 @@ final class PdoBrandsRepository extends BaseRepository
             }
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

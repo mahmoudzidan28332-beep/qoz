@@ -33,7 +33,7 @@ final class FontSettingsService
     {
         $row = $this->repo->find($tenantId, $key, $themeId);
         if (!$row) {
-            throw new RuntimeException('Font setting not found');
+            throw new ApplicationException('Font setting not found');
         }
 
         return $row;
@@ -43,7 +43,7 @@ final class FontSettingsService
     {
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Font setting not found');
+            throw new ApplicationException('Font setting not found');
         }
 
         return $row;
@@ -67,7 +67,7 @@ final class FontSettingsService
         }
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved font setting');
+            throw new ApplicationException('Failed to load saved font setting');
         }
 
         return $row;

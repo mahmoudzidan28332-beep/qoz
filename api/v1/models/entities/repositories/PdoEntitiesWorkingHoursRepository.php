@@ -129,7 +129,7 @@ final class PdoEntitiesWorkingHoursRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM entities_working_hours WHERE id = :id LIMIT 1"
+            "SELECT id, entity_id, day_of_week, is_open, open_time, close_time, created_at, updated_at FROM entities_working_hours WHERE id = :id LIMIT 1"
         );
 
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);

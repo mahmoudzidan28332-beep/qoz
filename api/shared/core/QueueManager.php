@@ -145,8 +145,6 @@ final class QueueManager
                 self::markDone($job['id']);
             } catch (\RuntimeException $e) {
                 self::markFailed($job['id'], 'Runtime error: ' . $e->getMessage());
-            } catch (\Throwable $e) {
-                self::markFailed($job['id'], 'Fatal failure: ' . $e->getMessage());
             }
         }
     }

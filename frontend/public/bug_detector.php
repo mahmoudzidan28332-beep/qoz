@@ -143,7 +143,7 @@ foreach ([
         $cnt = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
         $dbStatus = 'ok';
         $dbMsg    = "متصل ✓ — المستخدمون: {$cnt}";
-    } catch(Throwable $e) {
+    } catch (\RuntimeException $e) {
         $dbStatus = 'error';
         $dbMsg    = 'فشل: '.$e->getMessage();
     }

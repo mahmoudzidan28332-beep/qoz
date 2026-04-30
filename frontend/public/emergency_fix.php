@@ -39,7 +39,7 @@ foreach ($tables as $t) {
         } else {
             echo "  $t already has AUTO_INCREMENT\n";
         }
-    } catch (Exception $e) {
+    } catch (\RuntimeException $e) {
         echo "  Error on $t: " . $e->getMessage() . "\n";
     }
     echo "---------------------------\n";

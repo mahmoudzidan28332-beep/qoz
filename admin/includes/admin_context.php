@@ -120,7 +120,7 @@ if ($needsReload) {
     
     try {
         // 1. GET USER DATA
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, username, email, preferred_language, phone, timezone, is_active FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([$userId]);
         $dbUser = $stmt->fetch();
         
@@ -252,7 +252,7 @@ if ($needsReload) {
                 . count($userPermissions) . ' permissions, ' 
                 . count($userResourcePermissions) . ' resource permissions');
         }
-    } catch (Exception $e) {
+    } catch (\RuntimeException $e) {
         error_log('[admin_context] Error loading permissions: ' . $e->getMessage());
     }
 }
@@ -377,7 +377,7 @@ $isSuperAdminFlag = in_array('super_admin', $finalUser['roles'] ?? [], true)
 if (empty($_SESSION['csrf_token'])) {
     try {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         $_SESSION['csrf_token'] = bin2hex(openssl_random_pseudo_bytes(32));
     }
 }
@@ -434,7 +434,7 @@ if ($pdo instanceof PDO && $finalUser['tenant_id'] > 0) {
             }
         } else {
             // Fallback for systems without the theme loader
-            $stmt = $pdo->prepare("SELECT * FROM themes WHERE tenant_id = ? AND is_active = 1 LIMIT 1");
+            $stmt = $pdo->prepare("SELECT id, generated_css FROM themes WHERE tenant_id = ? AND is_active = 1 LIMIT 1");
             $stmt->execute([$finalUser['tenant_id']]);
             $theme = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -442,34 +442,34 @@ if ($pdo instanceof PDO && $finalUser['tenant_id'] > 0) {
                 $themeId = $theme['id'];
                 
                 // Load color settings
-                $stmt = $pdo->prepare("SELECT * FROM color_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
+                $stmt = $pdo->prepare("SELECT id, theme_id, setting_key, setting_name, color_value, category, is_active, sort_order FROM color_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
                 $stmt->execute([$finalUser['tenant_id'], $themeId]);
                 $GLOBALS['ADMIN_UI']['theme']['color_settings'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Load font settings
-                $stmt = $pdo->prepare("SELECT * FROM font_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
+                $stmt = $pdo->prepare("SELECT id, theme_id, setting_key, setting_name, font_family, font_size, font_weight, line_height, category, is_active, sort_order FROM font_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
                 $stmt->execute([$finalUser['tenant_id'], $themeId]);
                 $GLOBALS['ADMIN_UI']['theme']['font_settings'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Load design settings
-                $stmt = $pdo->prepare("SELECT * FROM design_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
+                $stmt = $pdo->prepare("SELECT id, theme_id, setting_key, setting_name, setting_value, setting_type, category, is_active, sort_order FROM design_settings WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY category, sort_order");
                 $stmt->execute([$finalUser['tenant_id'], $themeId]);
                 $GLOBALS['ADMIN_UI']['theme']['design_settings'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Load button styles
-                $stmt = $pdo->prepare("SELECT * FROM button_styles WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY button_type, name");
+                $stmt = $pdo->prepare("SELECT id, tenant_id, theme_id, name, slug, button_type, background_color, text_color, border_color, border_width, border_radius, padding, font_size, font_weight, hover_background_color, hover_text_color, hover_border_color, is_active FROM button_styles WHERE tenant_id = ? AND theme_id = ? AND is_active = 1 ORDER BY button_type, name");
                 $stmt->execute([$finalUser['tenant_id'], $themeId]);
                 $GLOBALS['ADMIN_UI']['theme']['button_styles'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Load card styles
-                $stmt = $pdo->prepare("SELECT * FROM card_styles WHERE tenant_id = ? AND (theme_id = ? OR theme_id IS NULL) AND is_active = 1 ORDER BY card_type, name");
+                $stmt = $pdo->prepare("SELECT id, tenant_id, theme_id, name, slug, card_type, background_color, text_color, border_color, border_width, border_radius, shadow_style, padding, hover_effect, text_align, image_aspect_ratio, is_active FROM card_styles WHERE tenant_id = ? AND (theme_id = ? OR theme_id IS NULL) AND is_active = 1 ORDER BY card_type, name");
                 $stmt->execute([$finalUser['tenant_id'], $themeId]);
                 $GLOBALS['ADMIN_UI']['theme']['card_styles'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 $GLOBALS['ADMIN_UI']['theme']['generated_css'] = $theme['generated_css'] ?? '';
             }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[admin_context] Theme load error: ' . $e->getMessage());
     }
 }

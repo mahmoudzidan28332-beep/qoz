@@ -10,7 +10,7 @@ declare(strict_types=1);
 if ($first === 'languages') {
     try {
         $rows = $pdoList("SELECT code, name, direction FROM languages ORDER BY name ASC", []);
-    } catch (\Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         $rows = [];
     }
     ResponseFormatter::success([

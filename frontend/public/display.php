@@ -108,7 +108,7 @@ if ($pdo) {
         );
         $bStmt->execute($bParams);
         $banners = $bStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[display.php] PDO error: ' . $e->getMessage());
     }
 }

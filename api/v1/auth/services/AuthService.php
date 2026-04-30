@@ -20,9 +20,9 @@ class AuthService
     {
         try {
             $this->pdo = DatabaseConnection::getConnection();
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthService DB connection failed: ' . $e->getMessage());
-            throw new RuntimeException('Database unavailable');
+            throw new DatabaseException('Database unavailable');
         }
     }
 
@@ -82,7 +82,7 @@ class AuthService
                 'tenant_id' => isset($user['tenant_id']) ? (int)$user['tenant_id'] : 1,
             ];
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             Logger::error('AuthService::login error: ' . $e->getMessage());
             return null;
         }

@@ -82,7 +82,7 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 
-} catch (\Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     // تسجيل الأخطاء داخليًا دون إظهار التفاصيل للمستخدم
     safe_log('error', 'ProductStockAlerts API failed', [
         'message' => $e->getMessage(),

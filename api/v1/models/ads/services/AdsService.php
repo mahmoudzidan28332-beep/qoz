@@ -30,7 +30,7 @@ final class AdsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Ad not found');
+            throw new ApplicationException('Ad not found');
         }
         return $data;
     }

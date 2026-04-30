@@ -82,7 +82,7 @@ final class PdoRolePermissionsRepository
         ]);
         
         if ($stmt->fetch()) {
-            throw new RuntimeException('Role permission already exists');
+            throw new ApplicationException('Role permission already exists');
         }
 
         // Insert

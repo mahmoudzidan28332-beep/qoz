@@ -87,7 +87,7 @@ final class JobApplicationsService
         // Check if user already applied
         if (isset($whitelisted['job_id']) && isset($whitelisted['user_id'])) {
             if ($this->hasApplied((int)$whitelisted['job_id'], (int)$whitelisted['user_id'])) {
-                throw new RuntimeException('User has already applied for this job.');
+                throw new ApplicationException('User has already applied for this job.');
             }
         }
 

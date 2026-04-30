@@ -65,7 +65,7 @@ class Mail {
             
             return $sent;
             
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             self::logError('Email send failed: ' . $e->getMessage());
             self::saveEmailLog($to, $subject, $body, 'error', $lang);
             return false;
@@ -131,7 +131,7 @@ class Mail {
             
             return $sent;
             
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             self::logError('PHPMailer Error: ' . $mail->ErrorInfo);
             return false;
         }

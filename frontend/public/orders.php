@@ -58,7 +58,7 @@ if ($pdo && $userId) {
         );
         $stOrders->execute($params);
         $orders = $stOrders->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[orders.php] ' . $e->getMessage());
     }
 }
@@ -105,7 +105,7 @@ if ($viewId && $pdo && $userId) {
             $stHist->execute([$viewId]);
             $statusHistory = $stHist->fetchAll(PDO::FETCH_ASSOC);
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[orders.php view] ' . $e->getMessage());
     }
 }

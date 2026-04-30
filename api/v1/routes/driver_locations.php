@@ -114,10 +114,10 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[DriverLocations] DB Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error', 500);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[DriverLocations] Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Unexpected error', 500);
 }

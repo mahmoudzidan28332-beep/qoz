@@ -145,12 +145,12 @@ final class PdoUsersRepository
         // Check username/email uniqueness
         if (!$isUpdate || ($oldData && $oldData['username'] !== $data['username'])) {
             if ($this->findByUsername($data['username'])) {
-                throw new RuntimeException('Username already exists');
+                throw new ApplicationException('Username already exists');
             }
         }
         if (!$isUpdate || ($oldData && $oldData['email'] !== $data['email'])) {
             if ($this->findByEmail($data['email'])) {
-                throw new RuntimeException('Email already exists');
+                throw new ApplicationException('Email already exists');
             }
         }
 

@@ -42,7 +42,7 @@ final class StockMovementsService
     {
         $existing = $this->movements->find($id);
         if (!$existing) {
-            throw new RuntimeException("Stock movement not found with ID: $id");
+            throw new ApplicationException("Stock movement not found with ID: $id");
         }
         return $this->movements->delete($id);
     }

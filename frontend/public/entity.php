@@ -79,7 +79,7 @@ if ($pdo) {
                 );
                 $adStmt->execute([$entityId]);
                 $entity['addresses'] = $adStmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Throwable $_) { $entity['addresses'] = []; }
+            } catch (\RuntimeException $_) { $entity['addresses'] = []; }
             // Payment methods
             try {
                 $pmStmt = $pdo->prepare(
@@ -90,7 +90,7 @@ if ($pdo) {
                 );
                 $pmStmt->execute([$entityId]);
                 $entity['payment_methods'] = $pmStmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Throwable $_) { $entity['payment_methods'] = []; }
+            } catch (\RuntimeException $_) { $entity['payment_methods'] = []; }
             // Attributes
             try {
                 $atStmt = $pdo->prepare(
@@ -102,9 +102,9 @@ if ($pdo) {
                 );
                 $atStmt->execute([$lang, $entityId]);
                 $entity['attributes'] = $atStmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Throwable $_) { $entity['attributes'] = []; }
+            } catch (\RuntimeException $_) { $entity['attributes'] = []; }
         }
-    } catch (Throwable $e) {
+    } catch (\RuntimeException $e) {
         error_log('[entity.php] PDO entity load failed: ' . $e->getMessage());
         $entity = [];
     }
@@ -130,11 +130,11 @@ $entitySettings = [];
 if ($pdo) {
     try {
         $esStmt = $pdo->prepare(
-            "SELECT * FROM entity_settings WHERE entity_id = ? LIMIT 1"
+            "SELECT is_visible, maintenance_mode, show_reviews, show_contact_info FROM entity_settings WHERE entity_id = ? LIMIT 1"
         );
         $esStmt->execute([$entity['id'] ?? $entityId]);
         $entitySettings = $esStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $_) { $entitySettings = []; }
+    } catch (\RuntimeException $_) { $entitySettings = []; }
 }
 // HTTP fallback: use settings embedded in the API response (when PDO is unavailable)
 if (empty($entitySettings) && !empty($entity['settings']) && is_array($entity['settings'])) {
@@ -177,7 +177,7 @@ if ($pdo) {
         $ecStmt = $pdo->prepare('SELECT COUNT(*) FROM entity_categories WHERE entity_id = ? AND is_active = 1');
         $ecStmt->execute([$entityId]);
         $entityHasCatAssignments = (int)$ecStmt->fetchColumn() > 0;
-    } catch (Throwable $_) {}
+    } catch (\RuntimeException $_) {}
 }
 
 if ($pdo) {
@@ -240,7 +240,7 @@ if ($pdo) {
         $pStmt->execute(array_merge([$entityId, $entityId, $lang], $pParams));
         $products = $pStmt->fetchAll(PDO::FETCH_ASSOC);
         $productMeta = ['total' => $pTotal, 'total_pages' => max(1, (int)ceil($pTotal / $productLimit))];
-    } catch (Throwable $_) {}
+    } catch (\RuntimeException $_) {}
 }
 if (empty($products) && !$selectedCat) {
     $rp = pub_fetch(
@@ -305,7 +305,7 @@ if ($pdo) {
         if (empty($categoryTree)) {
             $categoryTree = $categories;
         }
-    } catch (Throwable $_) {}
+    } catch (\RuntimeException $_) {}
 }
 
 /* Fetch discounts for this entity */
@@ -326,7 +326,7 @@ if ($pdo) {
         );
         $dStmt->execute([$lang, $entityId, $entityId]);
         $discounts = $dStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $_) {}
+    } catch (\RuntimeException $_) {}
 }
 
 $GLOBALS['PUB_PAGE_TITLE'] = e($entity['store_name'] ?? '') . ' — QOOQZ';
@@ -354,7 +354,7 @@ if ($pdo) {
         $rAvg = $rAvgStmt->fetch(PDO::FETCH_ASSOC);
         $entityRatingAvg   = $rAvg['avg_rating'] ?? null;
         $entityRatingTotal = (int)($rAvg['total'] ?? 0);
-    } catch (Throwable $_) {}
+    } catch (\RuntimeException $_) {}
 }
 
 // SEO meta — load from seo_meta table, fallback to entity_translations fields
@@ -434,7 +434,7 @@ if ($pdo) {
         );
         $spStmt->execute([$lang, $entityTenantId]);
         $storeSections = $spStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         // Table may not exist yet — fall back to defaults
         $storeSections = [];
     }
@@ -536,7 +536,7 @@ if (!empty($_missingTypes) && $pdo) {
                 $storeSections[] = ['type' => $_mt, 'position' => ($_mt === 'jobs' ? 100 : 110), 'settings' => null, 'translated_title' => null, 'translated_content' => null];
             }
         }
-    } catch (Throwable $_) {
+    } catch (\RuntimeException $_) {
         // Fallback: append with no settings
         foreach ($_missingTypes as $_mt) {
             $storeSections[] = ['type' => $_mt, 'position' => ($_mt === 'jobs' ? 100 : 110), 'settings' => null, 'translated_title' => null, 'translated_content' => null];

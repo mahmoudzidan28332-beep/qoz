@@ -34,7 +34,7 @@ if ($isLoggedIn) {
             );
             $st->execute([$userId]);
             $userTenants = $st->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable) {}
+        } catch (\RuntimeException) {}
     }
     /* Fallback: use session tenant_users data */
     if (empty($userTenants) && !empty($_SESSION['tenant_users'])) {

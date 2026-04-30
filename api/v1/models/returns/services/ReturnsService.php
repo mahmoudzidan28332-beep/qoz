@@ -36,7 +36,7 @@ final class ReturnsService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Return request not found');
+            throw new ApplicationException('Return request not found');
         }
         return $data;
     }

@@ -169,7 +169,7 @@ class Notification
 
             $results['success'] = true;
 
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             self::logError('Notification::send — ' . $e->getMessage());
             $results['error'] = $e->getMessage();
         }

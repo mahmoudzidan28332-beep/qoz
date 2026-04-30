@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Shared\Application\Services;
 
 use PDO;
-use RuntimeException;
 
 final class CrudService
 {
@@ -20,7 +19,7 @@ final class CrudService
     private function entity(string $name): array
     {
         if (!isset($this->entities[$name])) {
-            throw new RuntimeException("Unknown entity: {$name}");
+            throw new \ApplicationException("Unknown entity: {$name}");
         }
         return $this->entities[$name];
     }
@@ -32,7 +31,7 @@ final class CrudService
 
         $fields = array_intersect(array_keys($data), $cfg['fillable']);
         if (!$fields) {
-            throw new RuntimeException('No valid fields for insert');
+            throw new \ApplicationException('No valid fields for insert');
         }
 
         $columns = implode(',', $fields);
@@ -54,6 +53,7 @@ final class CrudService
     {
         $cfg = $this->entity($entity);
 
+        // TODO: Replace SELECT * with explicit columns; add a 'columns' key to the entity config ($cfg['columns'])
         $stmt = $this->pdo->prepare(
             "SELECT * FROM {$cfg['table']} WHERE {$cfg['primary']} = :id LIMIT 1"
         );
@@ -61,7 +61,7 @@ final class CrudService
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
-            throw new RuntimeException('Record not found');
+            throw new \ApplicationException('Record not found');
         }
 
         return $row;
@@ -74,7 +74,7 @@ final class CrudService
 
         $fields = array_intersect(array_keys($data), $cfg['fillable']);
         if (!$fields) {
-            throw new RuntimeException('No valid fields for update');
+            throw new \ApplicationException('No valid fields for update');
         }
 
         $set = implode(', ', array_map(fn($f) => "{$f} = :{$f}", $fields));
@@ -106,6 +106,7 @@ final class CrudService
     {
         $cfg = $this->entity($entity);
 
+        // TODO: Replace SELECT * with explicit columns; add a 'columns' key to the entity config ($cfg['columns'])
         $stmt = $this->pdo->prepare(
             "SELECT * FROM {$cfg['table']} LIMIT :o, :l"
         );

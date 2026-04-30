@@ -89,7 +89,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (Throwable $e) {
+} catch (\RuntimeException $e) {
     safe_log('error', 'Country taxes route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

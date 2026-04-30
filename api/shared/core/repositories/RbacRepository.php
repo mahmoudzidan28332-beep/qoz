@@ -105,7 +105,9 @@ class RbacRepository
     public function fetchGlobalResourcePermissions(string $resourceType): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT can_view_all, can_view_own, can_view_tenant,
+                   can_create, can_edit_all, can_edit_own,
+                   can_delete_all, can_delete_own
             FROM   resource_permissions
             WHERE  resource_type = :resource
               AND  role_id IS NULL
@@ -123,7 +125,9 @@ class RbacRepository
     public function fetchRoleGlobalResourcePermissions(string $resourceType, int $roleId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT can_view_all, can_view_own, can_view_tenant,
+                   can_create, can_edit_all, can_edit_own,
+                   can_delete_all, can_delete_own
             FROM   resource_permissions
             WHERE  resource_type = :resource
               AND  role_id = :role
@@ -141,7 +145,9 @@ class RbacRepository
     public function fetchTenantGlobalResourcePermissions(string $resourceType, int $tenantId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT can_view_all, can_view_own, can_view_tenant,
+                   can_create, can_edit_all, can_edit_own,
+                   can_delete_all, can_delete_own
             FROM   resource_permissions
             WHERE  resource_type = :resource
               AND  role_id IS NULL
@@ -162,7 +168,9 @@ class RbacRepository
         int    $tenantId,
     ): array {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT can_view_all, can_view_own, can_view_tenant,
+                   can_create, can_edit_all, can_edit_own,
+                   can_delete_all, can_delete_own
             FROM   resource_permissions
             WHERE  resource_type = :resource
               AND  role_id = :role

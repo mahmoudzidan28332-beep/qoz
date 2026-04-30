@@ -90,7 +90,7 @@ final class RBAC
             }
             // If a plain Redis is available via global, try it
             return $GLOBALS['REDIS'] ?? null;
-        } catch (Throwable $e) {
+        } catch (\RuntimeException $e) {
             $this->logError('Redis init failed', ['error' => $e->getMessage()]);
             return null;
         }
@@ -125,7 +125,7 @@ final class RBAC
                 if ($v !== false && $v !== null) {
                     return is_string($v) ? (json_decode($v, true) ?? $v) : $v;
                 }
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 $this->logError('cache read failed', ['key' => $key, 'error' => $e->getMessage()]);
             }
         }
@@ -144,7 +144,7 @@ final class RBAC
         if (!empty($this->config['redis_enabled']) && $this->redis) {
             try {
                 return (bool)$this->redis->setex($key, $ttl, json_encode($value));
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 $this->logError('cache write failed', ['key' => $key, 'error' => $e->getMessage()]);
             }
         }
@@ -165,7 +165,7 @@ final class RBAC
                 if (!empty($keys)) {
                     $this->redis->del($keys);
                 }
-            } catch (Throwable $e) {
+            } catch (\RuntimeException $e) {
                 $this->logError('cache invalidate failed', ['pattern' => $pattern, 'error' => $e->getMessage()]);
             }
         }
@@ -281,7 +281,7 @@ final class RBAC
         try {
             $repo = new RbacRepository($this->pdo);
             return $repo->fetchUserRoleInfo($userId, $tenantId);
-        } catch (Throwable $e) {
+        } catch (\PDOException|\RuntimeException $e) {
             $this->logError('fetchUserRoleInfo error', ['user_id' => $userId, 'tenant_id' => $tenantId, 'err' => $e->getMessage()]);
             return ['role_id' => null, 'role_key' => null];
         }
@@ -302,7 +302,7 @@ final class RBAC
         try {
             $repo = new RbacRepository($this->pdo);
             return $repo->fetchPermissions($userId, $this->tenantId);
-        } catch (Throwable $e) {
+        } catch (\PDOException|\RuntimeException $e) {
             $this->logError('fetchPermissionsFromDb error', ['err' => $e->getMessage()]);
             return [];
         }
@@ -376,7 +376,7 @@ final class RBAC
             }
 
             return $effective;
-        } catch (Throwable $e) {
+        } catch (\PDOException|\RuntimeException $e) {
             $this->logError('fetchResourcePermissionsFromDb failed', [
                 'user_id' => $userId,
                 'tenant_id' => $tenantId,

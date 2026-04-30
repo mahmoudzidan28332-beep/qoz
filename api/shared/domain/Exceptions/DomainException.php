@@ -11,6 +11,15 @@ abstract class DomainException extends Exception
     protected int $statusCode = 400;
     protected array $context = [];
 
+    public function __construct(
+        string $message = '',
+        array $context = [],
+        ?\Throwable $previous = null
+    ) {
+        parent::__construct($message, 0, $previous);
+        $this->context = $context;
+    }
+
     public function getErrorCode(): string
     {
         return $this->errorCode;

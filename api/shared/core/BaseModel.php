@@ -27,7 +27,7 @@ abstract class BaseModel
     public function __construct()
     {
         if (!self::$sharedPDO instanceof PDO) {
-            throw new RuntimeException(
+            throw new SystemException(
                 'BaseModel PDO not initialized. Call BaseModel::setPDO() in bootstrap first.'
             );
         }

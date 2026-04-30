@@ -155,7 +155,7 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         // Guard: no open session for the same entity
         $existing = $this->findOpen($tenantId, (int)($data['entity_id'] ?? 0));
         if ($existing) {
-            throw new RuntimeException('A session is already open for this entity. Close it first.');
+            throw new ApplicationException('A session is already open for this entity. Close it first.');
         }
 
         $stmt = $this->pdo->prepare("
@@ -178,10 +178,10 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
     {
         $session = $this->find($tenantId, $sessionId);
         if (!$session) {
-            throw new RuntimeException('Session not found');
+            throw new ApplicationException('Session not found');
         }
         if ($session['status'] === 'closed') {
-            throw new RuntimeException('Session is already closed');
+            throw new ApplicationException('Session is already closed');
         }
 
         // Compute totals from linked orders
@@ -227,8 +227,8 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         $cashierUserId = isset($data['cashier_user_id']) ? (int)$data['cashier_user_id'] : null;
         $customerId    = isset($data['customer_id']) ? (int)$data['customer_id'] : 1;
 
-        $session = $this->fetchOne("SELECT * FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
-        if (!$session) { throw new RuntimeException('Session not found or not open'); }
+        $session = $this->fetchOne("SELECT id, tenant_id, entity_id, cashier_user_id, opened_at, closed_at, opening_balance, closing_balance, total_cash, total_card, status, total_sales FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
+        if (!$session) { throw new ApplicationException('Session not found or not open'); }
 
         $calculated = $this->calculatePosOrderTotals($data['items'] ?? []);
         $totalAmount = $calculated['subtotal'] + $calculated['taxAmount'];
@@ -243,9 +243,9 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
             $this->recordPosPayment($entityId, $orderId, $customerId, $paymentMethod, $grandTotal);
             $this->pdo->commit();
             return ['order_id' => $orderId, 'order_number' => $orderNumber, 'grand_total' => $grandTotal, 'change' => max(0.0, $amountPaid - $grandTotal)];
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

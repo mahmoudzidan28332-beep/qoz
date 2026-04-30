@@ -123,7 +123,7 @@ final class PdoTicketCategoriesRepository implements TicketCategoriesRepositoryI
         if (!$row) return null;
 
         // جلب كل الترجمات
-        $transStmt = $this->pdo->prepare("SELECT * FROM " . self::TABLE_TRANS . " WHERE category_id = :id");
+        $transStmt = $this->pdo->prepare("SELECT id, category_id, language_code, name, description FROM " . self::TABLE_TRANS . " WHERE category_id = :id");
         $transStmt->execute([':id' => $id]);
         $row['translations'] = $transStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         
@@ -209,9 +209,9 @@ final class PdoTicketCategoriesRepository implements TicketCategoriesRepositoryI
             $this->pdo->commit();
             return $categoryId;
 
-        } catch (Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

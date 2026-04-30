@@ -171,7 +171,7 @@ try {
                     'tenant_id'     => $tenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$newId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO sync on create failed: ' . $e->getMessage());
             }
 
@@ -208,7 +208,7 @@ try {
                     'tenant_id'     => $tenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$updatedId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO sync on update failed: ' . $e->getMessage());
             }
 
@@ -235,7 +235,7 @@ try {
             // Auto-delete SEO meta
             try {
                 SeoAutoManager::delete($pdo, 'entity', (int)$data['id']);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO delete failed: ' . $e->getMessage());
             }
 
@@ -255,13 +255,13 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'entities.runtime', [
         'error' => $e->getMessage()
     ]);
     ResponseFormatter::error($e->getMessage(), 400);
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'entities.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

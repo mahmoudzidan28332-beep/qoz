@@ -70,7 +70,7 @@ final class PdoCoreEventRepository
         $total = (int) $countStmt->fetchColumn();
 
         // Data
-        $sql = "SELECT ce.* FROM core_events ce {$whereClause} ORDER BY ce.{$orderBy} {$orderDir} LIMIT :lmt OFFSET :ofs";
+        $sql = "SELECT ce.id, ce.entity_type, ce.entity_id, ce.user_id, ce.session_id, ce.event_type, ce.value, ce.ip_address, ce.user_agent, ce.created_at FROM core_events ce {$whereClause} ORDER BY ce.{$orderBy} {$orderDir} LIMIT :lmt OFFSET :ofs";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -89,7 +89,7 @@ final class PdoCoreEventRepository
 
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM core_events WHERE id = :id');
+        $stmt = $this->pdo->prepare('SELECT id, entity_type, entity_id, user_id, session_id, event_type, value, ip_address, user_agent, created_at FROM core_events WHERE id = :id');
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

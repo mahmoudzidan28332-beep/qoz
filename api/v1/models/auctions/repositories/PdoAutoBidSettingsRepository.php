@@ -23,7 +23,7 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id";
+        $sql    = "SELECT id, auction_id, user_id, max_bid_amount, is_active, total_auto_bids, created_at, updated_at FROM " . self::TABLE . " WHERE auction_id = :auction_id";
         $params = [':auction_id' => $auctionId];
 
         if (isset($filters['user_id']) && $filters['user_id'] !== '') {
@@ -73,7 +73,7 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, auction_id, user_id, max_bid_amount, is_active, total_auto_bids, created_at, updated_at FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -82,7 +82,7 @@ final class PdoAutoBidSettingsRepository implements AutoBidSettingsRepositoryInt
     public function findByUser(int $auctionId, int $userId): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id AND user_id = :user_id LIMIT 1"
+            "SELECT id, auction_id, user_id, max_bid_amount, is_active, total_auto_bids, created_at, updated_at FROM " . self::TABLE . " WHERE auction_id = :auction_id AND user_id = :user_id LIMIT 1"
         );
         $stmt->execute([':auction_id' => $auctionId, ':user_id' => $userId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

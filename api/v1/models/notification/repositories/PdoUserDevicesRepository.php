@@ -33,7 +33,7 @@ final class PdoUserDevicesRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT * FROM user_devices WHERE 1=1";
+        $sql = "SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE 1=1";
         $params = [];
 
         // تطبيق الفلاتر
@@ -101,7 +101,7 @@ final class PdoUserDevicesRepository
      */
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM user_devices WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -112,7 +112,7 @@ final class PdoUserDevicesRepository
      */
     public function findByToken(string $token): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM user_devices WHERE fcm_token = :token LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE fcm_token = :token LIMIT 1");
         $stmt->execute([':token' => $token]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -123,7 +123,7 @@ final class PdoUserDevicesRepository
      */
     public function findByUserId(int $userId): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM user_devices WHERE user_id = :user_id ORDER BY last_seen_at DESC");
+        $stmt = $this->pdo->prepare("SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE user_id = :user_id ORDER BY last_seen_at DESC");
         $stmt->execute([':user_id' => $userId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -208,7 +208,7 @@ final class PdoUserDevicesRepository
     public function findByUserAndAgent(int $userId, string $userAgent): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM user_devices WHERE user_id = :user_id AND user_agent = :user_agent AND is_active = 1 ORDER BY last_seen_at DESC LIMIT 1"
+            "SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE user_id = :user_id AND user_agent = :user_agent AND is_active = 1 ORDER BY last_seen_at DESC LIMIT 1"
         );
         $stmt->execute([':user_id' => $userId, ':user_agent' => $userAgent]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -281,7 +281,7 @@ final class PdoUserDevicesRepository
      */
     public function findByAnonymousToken(string $anonToken): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM user_devices WHERE anonymous_token=? LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices WHERE anonymous_token=? LIMIT 1');
         $stmt->execute([$anonToken]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -372,7 +372,7 @@ final class PdoUserDevicesRepository
     public function findByTokens(?string $anonToken, ?string $fcmToken): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM user_devices
+            SELECT id, user_id, anonymous_token, fcm_token, device_type, device_name, user_agent, ip, last_seen_at, is_active, created_at, updated_at FROM user_devices
             WHERE (anonymous_token = :anon AND :anon IS NOT NULL)
                OR (fcm_token = :fcm AND :fcm IS NOT NULL)
             LIMIT 1

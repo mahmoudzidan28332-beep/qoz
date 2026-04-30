@@ -13,12 +13,12 @@ final class ConfigLoader
     public static function load(string $file): void
     {
         if (self::$locked) {
-            throw new RuntimeException('Config is locked. Cannot load new files.');
+            throw new SystemException('Config is locked. Cannot load new files.');
         }
 
         $real = realpath($file);
         if ($real === false || !is_readable($real)) {
-            throw new RuntimeException("Config file not readable: {$file}");
+            throw new SystemException("Config file not readable: {$file}");
         }
 
         if (isset(self::$loadedFiles[$real])) {
@@ -28,7 +28,7 @@ final class ConfigLoader
         $data = require $real;
 
         if (!is_array($data)) {
-            throw new RuntimeException("Config file must return array: {$file}");
+            throw new SystemException("Config file must return array: {$file}");
         }
 
         self::$config = self::mergeRecursive(self::$config, $data);
@@ -59,7 +59,7 @@ final class ConfigLoader
     public static function set(string $key, $value): void
     {
         if (self::$locked) {
-            throw new RuntimeException('Config is locked. Cannot modify.');
+            throw new SystemException('Config is locked. Cannot modify.');
         }
 
         $segments = explode('.', $key);

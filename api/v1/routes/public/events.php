@@ -124,7 +124,7 @@ try {
         'user_agent'  => $userAgent,
     ]);
     ResponseFormatter::success(['ok' => true]);
-} catch (Throwable) {
+} catch (ApplicationException|\RuntimeException) {
     // Analytics must never break the user experience.
     ResponseFormatter::success(['ok' => false]);
 }

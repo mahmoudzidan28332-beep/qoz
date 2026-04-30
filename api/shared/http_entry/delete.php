@@ -4,7 +4,6 @@ declare(strict_types=1);
 use Shared\Application\Context\RequestContext;
 use Shared\Application\DTO\DeleteUserDTO;
 use Shared\Application\Actions\User\DeleteUserAction;
-use Shared\Infrastructure\Persistence\MySQL\UserRepository;
 
 defined('API_ENTRY') || exit('Direct access denied');
 
@@ -17,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
 $context = RequestContext::current();
 $dto = new DeleteUserDTO($context->input());
 
-$repository = new UserRepository($GLOBALS['ADMIN_DB']);
+$repository = $GLOBALS['app_container']->userRepository();
 $action = new DeleteUserAction($repository);
 
 $result = $action->execute($context, $dto);

@@ -4,7 +4,6 @@ declare(strict_types=1);
 use Shared\Application\Context\RequestContext;
 use Shared\Application\DTO\UpdateUserDTO;
 use Shared\Application\Actions\User\UpdateUserAction;
-use Shared\Infrastructure\Persistence\MySQL\UserRepository;
 
 defined('API_ENTRY') || exit('Direct access denied');
 
@@ -17,7 +16,7 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['PUT', 'PATCH'], true)) {
 $context = RequestContext::current();
 $dto = new UpdateUserDTO($context->input());
 
-$repository = new UserRepository($GLOBALS['ADMIN_DB']);
+$repository = $GLOBALS['app_container']->userRepository();
 $action = new UpdateUserAction($repository);
 
 $result = $action->execute($context, $dto);

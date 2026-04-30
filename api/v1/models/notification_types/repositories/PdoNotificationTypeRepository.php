@@ -30,7 +30,7 @@ final class PdoNotificationTypeRepository implements NotificationTypeRepositoryI
         string $orderBy = 'nt.id',
         string $orderDir = 'ASC'
     ): array {
-        $sql    = "SELECT nt.* FROM notification_types nt WHERE 1=1";
+        $sql    = "SELECT nt.id, nt.code, nt.name, nt.description, nt.is_active, nt.default_template, nt.created_at, nt.updated_at FROM notification_types nt WHERE 1=1";
         $params = [];
 
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
@@ -65,7 +65,7 @@ final class PdoNotificationTypeRepository implements NotificationTypeRepositoryI
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_types WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -73,7 +73,7 @@ final class PdoNotificationTypeRepository implements NotificationTypeRepositoryI
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notification_types WHERE code = :code LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE code = :code LIMIT 1");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
