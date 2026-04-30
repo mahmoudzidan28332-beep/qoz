@@ -10,8 +10,6 @@ declare(strict_types=1);
  */
 final class ExceptionFactory
 {
-    private function __construct() {}
-
     /**
      * Wrap a PDOException in a DatabaseException.
      *

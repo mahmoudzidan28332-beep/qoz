@@ -68,6 +68,28 @@ abstract class BaseRepository
     }
 
     // =========================================================================
+    // Exception helpers
+    // =========================================================================
+
+    /**
+     * Wrap a PDOException in a DatabaseException with structured context.
+     *
+     * Centralises exception construction so subclasses never import or call
+     * the global ExceptionFactory directly.
+     *
+     * @param \PDOException $e       The original PDO error.
+     * @param array         $context Diagnostic context (table, sqlstate, …).
+     * @param string        $message Human-readable summary.
+     */
+    protected function databaseException(
+        \PDOException $e,
+        array $context = [],
+        string $message = 'Database error'
+    ): DatabaseException {
+        return new DatabaseException($message, $context, $e);
+    }
+
+    // =========================================================================
     // Tenant helpers
     // =========================================================================
 
@@ -181,7 +203,7 @@ abstract class BaseRepository
                     'sqlstate'  => $e->getCode(),
                 ]);
             }
-            throw ExceptionFactory::database(
+            throw $this->databaseException(
                 $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
                 'Database query failed'
@@ -265,7 +287,7 @@ abstract class BaseRepository
                     'sqlstate' => $e->getCode(),
                 ]);
             }
-            throw ExceptionFactory::database(
+            throw $this->databaseException(
                 $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
                 'Database query failed'
@@ -307,7 +329,7 @@ abstract class BaseRepository
                     'sqlstate' => $e->getCode(),
                 ]);
             }
-            throw ExceptionFactory::database(
+            throw $this->databaseException(
                 $e,
                 ['table' => $table, 'sqlstate' => $e->getCode()],
                 'Database query failed'
@@ -481,7 +503,7 @@ abstract class BaseRepository
                     'sqlstate'         => $e->getCode(),
                 ]);
             }
-            throw ExceptionFactory::database(
+            throw $this->databaseException(
                 $e,
                 ['table' => $table, 'target_tenant_id' => $targetTenantId, 'sqlstate' => $e->getCode()],
                 'Cross-tenant database query failed'
