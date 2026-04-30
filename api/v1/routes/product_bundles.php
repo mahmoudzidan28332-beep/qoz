@@ -128,7 +128,7 @@ try {
 } catch (InvalidArgumentException $e) {
     safe_log('error', 'Validation error in ProductBundles', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'Database error in ProductBundles', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
 } catch (ApplicationException|\RuntimeException $e) {

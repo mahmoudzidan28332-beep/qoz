@@ -311,7 +311,7 @@ try {
         ? (int)$e->getCode() : 400;
     ResponseFormatter::error($e->getMessage(), $code);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[StorePages] Database error', [
         'tenant_id' => $tenantId ?? 0,
         'method'    => $method ?? '',

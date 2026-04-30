@@ -173,7 +173,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[DeliveryZones] Database error', [
         'tenant_id' => $tenantId,
         'code'      => $e->getCode(),

@@ -180,6 +180,7 @@ if ($notifMethod === 'POST' && $notifSub === 'mark-read') {
             } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[notifications] recalculate counter failed: ' . $e->getMessage());
             }
+        }
     } catch (ApplicationException|\RuntimeException $e) {
         error_log('[public/notifications] mark-read error: ' . $e->getMessage());
         ResponseFormatter::error('Failed to mark notifications as read', 500);

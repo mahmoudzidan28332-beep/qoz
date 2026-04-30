@@ -208,7 +208,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[ProductRelations] Database error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

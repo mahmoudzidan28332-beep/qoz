@@ -131,7 +131,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
     
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'Database error in ProductPhysicalAttributes route', [
         'error' => $e->getMessage(),
         'code' => $e->getCode(),

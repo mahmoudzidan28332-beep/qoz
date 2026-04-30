@@ -209,7 +209,7 @@ try {
                 ? (int) $e->getCode() : 400;
     ResponseFormatter::error($e->getMessage(), $code);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[HomepageSections] Database error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

@@ -123,7 +123,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     // Handle Duplicate entry error for create
     if ($e->getCode() == 23000) { 
          ResponseFormatter::error('This provider is already assigned to this zone.', 409);
