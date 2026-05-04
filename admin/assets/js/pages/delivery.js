@@ -920,8 +920,10 @@
                     $('providerEntityName').className   = 'provider-name-badge';
                 }
                 if ($('providerTenantUserId')) {
-                    var tuId = p.tenant_user_id || (!p.id && !CFG.isPlatformAdmin ? CFG.userId : '');
-                    $('providerTenantUserId').value = tuId || '';
+                    var isNewRecord = !p.id;
+                    var autoFillUserId = isNewRecord && !CFG.isPlatformAdmin ? CFG.userId : null;
+                    var tuId = p.tenant_user_id || autoFillUserId || '';
+                    $('providerTenantUserId').value = tuId;
                     if (tuId && $('providerTenantUserName')) {
                         $('providerTenantUserName').textContent = '#' + tuId;
                         $('providerTenantUserName').className   = 'provider-name-badge found';
@@ -1382,7 +1384,7 @@
             self.loadAllTenants(tenantSelect, applyBtn);
 
             // Apply selected tenant
-            applyBtn.addEventListener('click', function () {
+            applyBtn.addEventListener('click', async function () {
                 var tid = parseInt(tenantSelect ? tenantSelect.value : '', 10) || 0;
                 if (!tid) return;
 
@@ -1395,8 +1397,8 @@
                     bannerLabel.textContent = 'Acting on behalf of: ' + (opt ? opt.text : 'Tenant #' + tid);
                 }
 
-                // Reload dropdowns and all modules with new tenant
-                loadDrops();
+                // Reload dropdowns first, then all modules with new tenant
+                await loadDrops();
                 [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
                     .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
             });
