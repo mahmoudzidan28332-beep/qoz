@@ -107,10 +107,10 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
 
     public function create(int $tenantId, array $data): int
     {
-        // Use ST_GeomFromText without SRID for broad MySQL/MariaDB compatibility
+        // Use SRID=0 explicitly for broad MySQL 5.7 / MySQL 8.x / MariaDB compatibility
         $sql = "
             INSERT INTO driver_locations (provider_id, latitude, longitude, location)
-            VALUES (:provider_id, :latitude, :longitude, ST_GeomFromText(:point_wkt))
+            VALUES (:provider_id, :latitude, :longitude, ST_GeomFromText(:point_wkt, 0))
         ";
 
         $wkt = "POINT({$data['longitude']} {$data['latitude']})";
@@ -142,7 +142,7 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
             UPDATE driver_locations 
             SET latitude = :latitude, 
                 longitude = :longitude, 
-                location = ST_GeomFromText(:point_wkt)
+                location = ST_GeomFromText(:point_wkt, 0)
             WHERE id = :id
         ";
 

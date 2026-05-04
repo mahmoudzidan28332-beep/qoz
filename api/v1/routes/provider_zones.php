@@ -1,41 +1,64 @@
 <?php
 declare(strict_types=1);
 
-if (!function_exists('resolve_tenant_id')) {
-    require_once dirname(__DIR__, 2) . '/shared/helpers/safe_helpers.php';
-}
+// ============================================================
+// Bootstrap — full standalone entry (mirrors countries.php)
+// ============================================================
+$baseDir = dirname(__DIR__, 2);
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
+// ============================================================
+// Dependencies
+// ============================================================
 require_once API_VERSION_PATH . '/models/delivery_zones/Contracts/ProviderZoneRepositoryInterface.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/repositories/PdoProviderZoneRepository.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/validators/ProviderZoneValidator.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/services/ProviderZoneService.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/controllers/ProviderZoneController.php';
 
-if (!defined('API_VERSION_PATH')) {
-    http_response_code(403);
-    exit('Direct access not allowed.');
-}
+// ============================================================
+// Session & Database
+// ============================================================
+if (session_status() === PHP_SESSION_NONE) session_start();
 
- $pdo = $GLOBALS['ADMIN_DB'] ?? null;
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
-    ResponseFormatter::error('Service unavailable', 503);
+    ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
- $controller = new ProviderZoneController(
-    new ProviderZoneService(
-        new PdoProviderZoneRepository($pdo),
-        new ProviderZoneValidator()
-    )
-);
-
+// ============================================================
+// Tenant resolution (platform-admin-aware)
+// ============================================================
 $isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
-$tenantId        = (int)(function_exists('resolve_tenant_id') ? resolve_tenant_id() : ($_SESSION['tenant_id'] ?? 0));
+$tenantId        = resolve_tenant_id();
+
+if ($tenantId === null) {
+    if (!$isPlatformAdmin) {
+        ResponseFormatter::error('Unauthorized', 401);
+        exit;
+    }
+    $tenantId = 0;
+}
+$tenantId = (int)$tenantId;
 
 if (!$isPlatformAdmin && $tenantId === 0) {
     ResponseFormatter::error('Unauthorized', 401);
     exit;
 }
 
+// Platform Admin cross-tenant audit when acting on a specific tenant
 if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
     PlatformContext::logCrossTenantAction(
         sourceTenant: null,
@@ -44,14 +67,33 @@ if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false))
     );
 }
 
- $method = $_SERVER['REQUEST_METHOD'];
+// ============================================================
+// Wiring
+// ============================================================
+$controller = new ProviderZoneController(
+    new ProviderZoneService(
+        new PdoProviderZoneRepository($pdo),
+        new ProviderZoneValidator()
+    )
+);
+
+// ============================================================
+// Request parsing
+// ============================================================
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'POST' && !empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
+}
 
 // Helper to get composite keys from query params for GET/DELETE
- $providerIdInput = isset($_GET['provider_id']) && ctype_digit((string)$_GET['provider_id']) ? (int)$_GET['provider_id'] : null;
- $zoneIdInput     = isset($_GET['zone_id']) && ctype_digit((string)$_GET['zone_id']) ? (int)$_GET['zone_id'] : null;
+$providerIdInput = isset($_GET['provider_id']) && ctype_digit((string)$_GET['provider_id']) ? (int)$_GET['provider_id'] : null;
+$zoneIdInput     = isset($_GET['zone_id']) && ctype_digit((string)$_GET['zone_id']) ? (int)$_GET['zone_id'] : null;
 
- $lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
+$lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
 
+// ============================================================
+// Route dispatch
+// ============================================================
 try {
     switch ($method) {
         case 'GET':
@@ -92,14 +134,14 @@ try {
             break;
 
         case 'POST':
-            $data  = json_decode((string)file_get_contents('php://input'), true) ?? [];
+            $data    = json_decode((string)file_get_contents('php://input'), true) ?? [];
             $created = $controller->create($tenantId, $data);
             ResponseFormatter::success(['created' => $created], 'Zone assigned to provider successfully', 201);
             break;
 
         case 'PUT':
             $data = json_decode((string)file_get_contents('php://input'), true) ?? [];
-            
+
             // Require composite key in body
             if (empty($data['provider_id']) || empty($data['zone_id'])) {
                 ResponseFormatter::error('provider_id and zone_id are required in body to update assignment', 422);
@@ -135,16 +177,27 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 } catch (InvalidArgumentException $e) {
+    safe_log('warning', '[ProviderZones] Validation failed', [
+        'tenant_id' => $tenantId,
+        'error'     => $e->getMessage(),
+    ]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (DatabaseException|\PDOException $e) {
-    // Handle Duplicate entry error for create
-    if ($e->getCode() == 23000) { 
-         ResponseFormatter::error('This provider is already assigned to this zone.', 409);
+    // Handle duplicate entry error for create
+    if ($e->getCode() == 23000) {
+        ResponseFormatter::error('This provider is already assigned to this zone.', 409);
     } else {
-        safe_log('error', '[ProviderZones] DB Error', ['error' => $e->getMessage()]);
-        ResponseFormatter::error('Database error', 500);
+        safe_log('error', '[ProviderZones] Database error', [
+            'tenant_id' => $tenantId,
+            'code'      => $e->getCode(),
+            'error'     => $e->getMessage(),
+        ]);
+        ResponseFormatter::error('A database error occurred.', 500);
     }
 } catch (ApplicationException|\RuntimeException $e) {
-    safe_log('error', '[ProviderZones] Error', ['error' => $e->getMessage()]);
-    ResponseFormatter::error('Unexpected error', 500);
+    safe_log('error', '[ProviderZones] Unexpected error', [
+        'tenant_id' => $tenantId,
+        'error'     => $e->getMessage(),
+    ]);
+    ResponseFormatter::error('An unexpected error occurred.', 500);
 }

@@ -498,8 +498,9 @@
                 var body = cfg.getFormData ? cfg.getFormData() : null;
                 if (!body) { s.saving = false; return; }
                 var id = cfg.getId ? cfg.getId() : null;
+                var tenantQs = state.tenant !== undefined && state.tenant !== '' ? '?tenant_id=' + encodeURIComponent(state.tenant) : '';
                 try {
-                    await api(id ? url + '/' + id : url, { method: id ? 'PUT' : 'POST', json: body });
+                    await api(id ? url + '/' + id + tenantQs : url + tenantQs, { method: id ? 'PUT' : 'POST', json: body });
                     notify('Saved successfully', 'success');
                     mod.hideForm();
                     mod.load(s.page);
@@ -1223,7 +1224,7 @@
                 ps.saving = true;
                 var body = pzonesMod.cfg.getFormData();
                 try {
-                    await api(CFG.urls.provider_zones, { method: 'POST', json: body });
+                    await api(CFG.urls.provider_zones + (state.tenant !== undefined && state.tenant !== '' ? '?tenant_id=' + encodeURIComponent(state.tenant) : ''), { method: 'POST', json: body });
                     notify('Saved successfully', 'success');
                     pzonesMod.hideForm();
                     pzonesMod.load(ps.page);
