@@ -21,8 +21,8 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE (:tenant_id = 0 OR tenant_id = :tenant_id)";
-        $params = [':tenant_id' => $tenantId];
+        $sql    = "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE (:tid = 0 OR tenant_id = :tenant_id)";
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '' && $filters[$col] !== null) {
@@ -58,8 +58,8 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
 
     public function count(int $tenantId, array $filters = []): int
     {
-        $sql    = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE (:tenant_id = 0 OR tenant_id = :tenant_id)";
-        $params = [':tenant_id' => $tenantId];
+        $sql    = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE (:tid = 0 OR tenant_id = :tenant_id)";
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '' && $filters[$col] !== null) {
@@ -84,9 +84,9 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
     public function find(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE (:tenant_id = 0 OR tenant_id = :tenant_id) AND id = :id LIMIT 1"
+            "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE (:tid = 0 OR tenant_id = :tenant_id) AND id = :id LIMIT 1"
         );
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        $stmt->execute([':tid' => $tenantId, ':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -122,9 +122,10 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
                     height        = :height,
                     max_ads       = :max_ads,
                     status        = :status
-                WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)
+                WHERE id = :id AND (:tid = 0 OR tenant_id = :tenant_id)
             ");
-            $params[':id'] = (int)$data['id'];
+            $params[':id']  = (int)$data['id'];
+            $params[':tid'] = $params[':tenant_id'];
             $stmt->execute($params);
             return (int)$data['id'];
         }
@@ -142,8 +143,8 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
     public function delete(int $tenantId, int $id): bool
     {
         $stmt = $this->pdo->prepare(
-            "DELETE FROM " . self::TABLE . " WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)"
+            "DELETE FROM " . self::TABLE . " WHERE id = :id AND (:tid = 0 OR tenant_id = :tenant_id)"
         );
-        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->execute([':id' => $id, ':tid' => $tenantId, ':tenant_id' => $tenantId]);
     }
 }

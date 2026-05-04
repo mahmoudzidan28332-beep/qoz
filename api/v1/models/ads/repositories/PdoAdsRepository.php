@@ -32,8 +32,8 @@ final class PdoAdsRepository implements AdsRepositoryInterface
                 FROM " . self::TABLE . " a
                 INNER JOIN ad_campaigns ac ON a.campaign_id = ac.id
                 LEFT JOIN ad_stats s ON s.ad_id = a.id
-                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
-        $params = [':tenant_id' => $tenantId];
+                WHERE (:tid = 0 OR ac.tenant_id = :tenant_id)";
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -78,8 +78,8 @@ final class PdoAdsRepository implements AdsRepositoryInterface
     {
         $sql = "SELECT COUNT(DISTINCT a.id) FROM " . self::TABLE . " a
                 INNER JOIN ad_campaigns ac ON a.campaign_id = ac.id
-                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
-        $params = [':tenant_id' => $tenantId];
+                WHERE (:tid = 0 OR ac.tenant_id = :tenant_id)";
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -118,11 +118,11 @@ final class PdoAdsRepository implements AdsRepositoryInterface
              FROM " . self::TABLE . " a
              INNER JOIN ad_campaigns ac ON a.campaign_id = ac.id
              LEFT JOIN ad_stats s ON s.ad_id = a.id
-             WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id) AND a.id = :id
+             WHERE (:tid = 0 OR ac.tenant_id = :tenant_id) AND a.id = :id
              GROUP BY a.id
              LIMIT 1"
         );
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        $stmt->execute([':tid' => $tenantId, ':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -147,9 +147,10 @@ final class PdoAdsRepository implements AdsRepositoryInterface
                     a.target_type  = :target_type,
                     a.target_value = :target_value,
                     a.status       = :status
-                WHERE a.id = :id AND (:tenant_id = 0 OR ac.tenant_id = :tenant_id)
+                WHERE a.id = :id AND (:tid = 0 OR ac.tenant_id = :tenant_id)
             ");
             $params[':id']        = (int)$data['id'];
+            $params[':tid']       = $tenantId;
             $params[':tenant_id'] = $tenantId;
             $stmt->execute($params);
             return (int)$data['id'];
@@ -157,9 +158,9 @@ final class PdoAdsRepository implements AdsRepositoryInterface
 
         // Verify campaign belongs to the tenant before inserting
         $checkStmt = $this->pdo->prepare(
-            "SELECT id FROM ad_campaigns WHERE id = :campaign_id AND (:tenant_id = 0 OR tenant_id = :tenant_id) LIMIT 1"
+            "SELECT id FROM ad_campaigns WHERE id = :campaign_id AND (:tid = 0 OR tenant_id = :tenant_id) LIMIT 1"
         );
-        $checkStmt->execute([':campaign_id' => $params[':campaign_id'], ':tenant_id' => $tenantId]);
+        $checkStmt->execute([':campaign_id' => $params[':campaign_id'], ':tid' => $tenantId, ':tenant_id' => $tenantId]);
         if (!$checkStmt->fetch()) {
             throw new ApplicationException('Campaign not found or does not belong to this tenant');
         }
@@ -180,8 +181,8 @@ final class PdoAdsRepository implements AdsRepositoryInterface
         $stmt = $this->pdo->prepare(
             "DELETE a FROM " . self::TABLE . " a
              INNER JOIN ad_campaigns ac ON a.campaign_id = ac.id
-             WHERE a.id = :id AND (:tenant_id = 0 OR ac.tenant_id = :tenant_id)"
+             WHERE a.id = :id AND (:tid = 0 OR ac.tenant_id = :tenant_id)"
         );
-        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        return $stmt->execute([':id' => $id, ':tid' => $tenantId, ':tenant_id' => $tenantId]);
     }
 }
