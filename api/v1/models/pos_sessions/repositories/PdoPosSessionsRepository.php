@@ -24,11 +24,13 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
                        tu.user_id AS cashier_system_user_id,
                        u.username AS cashier_name,
                        e.store_name,
-                       e.tenant_id AS entity_tenant_id
+                       e.tenant_id AS entity_tenant_id,
+                       tz.timezone AS entity_timezone
                 FROM pos_sessions ps
                 LEFT JOIN tenant_users tu ON ps.cashier_user_id = tu.id
                 LEFT JOIN users u ON tu.user_id = u.id
-                LEFT JOIN entities e ON ps.entity_id = e.id";
+                LEFT JOIN entities e ON ps.entity_id = e.id
+                LEFT JOIN timezones tz ON e.timezone_id = tz.id";
     }
 
     /* =====================================================
@@ -155,7 +157,7 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         // Guard: no open session for the same entity
         $existing = $this->findOpen($tenantId, (int)($data['entity_id'] ?? 0));
         if ($existing) {
-            throw new RuntimeException('A session is already open for this entity. Close it first.');
+            throw new ApplicationException('A session is already open for this entity. Close it first.');
         }
 
         $stmt = $this->pdo->prepare("
@@ -178,10 +180,10 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
     {
         $session = $this->find($tenantId, $sessionId);
         if (!$session) {
-            throw new RuntimeException('Session not found');
+            throw new ApplicationException('Session not found');
         }
         if ($session['status'] === 'closed') {
-            throw new RuntimeException('Session is already closed');
+            throw new ApplicationException('Session is already closed');
         }
 
         // Compute totals from linked orders
@@ -226,9 +228,28 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         $notes         = $data['notes'] ?? '';
         $cashierUserId = isset($data['cashier_user_id']) ? (int)$data['cashier_user_id'] : null;
         $customerId    = isset($data['customer_id']) ? (int)$data['customer_id'] : 1;
+        $currencyCode  = !empty($data['currency_code']) ? (string)$data['currency_code'] : null;
 
-        $session = $this->fetchOne("SELECT * FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
-        if (!$session) { throw new RuntimeException('Session not found or not open'); }
+        $session = $this->fetchOne("SELECT id, tenant_id, entity_id, cashier_user_id, opened_at, closed_at, opening_balance, closing_balance, total_cash, total_card, status, total_sales FROM pos_sessions WHERE id = :id AND tenant_id = :tid AND status = 'open'", [':id' => $sessionId, ':tid' => $tenantId]);
+        if (!$session) { throw new ApplicationException('Session not found or not open'); }
+
+        // Resolve currency: from request > from first item > from entity product_pricing > fallback
+        if (!$currencyCode) {
+            $items = $data['items'] ?? [];
+            foreach ($items as $itm) {
+                if (!empty($itm['currency_code'])) { $currencyCode = (string)$itm['currency_code']; break; }
+            }
+        }
+        if (!$currencyCode) {
+            $row = $this->fetchOne(
+                "SELECT pp.currency_code FROM product_pricing pp
+                 JOIN products p ON p.id = pp.product_id
+                 WHERE p.tenant_id = :tid AND pp.is_active = 1
+                 ORDER BY pp.id ASC LIMIT 1",
+                [':tid' => $tenantId]
+            );
+            $currencyCode = ($row && !empty($row['currency_code'])) ? $row['currency_code'] : 'SAR';
+        }
 
         $calculated = $this->calculatePosOrderTotals($data['items'] ?? []);
         $totalAmount = $calculated['subtotal'] + $calculated['taxAmount'];
@@ -237,15 +258,15 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
 
         $this->pdo->beginTransaction();
         try {
-            $orderId = $this->insertPosOrder($tenantId, $entityId, $orderNumber, $customerId, $calculated, $discount, $totalAmount, $grandTotal, $notes, $sessionId, $cashierUserId, $paymentMethod);
-            $this->insertPosOrderItems($tenantId, $orderId, $entityId, $calculated['orderItems']);
+            $orderId = $this->insertPosOrder($tenantId, $entityId, $orderNumber, $customerId, $calculated, $discount, $totalAmount, $grandTotal, $notes, $sessionId, $cashierUserId, $paymentMethod, $currencyCode);
+            $this->insertPosOrderItems($tenantId, $orderId, $entityId, $calculated['orderItems'], $currencyCode);
             $this->updatePosSessionTotals($tenantId, $sessionId, $paymentMethod, $grandTotal);
-            $this->recordPosPayment($entityId, $orderId, $customerId, $paymentMethod, $grandTotal);
+            $this->recordPosPayment($entityId, $orderId, $customerId, $paymentMethod, $grandTotal, $currencyCode);
             $this->pdo->commit();
             return ['order_id' => $orderId, 'order_number' => $orderNumber, 'grand_total' => $grandTotal, 'change' => max(0.0, $amountPaid - $grandTotal)];
-        } catch (\Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -265,18 +286,19 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         return ['subtotal' => $subtotal, 'taxAmount' => $taxAmount, 'orderItems' => $orderItems];
     }
 
-    private function insertPosOrder(int $tenantId, int $entityId, string $orderNumber, int $customerId, array $calc, float $discount, float $totalAmount, float $grandTotal, string $notes, int $sessionId, ?int $cashierUserId, string $paymentMethod): int
+    private function insertPosOrder(int $tenantId, int $entityId, string $orderNumber, int $customerId, array $calc, float $discount, float $totalAmount, float $grandTotal, string $notes, int $sessionId, ?int $cashierUserId, string $paymentMethod, string $currencyCode = 'SAR'): int
     {
-        $stmt = $this->pdo->prepare("INSERT INTO orders (tenant_id, entity_id, order_number, user_id, order_type, status, payment_status, subtotal, tax_amount, discount_amount, total_amount, grand_total, currency_code, customer_notes, pos_session_id, cashier_user_id, branch_entity_id, sales_channel, payment_method, created_at) VALUES (:tid, :eid, :onum, :uid, 'pos', 'completed', 'paid', :sub, :tax, :disc, :tot, :grand, 'SAR', :notes, :sid, :cuid, :beid, 'pos', :pm, NOW())");
-        $stmt->execute([':tid' => $tenantId, ':eid' => $entityId, ':onum' => $orderNumber, ':uid' => $customerId, ':sub' => $calc['subtotal'], ':tax' => $calc['taxAmount'], ':disc' => $discount, ':tot' => $totalAmount, ':grand' => $grandTotal, ':notes' => $notes, ':sid' => $sessionId, ':cuid' => $cashierUserId, ':beid' => $entityId, ':pm' => $paymentMethod]);
+        $stmt = $this->pdo->prepare("INSERT INTO orders (tenant_id, entity_id, order_number, user_id, order_type, status, payment_status, subtotal, tax_amount, discount_amount, total_amount, grand_total, currency_code, customer_notes, pos_session_id, cashier_user_id, branch_entity_id, sales_channel, payment_method, created_at) VALUES (:tid, :eid, :onum, :uid, 'pos', 'completed', 'paid', :sub, :tax, :disc, :tot, :grand, :cur, :notes, :sid, :cuid, :beid, 'pos', :pm, NOW())");
+        $stmt->execute([':tid' => $tenantId, ':eid' => $entityId, ':onum' => $orderNumber, ':uid' => $customerId, ':sub' => $calc['subtotal'], ':tax' => $calc['taxAmount'], ':disc' => $discount, ':tot' => $totalAmount, ':grand' => $grandTotal, ':cur' => $currencyCode, ':notes' => $notes, ':sid' => $sessionId, ':cuid' => $cashierUserId, ':beid' => $entityId, ':pm' => $paymentMethod]);
         return (int)$this->pdo->lastInsertId();
     }
 
-    private function insertPosOrderItems(int $tenantId, int $orderId, int $entityId, array $orderItems): void
+    private function insertPosOrderItems(int $tenantId, int $orderId, int $entityId, array $orderItems, string $currencyCode = 'SAR'): void
     {
-        $iStmt = $this->pdo->prepare("INSERT INTO order_items (tenant_id, order_id, entity_id, product_id, product_name, sku, quantity, unit_price, sale_price, tax_rate, tax_amount, subtotal, total, currency_code, created_at) VALUES (:tid, :oid, :eid, :pid, :pname, :sku, :qty, :up, :sp, :tr, :ta, :sub, :tot, 'SAR', NOW())");
+        $iStmt = $this->pdo->prepare("INSERT INTO order_items (tenant_id, order_id, entity_id, product_id, product_name, sku, quantity, unit_price, sale_price, tax_rate, tax_amount, subtotal, total, currency_code, created_at) VALUES (:tid, :oid, :eid, :pid, :pname, :sku, :qty, :up, :sp, :tr, :ta, :sub, :tot, :cur, NOW())");
         foreach ($orderItems as $oi) {
-            $iStmt->execute([':tid' => $tenantId, ':oid' => $orderId, ':eid' => $entityId, ':pid' => $oi['product_id'], ':pname' => $oi['product_name'], ':sku' => $oi['sku'], ':qty' => $oi['quantity'], ':up' => $oi['unit_price'], ':sp' => $oi['sale_price'], ':tr' => $oi['tax_rate'], ':ta' => $oi['tax_amount'], ':sub' => $oi['subtotal'], ':tot' => $oi['total']]);
+            $itemCur = !empty($oi['currency_code']) ? $oi['currency_code'] : $currencyCode;
+            $iStmt->execute([':tid' => $tenantId, ':oid' => $orderId, ':eid' => $entityId, ':pid' => $oi['product_id'], ':pname' => $oi['product_name'], ':sku' => $oi['sku'], ':qty' => $oi['quantity'], ':up' => $oi['unit_price'], ':sp' => $oi['sale_price'], ':tr' => $oi['tax_rate'], ':ta' => $oi['tax_amount'], ':sub' => $oi['subtotal'], ':tot' => $oi['total'], ':cur' => $itemCur]);
         }
     }
 
@@ -285,10 +307,10 @@ final class PdoPosSessionsRepository implements PosSessionsRepositoryInterface
         $this->pdo->prepare("UPDATE pos_sessions SET total_cash = total_cash + :cash, total_card = total_card + :card WHERE id = :id AND tenant_id = :tid")->execute([':cash' => in_array($paymentMethod, ['cash', 'mixed'], true) ? $grandTotal : 0, ':card' => in_array($paymentMethod, ['card', 'mixed'], true) ? $grandTotal : 0, ':id' => $sessionId, ':tid' => $tenantId]);
     }
 
-    private function recordPosPayment(int $entityId, int $orderId, int $customerId, string $paymentMethod, float $grandTotal): void
+    private function recordPosPayment(int $entityId, int $orderId, int $customerId, string $paymentMethod, float $grandTotal, string $currencyCode = 'SAR'): void
     {
         $paymentNumber = 'PAY-POS-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(8)));
-        $this->pdo->prepare("INSERT INTO payments (payment_number, entity_id, order_id, user_id, payment_method, amount, currency_code, status, payment_type, created_at, updated_at) VALUES (:pnum, :eid, :oid, :uid, :pm, :amt, 'SAR', 'paid', 'pos_order', NOW(), NOW())")->execute([':pnum' => $paymentNumber, ':eid' => $entityId, ':oid' => $orderId, ':uid' => $customerId, ':pm' => $paymentMethod, ':amt' => $grandTotal]);
+        $this->pdo->prepare("INSERT INTO payments (payment_number, entity_id, order_id, user_id, payment_method, amount, currency_code, status, payment_type, created_at, updated_at) VALUES (:pnum, :eid, :oid, :uid, :pm, :amt, :cur, 'paid', 'pos_order', NOW(), NOW())")->execute([':pnum' => $paymentNumber, ':eid' => $entityId, ':oid' => $orderId, ':uid' => $customerId, ':pm' => $paymentMethod, ':amt' => $grandTotal, ':cur' => $currencyCode]);
     }
 
     /* =====================================================

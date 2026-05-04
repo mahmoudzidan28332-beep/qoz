@@ -48,12 +48,12 @@ final class EntityProductsService
         $entityId = (int)($data['entity_id'] ?? 0);
         
         if ($tenantId <= 0 || $entityId <= 0) {
-            throw new RuntimeException("tenant_id and entity_id are required for update");
+            throw new ApplicationException("tenant_id and entity_id are required for update");
         }
 
         $existing = $this->repo->find($id, $tenantId, $entityId);
         if (!$existing) {
-            throw new RuntimeException("Entity product not found or access denied");
+            throw new ApplicationException("Entity product not found or access denied");
         }
 
         EntityProductsValidator::validateUpdate($data);
@@ -69,7 +69,7 @@ final class EntityProductsService
     public function delete(int $id, int $tenantId, int $entityId): void
     {
         if (!$this->repo->find($id, $tenantId, $entityId)) {
-            throw new RuntimeException("Entity product not found or access denied");
+            throw new ApplicationException("Entity product not found or access denied");
         }
         $this->repo->delete($id, $tenantId, $entityId);
     }

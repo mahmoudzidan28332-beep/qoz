@@ -15,7 +15,7 @@ final class DiscountsValidator
         'cs', 'ro', 'hu', 'el',
     ];
     private const ALLOWED_SCOPE_TYPES = [
-        'product', 'category', 'brand', 'collection', 'supplier', 'customer_group', 'all',
+        'product', 'category', 'brand', 'collection', 'supplier', 'customer_group', 'entity', 'all',
     ];
     private const ALLOWED_CONDITION_TYPES = [
         'min_cart_total', 'min_items_count', 'first_order_only', 'weekend_only',
@@ -38,8 +38,12 @@ final class DiscountsValidator
     {
         $errors = [];
 
-        if (empty($data['entity_id'])) {
-            $errors[] = "Field 'entity_id' is required";
+        if (isset($data['entity_id']) && (int)$data['entity_id'] < 0) {
+            $errors[] = "Field 'entity_id' must be a positive integer";
+        }
+
+        if (!isset($data['tenant_id']) || (int)$data['tenant_id'] < 0) {
+            $errors[] = "Field 'tenant_id' is required and must be a non-negative integer";
         }
 
         if (empty($data['type']) || !in_array($data['type'], self::ALLOWED_TYPES, true)) {

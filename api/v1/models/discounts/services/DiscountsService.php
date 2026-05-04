@@ -4,28 +4,17 @@ declare(strict_types=1);
 require_once __DIR__ . '/DiscountsExclusionsTrait.php';
 
 /**
- * Service layer for discount management.
- * Creates all sub-repositories internally from a single PDO instance.
+ * Service layer for core discount management.
  */
 final class DiscountsService
 {
     use DiscountsServiceExclusionsTrait;
-    private PdoDiscountsRepository $discounts;
-    private PdoDiscountTranslationsRepository $translations;
-    private PdoDiscountScopesRepository $scopes;
-    private PdoDiscountConditionsRepository $conditions;
-    private PdoDiscountActionsRepository $actions;
-    private PdoDiscountRedemptionsRepository $redemptions;
-    private PdoDiscountExclusionsRepository $exclusions;
+    private $discounts;
+    private $exclusions;
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->discounts    = new PdoDiscountsRepository($pdo);
-        $this->translations = new PdoDiscountTranslationsRepository($pdo);
-        $this->scopes       = new PdoDiscountScopesRepository($pdo);
-        $this->conditions   = new PdoDiscountConditionsRepository($pdo);
-        $this->actions      = new PdoDiscountActionsRepository($pdo);
-        $this->redemptions  = new PdoDiscountRedemptionsRepository($pdo);
         $this->exclusions   = new PdoDiscountExclusionsRepository($pdo);
     }
 
@@ -34,8 +23,8 @@ final class DiscountsService
     // ================================
 
     public function listDiscounts(
-        ?int $limit = null,
-        ?int $offset = null,
+        ?int $limit = 25,
+        ?int $offset = 0,
         array $filters = [],
         string $orderBy = 'id',
         string $orderDir = 'DESC'
@@ -43,30 +32,48 @@ final class DiscountsService
         return $this->discounts->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function getDiscount(int $id): ?array
+    public function getDiscount(int $id, ?int $tenantId = null, bool $isSuperAdmin = false): ?array
     {
-        return $this->discounts->find($id);
+        return $this->discounts->findAccessible($id, $tenantId, $isSuperAdmin);
     }
 
-    public function createDiscount(array $data): int
+    public function createDiscount(array $data, ?int $tenantId = null, bool $isSuperAdmin = false): int
     {
+        if (!$isSuperAdmin && $tenantId !== null && $tenantId > 0) {
+            $data['tenant_id'] = $tenantId;
+            $entityId = isset($data['entity_id']) ? (int)$data['entity_id'] : 0;
+            if ($entityId > 0 && !$this->discounts->entityBelongsToTenant($entityId, $tenantId)) {
+                throw new ApplicationException('Access denied to selected entity', 403);
+            }
+        }
+
         return $this->discounts->create($data);
     }
 
-    public function updateDiscount(int $id, array $data): bool
+    public function updateDiscount(int $id, array $data, ?int $tenantId = null, bool $isSuperAdmin = false): bool
     {
-        $existing = $this->discounts->find($id);
+        $existing = $this->discounts->findAccessible($id, $tenantId, $isSuperAdmin);
         if (!$existing) {
-            throw new RuntimeException("Discount not found with ID: $id");
+            throw new ApplicationException("Discount not found with ID: $id");
         }
+
+        if (!$isSuperAdmin && $tenantId !== null && $tenantId > 0) {
+            $data['tenant_id'] = $tenantId;
+            if (array_key_exists('entity_id', $data) && $data['entity_id'] !== null && (int)$data['entity_id'] > 0) {
+                if (!$this->discounts->entityBelongsToTenant((int)$data['entity_id'], $tenantId)) {
+                    throw new ApplicationException('Access denied to selected entity', 403);
+                }
+            }
+        }
+
         return $this->discounts->update($id, $data);
     }
 
-    public function deleteDiscount(int $id): bool
+    public function deleteDiscount(int $id, ?int $tenantId = null, bool $isSuperAdmin = false): bool
     {
-        $existing = $this->discounts->find($id);
+        $existing = $this->discounts->findAccessible($id, $tenantId, $isSuperAdmin);
         if (!$existing) {
-            throw new RuntimeException("Discount not found with ID: $id");
+            throw new ApplicationException("Discount not found with ID: $id");
         }
         return $this->discounts->delete($id);
     }
@@ -75,115 +82,4 @@ final class DiscountsService
     {
         return $this->discounts->stats($filters);
     }
-
-    // ================================
-    // Translations
-    // ================================
-
-    public function listTranslations(int $discountId): array
-    {
-        return $this->translations->listByDiscount($discountId);
-    }
-
-    public function findTranslation(int $id): ?array
-    {
-        return $this->translations->find($id);
-    }
-
-    public function upsertTranslation(int $discountId, string $langCode, array $data): int
-    {
-        return $this->translations->upsert($discountId, $langCode, $data);
-    }
-
-    public function deleteTranslation(int $id): bool
-    {
-        return $this->translations->delete($id);
-    }
-
-    public function deleteTranslationsByDiscount(int $discountId): bool
-    {
-        return $this->translations->deleteByDiscount($discountId);
-    }
-
-    // ================================
-    // Scopes
-    // ================================
-
-    public function listScopes(int $discountId): array
-    {
-        return $this->scopes->listByDiscount($discountId);
-    }
-
-    public function createScope(array $data): int
-    {
-        return $this->scopes->create($data);
-    }
-
-    public function deleteScope(int $id): bool
-    {
-        return $this->scopes->delete($id);
-    }
-
-    // ================================
-    // Conditions
-    // ================================
-
-    public function listConditions(int $discountId): array
-    {
-        return $this->conditions->listByDiscount($discountId);
-    }
-
-    public function createCondition(array $data): int
-    {
-        return $this->conditions->create($data);
-    }
-
-    public function updateCondition(int $id, array $data): bool
-    {
-        return $this->conditions->update($id, $data);
-    }
-
-    public function deleteCondition(int $id): bool
-    {
-        return $this->conditions->delete($id);
-    }
-
-    // ================================
-    // Actions
-    // ================================
-
-    public function listActions(int $discountId): array
-    {
-        return $this->actions->listByDiscount($discountId);
-    }
-
-    public function createAction(array $data): int
-    {
-        return $this->actions->create($data);
-    }
-
-    public function updateAction(int $id, array $data): bool
-    {
-        return $this->actions->update($id, $data);
-    }
-
-    public function deleteAction(int $id): bool
-    {
-        return $this->actions->delete($id);
-    }
-
-    // ================================
-    // Redemptions
-    // ================================
-
-    public function listRedemptions(int $discountId, ?int $limit = null, ?int $offset = null): array
-    {
-        return $this->redemptions->listByDiscount($discountId, $limit, $offset);
-    }
-
-    public function createRedemption(array $data): int
-    {
-        return $this->redemptions->create($data);
-    }
-
 }

@@ -5,21 +5,21 @@ trait DiscountsControllerExclusionsTrait
 {
     public function listExclusions(int $discountId): array
     {
-        return $this->service->listExclusions($discountId);
+        return $this->discountsService->listExclusions($discountId);
     }
 
     public function createExclusion(int $discountId, int $excludedDiscountId): int
     {
-        return $this->service->createExclusion($discountId, $excludedDiscountId);
+        return $this->discountsService->createExclusion($discountId, $excludedDiscountId);
     }
 
     public function deleteExclusion(int $id): bool
     {
-        return $this->service->deleteExclusion($id);
+        return $this->discountsService->deleteExclusion($id);
     }
 
     public function redemptionStats(int $discountId): array
     {
-        return $this->service->redemptionStats($discountId);
+        return $this->subResourceService->redemptionStats($discountId);
     }
 }

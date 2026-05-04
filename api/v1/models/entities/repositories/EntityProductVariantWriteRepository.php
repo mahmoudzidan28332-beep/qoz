@@ -128,10 +128,10 @@ final class EntityProductVariantWriteRepository
 
         } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw new \RuntimeException('Failed to save entity variants: ' . $e->getMessage(), 0, $e);
-        } catch (\Exception $e) {
+            throw new ApplicationException('Failed to save entity variants: ' . $e->getMessage(), 0, $e);
+        } catch (\RuntimeException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 
@@ -150,7 +150,7 @@ final class EntityProductVariantWriteRepository
         );
         $stVer->execute([$productId, $tenantId]);
         if (!$stVer->fetchColumn()) {
-            throw new \RuntimeException('Product ownership verification failed.');
+            throw new ApplicationException('Product ownership verification failed.');
         }
 
         $stmt = $this->pdo->prepare(
@@ -262,7 +262,7 @@ final class EntityProductVariantWriteRepository
         );
         $stmt->execute([':id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new \RuntimeException('Entity not found or tenant mismatch');
+            throw new ApplicationException('Entity not found or tenant mismatch');
         }
 
         $stmt = $this->pdo->prepare(
@@ -273,7 +273,7 @@ final class EntityProductVariantWriteRepository
         );
         $stmt->execute([':id' => $productId, ':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new \RuntimeException('Product not found or does not belong to this entity/tenant');
+            throw new ApplicationException('Product not found or does not belong to this entity/tenant');
         }
 
         $stmt = $this->pdo->prepare(
@@ -284,7 +284,7 @@ final class EntityProductVariantWriteRepository
         );
         $stmt->execute([':id' => $variantId, ':product_id' => $productId, ':tenant_id' => $tenantId]);
         if (!$stmt->fetch()) {
-            throw new \RuntimeException('Variant not found or does not belong to this product/tenant');
+            throw new ApplicationException('Variant not found or does not belong to this product/tenant');
         }
     }
 }

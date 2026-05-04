@@ -6,7 +6,7 @@ declare(strict_types=1);
  */
 final class PdoDiscountConditionsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_CONDITION_TYPES = [
         'min_cart_total', 'min_items_count', 'first_order_only', 'weekend_only',
@@ -18,7 +18,7 @@ final class PdoDiscountConditionsRepository
         '=', '>', '<', '>=', '<=', '<>', 'in', 'not_in', 'between', 'contains',
     ];
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -29,7 +29,7 @@ final class PdoDiscountConditionsRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_conditions
+            SELECT id, discount_id, condition_type, operator, condition_value FROM discount_conditions
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

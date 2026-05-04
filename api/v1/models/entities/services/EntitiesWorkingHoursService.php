@@ -43,7 +43,7 @@ final class EntitiesWorkingHoursService
     {
         $item = $this->repo->find($id);
         if (!$item) {
-            throw new RuntimeException("Entity working hour not found");
+            throw new ApplicationException("Entity working hour not found");
         }
         return $item;
     }

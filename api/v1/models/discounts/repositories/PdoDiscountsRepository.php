@@ -6,17 +6,17 @@ declare(strict_types=1);
  */
 final class PdoDiscountsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_ORDER_BY = ['id', 'code', 'type', 'priority', 'status', 'starts_at', 'ends_at', 'created_at'];
 
     private const ALLOWED_COLUMNS = [
-        'entity_id', 'type', 'code', 'auto_apply', 'priority', 'is_stackable',
+        'entity_id', 'tenant_id', 'type', 'code', 'auto_apply', 'priority', 'is_stackable',
         'currency_code', 'max_redemptions', 'max_redemptions_per_user',
         'current_redemptions', 'starts_at', 'ends_at', 'status', 'created_by',
     ];
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -58,8 +58,17 @@ final class PdoDiscountsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT d.* FROM discounts d WHERE 1=1";
-        $params = [];
+        $sql = "SELECT d.id, d.entity_id, d.type, d.code, d.auto_apply, d.priority, d.is_stackable, d.currency_code,
+                       d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
+                       d.starts_at, d.ends_at, d.status, d.created_by, d.created_at, d.updated_at,
+                       COALESCE(dt.name, d.code, d.type) AS name
+                FROM discounts d
+                LEFT JOIN entities e ON e.id = d.entity_id
+                LEFT JOIN discount_translations dt ON dt.discount_id = d.id AND dt.language_code = :language
+                WHERE 1=1";
+        $params = [
+            ':language' => (string)($filters['language'] ?? 'ar'),
+        ];
 
         $this->applyFilters($sql, $params, $filters);
 
@@ -88,7 +97,7 @@ final class PdoDiscountsRepository
     // ================================
     public function count(array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM discounts d WHERE 1=1";
+        $sql = "SELECT COUNT(*) FROM discounts d LEFT JOIN entities e ON e.id = d.entity_id WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -103,9 +112,14 @@ final class PdoDiscountsRepository
     // ================================
     private function applyFilters(string &$sql, array &$params, array $filters): void
     {
+        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== '') {
+            $sql .= " AND d.tenant_id = :tenant_id";
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
+
         if (isset($filters['entity_id']) && $filters['entity_id'] !== '') {
             $sql .= " AND d.entity_id = :entity_id";
-            $params[':entity_id'] = $filters['entity_id'];
+            $params[':entity_id'] = (int)$filters['entity_id'];
         }
 
         if (isset($filters['status']) && $filters['status'] !== '') {
@@ -126,6 +140,16 @@ final class PdoDiscountsRepository
             $params[':search']   = '%' . trim($filters['search']) . '%';
             $params[':search_t'] = '%' . trim($filters['search']) . '%';
         }
+
+        if (isset($filters['date_from']) && $filters['date_from'] !== '') {
+            $sql .= " AND d.starts_at IS NOT NULL AND DATE(d.starts_at) >= :date_from";
+            $params[':date_from'] = $filters['date_from'];
+        }
+
+        if (isset($filters['date_to']) && $filters['date_to'] !== '') {
+            $sql .= " AND d.ends_at IS NOT NULL AND DATE(d.ends_at) <= :date_to";
+            $params[':date_to'] = $filters['date_to'];
+        }
     }
 
     // ================================
@@ -133,11 +157,46 @@ final class PdoDiscountsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM discounts WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, entity_id, type, code, auto_apply, priority, is_stackable, currency_code, max_redemptions, max_redemptions_per_user, current_redemptions, starts_at, ends_at, status, created_by, created_at, updated_at FROM discounts WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
+    }
+
+    public function findAccessible(int $id, ?int $tenantId = null, bool $isSuperAdmin = false): ?array
+    {
+        $sql = "SELECT d.id, d.entity_id, d.type, d.code, d.auto_apply, d.priority, d.is_stackable, d.currency_code,
+                       d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
+                       d.starts_at, d.ends_at, d.status, d.created_by, d.created_at, d.updated_at
+                FROM discounts d
+                LEFT JOIN entities e ON e.id = d.entity_id
+                WHERE d.id = :id";
+        $params = [':id' => $id];
+
+        if (!$isSuperAdmin && $tenantId !== null && $tenantId > 0) {
+            $sql .= " AND d.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $sql .= " LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public function entityBelongsToTenant(int $entityId, int $tenantId): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM entities WHERE id = :id AND tenant_id = :tenant_id");
+        $stmt->execute([
+            ':id' => $entityId,
+            ':tenant_id' => $tenantId,
+        ]);
+
+        return (int)$stmt->fetchColumn() > 0;
     }
 
     // ================================
@@ -145,24 +204,20 @@ final class PdoDiscountsRepository
     // ================================
     public function create(array $data): int
     {
-        // 🔒 SECURITY: Mass Assignment Protection
-        if (class_exists('SecurityValidators')) {
-            $data = SecurityValidators::filterInput($data, self::ALLOWED_COLUMNS);
-        }
-
         $stmt = $this->pdo->prepare("
             INSERT INTO discounts
-                (entity_id, type, code, auto_apply, priority, is_stackable, currency_code,
+                (entity_id, tenant_id, type, code, auto_apply, priority, is_stackable, currency_code,
                  max_redemptions, max_redemptions_per_user, current_redemptions,
                  starts_at, ends_at, status, created_by, created_at, updated_at)
             VALUES
-                (:entity_id, :type, :code, :auto_apply, :priority, :is_stackable, :currency_code,
+                (:entity_id, :tenant_id, :type, :code, :auto_apply, :priority, :is_stackable, :currency_code,
                  :max_redemptions, :max_redemptions_per_user, :current_redemptions,
                  :starts_at, :ends_at, :status, :created_by, NOW(), NOW())
         ");
 
         $stmt->execute([
             ':entity_id'                => $data['entity_id'],
+            ':tenant_id'                => (int)($data['tenant_id'] ?? 0),
             ':type'                     => $data['type'],
             ':code'                     => $data['code'] ?? null,
             ':auto_apply'               => (int)($data['auto_apply'] ?? 0),
@@ -245,24 +300,27 @@ final class PdoDiscountsRepository
         $this->buildPublicFilters($where, $params, $tenantId, $entityId, $type, $activeOnly, $expiresToday);
         $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-        $stmt = $this->pdo->prepare(
-            "SELECT d.id, d.entity_id, d.code, d.type, d.auto_apply, d.priority,
-                    d.is_stackable, d.currency_code, d.status,
-                    d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
-                    d.starts_at, d.ends_at, d.created_at, d.updated_at,
-                    COALESCE(dt.name, d.code, d.type) AS title,
-                    dt.description, dt.terms_conditions, dt.marketing_badge,
-                    e.id   AS merchant_id,
-                    COALESCE(et.name, e.slug) AS merchant_name
-             FROM discounts d
-             LEFT JOIN discount_translations dt ON dt.discount_id = d.id AND dt.language_code = ?
-             LEFT JOIN entities e ON e.id = d.entity_id
-             LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = ?
-             $whereSQL
-             ORDER BY d.updated_at DESC, d.id DESC
-             LIMIT " . $perPage . " OFFSET " . $offset
-        );
-        $stmt->execute(array_merge([$lang, $lang], $params));
+        $params[':lang_dt'] = $lang;
+        $params[':lang_et'] = $lang;
+
+        $sql = "SELECT d.id, d.entity_id, d.code, d.type, d.auto_apply, d.priority,
+                       d.is_stackable, d.currency_code, d.status,
+                       d.max_redemptions, d.max_redemptions_per_user, d.current_redemptions,
+                       d.starts_at, d.ends_at, d.created_at, d.updated_at,
+                       COALESCE(dt.name, d.code, d.type) AS title,
+                       dt.description, dt.terms_conditions, dt.marketing_badge,
+                       e.id AS merchant_id,
+                       COALESCE(et.store_name, e.store_name) AS merchant_name
+                FROM discounts d
+                LEFT JOIN discount_translations dt ON dt.discount_id = d.id AND dt.language_code = :lang_dt
+                LEFT JOIN entities e ON e.id = d.entity_id
+                LEFT JOIN entity_translations et ON et.entity_id = e.id AND et.language_code = :lang_et
+                $whereSQL
+                ORDER BY d.updated_at DESC, d.id DESC
+                LIMIT " . (int)$perPage . " OFFSET " . (int)$offset;
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -292,7 +350,7 @@ final class PdoDiscountsRepository
             "SELECT ds.discount_id, ds.scope_type, 
                     COALESCE(pt.name, p.slug) as product_name,
                     COALESCE(ct.name, c.slug) as category_name,
-                    COALESCE(et.name, e.slug) as entity_name
+                    COALESCE(et.store_name, e.store_name) as entity_name
              FROM discount_scopes ds
              LEFT JOIN products p ON ds.scope_type = 'product' AND p.id = ds.scope_id
              LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = ?
@@ -309,19 +367,21 @@ final class PdoDiscountsRepository
     private function buildPublicFilters(array &$where, array &$params, ?int $tenantId, ?int $entityId, string $type, bool $activeOnly, bool $expiresToday): void
     {
         if ($tenantId) {
-            $where[]  = "(d.entity_id IN (SELECT id FROM entities WHERE tenant_id = ?) 
+            $where[]  = "(d.tenant_id = :tenant1 
+                         OR d.entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant2) 
                          OR EXISTS (SELECT 1 FROM discount_scopes ds_t 
                                     LEFT JOIN categories c_t ON ds_t.scope_type = 'category' AND c_t.id = ds_t.scope_id
                                     LEFT JOIN products p_t ON ds_t.scope_type = 'product' AND p_t.id = ds_t.scope_id
                                     WHERE ds_t.discount_id = d.id 
-                                      AND (c_t.tenant_id = ? OR p_t.tenant_id = ?)))";
-            $params[] = $tenantId;
-            $params[] = $tenantId;
-            $params[] = $tenantId;
+                                      AND (c_t.tenant_id = :tenant3 OR p_t.tenant_id = :tenant4)))";
+            $params[':tenant1'] = (int)$tenantId;
+            $params[':tenant2'] = (int)$tenantId;
+            $params[':tenant3'] = (int)$tenantId;
+            $params[':tenant4'] = (int)$tenantId;
         }
         if ($entityId) {
-            $where[]  = 'd.entity_id = ?';
-            $params[] = $entityId;
+            $where[]  = 'd.entity_id = :entityId';
+            $params[':entityId'] = (int)$entityId;
         }
         if ($activeOnly) {
             $where[]  = "d.status = 'active'";
@@ -332,8 +392,8 @@ final class PdoDiscountsRepository
             $where[] = 'd.ends_at IS NOT NULL AND d.ends_at >= NOW() AND d.ends_at <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
         }
         if ($type !== '') {
-            $where[]  = 'd.type = ?';
-            $params[] = $type;
+            $where[]  = 'd.type = :type';
+            $params[':type'] = $type;
         }
     }
 
@@ -343,19 +403,30 @@ final class PdoDiscountsRepository
     /**
      * @return array{total: int, active: int, inactive: int, expired: int, scheduled: int, total_redemptions: int}
      */
-    public function stats(): array
+    public function stats(array $filters = []): array
     {
-        $stmt = $this->pdo->prepare("
+        $now = date('Y-m-d H:i:s');
+        $sql = "
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN status = 'active' AND (ends_at IS NULL OR ends_at >= NOW()) THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) AS inactive,
-                SUM(CASE WHEN ends_at IS NOT NULL AND ends_at < NOW() THEN 1 ELSE 0 END) AS expired,
-                SUM(CASE WHEN starts_at IS NOT NULL AND starts_at > NOW() AND status = 'active' THEN 1 ELSE 0 END) AS scheduled,
-                COALESCE(SUM(current_redemptions), 0) AS total_redemptions
-            FROM discounts
-        ");
-        $stmt->execute();
+                SUM(CASE WHEN d.status = 'active' AND (d.starts_at IS NULL OR d.starts_at <= :now_a) AND (d.ends_at IS NULL OR d.ends_at >= :now_b) THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN d.status = 'inactive' THEN 1 ELSE 0 END) AS inactive,
+                SUM(CASE WHEN d.ends_at IS NOT NULL AND d.ends_at < :now_c AND d.status = 'active' THEN 1 ELSE 0 END) AS expired,
+                SUM(CASE WHEN d.starts_at IS NOT NULL AND d.starts_at > :now_d AND d.status = 'active' THEN 1 ELSE 0 END) AS scheduled,
+                COALESCE(SUM(d.current_redemptions), 0) AS total_redemptions
+            FROM discounts d
+            LEFT JOIN entities e ON e.id = d.entity_id
+            WHERE 1=1
+        ";
+        $params = [
+            ':now_a' => $now,
+            ':now_b' => $now,
+            ':now_c' => $now,
+            ':now_d' => $now,
+        ];
+        $this->applyFilters($sql, $params, $filters);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return [

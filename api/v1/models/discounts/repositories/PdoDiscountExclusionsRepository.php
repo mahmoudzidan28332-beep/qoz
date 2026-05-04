@@ -6,9 +6,9 @@ declare(strict_types=1);
  */
 final class PdoDiscountExclusionsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -19,7 +19,7 @@ final class PdoDiscountExclusionsRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_exclusions
+            SELECT id, discount_id, excluded_discount_id FROM discount_exclusions
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

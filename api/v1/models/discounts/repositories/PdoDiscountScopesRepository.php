@@ -6,13 +6,13 @@ declare(strict_types=1);
  */
 final class PdoDiscountScopesRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_SCOPE_TYPES = [
-        'product', 'category', 'brand', 'collection', 'supplier', 'customer_group', 'all',
+        'product', 'category', 'brand', 'collection', 'supplier', 'customer_group', 'entity', 'all',
     ];
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -23,7 +23,7 @@ final class PdoDiscountScopesRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_scopes
+            SELECT id, discount_id, scope_type, scope_id FROM discount_scopes
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

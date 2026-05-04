@@ -84,7 +84,7 @@ final class EntitiesAttributeValuesService
         // التحقق من وجود القيمة
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("Attribute value not found");
+            throw new ApplicationException("Attribute value not found");
         }
         
         EntitiesAttributeValuesValidator::validateUpdate($data);
@@ -107,7 +107,7 @@ final class EntitiesAttributeValuesService
     {
         // التحقق من وجود القيمة
         if (!$this->repo->find($id)) {
-            throw new RuntimeException("Attribute value not found");
+            throw new ApplicationException("Attribute value not found");
         }
         
         $this->repo->delete($id);

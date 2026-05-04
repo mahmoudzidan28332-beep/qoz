@@ -42,13 +42,17 @@ final class PdoEntitiesRepository extends BaseRepository
             LEFT JOIN entity_translations et
               ON e.id = et.entity_id AND et.language_code = :lang
             LEFT JOIN timezones tz ON tz.id = e.timezone_id
-            WHERE e.tenant_id = :tenant_id
+            WHERE 1=1
         ";
 
         $params = [
-            ':tenant_id' => $tenantId,
             ':lang' => $lang
         ];
+
+        if ($tenantId > 0) {
+            $sql .= " AND e.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== null) {
@@ -84,8 +88,13 @@ final class PdoEntitiesRepository extends BaseRepository
     public function count(array $filters): int
     {
         $tenantId = $this->getTenantId();
-        $sql = "SELECT COUNT(*) FROM entities WHERE tenant_id = :tenant_id";
-        $params = [':tenant_id'=>$tenantId];
+        $sql = "SELECT COUNT(*) FROM entities WHERE 1=1";
+        $params = [];
+
+        if ($tenantId > 0) {
+            $sql .= " AND tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== null) {
@@ -109,7 +118,7 @@ final class PdoEntitiesRepository extends BaseRepository
     // =========================
     public function find(int $tenantId, int $id, string $lang): ?array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT e.*,
                    e.store_name AS original_store_name,
                    COALESCE(et.store_name, e.store_name) AS store_name,
@@ -122,14 +131,19 @@ final class PdoEntitiesRepository extends BaseRepository
             LEFT JOIN entity_translations et
               ON e.id = et.entity_id AND et.language_code = :lang
             LEFT JOIN timezones tz ON tz.id = e.timezone_id
-            WHERE e.tenant_id = :tenant_id AND e.id = :id
+            WHERE e.id = :id
             LIMIT 1
-        ");
-        $stmt->execute([
-            ':tenant_id'=>$tenantId,
+        ";
+        $params = [
             ':id'=>$id,
             ':lang'=>$lang
-        ]);
+        ];
+        if ($tenantId > 0) {
+            $sql = str_replace('WHERE e.id = :id', 'WHERE e.id = :id AND e.tenant_id = :tenant_id', $sql);
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -142,15 +156,21 @@ final class PdoEntitiesRepository extends BaseRepository
 
         if (!empty($data['id'])) {
             $params[':id'] = $data['id'];
-            $stmt = $this->pdo->prepare("
+            $sql = "
                 UPDATE entities SET store_name = :store_name, slug = :slug, parent_id = :parent_id,
                     branch_code = :branch_code, status = :status, vendor_type = :vendor_type,
                     store_type = :store_type, registration_number = :registration_number, tax_number = :tax_number,
                     phone = :phone, mobile = :mobile, email = :email, website_url = :website_url,
                     suspension_reason = :suspension_reason, is_verified = :is_verified, timezone_id = :timezone_id,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant_id AND id = :id
-            ");
+                WHERE id = :id";
+            
+            if ($tenantId > 0) {
+                $sql .= " AND tenant_id = :tenant_id";
+            } else {
+                unset($params[':tenant_id']);
+            }
+            $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return (int)$data['id'];
         }
@@ -177,8 +197,8 @@ final class PdoEntitiesRepository extends BaseRepository
             ':branch_code'=>$data['branch_code'] ?? null, ':status'=>$data['status'] ?? 'pending',
             ':vendor_type'=>$data['vendor_type'] ?? 'product_seller', ':store_type'=>$data['store_type'] ?? 'individual',
             ':registration_number'=>$data['registration_number'] ?? null, ':tax_number'=>$data['tax_number'] ?? null,
-            ':phone'=>$data['phone'], ':mobile'=>$data['mobile'] ?? null,
-            ':email'=>$data['email'], ':website_url'=>$data['website_url'] ?? null,
+            ':phone'=>$data['phone'] ?? null, ':mobile'=>$data['mobile'] ?? null,
+            ':email'=>$data['email'] ?? null, ':website_url'=>$data['website_url'] ?? null,
             ':suspension_reason'=>$data['suspension_reason'] ?? null,
             ':is_verified'=>$data['is_verified'] ?? 0,
             ':timezone_id'=>!empty($data['timezone_id']) ? (int)$data['timezone_id'] : null,
@@ -212,9 +232,13 @@ final class PdoEntitiesRepository extends BaseRepository
 
     public function delete(int $tenantId, int $id): bool
     {
-        return $this->pdo
-            ->prepare("DELETE FROM entities WHERE tenant_id = :t AND id = :i")
-            ->execute([':t'=>$tenantId,':i'=>$id]);
+        $sql = "DELETE FROM entities WHERE id = :i";
+        $p = [':i'=>$id];
+        if ($tenantId > 0) {
+            $sql .= " AND tenant_id = :t";
+            $p[':t'] = $tenantId;
+        }
+        return $this->pdo->prepare($sql)->execute($p);
     }
 
     public function createPublic(
@@ -247,6 +271,7 @@ final class PdoEntitiesRepository extends BaseRepository
      */
     public function verifyOwnership(int $id, int $tenantId): bool
     {
+        if ($tenantId === 0) return true; // Platform Admin global access
         $stmt = $this->pdo->prepare("SELECT 1 FROM entities WHERE id = :id AND tenant_id = :tid LIMIT 1");
         $stmt->execute([':id' => $id, ':tid' => $tenantId]);
         return (bool)$stmt->fetchColumn();

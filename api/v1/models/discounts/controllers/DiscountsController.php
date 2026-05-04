@@ -4,16 +4,18 @@ declare(strict_types=1);
 require_once __DIR__ . '/DiscountsExclusionsTrait.php';
 
 /**
- * Thin controller pass-through to DiscountsService.
+ * Controller for core discount management.
+ * Satisfies SRP by handling only main Discount CRUD and Exclusions.
  */
 final class DiscountsController
 {
     use DiscountsControllerExclusionsTrait;
-    private DiscountsService $service;
+    
+    private $discountsService;
 
-    public function __construct(DiscountsService $service)
+    public function __construct($discountsService)
     {
-        $this->service = $service;
+        $this->discountsService = $discountsService;
     }
 
     // ================================
@@ -21,148 +23,37 @@ final class DiscountsController
     // ================================
 
     public function listDiscounts(
-        ?int $limit = null,
-        ?int $offset = null,
+        ?int $limit = 25,
+        ?int $offset = 0,
         array $filters = [],
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        return $this->service->listDiscounts($limit, $offset, $filters, $orderBy, $orderDir);
+        return $this->discountsService->listDiscounts($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function getDiscount(int $id): ?array
+    public function getDiscount(int $id, ?int $tenantId = null, bool $isSuperAdmin = false): ?array
     {
-        return $this->service->getDiscount($id);
+        return $this->discountsService->getDiscount($id, $tenantId, $isSuperAdmin);
     }
 
-    public function createDiscount(array $data): int
+    public function createDiscount(array $data, ?int $tenantId = null, bool $isSuperAdmin = false): int
     {
-        return $this->service->createDiscount($data);
+        return $this->discountsService->createDiscount($data, $tenantId, $isSuperAdmin);
     }
 
-    public function updateDiscount(int $id, array $data): bool
+    public function updateDiscount(int $id, array $data, ?int $tenantId = null, bool $isSuperAdmin = false): bool
     {
-        return $this->service->updateDiscount($id, $data);
+        return $this->discountsService->updateDiscount($id, $data, $tenantId, $isSuperAdmin);
     }
 
-    public function deleteDiscount(int $id): bool
+    public function deleteDiscount(int $id, ?int $tenantId = null, bool $isSuperAdmin = false): bool
     {
-        return $this->service->deleteDiscount($id);
+        return $this->discountsService->deleteDiscount($id, $tenantId, $isSuperAdmin);
     }
 
     public function discountStats(array $filters = []): array
     {
-        return $this->service->discountStats($filters);
+        return $this->discountsService->discountStats($filters);
     }
-
-    // ================================
-    // Translations
-    // ================================
-
-    public function listTranslations(int $discountId): array
-    {
-        return $this->service->listTranslations($discountId);
-    }
-
-    public function findTranslation(int $id): ?array
-    {
-        return $this->service->findTranslation($id);
-    }
-
-    public function upsertTranslation(int $discountId, string $langCode, array $data): int
-    {
-        return $this->service->upsertTranslation($discountId, $langCode, $data);
-    }
-
-    public function deleteTranslation(int $id): bool
-    {
-        return $this->service->deleteTranslation($id);
-    }
-
-    public function deleteTranslationsByDiscount(int $discountId): bool
-    {
-        return $this->service->deleteTranslationsByDiscount($discountId);
-    }
-
-    // ================================
-    // Scopes
-    // ================================
-
-    public function listScopes(int $discountId): array
-    {
-        return $this->service->listScopes($discountId);
-    }
-
-    public function createScope(array $data): int
-    {
-        return $this->service->createScope($data);
-    }
-
-    public function deleteScope(int $id): bool
-    {
-        return $this->service->deleteScope($id);
-    }
-
-    // ================================
-    // Conditions
-    // ================================
-
-    public function listConditions(int $discountId): array
-    {
-        return $this->service->listConditions($discountId);
-    }
-
-    public function createCondition(array $data): int
-    {
-        return $this->service->createCondition($data);
-    }
-
-    public function updateCondition(int $id, array $data): bool
-    {
-        return $this->service->updateCondition($id, $data);
-    }
-
-    public function deleteCondition(int $id): bool
-    {
-        return $this->service->deleteCondition($id);
-    }
-
-    // ================================
-    // Actions
-    // ================================
-
-    public function listActions(int $discountId): array
-    {
-        return $this->service->listActions($discountId);
-    }
-
-    public function createAction(array $data): int
-    {
-        return $this->service->createAction($data);
-    }
-
-    public function updateAction(int $id, array $data): bool
-    {
-        return $this->service->updateAction($id, $data);
-    }
-
-    public function deleteAction(int $id): bool
-    {
-        return $this->service->deleteAction($id);
-    }
-
-    // ================================
-    // Redemptions
-    // ================================
-
-    public function listRedemptions(int $discountId, ?int $limit = null, ?int $offset = null): array
-    {
-        return $this->service->listRedemptions($discountId, $limit, $offset);
-    }
-
-    public function createRedemption(array $data): int
-    {
-        return $this->service->createRedemption($data);
-    }
-
 }

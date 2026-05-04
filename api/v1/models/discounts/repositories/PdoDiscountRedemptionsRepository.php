@@ -6,9 +6,9 @@ declare(strict_types=1);
  */
 final class PdoDiscountRedemptionsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -18,7 +18,7 @@ final class PdoDiscountRedemptionsRepository
     // ================================
     public function listByDiscount(int $discountId, ?int $limit = null, ?int $offset = null): array
     {
-        $sql = "SELECT * FROM discount_redemptions WHERE discount_id = :discount_id ORDER BY redeemed_at DESC";
+        $sql = "SELECT id, discount_id, user_id, order_id, amount_discounted, currency_code, redeemed_at FROM discount_redemptions WHERE discount_id = :discount_id ORDER BY redeemed_at DESC";
         $params = [':discount_id' => $discountId];
 
         if ($limit !== null) $sql .= " LIMIT :limit";
@@ -80,5 +80,14 @@ final class PdoDiscountRedemptionsRepository
             'total_amount'   => (float)($row['total_amount'] ?? 0),
             'unique_users'   => (int)($row['unique_users'] ?? 0),
         ];
+    }
+
+    // ================================
+    // Delete
+    // ================================
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare("DELETE FROM discount_redemptions WHERE id = :id");
+        return $stmt->execute([':id' => $id]);
     }
 }

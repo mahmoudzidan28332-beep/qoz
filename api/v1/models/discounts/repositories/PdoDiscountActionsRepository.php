@@ -6,13 +6,13 @@ declare(strict_types=1);
  */
 final class PdoDiscountActionsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_ACTION_TYPES = [
         'percentage', 'fixed', 'free_shipping', 'buy_x_get_y', 'free_item',
     ];
 
-    public function __construct(PDO $pdo)
+    public function __construct($pdo)
     {
         $this->pdo = $pdo;
     }
@@ -23,7 +23,7 @@ final class PdoDiscountActionsRepository
     public function listByDiscount(int $discountId): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT * FROM discount_actions
+            SELECT id, discount_id, action_type, action_value FROM discount_actions
             WHERE discount_id = :discount_id
         ");
         $stmt->execute([':discount_id' => $discountId]);

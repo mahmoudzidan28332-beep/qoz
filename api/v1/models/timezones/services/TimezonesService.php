@@ -42,7 +42,7 @@ final class TimezonesService
 
         // ensure unique timezone
         if ($this->repo->getByTimezone($data['timezone'])) {
-            throw new RuntimeException('Timezone already exists');
+            throw new ApplicationException('Timezone already exists');
         }
 
         $id = $this->repo->insert($data);
@@ -68,19 +68,19 @@ final class TimezonesService
 
         $existing = $this->repo->getById($id);
         if (!$existing) {
-            throw new RuntimeException('Timezone not found');
+            throw new ApplicationException('Timezone not found');
         }
 
         // If timezone changed, ensure uniqueness
         if (isset($data['timezone']) && $data['timezone'] !== $existing['timezone']) {
             if ($this->repo->getByTimezone($data['timezone'])) {
-                throw new RuntimeException('Timezone already exists');
+                throw new ApplicationException('Timezone already exists');
             }
         }
 
         $ok = $this->repo->update($id, $data);
         if (!$ok) {
-            throw new RuntimeException('Failed to update timezone');
+            throw new ApplicationException('Failed to update timezone');
         }
 
         return ['id' => $id, 'updated' => true];
@@ -119,12 +119,12 @@ final class TimezonesService
     {
         $existing = $this->repo->getById($id);
         if (!$existing) {
-            throw new RuntimeException('Timezone not found');
+            throw new ApplicationException('Timezone not found');
         }
 
         $ok = $this->repo->delete($id);
         if (!$ok) {
-            throw new RuntimeException('Failed to delete timezone');
+            throw new ApplicationException('Failed to delete timezone');
         }
 
         return ['deleted' => true, 'id' => $id];

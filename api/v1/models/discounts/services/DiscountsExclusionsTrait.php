@@ -17,9 +17,4 @@ trait DiscountsServiceExclusionsTrait
     {
         return $this->exclusions->delete($id);
     }
-
-    public function redemptionStats(int $discountId): array
-    {
-        return $this->redemptions->stats($discountId);
-    }
 }
