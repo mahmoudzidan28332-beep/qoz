@@ -138,6 +138,50 @@ if (!function_exists('assetVer')) {
     </div>
 </div>
 
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= _dlt('platform_admin.panel_title','Platform Admin — Tenant Context') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= _dlt('platform_admin.search_user','Search User (ID or name)') ?></label>
+                <div style="display:flex;gap:6px">
+                    <input type="text" id="paUserSearch" class="form-control"
+                           placeholder="<?= _dlt('platform_admin.search_placeholder','User ID or name...') ?>">
+                    <button type="button" id="paUserSearchBtn" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div id="paUserSearchResults" class="pa-search-results" style="display:none"></div>
+            </div>
+            <div class="form-group col-4">
+                <label><?= _dlt('platform_admin.select_tenant','Select Tenant') ?></label>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= _dlt('platform_admin.select_tenant_placeholder','-- Select tenant --') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm" disabled>
+                    <i class="fas fa-user-shield"></i>
+                    <?= _dlt('platform_admin.act_on_behalf','Act on Behalf') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" class="pa-active-banner" style="display:none">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+            <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-outline-danger" style="margin-left:auto">
+                <i class="fas fa-times"></i> <?= _dlt('platform_admin.clear_context','Clear') ?>
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- ═══ WORKSPACE TABS ═══ -->
 <div class="workspace-tabs" id="workspaceTabs">
     <button class="tab-btn active" data-tab="zones"><i class="fas fa-map-marked-alt"></i> <span data-i18n="workspace.tabs.zones">Zones</span></button>
@@ -883,18 +927,19 @@ if (!function_exists('assetVer')) {
 
 <script>
 window.DELIVERY_CONFIG = {
-    lang:      <?= json_encode($_dlSafeLang) ?>,
-    dir:       <?= json_encode($dir) ?>,
-    tenantId:  <?= (int) $tenantId ?>,
-    csrfToken: <?= json_encode($csrf) ?>,
-    userId:    <?= (int) $userId ?>,
-    strings:   <?= json_encode($_dlStrings, JSON_UNESCAPED_UNICODE) ?>,
-    mapCenter: [24.7136, 46.6753],
-    mapZoom:   5,
-    canCreate: <?= json_encode($canCreate) ?>,
-    canEdit:   <?= json_encode($canEdit) ?>,
-    canDelete: <?= json_encode($canDelete) ?>,
-    isSuperAdmin: <?= json_encode(is_super_admin()) ?>,
+    lang:            <?= json_encode($_dlSafeLang) ?>,
+    dir:             <?= json_encode($dir) ?>,
+    tenantId:        <?= (int) $tenantId ?>,
+    csrfToken:       <?= json_encode($csrf) ?>,
+    userId:          <?= (int) $userId ?>,
+    strings:         <?= json_encode($_dlStrings, JSON_UNESCAPED_UNICODE) ?>,
+    mapCenter:       [24.7136, 46.6753],
+    mapZoom:         5,
+    canCreate:       <?= json_encode($canCreate) ?>,
+    canEdit:         <?= json_encode($canEdit) ?>,
+    canDelete:       <?= json_encode($canDelete) ?>,
+    isSuperAdmin:    <?= json_encode(is_super_admin()) ?>,
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
     urls: {
         zones:          '/api/delivery_zones',
         providers:      '/api/delivery_providers',
@@ -907,7 +952,8 @@ window.DELIVERY_CONFIG = {
         tenant_users:   '/api/tenant_users',
         tenants:        '/api/tenants',
         countries:      '/api/countries',
-        currencies:     '/api/currencies'
+        currencies:     '/api/currencies',
+        users:          '/api/users'
     }
 };
 </script>

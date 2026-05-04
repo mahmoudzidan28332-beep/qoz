@@ -1307,6 +1307,161 @@
     }
 
     // ─── Init ─────────────────────────────────────────────────────────
+    // ─── Platform Admin — Tenant Context ─────────────────────────────
+    var platformAdmin = {
+        activeTenantId: 0,
+
+        /**
+         * Returns the effective tenant_id to append to all API calls.
+         * Platform Admins can override to any selected tenant.
+         */
+        tenantParam: function () {
+            var tid = this.activeTenantId || state.tenant;
+            return tid ? 'tenant_id=' + encodeURIComponent(tid) : '';
+        },
+
+        /**
+         * Wire up the Platform Admin panel controls.
+         */
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+
+            var self = this;
+            var searchInput   = $('paUserSearch');
+            var searchBtn     = $('paUserSearchBtn');
+            var searchResults = $('paUserSearchResults');
+            var tenantSelect  = $('paTenantSelect');
+            var applyBtn      = $('paApplyTenantBtn');
+            var banner        = $('paActiveTenantBanner');
+            var bannerLabel   = $('paActiveTenantLabel');
+            var clearBtn      = $('paClearTenantBtn');
+
+            if (!searchBtn) return;
+
+            // Search users by ID or name
+            searchBtn.addEventListener('click', async function () {
+                var q = searchInput ? searchInput.value.trim() : '';
+                if (!q) return;
+
+                try {
+                    var isId = /^\d+$/.test(q);
+                    var url  = isId
+                        ? CFG.urls.users + '/' + encodeURIComponent(q)
+                        : CFG.urls.users + '?search=' + encodeURIComponent(q) + '&limit=20';
+
+                    var r = await api(url);
+                    var users = isId
+                        ? (r.data ? [r.data] : (r.id ? [r] : []))
+                        : (r.data && Array.isArray(r.data) ? r.data : (Array.isArray(r.items) ? r.items : []));
+
+                    if (!searchResults) return;
+                    searchResults.innerHTML = '';
+                    searchResults.style.display = users.length ? 'block' : 'none';
+
+                    users.forEach(function (u) {
+                        var item = document.createElement('div');
+                        item.className = 'pa-user-item';
+                        item.textContent = (u.name || u.username || '') + ' (#' + u.id + ')';
+                        item.dataset.userId = u.id;
+                        item.addEventListener('click', function () {
+                            searchResults.style.display = 'none';
+                            if (searchInput) searchInput.value = item.textContent;
+                            self.loadTenantsForUser(u.id, tenantSelect, applyBtn);
+                        });
+                        searchResults.appendChild(item);
+                    });
+                } catch (err) {
+                    console.error('[PlatformAdmin] user search error', err);
+                }
+            });
+
+            // Load tenant list when platform admin also wants to browse without user search
+            self.loadAllTenants(tenantSelect, applyBtn);
+
+            // Apply selected tenant
+            applyBtn.addEventListener('click', function () {
+                var tid = parseInt(tenantSelect ? tenantSelect.value : '', 10) || 0;
+                if (!tid) return;
+
+                self.activeTenantId = tid;
+                state.tenant        = tid;
+
+                if (banner) banner.style.display = 'flex';
+                if (bannerLabel) {
+                    var opt = tenantSelect ? tenantSelect.options[tenantSelect.selectedIndex] : null;
+                    bannerLabel.textContent = 'Acting on behalf of: ' + (opt ? opt.text : 'Tenant #' + tid);
+                }
+
+                // Reload all modules with new tenant
+                [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
+                    .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
+            });
+
+            // Clear selected tenant
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    state.tenant        = CFG.tenantId || 0;
+                    if (banner) banner.style.display = 'none';
+                    if (tenantSelect) tenantSelect.value = '';
+                    if (applyBtn) applyBtn.disabled = true;
+
+                    [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
+                        .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
+                });
+            }
+
+            // Enable apply button when a tenant is selected
+            if (tenantSelect) {
+                tenantSelect.addEventListener('change', function () {
+                    if (applyBtn) applyBtn.disabled = !tenantSelect.value;
+                });
+            }
+        },
+
+        /**
+         * Populate tenant dropdown with all tenants (for platform admin).
+         */
+        loadAllTenants: async function (selectEl, applyBtn) {
+            if (!selectEl) return;
+            try {
+                var r = await api(CFG.urls.tenants + '?limit=500&lang=' + state.lang);
+                var list = r.data || r.items || [];
+                list.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value       = t.id;
+                    opt.textContent = (t.name || t.tenant_name || '') + ' (#' + t.id + ')';
+                    selectEl.appendChild(opt);
+                });
+                if (applyBtn) applyBtn.disabled = !selectEl.value;
+            } catch (err) {
+                console.error('[PlatformAdmin] load tenants error', err);
+            }
+        },
+
+        /**
+         * Populate tenant dropdown with tenants belonging to a specific user.
+         */
+        loadTenantsForUser: async function (userId, selectEl, applyBtn) {
+            if (!selectEl) return;
+            try {
+                var r = await api(CFG.urls.users + '/' + encodeURIComponent(userId) + '/tenants');
+                var list = r.data || r.items || [];
+                // Reset and re-populate
+                while (selectEl.options.length > 1) selectEl.remove(1);
+                list.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value       = t.tenant_id || t.id;
+                    opt.textContent = (t.tenant_name || t.name || '') + ' (#' + (t.tenant_id || t.id) + ')';
+                    selectEl.appendChild(opt);
+                });
+                if (applyBtn) applyBtn.disabled = !selectEl.value;
+            } catch (err) {
+                console.error('[PlatformAdmin] load user tenants error', err);
+            }
+        }
+    };
+
     async function init() {
         if (state.initialized) return;
         state.initialized = true;
@@ -1322,6 +1477,7 @@
         bindZoneTypeChange();
         bindCascade();
         initCoordPicker();
+        platformAdmin.bind();
 
         // ESC key closes modal
         document.addEventListener('keydown', function (e) {

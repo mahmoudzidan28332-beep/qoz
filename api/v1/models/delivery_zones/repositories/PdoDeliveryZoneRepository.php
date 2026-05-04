@@ -35,7 +35,11 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
         string $lang = 'ar'
     ): array {
         $sql = "
-            SELECT dz.*, c.name AS city_name
+            SELECT dz.id, dz.tenant_id, dz.provider_id, dz.zone_name, dz.zone_type,
+                   dz.city_id, dz.center_lat, dz.center_lng, dz.radius_km, dz.zone_value,
+                   dz.delivery_fee, dz.free_delivery_over, dz.min_order_value,
+                   dz.estimated_minutes, dz.is_active, dz.created_at,
+                   c.name AS city_name
             FROM delivery_zones dz
             LEFT JOIN cities c ON dz.city_id = c.id
             WHERE dz.tenant_id = :tenant_id
@@ -76,7 +80,11 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
         $sql = "
-            SELECT dz.*, c.name AS city_name
+            SELECT dz.id, dz.tenant_id, dz.provider_id, dz.zone_name, dz.zone_type,
+                   dz.city_id, dz.center_lat, dz.center_lng, dz.radius_km, dz.zone_value,
+                   dz.delivery_fee, dz.free_delivery_over, dz.min_order_value,
+                   dz.estimated_minutes, dz.is_active, dz.created_at,
+                   c.name AS city_name
             FROM delivery_zones dz
             LEFT JOIN cities c ON dz.city_id = c.id
             WHERE dz.tenant_id = :tenant_id

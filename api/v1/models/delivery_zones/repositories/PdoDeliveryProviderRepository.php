@@ -37,7 +37,9 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
         // Assuming a 'users' or 'tenant_users' table exists for names. 
         // Using LEFT JOIN for safety if table doesn't exist in schema provided.
         $sql = "
-            SELECT dp.* 
+            SELECT dp.id, dp.tenant_id, dp.tenant_user_id, dp.entity_id,
+                   dp.provider_type, dp.vehicle_type, dp.license_number,
+                   dp.is_online, dp.is_active, dp.rating, dp.total_deliveries, dp.created_at
             FROM delivery_providers dp
             WHERE dp.tenant_id = :tenant_id
         ";
@@ -77,7 +79,9 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
         $sql = "
-            SELECT dp.*
+            SELECT dp.id, dp.tenant_id, dp.tenant_user_id, dp.entity_id,
+                   dp.provider_type, dp.vehicle_type, dp.license_number,
+                   dp.is_online, dp.is_active, dp.rating, dp.total_deliveries, dp.created_at
             FROM delivery_providers dp
             WHERE dp.tenant_id = :tenant_id
               AND dp.id = :id

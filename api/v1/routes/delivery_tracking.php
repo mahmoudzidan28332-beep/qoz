@@ -25,10 +25,20 @@ if (!$pdo instanceof PDO) {
     )
 );
 
- $tenantId = (int) ($_SESSION['tenant_id'] ?? 0);
-if ($tenantId === 0) {
+$isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
+$tenantId        = (int)(function_exists('resolve_tenant_id') ? resolve_tenant_id() : ($_SESSION['tenant_id'] ?? 0));
+
+if (!$isPlatformAdmin && $tenantId === 0) {
     ResponseFormatter::error('Unauthorized', 401);
     exit;
+}
+
+if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
+    PlatformContext::logCrossTenantAction(
+        sourceTenant: null,
+        targetTenant: $tenantId,
+        reason: 'Platform Admin — delivery_tracking management'
+    );
 }
 
  $method = $_SERVER['REQUEST_METHOD'];
