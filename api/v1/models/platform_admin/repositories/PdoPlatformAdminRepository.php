@@ -82,6 +82,8 @@ class PdoPlatformAdminRepository extends BaseRepository
 
         $where = implode(' AND ', $conditions);
         // Use sprintf with %d to ensure integers and mitigate SQL injection scanner warnings.
+        // NOTE: Column list is intentionally dynamic — this is the platform-admin cross-tenant table browser.
+        // Specific column enumeration is architecturally impossible here (runtime table name).
         $sql = sprintf("SELECT * FROM `%s` WHERE %s LIMIT %d OFFSET %d", $table, $where, (int)$limit, (int)$offset);
 
         $stmt = $this->executeCrossTenant($sql, $params, $table, $targetTenantId, $reason);
@@ -105,6 +107,7 @@ class PdoPlatformAdminRepository extends BaseRepository
     ): ?array {
         $this->assertSafeTableName($table);
 
+        // NOTE: Column list is intentionally dynamic — runtime table name; returns full row to caller.
         $sql    = "SELECT * FROM `{$table}` WHERE id = :id AND tenant_id = :tenant_id LIMIT 1";
         $params = [':id' => $recordId, ':tenant_id' => $targetTenantId];
 

@@ -57,7 +57,7 @@ final class PdoSubscriptionPlansRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT sp.* FROM subscription_plans sp WHERE 1=1";
+        $sql = "SELECT sp.id, sp.plan_name, sp.code, sp.plan_type, sp.billing_period, sp.price, sp.currency_code, sp.setup_fee, sp.commission_rate, sp.max_products, sp.max_branches, sp.max_orders_per_month, sp.max_staff, sp.analytics_access, sp.priority_support, sp.featured_listing, sp.custom_domain, sp.api_access, sp.trial_period_days, sp.is_active, sp.is_featured, sp.sort_order, sp.created_at, sp.updated_at FROM subscription_plans sp WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -129,7 +129,7 @@ final class PdoSubscriptionPlansRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_plans WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, plan_name, code, plan_type, billing_period, price, currency_code, setup_fee, commission_rate, max_products, max_branches, max_orders_per_month, max_staff, analytics_access, priority_support, featured_listing, custom_domain, api_access, trial_period_days, is_active, is_featured, sort_order, created_at, updated_at FROM subscription_plans WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

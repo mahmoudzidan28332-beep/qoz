@@ -61,7 +61,7 @@ final class SeoMetaService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("SEO meta not found with ID: $id");
+            throw new ApplicationException("SEO meta not found with ID: $id");
         }
 
         // 🔒 SECURITY: Mass Assignment Protection - Define WHITELIST
@@ -76,7 +76,7 @@ final class SeoMetaService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException("SEO meta not found with ID: $id");
+            throw new ApplicationException("SEO meta not found with ID: $id");
         }
         return $this->repo->delete($id);
     }

@@ -57,7 +57,7 @@ final class PdoSubscriptionInvoicesRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT si.* FROM subscription_invoices si WHERE 1=1";
+        $sql = "SELECT si.id, si.invoice_number, si.subscription_id, si.tenant_id, si.amount, si.tax_amount, si.total_amount, si.currency_code, si.billing_period_start, si.billing_period_end, si.due_date, si.status, si.paid_at, si.payment_method, si.transaction_id, si.notes, si.created_at FROM subscription_invoices si WHERE 1=1";
         $params = [];
 
         $this->applyFilters($sql, $params, $filters);
@@ -128,7 +128,7 @@ final class PdoSubscriptionInvoicesRepository
     // ================================
     public function all(int $limit = 25, int $offset = 0, array $filters = []): array
     {
-        $sql = "SELECT i.*, t.name AS tenant_name FROM subscription_invoices i LEFT JOIN tenants t ON i.tenant_id = t.id WHERE 1=1";
+        $sql = "SELECT i.id, i.invoice_number, i.subscription_id, i.tenant_id, i.amount, i.tax_amount, i.total_amount, i.currency_code, i.billing_period_start, i.billing_period_end, i.due_date, i.status, i.paid_at, i.payment_method, i.transaction_id, i.notes, i.created_at, t.name AS tenant_name FROM subscription_invoices i LEFT JOIN tenants t ON i.tenant_id = t.id WHERE 1=1";
         $params = [];
 
         if (isset($filters['status']) && $filters['status'] !== '') {
@@ -162,7 +162,7 @@ final class PdoSubscriptionInvoicesRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM subscription_invoices WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, invoice_number, subscription_id, tenant_id, amount, tax_amount, total_amount, currency_code, billing_period_start, billing_period_end, due_date, status, paid_at, payment_method, transaction_id, notes, created_at FROM subscription_invoices WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

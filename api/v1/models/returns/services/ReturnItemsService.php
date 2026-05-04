@@ -35,7 +35,7 @@ final class ReturnItemsService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Return item not found');
+            throw new ApplicationException('Return item not found');
         }
         return $data;
     }

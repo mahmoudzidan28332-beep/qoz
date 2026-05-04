@@ -117,7 +117,13 @@ final class PdoProductVariantAttributesRepository
                     attribute_value_id = :attribute_value_id
                 WHERE id = :id
             ");
-            $stmt->execute(array_merge($data, [':id'=>$data['id']]));
+            $params = [
+                ':variant_id' => $data['variant_id'],
+                ':attribute_id' => $data['attribute_id'],
+                ':attribute_value_id' => $data['attribute_value_id'],
+                ':id' => $data['id']
+            ];
+            $stmt->execute($params);
             return (int)$data['id'];
         }
 
@@ -125,7 +131,12 @@ final class PdoProductVariantAttributesRepository
             INSERT INTO product_variant_attributes (variant_id,attribute_id,attribute_value_id)
             VALUES (:variant_id,:attribute_id,:attribute_value_id)
         ");
-        $stmt->execute($data);
+        $params = [
+            ':variant_id' => $data['variant_id'],
+            ':attribute_id' => $data['attribute_id'],
+            ':attribute_value_id' => $data['attribute_value_id']
+        ];
+        $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
     }
 

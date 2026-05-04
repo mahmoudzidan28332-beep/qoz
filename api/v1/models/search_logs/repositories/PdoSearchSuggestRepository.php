@@ -31,14 +31,14 @@ final class PdoSearchSuggestRepository
             $st->execute($params);
             $rows = $st->fetchAll(PDO::FETCH_ASSOC);
             if ($rows) return $rows;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             error_log('[PdoSearchSuggestRepository] fulltext search failed: ' . $e->getMessage());
         }
         try {
             $st = $this->pdo->prepare($likeSql);
             $st->execute($likeParams);
             return $st->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             return [];
         }
     }

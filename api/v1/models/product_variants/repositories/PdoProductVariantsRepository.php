@@ -151,7 +151,7 @@ final class PdoProductVariantsRepository
         $stmt = $this->pdo->prepare("
             INSERT INTO product_variant_translations (variant_id, language_code, name)
             VALUES (:variant_id, :lang, :name)
-            ON DUPLICATE KEY UPDATE name = :name
+            ON DUPLICATE KEY UPDATE name = VALUES(name)
         ");
         $stmt->execute([
             ':variant_id' => $variantId,

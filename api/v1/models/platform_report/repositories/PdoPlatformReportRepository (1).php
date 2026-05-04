@@ -28,7 +28,7 @@ final class PdoPlatformReportRepository
     public function allReportTypes(): array
     {
         $stmt = $this->pdo->query(
-            'SELECT * FROM report_types WHERE is_active = 1 ORDER BY sort_order ASC'
+            'SELECT id, type_key, title_en, title_ar, description_en, description_ar, category, is_active, sort_order, created_at FROM report_types WHERE is_active = 1 ORDER BY sort_order ASC'
         );
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -45,7 +45,7 @@ final class PdoPlatformReportRepository
         ?int $tenantId = null,
         ?int $entityId = null
     ): array {
-        $sql = 'SELECT * FROM platform_report_stats
+        $sql = 'SELECT id, tenant_id, entity_id, report_type, period_type, period_date, period_start, period_end, metrics, generated_at, created_at, updated_at FROM platform_report_stats
                 WHERE report_type = :rt
                   AND period_type = :pt
                   AND period_date BETWEEN :sd AND :ed';
@@ -462,7 +462,7 @@ final class PdoPlatformReportRepository
 
     public function listExports(?int $tenantId, int $limit = 20): array
     {
-        $sql = 'SELECT * FROM report_exports';
+        $sql = 'SELECT id, tenant_id, report_type, export_format, filters, status, file_path, file_size, error_message, requested_by, completed_at, expires_at, created_at FROM report_exports';
         $params = [];
         if ($tenantId !== null) {
             $sql .= ' WHERE tenant_id = :tid';
@@ -485,7 +485,7 @@ final class PdoPlatformReportRepository
 
     public function listSchedules(?int $tenantId): array
     {
-        $sql = 'SELECT * FROM report_schedules';
+        $sql = 'SELECT id, tenant_id, report_type, frequency, recipients_email, is_active, last_run_at, next_run_at, created_by, created_at, updated_at FROM report_schedules';
         $params = [];
         if ($tenantId !== null) {
             $sql .= ' WHERE tenant_id = :tid';

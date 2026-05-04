@@ -43,7 +43,7 @@ final class PdoQueuesRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM queues WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, queue, entity_type, entity_id, job_type, priority, payload, status, attempts, error, created_at, available_at, updated_at, processed_at FROM queues WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
@@ -99,7 +99,7 @@ final class PdoQueuesRepository
         $total = (int)$countStmt->fetchColumn();
 
         // Rows
-        $sql = "SELECT * FROM queues {$whereSQL} ORDER BY {$orderBy} {$orderDir} LIMIT :lim OFFSET :off";
+        $sql = "SELECT id, queue, entity_type, entity_id, job_type, priority, payload, status, attempts, error, created_at, available_at, updated_at, processed_at FROM queues {$whereSQL} ORDER BY {$orderBy} {$orderDir} LIMIT :lim OFFSET :off";
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue($k, $v);
