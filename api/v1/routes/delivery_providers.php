@@ -4,6 +4,9 @@ declare(strict_types=1);
 // ============================================================
 // Dependencies
 // ============================================================
+if (!function_exists('resolve_tenant_id')) {
+    require_once dirname(__DIR__, 2) . '/shared/helpers/safe_helpers.php';
+}
 require_once API_VERSION_PATH . '/models/delivery_zones/Contracts/DeliveryProviderRepositoryInterface.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/repositories/PdoDeliveryProviderRepository.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/validators/DeliveryProviderValidator.php';

@@ -24,7 +24,7 @@
     // ─── State ───────────────────────────────────────────────────────
     const state = {
         lang:   CFG.lang || 'ar',
-        tenant: CFG.tenantId || 1,
+        tenant: CFG.tenantId || 0,
         csrf:   CFG.csrfToken || '',
         perms:  { canCreate: !!CFG.canCreate, canEdit: !!CFG.canEdit, canDelete: !!CFG.canDelete },
         initialized: false,
@@ -295,7 +295,7 @@
     // ─── Country → City Cascade ───────────────────────────────────────
     async function loadCountries() {
         try {
-            var r     = await api(CFG.urls.countries + '?limit=300&lang=' + state.lang);
+            var r     = await api(CFG.urls.countries + '?limit=300&lang=' + state.lang + '&tenant_id=' + state.tenant);
             var items = extractItems(r);
             var html  = '<option value="">–</option>' +
                 items.map(function (c) {
@@ -312,8 +312,8 @@
         el.innerHTML = '<option value="">Loading...</option>';
         try {
             var url = countryId
-                ? CFG.urls.cities + '?country_id=' + encodeURIComponent(countryId) + '&limit=500&language=' + state.lang
-                : CFG.urls.cities + '?limit=500&language=' + state.lang;
+                ? CFG.urls.cities + '?country_id=' + encodeURIComponent(countryId) + '&limit=500&language=' + state.lang + '&tenant_id=' + state.tenant
+                : CFG.urls.cities + '?limit=500&language=' + state.lang + '&tenant_id=' + state.tenant;
             var r     = await api(url);
             var items = extractItems(r);
             el.innerHTML = '<option value="">–</option>' +
@@ -919,13 +919,16 @@
                     $('providerEntityName').textContent = '';
                     $('providerEntityName').className   = 'provider-name-badge';
                 }
-                if ($('providerTenantUserId')) $('providerTenantUserId').value = p.tenant_user_id || '';
-                if ($('providerTenantUserName') && p.tenant_user_id) {
-                    $('providerTenantUserName').textContent = '#' + p.tenant_user_id;
-                    $('providerTenantUserName').className   = 'provider-name-badge found';
-                } else if ($('providerTenantUserName')) {
-                    $('providerTenantUserName').textContent = '';
-                    $('providerTenantUserName').className   = 'provider-name-badge';
+                if ($('providerTenantUserId')) {
+                    var tuId = p.tenant_user_id || (!p.id && !CFG.isPlatformAdmin ? CFG.userId : '');
+                    $('providerTenantUserId').value = tuId || '';
+                    if (tuId && $('providerTenantUserName')) {
+                        $('providerTenantUserName').textContent = '#' + tuId;
+                        $('providerTenantUserName').className   = 'provider-name-badge found';
+                    } else if ($('providerTenantUserName')) {
+                        $('providerTenantUserName').textContent = '';
+                        $('providerTenantUserName').className   = 'provider-name-badge';
+                    }
                 }
             },
             getFormData: function () {
@@ -1392,7 +1395,8 @@
                     bannerLabel.textContent = 'Acting on behalf of: ' + (opt ? opt.text : 'Tenant #' + tid);
                 }
 
-                // Reload all modules with new tenant
+                // Reload dropdowns and all modules with new tenant
+                loadDrops();
                 [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
                     .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
             });
@@ -1426,7 +1430,7 @@
             if (!selectEl) return;
             try {
                 var r = await api(CFG.urls.tenants + '?limit=500&lang=' + state.lang);
-                var list = r.data || r.items || [];
+                var list = extractItems(r);
                 list.forEach(function (t) {
                     var opt = document.createElement('option');
                     opt.value       = t.id;
@@ -1469,7 +1473,7 @@
         // Re-read config in case of fragment re-navigation
         var cfg = window.DELIVERY_CONFIG || {};
         state.lang   = cfg.lang || 'ar';
-        state.tenant = cfg.tenantId || 1;
+        state.tenant = cfg.tenantId || 0;
         state.csrf   = cfg.csrfToken || '';
         state.perms  = { canCreate: !!cfg.canCreate, canEdit: !!cfg.canEdit, canDelete: !!cfg.canDelete };
 
