@@ -24,6 +24,14 @@ var currentFilters = {};
 var currentDiscountId = 0;
 var redemptionsPage = 1;
 var activeTenantId = null;
+var currenciesPromise = null;
+var languagesPromise = null;
+var entitiesCache = {};
+var allDiscountsCache = {};
+
+function getRoot() {
+    return document.getElementById('discountsPage');
+}
 
 function reloadConfig() {
     CFG = window.DISCOUNTS_CONFIG || {};
@@ -71,15 +79,18 @@ function closeModal(id) {
     if (el) el.style.display = 'none';
 }
 
-// Close on ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Escape') return;
-    ['discountModal', 'translationsModal', 'scopesModal', 'conditionsModal',
-     'actionsModal', 'exclusionsModal', 'redemptionsModal'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el && el.style.display !== 'none') closeModal(id);
+function bindEscHandlerOnce() {
+    if (window.__discountsEscHandlerBound) return;
+    window.__discountsEscHandlerBound = true;
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        ['discountModal', 'translationsModal', 'scopesModal', 'conditionsModal',
+         'actionsModal', 'exclusionsModal', 'redemptionsModal'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && el.style.display !== 'none') closeModal(id);
+        });
     });
-});
+}
 
 function generateCode() {
     var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -91,24 +102,26 @@ function generateCode() {
 /* ── Currencies ── */
 function loadCurrencies() {
     var select = document.getElementById('currencyCode');
-    if (!select) return;
-    fetch('/api/currencies')
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            var items = [];
-            if (d.success && Array.isArray(d.data)) {
-                items = d.data;
-            } else if (Array.isArray(d)) {
-                items = d;
-            }
-            items.forEach(function(c){
-                var opt = document.createElement('option');
-                opt.value = c.code || c.currency_code || '';
-                opt.textContent = (c.code || c.currency_code || '') + (c.name ? ' - ' + c.name : '');
-                select.appendChild(opt);
-            });
-        })
-        .catch(function(){});
+    if (!select || select.options.length > 1) return Promise.resolve();
+    if (!currenciesPromise) {
+        currenciesPromise = fetch('/api/currencies')
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.success && Array.isArray(d.data)) return d.data;
+                if (Array.isArray(d)) return d;
+                return [];
+            })
+            .catch(function(){ return []; });
+    }
+    return currenciesPromise.then(function(items){
+        if (select.options.length > 1) return;
+        items.forEach(function(c){
+            var opt = document.createElement('option');
+            opt.value = c.code || c.currency_code || '';
+            opt.textContent = (c.code || c.currency_code || '') + (c.name ? ' - ' + c.name : '');
+            select.appendChild(opt);
+        });
+    });
 }
 
 /* ── Stats ── */
@@ -135,7 +148,8 @@ function loadDiscounts(page) {
     currentPage = page || 1;
     var offset = (currentPage - 1) * PER_PAGE;
     var url = '/api/discounts?limit=' + PER_PAGE + '&offset=' + offset;
-    if (activeTenantId) url += '&tenant_id=' + activeTenantId;
+    var tenant = activeTenantId || CFG.tenantId || null;
+    if (tenant) url += '&tenant_id=' + tenant;
     if (currentFilters.search) url += '&search=' + encodeURIComponent(currentFilters.search);
     if (currentFilters.type) url += '&type=' + encodeURIComponent(currentFilters.type);
     if (currentFilters.status) url += '&status=' + encodeURIComponent(currentFilters.status);
@@ -148,12 +162,12 @@ function loadDiscounts(page) {
         .then(function(r){ return r.json(); })
         .then(function(d){
             var tbody = document.getElementById('discountsBody');
+            if (!tbody) return;
             tbody.innerHTML = '';
             if (d.success && d.data && d.data.items && d.data.items.length > 0) {
-                d.data.items.forEach(function(item){
+                tbody.innerHTML = d.data.items.map(function(item){
                     var statusClass = item.status === 'active' ? 'badge-success' : (item.status === 'scheduled' ? 'badge-info' : (item.status === 'expired' ? 'badge-secondary' : 'badge-warning'));
-                    var tr = document.createElement('tr');
-                    tr.innerHTML =
+                    return '<tr>' +
                         '<td>' + esc(String(item.id)) + '</td>' +
                         '<td><strong>' + esc(item.code || '') + '</strong></td>' +
                         '<td>' + esc(item.name || '') + '</td>' +
@@ -172,9 +186,9 @@ function loadDiscounts(page) {
                             '<button class="btn btn-sm btn-icon btn-primary btn-redemptions" data-id="' + item.id + '" data-btn-slug="primary" title="' + t('redemptions.title', 'Redemptions') + '" aria-label="' + t('redemptions.title', 'Redemptions') + '"><i class="fas fa-receipt" aria-hidden="true"></i></button> ' +
                             '<button class="btn btn-sm btn-icon btn-primary btn-edit" data-id="' + item.id + '" data-btn-slug="primary" title="' + t('edit', 'Edit') + '" aria-label="' + t('edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' +
                             '<button class="btn btn-sm btn-icon btn-danger btn-delete" data-id="' + item.id + '" data-btn-slug="danger" title="' + t('delete', 'Delete') + '" aria-label="' + t('delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' +
-                        '</td>';
-                    tbody.appendChild(tr);
-                });
+                        '</td>' +
+                    '</tr>';
+                }).join('');
                 renderPagination(d.data);
                 // Apply DB-driven hover effects to all dynamically created buttons
                 if (window.Admin && Admin.buttons && Admin.buttons.applyHoverEffects) {
@@ -251,9 +265,14 @@ function saveDiscount(e) {
         max_redemptions_per_user: document.getElementById('maxRedemptionsPerUser').value ? parseInt(document.getElementById('maxRedemptionsPerUser').value) : null,
         starts_at: document.getElementById('startsAt').value ? document.getElementById('startsAt').value.replace('T', ' ') + ':00' : null,
         ends_at: document.getElementById('endsAt').value ? document.getElementById('endsAt').value.replace('T', ' ') + ':00' : null,
-        status: document.getElementById('discountStatus').value
+        status: document.getElementById('discountStatus').value,
+        tenant_id: activeTenantId || CFG.tenantId || null
     };
     if (id) payload.id = parseInt(id);
+    if (!payload.tenant_id && CFG.isSuperAdmin) {
+        showNotification(t('messages.select_tenant', 'Please select and verify a tenant first'), 'error');
+        return;
+    }
 
     fetch('/api/discounts', {
         method: id ? 'PUT' : 'POST',
@@ -276,6 +295,14 @@ function saveDiscount(e) {
 
 /* ── Edit Discount ── */
 function editDiscount(id) {
+    var form = document.getElementById('discountForm');
+    if (!form) return;
+    form.reset();
+    document.getElementById('discountId').value = id;
+    document.getElementById('modalTitle').textContent = t('modal.edit_title', 'Edit Discount');
+    openModal('discountModal');
+    Array.prototype.forEach.call(form.elements, function(el) { el.disabled = true; });
+
     fetch('/api/discounts?id=' + id)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -294,11 +321,18 @@ function editDiscount(id) {
                 document.getElementById('startsAt').value = (item.starts_at || '').replace(' ', 'T').substring(0, 16);
                 document.getElementById('endsAt').value = (item.ends_at || '').replace(' ', 'T').substring(0, 16);
                 document.getElementById('discountStatus').value = item.status || 'active';
-                document.getElementById('modalTitle').textContent = t('modal.edit_title', 'Edit Discount');
-                openModal('discountModal');
+            } else {
+                showNotification(d.message || t('messages.error', 'Error'), 'error');
+                closeModal('discountModal');
             }
         })
-        .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
+        .catch(function(){
+            showNotification(t('messages.error', 'Error'), 'error');
+            closeModal('discountModal');
+        })
+        .finally(function(){
+            Array.prototype.forEach.call(form.elements, function(el) { el.disabled = false; });
+        });
 }
 
 /* ── Delete Discount ── */
@@ -317,6 +351,7 @@ function deleteDiscount(id) {
 function openTranslationsModal(discountId) {
     currentDiscountId = discountId;
     document.getElementById('transDiscountId').value = discountId;
+    openModal('translationsModal');
     fetch('/api/discount_translations?discount_id=' + discountId)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -338,30 +373,33 @@ function openTranslationsModal(discountId) {
                     tbody.appendChild(tr);
                 });
             }
-            openModal('translationsModal');
         })
         .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
 
     var langSel = document.getElementById('transLang');
     if (langSel.options.length === 0) {
-        fetch('/api/languages')
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                var langs = d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
-                langs.forEach(function(l){
-                    var opt = document.createElement('option');
-                    opt.value = l.code || l.language_code || l.id;
-                    opt.textContent = l.name || l.code || l.id;
-                    langSel.appendChild(opt);
+        if (!languagesPromise) {
+            languagesPromise = fetch('/api/languages')
+                .then(function(r){ return r.json(); })
+                .then(function(d){
+                    var data = d.data || d;
+                    return data.items || (Array.isArray(data) ? data : []);
+                })
+                .catch(function(){
+                    return ['ar','en','fr','de','es','ja','zh'].map(function(c){
+                        return { code: c, name: c };
+                    });
                 });
-            })
-            .catch(function(){
-                ['ar','en','fr','de','es','ja','zh'].forEach(function(c){
-                    var opt = document.createElement('option');
-                    opt.value = c; opt.textContent = c;
-                    langSel.appendChild(opt);
-                });
+        }
+        languagesPromise.then(function(langs){
+            if (langSel.options.length > 0) return;
+            langs.forEach(function(l){
+                var opt = document.createElement('option');
+                opt.value = l.code || l.language_code || l.id;
+                opt.textContent = l.name || l.code || l.id;
+                langSel.appendChild(opt);
             });
+        });
     }
 }
 
@@ -413,6 +451,9 @@ function deleteTranslation(id) {
 function openScopesModal(discountId) {
     currentDiscountId = discountId;
     document.getElementById('scopesDiscountId').value = discountId;
+    document.getElementById('scopeType').value = 'all';
+    loadScopeEntities('all');
+    openModal('scopesModal');
     fetch('/api/discount_scopes?discount_id=' + discountId)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -434,17 +475,29 @@ function openScopesModal(discountId) {
                     resolveScopeName(item.scope_type, item.scope_id, function(name){ nameCell.textContent = name; });
                 });
             }
-            openModal('scopesModal');
         })
         .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
 }
 
 function saveScope() {
     var discountId = document.getElementById('scopesDiscountId').value;
+    var scopeType = document.getElementById('scopeType').value;
+    var scopeId = document.getElementById('scopeId').value;
+    var select = document.getElementById('scopeIdSelect');
+
+    if (select && select.style.display !== 'none' && select.value) {
+        scopeId = select.value;
+    }
+
+    if (!scopeId && scopeType !== 'all') {
+        showNotification(t('messages.select_id', 'Please select an item'), 'warning');
+        return;
+    }
+
     var payload = {
         discount_id: parseInt(discountId),
-        scope_type: document.getElementById('scopeType').value,
-        scope_id: document.getElementById('scopeId').value
+        scope_type: scopeType,
+        scope_id: scopeId || '0'
     };
     fetch('/api/discount_scopes', {
         method: 'POST',
@@ -488,14 +541,19 @@ function lookupScopeName() {
     var url = '';
     if (scopeType === 'entity') url = '/api/entities?id=' + encodeURIComponent(scopeId);
     else if (scopeType === 'product') url = '/api/products?id=' + encodeURIComponent(scopeId);
-    else if (scopeType === 'category') url = '/api/categories?id=' + encodeURIComponent(scopeId);
+    else if (scopeType === 'category') url = '/api/categories-tenants?id=' + encodeURIComponent(scopeId);
+    else if (scopeType === 'brand') url = '/api/brands?id=' + encodeURIComponent(scopeId);
     else { nameEl.textContent = ''; return; }
+
+    var tenant = activeTenantId || (CFG ? CFG.tenantId : null);
+    if (url && tenant) url += '&tenant_id=' + tenant;
     nameEl.textContent = '...';
     nameEl.className = 'lookup-name';
     fetch(url).then(function(r){ return r.json(); }).then(function(d){
         if (d.success && d.data) {
-            var item = Array.isArray(d.data) ? d.data[0] : d.data;
-            var name = item ? (item.store_name || item.name || item.slug || '') : '';
+            var items = Array.isArray(d.data) ? d.data : (d.data.items || [d.data]);
+            var item = items.find(function(i){ return i && String(i.id) === String(scopeId); }) || items[0];
+            var name = item ? (item.category_name || item.store_name || item.name || item.slug || '') : '';
             nameEl.textContent = name ? '✓ ' + name : t('messages.not_found', 'Not found');
             nameEl.className = name ? 'lookup-name' : 'lookup-name error';
         } else { nameEl.textContent = t('messages.not_found', 'Not found'); nameEl.className = 'lookup-name error'; }
@@ -507,20 +565,78 @@ function resolveScopeName(scopeType, scopeId, callback) {
     var url = '';
     if (scopeType === 'entity') url = '/api/entities?id=' + encodeURIComponent(scopeId);
     else if (scopeType === 'product') url = '/api/products?id=' + encodeURIComponent(scopeId);
-    else if (scopeType === 'category') url = '/api/categories?id=' + encodeURIComponent(scopeId);
+    else if (scopeType === 'category') url = '/api/categories-tenants?id=' + encodeURIComponent(scopeId);
+    else if (scopeType === 'brand') url = '/api/brands?id=' + encodeURIComponent(scopeId);
     else { callback('—'); return; }
+
+    var tenant = activeTenantId || (CFG ? CFG.tenantId : null);
+    if (url && tenant) url += '&tenant_id=' + tenant;
     fetch(url).then(function(r){ return r.json(); }).then(function(d){
         if (d.success && d.data) {
-            var item = Array.isArray(d.data) ? d.data[0] : d.data;
-            callback(item ? (item.store_name || item.name || item.slug || '—') : '—');
+            var items = Array.isArray(d.data) ? d.data : (d.data.items || [d.data]);
+            var item = items.find(function(i){ return i && String(i.id) === String(scopeId); }) || items[0];
+            callback(item ? (item.category_name || item.store_name || item.name || item.slug || '—') : '—');
         } else callback('—');
     }).catch(function(){ callback('—'); });
+}
+
+function loadScopeEntities(type) {
+    var select = document.getElementById('scopeIdSelect');
+    var input = document.getElementById('scopeId');
+    var nameEl = document.getElementById('scopeIdName');
+    if (!select || !input) return;
+
+    if (type === 'all') {
+        select.style.display = 'none';
+        input.style.display = 'block';
+        input.value = '0';
+        if (nameEl) nameEl.textContent = '';
+        return;
+    }
+
+    select.style.display = 'block';
+    input.style.display = 'none';
+    select.innerHTML = '<option value="">' + t('loading', 'Loading...') + '</option>';
+
+    var url = '';
+    if (type === 'entity') url = '/api/entities?limit=500';
+    else if (type === 'product') url = '/api/products?limit=500';
+    else if (type === 'category') url = '/api/categories-tenants?limit=500';
+    else if (type === 'brand') url = '/api/brands?limit=500';
+    else return;
+
+    var tenant = activeTenantId || CFG.tenantId || null;
+    if (tenant) url += '&tenant_id=' + tenant;
+
+    fetch(url)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            select.innerHTML = '<option value="">' + t('select_item', 'Select...') + '</option>';
+            var items = [];
+            if (d.success && d.data) {
+                items = Array.isArray(d.data) ? d.data : (d.data.items || []);
+            }
+            if (items.length === 0) {
+                select.innerHTML = '<option value="">' + t('no_records', 'No records') + '</option>';
+                return;
+            }
+            items.forEach(function(item){
+                var opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.category_name || item.store_name || item.name || item.slug || ('ID: ' + item.id);
+                select.appendChild(opt);
+            });
+        })
+        .catch(function(){
+            select.innerHTML = '<option value="">' + t('error', 'Error loading') + '</option>';
+        });
 }
 
 /* ── Conditions ── */
 function openConditionsModal(discountId) {
     currentDiscountId = discountId;
     document.getElementById('conditionsDiscountId').value = discountId;
+    openModal('conditionsModal');
     fetch('/api/discount_conditions?discount_id=' + discountId)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -540,7 +656,6 @@ function openConditionsModal(discountId) {
                     tbody.appendChild(tr);
                 });
             }
-            openModal('conditionsModal');
         })
         .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
 }
@@ -590,6 +705,7 @@ function deleteCondition(id) {
 function openActionsModal(discountId) {
     currentDiscountId = discountId;
     document.getElementById('actionsDiscountId').value = discountId;
+    openModal('actionsModal');
     fetch('/api/discount_actions?discount_id=' + discountId)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -608,7 +724,6 @@ function openActionsModal(discountId) {
                     tbody.appendChild(tr);
                 });
             }
-            openModal('actionsModal');
         })
         .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
 }
@@ -655,6 +770,7 @@ function deleteAction(id) {
 function openExclusionsModal(discountId) {
     currentDiscountId = discountId;
     document.getElementById('exclusionsDiscountId').value = discountId;
+    openModal('exclusionsModal');
     fetch('/api/discount_exclusions?discount_id=' + discountId)
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -672,29 +788,34 @@ function openExclusionsModal(discountId) {
                     tbody.appendChild(tr);
                 });
             }
-            openModal('exclusionsModal');
         })
         .catch(function(){ showNotification(t('messages.error', 'Error'), 'error'); });
 
     // Load discounts for exclusion selector
     var sel = document.getElementById('excludeDiscountSelect');
     if (sel.options.length <= 1) {
-        var url = '/api/discounts?limit=200';
-        if (activeTenantId) url += '&tenant_id=' + activeTenantId;
-        fetch(url)
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                var items = d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
-                items.forEach(function(item){
-                    if (item.id !== discountId) {
-                        var opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.code || item.name || ('Discount #' + item.id);
-                        sel.appendChild(opt);
-                    }
-                });
-            })
-            .catch(function(){});
+        var cacheKey = String(activeTenantId || 0);
+        if (!allDiscountsCache[cacheKey]) {
+            var url = '/api/discounts?limit=200';
+            if (activeTenantId) url += '&tenant_id=' + activeTenantId;
+            allDiscountsCache[cacheKey] = fetch(url)
+                .then(function(r){ return r.json(); })
+                .then(function(d){
+                    return d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
+                })
+                .catch(function(){ return []; });
+        }
+        allDiscountsCache[cacheKey].then(function(items){
+            if (sel.options.length > 1) return;
+            items.forEach(function(item){
+                if (item.id !== discountId) {
+                    var opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.textContent = item.code || item.name || ('Discount #' + item.id);
+                    sel.appendChild(opt);
+                }
+            });
+        });
     }
 }
 
@@ -850,6 +971,8 @@ function verifyTenant() {
                 
                 // Update active tenant and reload
                 activeTenantId = tid;
+                entitiesCache = {};
+                allDiscountsCache = {};
                 loadEntitiesByTenant(tid);
                 loadDiscounts(1);
                 loadStats();
@@ -868,12 +991,19 @@ function verifyTenant() {
 
 function loadEntitiesByTenant(tenantId) {
     var selectors = [document.getElementById('entitySelector'), document.getElementById('entitySelect')];
-    var url = '/api/entities?limit=200';
-    if (tenantId) url += '&tenant_id=' + tenantId;
-    fetch(url)
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            var items = d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
+    var cacheKey = String(tenantId || 0);
+    if (!entitiesCache[cacheKey]) {
+        var url = '/api/entities?limit=200';
+        if (tenantId) url += '&tenant_id=' + tenantId;
+        entitiesCache[cacheKey] = fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                return d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
+            })
+            .catch(function(){ return []; });
+    }
+    entitiesCache[cacheKey]
+        .then(function(items){
             selectors.forEach(function(sel){
                 if (!sel) return;
                 // Keep first "All Entities" option, remove the rest
@@ -900,12 +1030,19 @@ function loadEntityOptions() {
     selectors.forEach(function(sel){
         if (!sel || sel.options.length > 1) return;
     });
-    var url = '/api/entities?limit=100';
-    if (activeTenantId) url += '&tenant_id=' + activeTenantId;
-    fetch(url)
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            var items = d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
+    var cacheKey = String(activeTenantId || 0);
+    if (!entitiesCache[cacheKey]) {
+        var url = '/api/entities?limit=100';
+        if (activeTenantId) url += '&tenant_id=' + activeTenantId;
+        entitiesCache[cacheKey] = fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                return d.success ? (d.data && d.data.items ? d.data.items : (Array.isArray(d.data) ? d.data : [])) : [];
+            })
+            .catch(function(){ return []; });
+    }
+    entitiesCache[cacheKey]
+        .then(function(items){
             selectors.forEach(function(sel){
                 if (!sel || sel.options.length > 1) return;
                 items.forEach(function(e){
@@ -921,7 +1058,13 @@ function loadEntityOptions() {
 
 /* ── Init ── */
 function init() {
+    var root = getRoot();
+    if (!root) return;
+    if (root.dataset.discountsInitialized === '1') return;
+    root.dataset.discountsInitialized = '1';
+
     reloadConfig();
+    bindEscHandlerOnce();
     activeTenantId = CFG.isSuperAdmin ? null : (CFG.tenantId || null);
     loadStats();
     loadCurrencies();
@@ -972,7 +1115,7 @@ function init() {
 
     // Apply DB-driven hover effects to all static buttons on the page
     if (window.Admin && Admin.buttons && Admin.buttons.applyHoverEffects) {
-        Admin.buttons.applyHoverEffects(document.querySelector('.page-container'));
+        Admin.buttons.applyHoverEffects(root);
     }
 
     // Add button
@@ -989,7 +1132,7 @@ function init() {
     });
 
     // Close modals via btn-close-modal data-modal pattern
-    document.querySelectorAll('.btn-close-modal').forEach(function(btn) {
+    root.querySelectorAll('.btn-close-modal').forEach(function(btn) {
         btn.addEventListener('click', function() { closeModal(btn.dataset.modal); });
     });
 
@@ -1034,9 +1177,10 @@ function init() {
         var label = document.getElementById('scopeIdLabel');
         var type = this.value;
         if (label) {
-            var labels = { product: t('scopes.product_id', 'Product ID'), category: t('scopes.category_id', 'Category ID'), entity: t('scopes.entity_id', 'Entity ID'), brand: t('scopes.brand', 'Brand'), all: t('scopes.scope_id', 'Scope ID') };
+            var labels = { product: t('scopes.product', 'Product'), category: t('scopes.category', 'Category'), entity: t('scopes.entity', 'Entity'), brand: t('scopes.brand', 'Brand'), all: t('scopes.scope_id', 'Scope ID') };
             label.textContent = labels[type] || t('scopes.scope_id', 'Scope ID');
         }
+        loadScopeEntities(type);
         lookupScopeName();
     });
     document.getElementById('btnAddCondition').addEventListener('click', saveCondition);
@@ -1044,8 +1188,9 @@ function init() {
     document.getElementById('btnAddExclusion').addEventListener('click', saveExclusion);
 
     // Delegated click events
-    document.addEventListener('click', function(e){
-        var target = e.target;
+    root.addEventListener('click', function(e){
+        var target = e.target && e.target.closest ? e.target.closest('button') : e.target;
+        if (!target) return;
         if (target.classList.contains('btn-edit')) { editDiscount(parseInt(target.getAttribute('data-id'))); }
         else if (target.classList.contains('btn-delete')) { deleteDiscount(parseInt(target.getAttribute('data-id'))); }
         else if (target.classList.contains('btn-translations')) { openTranslationsModal(parseInt(target.getAttribute('data-id'))); }

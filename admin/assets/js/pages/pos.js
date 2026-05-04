@@ -29,15 +29,14 @@
         lang:          CFG.LANG || 'ar',
         dir:           CFG.DIR || 'ltr',
         csrf:          CFG.CSRF || '',
-        currency:      CFG.CURRENCY || 'SAR',
-        currencySymbol: CFG.CURRENCY_SYMBOL || '',
+        entityTimezone: CFG.ENTITY_TIMEZONE || '',  // IANA timezone e.g. 'Asia/Riyadh'
         session:       null,
         products:      [],
         categoryTree:  [],     // [{id, name, parent_id, children:[...]}]
         parentCatId:   null,   // selected parent category id (null = All)
         subCatId:      null,   // selected sub-category id (null = all in parent)
         activeTab:     'pos',  // 'pos' | 'history' | 'reports'
-        cart:          [],
+        cart:          [],     // each item has currency_code
         paymentMethod: 'cash',
         searchQuery:   '',
         loading:       false,
@@ -47,6 +46,8 @@
         discounts:     [],       // active discounts from API
         activeCoupon:  null,     // applied coupon discount object
         couponDiscount:0,        // computed discount amount from coupon
+        autoDiscountAmount: 0,   // computed discount from auto-apply offers
+        autoDiscountActions: [],  // fetched discount_actions for auto-apply discounts
         // Barcode scanner
         barcodeMode:   false,  // hardware scanner input mode active
         barcodeBuffer: '',     // accumulate typed chars
@@ -252,7 +253,7 @@
                     <span class="session-badge open">● ${t('pos.session.open','Open')}</span>
                     <span>🏪 ${escHtml(s.store_name || '')}</span>
                     <span>👤 ${escHtml(s.cashier_name || '')}</span>
-                    <span>🕐 ${new Date(s.opened_at).toLocaleTimeString(state.lang === 'ar' ? 'ar-SA' : 'en')}</span>
+                    <span>🕐 ${posFormatDate(s.opened_at)}</span>
                     <span>💵 ${t('pos.session.cash','Cash')}: ${formatCurrency(s.total_cash)}</span>
                     <span>💳 ${t('pos.session.card','Card')}: ${formatCurrency(s.total_card)}</span>
                 </div>
@@ -295,6 +296,10 @@
             state.entityId = entityId;
             const resolvedTenant = resolveEntityTenantId(entityId, state.session);
             if (resolvedTenant) state.tenantId = resolvedTenant;
+            // Update entity timezone from session response
+            if (state.session.entity_timezone) {
+                state.entityTimezone = state.session.entity_timezone;
+            }
             updateSessionBar();
             showMainLayout();
             await Promise.all([loadCategories(), loadDiscounts()]);
@@ -372,9 +377,6 @@
     async function loadDiscounts() {
         try {
             const res = await apiGet(API.publicDiscounts, { lang: state.lang });
-            // Public route returns ResponseFormatter::success(['ok'=>true,'data'=>[...]])
-            // ResponseFormatter wraps payload in { success, data: payload }
-            // so actual list is at res.data.data (nested)
             let items;
             if (Array.isArray(res.data)) {
                 items = res.data;
@@ -390,6 +392,50 @@
             state.discounts = [];
         }
         renderActiveDiscountsBanner();
+        // Fetch discount_actions for auto-apply discounts so we can compute prices
+        await fetchAutoApplyActions();
+    }
+
+    /** Fetch discount_actions for all auto-apply discounts */
+    async function fetchAutoApplyActions() {
+        const autoDiscounts = getAutoApplyDiscounts();
+        if (!autoDiscounts.length) {
+            state.autoDiscountActions = [];
+            state.autoDiscountAmount = 0;
+            return;
+        }
+        const allActions = [];
+        await Promise.all(autoDiscounts.map(async (d) => {
+            try {
+                const res = await apiGet(API.discountActions, { discount_id: d.id });
+                const actions = res.data?.items ?? res.items ?? (Array.isArray(res.data) ? res.data : []);
+                actions.forEach(a => allActions.push({ ...a, _discount: d }));
+            } catch { /* skip */ }
+        }));
+        state.autoDiscountActions = allActions;
+    }
+
+    /** Compute auto-apply discount amount based on current cart */
+    function computeAutoDiscount() {
+        if (!state.autoDiscountActions.length) {
+            state.autoDiscountAmount = 0;
+            return;
+        }
+        const { sub, tax } = cartSubtotals();
+        const orderTotal = sub + tax;
+        if (orderTotal <= 0) { state.autoDiscountAmount = 0; return; }
+
+        let amount = 0;
+        state.autoDiscountActions.forEach(a => {
+            const val = parseFloat(a.action_value) || 0;
+            if (a.action_type === 'percentage') {
+                amount += orderTotal * (val / 100);
+            } else if (a.action_type === 'fixed') {
+                amount += val;
+            }
+            // free_shipping, buy_x_get_y, free_item handled by other logic
+        });
+        state.autoDiscountAmount = Math.max(0, Math.min(amount, orderTotal));
     }
 
     /** Render active offers/discounts banner above the products grid */
@@ -497,7 +543,7 @@
         let amount = 0;
         actions.forEach(a => {
             const val = parseFloat(a.action_value) || 0;
-            if (a.action_type === 'percentage_discount' || a.action_type === 'percent') {
+            if (a.action_type === 'percentage_discount' || a.action_type === 'percentage' || a.action_type === 'percent') {
                 amount += orderTotal * (val / 100);
             } else if (a.action_type === 'fixed_discount' || a.action_type === 'fixed') {
                 amount += val;
@@ -938,16 +984,19 @@
                 tax_rate:        parseFloat(prod.tax_rate || 0),
                 qty:             1,
                 image:           prod.image_thumb_url || prod.image_url || '',
+                currency_code:   prod.currency_code || '',
             });
         }
         // Recompute coupon discount when cart changes
         if (state.activeCoupon) computeCouponDiscount();
+        computeAutoDiscount();
         renderCart();
     }
 
     function removeFromCart(productId) {
         state.cart = state.cart.filter(i => i.product_id !== productId);
         if (state.activeCoupon) computeCouponDiscount();
+        computeAutoDiscount();
         renderCart();
     }
 
@@ -956,6 +1005,7 @@
         if (!item) return;
         item.qty = Math.max(1, item.qty + delta);
         if (state.activeCoupon) computeCouponDiscount();
+        computeAutoDiscount();
         renderCart();
     }
 
@@ -963,6 +1013,7 @@
         state.cart = [];
         state.couponDiscount = 0;
         state.activeCoupon = null;
+        state.autoDiscountAmount = 0;
         renderCouponStatus();
         renderCart();
     }
@@ -983,9 +1034,10 @@
         const { sub, tax } = cartSubtotals();
         const manualDiscount = parseFloat(discountInput?.value ?? 0) || 0;
         const couponDiscount = state.couponDiscount || 0;
+        const autoDiscount   = state.autoDiscountAmount || 0;
         const total          = sub + tax;
-        const grandTotal     = Math.max(0, total - manualDiscount - couponDiscount);
-        return { sub, tax, discount: manualDiscount, couponDiscount, total, grandTotal };
+        const grandTotal     = Math.max(0, total - manualDiscount - couponDiscount - autoDiscount);
+        return { sub, tax, discount: manualDiscount, couponDiscount, autoDiscount, total, grandTotal };
     }
 
     function renderCart() {
@@ -1001,25 +1053,29 @@
 
         // Items
         if (cartItemsList) {
-            cartItemsList.innerHTML = items.map(item => `
+            cartItemsList.innerHTML = items.map(item => {
+                const itemCur = item.currency_code || undefined;
+                return `
                 <div class="pos-cart-item">
                     <div style="flex:1;min-width:0">
                         <div class="pos-item-name">${escHtml(item.product_name)}
                             ${canEdit ? `<button class="pos-item-edit-btn" data-action="editprice" data-id="${item.product_id}" title="Edit price">✎</button>` : ''}
                         </div>
-                        <div class="pos-item-price">${formatCurrency(item.sale_price)} × ${item.qty}</div>
+                        <div class="pos-item-price">${formatCurrency(item.sale_price, itemCur)} × ${item.qty}</div>
                         <div class="pos-qty-controls">
-                            <button class="pos-qty-btn remove" data-action="dec" data-id="${item.product_id}">−</button>
-                            <span class="pos-qty-display">${item.qty}</span>
-                            <button class="pos-qty-btn" data-action="inc" data-id="${item.product_id}">+</button>
+                            <button class="pos-qty-btn remove" data-action="dec" data-id="${item.product_id}" aria-label="Decrease quantity"> − </button>
+                            <input type="number" class="pos-qty-input" value="${item.qty}" min="1" step="1" 
+                                   data-id="${item.product_id}" 
+                                   onchange="posUpdateCartQtyManual(this)">
+                            <button class="pos-qty-btn" data-action="inc" data-id="${item.product_id}" aria-label="Increase quantity"> + </button>
                         </div>
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-                        <div class="pos-item-total">${formatCurrency(item.sale_price * item.qty)}</div>
+                        <div class="pos-item-total">${formatCurrency(item.sale_price * item.qty, itemCur)}</div>
                         <button class="pos-qty-btn remove" style="width:22px;height:22px;font-size:.75rem" data-action="remove" data-id="${item.product_id}">✕</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
 
             cartItemsList.querySelectorAll('[data-action]').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1073,7 +1129,7 @@
     };
 
     function updateTotals() {
-        const { sub, tax, discount, couponDiscount, total, grandTotal } = cartTotals();
+        const { sub, tax, discount, couponDiscount, autoDiscount, total, grandTotal } = cartTotals();
         if (subtotalEl)  subtotalEl.textContent  = formatCurrency(sub);
         if (taxEl)       taxEl.textContent       = formatCurrency(tax);
         if (totalEl)     totalEl.textContent     = formatCurrency(total);
@@ -1083,6 +1139,12 @@
         if (couponRow) couponRow.style.display = couponDiscount > 0 ? 'flex' : 'none';
         const couponDiscountEl = document.getElementById('posCouponDiscountAmt');
         if (couponDiscountEl) couponDiscountEl.textContent = `-${formatCurrency(couponDiscount)}`;
+
+        // Show/hide auto-apply discount row
+        const autoDiscountRow = document.getElementById('posAutoDiscountRow');
+        const autoDiscountEl  = document.getElementById('posAutoDiscountAmt');
+        if (autoDiscountRow) autoDiscountRow.style.display = autoDiscount > 0 ? 'flex' : 'none';
+        if (autoDiscountEl)  autoDiscountEl.textContent = `-${formatCurrency(autoDiscount)}`;
 
         updateChange();
         const hasItems = state.cart.length > 0 && !!state.session;
@@ -1112,7 +1174,7 @@
     // ─────────────────────────────────────────────
     async function checkout() {
         if (!state.session || !state.cart.length) return;
-        const { grandTotal, couponDiscount } = cartTotals();
+        const { grandTotal, couponDiscount, autoDiscount } = cartTotals();
         const paid = parseFloat(amountPaidInput?.value ?? 0) || 0;
         const discount = parseFloat(discountInput?.value ?? 0) || 0;
 
@@ -1129,18 +1191,20 @@
                 entity_id:         state.session.entity_id,
                 payment_method:    state.paymentMethod,
                 amount_paid:       paid,
-                discount_amount:   discount + couponDiscount,
+                discount_amount:   discount + couponDiscount + autoDiscount,
                 coupon_code:       state.activeCoupon?.discount?.code || null,
                 coupon_discount:   couponDiscount,
                 cashier_user_id:   state.session.cashier_user_id,
+                currency_code:     getCartCurrency(),
                 items: state.cart.map(i => ({
-                    product_id:   i.product_id,
-                    product_name: i.product_name,
-                    sku:          i.sku,
-                    quantity:     i.qty,
-                    unit_price:   i.unit_price,
-                    sale_price:   i.sale_price,
-                    tax_rate:     i.tax_rate,
+                    product_id:    i.product_id,
+                    product_name:  i.product_name,
+                    sku:           i.sku,
+                    quantity:      i.qty,
+                    unit_price:    i.unit_price,
+                    sale_price:    i.sale_price,
+                    tax_rate:      i.tax_rate,
+                    currency_code: i.currency_code || '',
                 })),
             });
 
@@ -1158,43 +1222,136 @@
     // Receipt Modal
     // ─────────────────────────────────────────────
     function showReceiptModal(orderRes, paid) {
-        const { grandTotal, couponDiscount } = cartTotals();
-        const change = Math.max(0, paid - grandTotal);
-        const now = new Date().toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en');
-
-        let itemsHtml = state.cart.map(i => `
-            <div class="receipt-row">
-                <span>${escHtml(i.product_name)} ×${i.qty}</span>
-                <span>${formatCurrency(i.sale_price * i.qty)}</span>
-            </div>`).join('');
-
         const totals = cartTotals();
+        const { grandTotal, couponDiscount } = totals;
+        const change = Math.max(0, paid - grandTotal);
+        const now = posFormatDate(new Date().toISOString());
+        const orderNum = orderRes.order_number || '';
+        const storeName = state.session?.store_name || '';
+        const cashierName = state.session?.cashier_name || '';
+        const cur = getCartCurrency();
+
+        // Build item rows for the professional table
+        const itemRows = state.cart.map(i => {
+            const itemCur = i.currency_code || cur;
+            return `
+            <tr>
+                <td>
+                    <div style="font-weight:600">${escHtml(i.product_name)}</div>
+                    <div style="font-size:11px;color:#666">${formatCurrency(i.sale_price, itemCur)} × ${i.qty}</div>
+                </td>
+                <td class="col-qty">${i.qty}</td>
+                <td class="col-total">${formatCurrency(i.sale_price * i.qty, itemCur)}</td>
+            </tr>`;
+        }).join('');
+
+        // QR Code generation (Public Link for Customer)
+        const qrData = window.location.origin + '/frontend/public/receipt.php?order=' + encodeURIComponent(orderNum);
+        const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+        const receiptHtml = `
+            <div class="pos-receipt">
+                <!-- Header -->
+                <div class="receipt-header">
+                    <div class="receipt-title">${t('pos.receipt.tax_invoice', 'TAX INVOICE')}</div>
+                    <div class="receipt-store-name">${escHtml(storeName)}</div>
+                    <div class="receipt-meta">${escHtml(now)}</div>
+                    <div class="receipt-meta">${t('pos.receipt.order', 'Order')} ID: #${escHtml(orderNum)}</div>
+                    ${cashierName ? `<div class="receipt-meta">${t('pos.receipt.cashier', 'Cashier')}: ${escHtml(cashierName)}</div>` : ''}
+                </div>
+
+                <hr class="receipt-divider">
+
+                <!-- Items Table -->
+                <table class="receipt-table">
+                    <thead>
+                        <tr>
+                            <th>${t('pos.receipt.item', 'ITEM')}</th>
+                            <th class="col-qty">${t('pos.stock.qty', 'QTY')}</th>
+                            <th class="col-total">${t('pos.receipt.total', 'TOTAL')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemRows}
+                    </tbody>
+                </table>
+
+                <hr class="receipt-divider">
+
+                <!-- Summary -->
+                <div class="receipt-summary">
+                    <div class="receipt-row">
+                        <span>${t('pos.receipt.subtotal_excl_tax', 'SUBTOTAL (Excl. Tax)')}</span>
+                        <span>${formatCurrency(totals.sub)}</span>
+                    </div>
+                    ${totals.tax > 0 ? `<div class="receipt-row"><span>${t('pos.receipt.vat', 'VAT (15%)')}</span><span>${formatCurrency(totals.tax)}</span></div>` : ''}
+                    ${totals.discount > 0 ? `<div class="receipt-row discount-row"><span>${t('pos.discount', 'Discount')}</span><span>-${formatCurrency(totals.discount)}</span></div>` : ''}
+                    ${couponDiscount > 0 ? `<div class="receipt-row discount-row"><span>${t('pos.coupon.label', 'Coupon')} (${escHtml(state.activeCoupon?.discount?.code||'')})</span><span>-${formatCurrency(couponDiscount)}</span></div>` : ''}
+                    ${totals.autoDiscount > 0 ? `<div class="receipt-row discount-row"><span>${t('pos.auto_discount', 'Offer Discount')}</span><span>-${formatCurrency(totals.autoDiscount)}</span></div>` : ''}
+
+                    <div class="receipt-row grand-total">
+                        <span>${t('pos.receipt.total_amount', 'TOTAL AMOUNT')}</span>
+                        <span>${formatCurrency(grandTotal)}</span>
+                    </div>
+
+                    <div class="receipt-row">
+                        <span>${t('pos.paid', 'Paid')} (${escHtml(state.paymentMethod)})</span>
+                        <span>${formatCurrency(paid)}</span>
+                    </div>
+                    ${change > 0 ? `<div class="receipt-row"><span>${t('pos.receipt.change_due', 'Change Due')}</span><span style="font-weight:800">${formatCurrency(change)}</span></div>` : ''}
+                </div>
+
+                <!-- QR Section -->
+                <div class="receipt-qr-section">
+                    <img src="${qrUrl}" class="receipt-qr-code" alt="QR Code" style="width:110px;height:110px;border:none">
+                    <div style="font-size:10px;color:#777">${t('pos.receipt.scan_verify', 'Scan for Verification')}</div>
+                </div>
+
+                <!-- Footer -->
+                <div class="receipt-footer">
+                    <div class="thank-you">✓ ${t('pos.receipt.thank_you', 'THANK YOU!')}</div>
+                    <div>${t('pos.receipt.footer_msg', 'We appreciate your business')}</div>
+                </div>
+            </div>
+        `;
+
         showModal(`
             <h3>🧾 ${t('pos.receipt.title','Receipt')}</h3>
-            <div class="pos-receipt">
-                <div class="receipt-center"><strong>${escHtml(state.session?.store_name || '')}</strong></div>
-                <div class="receipt-center" style="font-size:.75rem;color:var(--text-muted,#64748b)">${escHtml(now)}</div>
-                <div class="receipt-center" style="font-size:.75rem">Order: ${escHtml(orderRes.order_number || '')}</div>
-                <hr class="receipt-divider">
-                ${itemsHtml}
-                <hr class="receipt-divider">
-                <div class="receipt-row"><span>${t('pos.subtotal','Subtotal')}</span><span>${formatCurrency(totals.sub)}</span></div>
-                ${totals.tax > 0 ? `<div class="receipt-row"><span>${t('pos.tax','Tax')}</span><span>${formatCurrency(totals.tax)}</span></div>` : ''}
-                ${totals.discount > 0 ? `<div class="receipt-row"><span>${t('pos.discount','Discount')}</span><span>-${formatCurrency(totals.discount)}</span></div>` : ''}
-                ${couponDiscount > 0 ? `<div class="receipt-row"><span>${t('pos.coupon.label','Coupon')} (${escHtml(state.activeCoupon?.discount?.code||'')})</span><span>-${formatCurrency(couponDiscount)}</span></div>` : ''}
-                <hr class="receipt-divider">
-                <div class="receipt-row total-row"><span>${t('pos.total','Total')}</span><span>${formatCurrency(grandTotal)}</span></div>
-                <div class="receipt-row"><span>${t('pos.paid','Paid')}</span><span>${formatCurrency(paid)}</span></div>
-                ${change > 0 ? `<div class="receipt-row"><span>${t('pos.change','Change')}</span><span>${formatCurrency(change)}</span></div>` : ''}
-                <hr class="receipt-divider">
-                <div class="receipt-center" style="color:var(--success-color,#10b981)">✓ ${t('pos.receipt.thank_you','Thank you!')}</div>
+            <div id="posReceiptView" style="max-height:400px;overflow-y:auto;background:rgba(0,0,0,0.05);padding:15px;border-radius:8px">
+                ${receiptHtml}
             </div>
-            <div class="btn-group">
-                <button class="btn btn-outline" onclick="window.print()">🖨 ${t('pos.receipt.print','Print')}</button>
-                <button class="btn btn-primary" onclick="posNewSale()">+ ${t('pos.new_sale','New Sale')}</button>
+            <div class="btn-group" style="margin-top:20px">
+                <button class="btn btn-outline" onclick="posPrintReceipt()">🖨 ${t('pos.receipt.print','Print Receipt')}</button>
+                <button class="btn btn-primary" onclick="posNewSale()">+ ${t('pos.new_sale','Next Order')}</button>
             </div>
         `);
+
+        // Save receipt HTML to the hidden print container
+        const printContainer = document.getElementById('posReceiptPrintContainer');
+        if (printContainer) printContainer.innerHTML = receiptHtml;
     }
+
+    /** Simple and direct print: rely on @media print CSS to isolate #posReceiptPrintContainer */
+    window.posPrintReceipt = function () {
+        window.print();
+    };
+
+    /** Manual Qty update from input field */
+    window.posUpdateCartQtyManual = function(input) {
+        const id  = parseInt(input.dataset.id, 10);
+        const qty = parseInt(input.value, 10);
+        if (isNaN(id) || isNaN(qty) || qty < 1) {
+            renderCart(); // reset UI
+            return;
+        }
+        const item = state.cart.find(i => i.product_id === id);
+        if (!item) return;
+        item.qty = qty;
+        if (state.activeCoupon) computeCouponDiscount();
+        computeAutoDiscount();
+        renderCart();
+    };
+
 
     window.posNewSale = function () {
         clearCart();
@@ -1295,7 +1452,7 @@
                 </thead>
                 <tbody>
                     ${orders.map((o, i) => {
-                        const t_ = new Date(o.created_at).toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en');
+                        const t_ = posFormatDate(o.created_at);
                         const badgeCls = o.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
                         return `<tr>
                             <td>${i+1}</td>
@@ -1410,7 +1567,7 @@
                 </tr></thead>
                 <tbody>
                     ${orders.map(o => {
-                        const tm = new Date(o.created_at).toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en');
+                        const tm = posFormatDate(o.created_at);
                         return `<tr>
                             <td style="font-family:monospace">${escHtml(o.order_number || String(o.id))}</td>
                             <td><strong>${formatCurrency(o.grand_total)}</strong></td>
@@ -1585,9 +1742,44 @@
     // ─────────────────────────────────────────────
     // Utilities
     // ─────────────────────────────────────────────
+    /**
+     * Format a value with its currency code.
+     * Each product carries its own currency_code from product_pricing.
+     * For cart totals, we use the cart's dominant currency (first item).
+     */
+    function getCartCurrency() {
+        if (state.cart.length > 0 && state.cart[0].currency_code) {
+            return state.cart[0].currency_code;
+        }
+        // Fallback: first product loaded
+        for (const p of state.products) {
+            if (p.currency_code) return p.currency_code;
+        }
+        return 'SAR';
+    }
+
     function formatCurrency(val, currencyCode) {
         const n = parseFloat(val) || 0;
-        return n.toFixed(2) + ' ' + (currencyCode || state.currency || CFG.CURRENCY || 'SAR');
+        const code = currencyCode || getCartCurrency();
+        return n.toFixed(2) + ' ' + code;
+    }
+
+    /** Format a date using the entity timezone (IANA name) */
+    function posFormatDate(dateStr) {
+        try {
+            const d = new Date(dateStr);
+            const opts = {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false,
+            };
+            if (state.entityTimezone) opts.timeZone = state.entityTimezone;
+            const locale = state.lang === 'ar' ? 'ar-SA' : 'en';
+            return d.toLocaleString(locale, opts);
+        } catch (e) {
+            // Fallback if timezone is invalid
+            return new Date(dateStr).toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en');
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -1613,7 +1805,7 @@
             parseFloat(o.grand_total || 0).toFixed(2),
             o.payment_method || '',
             o.payment_status || 'paid',
-            new Date(o.created_at).toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en'),
+            posFormatDate(o.created_at),
             o.customer_name || '',
             parseFloat(o.subtotal || o.grand_total || 0).toFixed(2),
             parseFloat(o.tax_amount || 0).toFixed(2),
@@ -1658,8 +1850,8 @@
         const { headers, rows } = buildExportData(orders);
         const sessionTitle = t('pos.reports.orders_breakdown', 'Orders Breakdown');
         const sessionDate  = state.session
-            ? new Date(state.session.opened_at).toLocaleDateString(state.lang === 'ar' ? 'ar-SA' : 'en')
-            : new Date().toLocaleDateString();
+            ? posFormatDate(state.session.opened_at)
+            : posFormatDate(new Date().toISOString());
 
         const th = headers.map(h => `<th style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 10px">${escHtml(String(h))}</th>`).join('');
         const tbody = rows.map(row =>
@@ -1854,6 +2046,10 @@
             state.entityId = state.session.entity_id;
             const resolvedTenant = resolveEntityTenantId(state.session.entity_id, state.session);
             if (resolvedTenant) state.tenantId = resolvedTenant;
+            // Set entity timezone from session
+            if (state.session.entity_timezone) {
+                state.entityTimezone = state.session.entity_timezone;
+            }
             await Promise.all([loadCategories(), loadDiscounts()]);
             showMainLayout();
             await loadProducts();

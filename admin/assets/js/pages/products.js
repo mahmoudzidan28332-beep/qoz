@@ -50,7 +50,7 @@
         language: CONFIG.lang || window.USER_LANGUAGE || 'en',
         direction: CONFIG.dir || window.USER_DIRECTION || 'ltr',
         csrfToken: CONFIG.csrfToken || window.CSRF_TOKEN || '',
-        tenantId: Number(CONFIG.tenantId || window.APP_CONFIG?.TENANT_ID || 1),
+        tenantId: Number(CONFIG.tenantId ?? window.APP_CONFIG?.TENANT_ID ?? 0),
         userId: Number(CONFIG.userId || window.APP_CONFIG?.USER_ID || 0)
     };
 
@@ -727,6 +727,8 @@
             if (el.prodIsFeatured) el.prodIsFeatured.value = product.is_featured || '0';
             if (el.prodIsBestseller) el.prodIsBestseller.value = product.is_bestseller || '0';
             if (el.prodIsNew) el.prodIsNew.value = product.is_new || '0';
+            if (el.prodTenantId) el.prodTenantId.value = product.tenant_id || '';
+
 
             // Pricing
             if (el.prodPrice) el.prodPrice.value = product.price || '';
@@ -1847,17 +1849,14 @@
         syncTreeCheckboxStates();
     }
 
-    /** Internal cascade: select/deselect a node and all its descendants */
+    /** Internal toggle: select/deselect a node (no cascade by default as per user request) */
     function _toggleCategoryWithCascade(categoryId, checked) {
-        const all = [categoryId, ...getDescendantIds(categoryId)];
         if (checked) {
-            all.forEach(id => {
-                if (!state.selectedCategories.includes(id)) {
-                    state.selectedCategories.push(id);
-                }
-            });
+            if (!state.selectedCategories.includes(categoryId)) {
+                state.selectedCategories.push(categoryId);
+            }
         } else {
-            state.selectedCategories = state.selectedCategories.filter(id => !all.includes(id));
+            state.selectedCategories = state.selectedCategories.filter(id => id !== categoryId);
         }
         syncTreeCheckboxStates();
         syncCategoryDropdownsFromSelection();

@@ -210,12 +210,13 @@
         console.log('[TenantCategories] Loading dropdowns...');
         
         try {
-            // Load categories
+            // Load ALL categories (no tenant_id filter — we need the full catalog)
             const catParams = new URLSearchParams({
                 format: 'json',
                 limit: 1000,
-                lang: CONFIG.lang || 'ar',
-                tenant_id: CONFIG.tenantId
+                lang: CONFIG.lang || 'en',
+                show_all: '1',
+                skip_tc_filter: '1'
             });
             
             const categoriesResult = await apiFetch(`${CATEGORIES_API}?${catParams}`);
@@ -227,7 +228,7 @@
                 if (Array.isArray(items)) {
                     state.categories = items;
                     renderCategoriesTree();
-                    populateSelect('tenantCategoryCategoryId', state.categories);
+                    populateSelectTree('tenantCategoryCategoryId', state.categories);
                     populateDatalist('categoriesList', state.categories);
                     populateDatalist('filterCategoriesList', state.categories);
                 }
@@ -258,19 +259,67 @@
         }
     }
 
-    function populateSelect(selectId, data) {
+    /**
+     * Build a hierarchical tree select with visual indentation
+     */
+    function populateSelectTree(selectId, data) {
         const select = document.getElementById(selectId);
         if (!select || !data) return;
         
         const currentVal = select.value;
         select.innerHTML = '<option value="">-- Select Category --</option>';
         
+        // Build parent→children map (normalize null/0/'0'/'' to 'root')
+        const childrenMap = {};
+        
         data.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.id;
-            option.textContent = `${item.name} (#${item.id})`;
-            select.appendChild(option);
+            const pid = item.parent_id;
+            const parentKey = (!pid || pid === 0 || pid === '0') ? 'root' : String(pid);
+            if (!childrenMap[parentKey]) childrenMap[parentKey] = [];
+            childrenMap[parentKey].push(item);
         });
+        
+        // Track added IDs to prevent duplicates
+        const addedIds = new Set();
+        
+        // Recursive function to add options with indentation
+        function addOptions(parentKey, level) {
+            const children = childrenMap[parentKey] || [];
+            children.forEach((item, index) => {
+                if (addedIds.has(String(item.id))) return; // skip duplicates
+                addedIds.add(String(item.id));
+                
+                const option = document.createElement('option');
+                option.value = item.id;
+                
+                // Build visual prefix for tree structure
+                let prefix = '';
+                if (level > 0) {
+                    prefix = '\u00A0\u00A0\u00A0\u00A0'.repeat(level - 1);
+                    const isLast = (index === children.length - 1);
+                    prefix += isLast ? '└─ ' : '├─ ';
+                }
+                
+                option.textContent = `${prefix}${item.name} (#${item.id})`;
+                select.appendChild(option);
+                
+                // Recurse for children of this item
+                addOptions(String(item.id), level + 1);
+            });
+        }
+        
+        // Start from root categories
+        addOptions('root', 0);
+        
+        // Fallback: if no tree was built (maybe parent_id not set), show flat list
+        if (addedIds.size === 0 && data.length > 0) {
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.name} (#${item.id})`;
+                select.appendChild(option);
+            });
+        }
         
         if (currentVal) select.value = currentVal;
     }
@@ -336,7 +385,8 @@
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
-                format: 'json'
+                format: 'json',
+                lang: CONFIG.lang || 'en'
             });
             if (CONFIG.tenantId && !state.isSuperAdmin) {
                 params.set('tenant_id', CONFIG.tenantId);
@@ -477,15 +527,23 @@
 
         if (isEdit && data) {
             if (el.formId) el.formId.value = data.id;
+            
+            // Set tenant field
             if (state.isSuperAdmin && el.tenantDisplay) {
                 setDisplayFromId('tenantCategoryTenantIdHidden', 'tenantCategoryTenantId', 'tenantsList', data.tenant_id);
             }
+            if (el.tenantHidden) el.tenantHidden.value = data.tenant_id || CONFIG.tenantId || '';
+            
+            // Set category field - both the select and hidden input
+            if (el.categorySelect) el.categorySelect.value = data.category_id;
             if (el.categoryHidden) el.categoryHidden.value = data.category_id;
+            
             if (el.sortOrder) el.sortOrder.value = data.sort_order ?? 0;
             if (state.isSuperAdmin && el.isActive) el.isActive.value = data.is_active ?? 1;
             if (el.btnDelete) el.btnDelete.style.display = 'inline-block';
         } else {
             if (el.btnDelete) el.btnDelete.style.display = 'none';
+            if (el.categorySelect) el.categorySelect.value = '';
             if (el.categoryHidden) el.categoryHidden.value = '';
             if (el.categoryDisplay) el.categoryDisplay.value = '';
         }
@@ -517,6 +575,8 @@
                 showNotification('Please select a tenant', 'error');
                 return;
             }
+        } else if (el.tenantHidden && el.tenantHidden.value) {
+            tenantId = el.tenantHidden.value;
         }
 
         // Get category ID
@@ -775,11 +835,23 @@
             const result = await apiFetch(`${API}/${id}?format=json`);
             if (result.success && result.data) {
                 let item = result.data;
-                if (result.data.data) item = result.data.data;
-                if (result.data.items) item = result.data.items[0];
-                showForm(true, item);
+                // Handle various response structures
+                if (Array.isArray(item)) {
+                    item = item[0];
+                } else if (item.data) {
+                    item = Array.isArray(item.data) ? item.data[0] : item.data;
+                } else if (item.items) {
+                    item = Array.isArray(item.items) ? item.items[0] : item.items;
+                }
+                
+                if (item) {
+                    console.log('[TenantCategories] Editing item:', item);
+                    showForm(true, item);
+                } else {
+                    showNotification('Error loading item: no data', 'error');
+                }
             } else {
-                showNotification('Error loading item', 'error');
+                showNotification(result.message || 'Error loading item', 'error');
             }
         } catch (error) {
             console.error('[TenantCategories] Edit error:', error);

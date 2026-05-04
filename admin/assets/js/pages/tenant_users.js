@@ -1,6 +1,6 @@
 /**
  * Tenant Users Management
- * Version: 4.1.0 — Guide-compliant, full i18n support
+ * Version: 4.1.2 — Fixed Edit API call and form data extraction
  */
 (function () {
     'use strict';
@@ -39,14 +39,11 @@
     // ════════════════════════════════════════════════════════════
 
     function t(key, fallback) {
-        // 1) inline strings from PAGE_CONFIG
         if (STRINGS && STRINGS[key]) return STRINGS[key];
-        // 2) module translations
         const keys  = key.split('.');
         let   value = state.translations;
         for (const k of keys) value = value && value[k];
         if (value) return value;
-        // 3) global admin i18n
         if (window._admin && typeof window._admin.t === 'function') {
             const v = window._admin.t(key);
             if (v && v !== key) return v;
@@ -75,7 +72,7 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // 3. SHOW STATE  (loading / empty / error / table)
+    // 3. SHOW STATE
     // ════════════════════════════════════════════════════════════
     function showState(stateName, errorMsg) {
         const loading   = document.getElementById('tableLoading');
@@ -107,28 +104,7 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // 4. DIRECTION
-    // ════════════════════════════════════════════════════════════
-    function setDirectionForLang(lang) {
-        if (!lang) return;
-        const rtlLangs = ['ar', 'he', 'fa', 'ur', 'ps'];
-        const isRtl    = rtlLangs.includes(String(lang).toLowerCase().substring(0, 2));
-        const dir      = isRtl ? 'rtl' : 'ltr';
-        try { document.documentElement.dir = dir; } catch (e) { /* ignore */ }
-        if (document.body) {
-            document.body.classList.toggle('rtl', isRtl);
-            document.body.classList.toggle('ltr', !isRtl);
-        }
-        const container = document.getElementById('tenantUsersPageContainer') || document.querySelector('.page-container');
-        if (container) {
-            container.dir = dir;
-            container.classList.toggle('rtl', isRtl);
-            container.classList.toggle('ltr', !isRtl);
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 5. TRANSLATION SYSTEM
+    // 4. TRANSLATIONS
     // ════════════════════════════════════════════════════════════
     async function loadTranslations(lang) {
         lang = lang || (CFG && CFG.lang) || window.USER_LANGUAGE || 'en';
@@ -161,7 +137,7 @@
             form: {
                 add_title: 'Add New Tenant User', edit_title: 'Edit Tenant User',
                 fields: {
-                    role_id:   { enter_tenant_first: 'Enter tenant ID first', loading: 'Loading...', no_roles: 'No roles available', placeholder: 'Select role' },
+                    role_id:   { enter_tenant_first: 'Enter tenant ID first', loading: 'Loading...', no_roles: 'No roles available', placeholder: 'Select role', error: 'Error loading data' },
                     entity_id: { enter_tenant_first: 'Enter tenant ID first', no_entities: 'No entities available', placeholder: 'Select entity (optional)', not_found: 'Entity not found' },
                     tenant_id: { not_found: 'Tenant not found' },
                     status:    { active: 'Active', inactive: 'Inactive' }
@@ -171,7 +147,8 @@
             },
             messages: {
                 success: { created: 'User created successfully', updated: 'User updated successfully', deleted: 'User deleted successfully' },
-                error:   { load_failed: 'Failed to load data', save_failed: 'Failed to save data', delete_failed: 'Failed to delete data', not_found: 'Item not found' }
+                error:   { load_failed: 'Failed to load data', save_failed: 'Failed to save data', delete_failed: 'Failed to delete data', not_found: 'Item not found' },
+                error_loading_tenant_data: 'Error loading tenant data: '
             },
             pagination: { showing: 'Showing', to: 'to', of: 'of', results: 'results' },
             validation: { required: 'Required' },
@@ -180,7 +157,7 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // 6. API NORMALIZER & HELPERS
+    // 5. API HELPERS
     // ════════════════════════════════════════════════════════════
     function normalizeApiResponse(response) {
         let payload = response;
@@ -194,188 +171,70 @@
         return { payload, meta };
     }
 
+    function parsePositiveInt(value) {
+        if (value === null || value === undefined) return null;
+        const normalized = String(value).trim();
+        if (normalized === '') return null;
+        const parsed = Number.parseInt(normalized, 10);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    function getItemId(item, keys) {
+        if (!item || typeof item !== 'object') return null;
+        for (const key of keys) {
+            const parsed = parsePositiveInt(item[key]);
+            if (parsed !== null) return parsed;
+        }
+        return null;
+    }
+
     function afGet(url)       { return AF ? AF.get(url)           : fetch(url, { credentials: 'same-origin' }).then(r => r.json()); }
     function afPost(url, data) { return AF ? AF.post(url, data)   : fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF }, body: JSON.stringify(data) }).then(r => r.json()); }
     function afApi(url, opts)  { return AF ? AF.api(url, opts)    : fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'X-CSRF-Token': CSRF } }, opts)).then(r => r.json()); }
     function afDel(url, data)  { return AF ? AF.delete(url, data) : fetch(url, { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF }, body: JSON.stringify(data) }).then(r => r.json()); }
 
     async function getUser(id) {
-        const key    = `user_${id}`;
-        const cached = AF ? AF.Cache.get(key) : null;
-        if (cached) return cached;
         try {
             const { payload } = normalizeApiResponse(await afGet(`/api/users_account/${id}`));
             const user = Array.isArray(payload) ? payload[0] : payload;
-            if (user && AF) AF.Cache.set(key, user);
             return user || null;
         } catch (e) { return null; }
     }
 
     async function getTenant(id) {
-        const key    = `tenant_${id}`;
-        const cached = AF ? AF.Cache.get(key) : null;
-        if (cached) return cached;
         try {
             const { payload } = normalizeApiResponse(await afGet(`/api/tenants/${id}`));
             const tenant = Array.isArray(payload) ? payload[0] : payload;
-            if (tenant && AF) AF.Cache.set(key, tenant);
             return tenant || null;
         } catch (e) { return null; }
     }
 
     async function getRoles(tenantId) {
-        const key    = `roles_${tenantId}`;
-        const cached = AF ? AF.Cache.get(key) : null;
-        if (cached) return cached;
         try {
             const { payload } = normalizeApiResponse(await afGet(`/api/roles?tenant_id=${tenantId}`));
             const roles = Array.isArray(payload) ? payload : (payload?.items || []);
-            if (roles.length && AF) AF.Cache.set(key, roles);
             return roles;
         } catch (e) { return []; }
     }
 
     async function getEntities(tenantId) {
-        const key    = `entities_${tenantId}`;
-        const cached = AF ? AF.Cache.get(key) : null;
-        if (cached) return cached;
         try {
             const { payload } = normalizeApiResponse(await afGet(`/api/entities?tenant_id=${tenantId}`));
             const entities = Array.isArray(payload) ? payload : (payload?.items || []);
-            if (entities.length && AF) AF.Cache.set(key, entities);
             return entities;
         } catch (e) { return []; }
     }
 
     async function getEntity(id) {
-        const key    = `entity_${id}`;
-        const cached = AF ? AF.Cache.get(key) : null;
-        if (cached) return cached;
         try {
             const { payload } = normalizeApiResponse(await afGet(`/api/entities/${id}`));
             const entity = Array.isArray(payload) ? payload[0] : payload;
-            if (entity && AF) AF.Cache.set(key, entity);
             return entity || null;
         } catch (e) { return null; }
     }
 
     // ════════════════════════════════════════════════════════════
-    // 7. PAGINATION
-    // ════════════════════════════════════════════════════════════
-    function updatePaginationInfo() {
-        if (!state.meta) return;
-        const { total, page, per_page } = state.meta;
-        const start = total === 0 ? 0 : (page - 1) * per_page + 1;
-        const end   = Math.min(page * per_page, total);
-        const elInfo = document.getElementById('paginationInfo');
-        if (elInfo) elInfo.textContent = `${start}-${end} ${t('pagination.of', 'of')} ${total} ${t('pagination.results', 'results')}`;
-    }
-
-    function renderPagination() {
-        const container = document.getElementById('pagination');
-        if (!container || !state.meta) return;
-        const { page, pages } = state.meta;
-        if (pages <= 1) { container.innerHTML = ''; return; }
-
-        let html = '';
-        html += `<button class="pagination-btn" ${page <= 1 ? 'disabled' : ''} ${page > 1 ? `onclick="TenantUsers.load(${page - 1})"` : ''}><i class="fas fa-chevron-left"></i></button>`;
-
-        let startPage = Math.max(1, page - 2);
-        let endPage   = Math.min(pages, page + 2);
-        if (endPage - startPage < 4) {
-            if (startPage === 1) endPage = Math.min(pages, 5);
-            else if (endPage === pages) startPage = Math.max(1, pages - 4);
-        }
-
-        if (startPage > 1) {
-            html += `<button class="pagination-btn" onclick="TenantUsers.load(1)">1</button>`;
-            if (startPage > 2) html += `<span class="pagination-ellipsis">...</span>`;
-        }
-        for (let i = startPage; i <= endPage; i++) {
-            html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="TenantUsers.load(${i})">${i}</button>`;
-        }
-        if (endPage < pages) {
-            if (endPage < pages - 1) html += `<span class="pagination-ellipsis">...</span>`;
-            html += `<button class="pagination-btn" onclick="TenantUsers.load(${pages})">${pages}</button>`;
-        }
-        html += `<button class="pagination-btn" ${page >= pages ? 'disabled' : ''} ${page < pages ? `onclick="TenantUsers.load(${page + 1})"` : ''}><i class="fas fa-chevron-right"></i></button>`;
-
-        container.innerHTML = html;
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 8. RENDER TABLE
-    // ════════════════════════════════════════════════════════════
-    function renderTable(items) {
-        if (!el.tbody) return;
-
-        if (!items || !items.length) { showState('empty'); return; }
-
-        let html = '';
-        for (const item of items) {
-            const username   = item.username    || t('validation.required', 'Unknown');
-            const email      = item.email       || 'N/A';
-            const tenantName = item.tenant_name || t('validation.required', 'Unknown');
-            const entityName = item.entity_name || t('table.empty.no_entity', 'N/A');
-            const roleName   = item.role_name   || 'N/A';
-            const joinedAt   = item.joined_at   || '-';
-            const statusText  = item.is_active  ? t('table.status.active', 'Active') : t('table.status.inactive', 'Inactive');
-            const statusClass = item.is_active  ? 'badge-success' : 'badge-danger';
-
-            html += `
-                <tr>
-                    <td>${item.id}</td>
-                    <td>
-                        <strong>${esc(username)}</strong>
-                        <small>${t('table.headers.id', 'ID')}: ${item.user_id}</small>
-                    </td>
-                    <td>${esc(email)}</td>
-                    <td>
-                        <strong>${esc(tenantName)}</strong>
-                        <small>${t('table.headers.id', 'ID')}: ${item.tenant_id}</small>
-                    </td>
-                    <td>
-                        ${item.entity_id
-                            ? `<strong>${esc(entityName)}</strong><small>${t('table.headers.id', 'ID')}: ${item.entity_id}</small>`
-                            : `<span class="text-muted">${t('table.empty.no_entity', 'N/A')}</span>`}
-                    </td>
-                    <td>
-                        <span class="badge badge-primary">
-                            ${esc(roleName)}
-                        </span>
-                    </td>
-                    <td>${esc(joinedAt)}</td>
-                    <td><span class="badge ${statusClass}">${esc(statusText)}</span></td>
-                    <td>
-                        <div class="table-actions">
-                            ${CAN_EDIT   ? `<button class="btn btn-sm btn-primary" onclick="TenantUsers.edit(${item.id})" title="${esc(t('table.actions.edit', 'Edit'))}" aria-label="${esc(t('table.actions.edit', 'Edit'))}"><i class="fas fa-edit" aria-hidden="true"></i></button>` : ''}
-                            ${CAN_DELETE ? `<button class="btn btn-sm btn-danger"  onclick="TenantUsers.remove(${item.id})" title="${esc(t('table.actions.delete', 'Delete'))}" aria-label="${esc(t('table.actions.delete', 'Delete'))}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
-                        </div>
-                    </td>
-                </tr>`;
-        }
-
-        el.tbody.innerHTML = html;
-        showState('table');
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 9. FORM — open / close / focus
-    // ════════════════════════════════════════════════════════════
-    function openForm() {
-        if (!el.formContainer) return;
-        el.formContainer.style.display = 'block';
-        el.formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const first = el.formContainer.querySelector('input:not([type="hidden"]), select, textarea, button');
-        if (first) setTimeout(function () { first.focus(); }, 50);
-    }
-
-    function closeForm() {
-        if (el.formContainer) el.formContainer.style.display = 'none';
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 10. TENANT / USER / ENTITY VERIFICATION (debounced)
+    // 6. VERIFICATION
     // ════════════════════════════════════════════════════════════
     const verifyTenant = AF && AF.debounce ? AF.debounce(_verifyTenant, 300) : debounce(_verifyTenant, 300);
     const verifyUser   = AF && AF.debounce ? AF.debounce(_verifyUser,   300) : debounce(_verifyUser,   300);
@@ -383,7 +242,7 @@
 
     function debounce(fn, ms) {
         let timer;
-        return function () { clearTimeout(timer); timer = setTimeout(fn, ms); };
+        return function () { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, arguments), ms); };
     }
 
     async function _verifyTenant() {
@@ -404,9 +263,18 @@
 
                 const roles = await getRoles(id);
                 if (el.formRoleId) {
-                    if (roles.length) {
+                    const roleOptions = roles
+                        .map(r => {
+                            const roleId = getItemId(r, ['id', 'role_id']);
+                            if (roleId === null) return '';
+                            const roleName = esc(r.display_name || r.key_name || r.name || `Role ${roleId}`);
+                            return `<option value="${roleId}" data-role-id="${roleId}">${roleName}</option>`;
+                        })
+                        .filter(Boolean);
+
+                    if (roleOptions.length) {
                         el.formRoleId.innerHTML = [`<option value="">${t('form.fields.role_id.placeholder', 'Select role')}</option>`,
-                            ...roles.map(r => `<option value="${r.id}">${esc(r.display_name || r.key_name || r.name || `Role ${r.id}`)}</option>`)
+                            ...roleOptions
                         ].join('');
                         el.formRoleId.disabled = false;
                     } else {
@@ -417,8 +285,17 @@
 
                 const entities = await getEntities(id);
                 if (el.formEntityId) {
+                    const entityOptions = entities
+                        .map(e => {
+                            const entityId = getItemId(e, ['id', 'entity_id']);
+                            if (entityId === null) return '';
+                            const entityName = esc(e.store_name || e.name || `Entity ${entityId}`);
+                            return `<option value="${entityId}" data-entity-id="${entityId}">${entityName}</option>`;
+                        })
+                        .filter(Boolean);
+
                     el.formEntityId.innerHTML = [`<option value="">${t('form.fields.entity_id.placeholder', 'Select entity (optional)')}</option>`,
-                        ...entities.map(e => `<option value="${e.id}">${esc(e.store_name || e.name || `Entity ${e.id}`)}</option>`)
+                        ...entityOptions
                     ].join('');
                     el.formEntityId.disabled = false;
                 }
@@ -429,6 +306,11 @@
         } catch (error) {
             console.error('[TenantUsers] verifyTenant error:', error);
             if (el.tenantInfo) el.tenantInfo.style.display = 'none';
+            if (el.formRoleId) { 
+                el.formRoleId.innerHTML = `<option value="">${t('form.fields.role_id.error', 'Error loading data')}</option>`; 
+                el.formRoleId.disabled = true;
+            }
+            if (AF && AF.error) AF.error(t('messages.error_loading_tenant_data', 'Error loading tenant data: ') + error.message);
         }
     }
 
@@ -461,48 +343,69 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // 11. CRUD — save, edit, remove, add
+    // 7. CRUD
     // ════════════════════════════════════════════════════════════
     async function save(e) {
         e.preventDefault();
-        const formEl   = document.getElementById('tenantUserForm');
-        const formData = AF && AF.Form ? AF.Form.getData('tenantUserForm') : Object.fromEntries(new FormData(formEl));
-        const id       = el.formId && el.formId.value.trim();
-        const isEdit   = !!id;
-        const data     = {
-            tenant_id:  parseInt(formData.tenant_id),
-            user_id:    parseInt(formData.user_id),
-            role_id:    formData.role_id   === '' ? null : parseInt(formData.role_id),
-            entity_id:  formData.entity_id === '' ? null : parseInt(formData.entity_id),
-            is_active:  formData.is_active === '1' ? 1 : 0
+        const formEl = el.form;
+        if (!formEl) return;
+
+        // Manual extraction to avoid issues with AF.Form.getData
+        const id = el.formId && el.formId.value.trim();
+        const tenant_id = parsePositiveInt(el.formTenantId && el.formTenantId.value.trim());
+        const user_id = parsePositiveInt(el.formUserId && el.formUserId.value.trim());
+        const role_id = parsePositiveInt(
+            (el.formRoleId && el.formRoleId.value) ||
+            (el.formRoleId && el.formRoleId.selectedOptions && el.formRoleId.selectedOptions[0] && el.formRoleId.selectedOptions[0].dataset.roleId) ||
+            ''
+        );
+        const entity_id = parsePositiveInt(
+            (el.formEntityId && el.formEntityId.value) ||
+            (el.formEntityId && el.formEntityId.selectedOptions && el.formEntityId.selectedOptions[0] && el.formEntityId.selectedOptions[0].dataset.entityId) ||
+            ''
+        );
+        const is_active = el.formIsActive && el.formIsActive.value;
+
+        const isEdit = !!id;
+
+        const data = {
+            tenant_id: tenant_id,
+            user_id:   user_id,
+            role_id:   role_id,
+            entity_id: entity_id,
+            is_active: is_active === '1' ? 1 : 0
         };
-        if (isEdit) data.id = parseInt(id);
+        if (isEdit) data.id = parsePositiveInt(id);
+
+        console.log('[TenantUsers] Saving data:', data);
+
+        if (data.tenant_id === null || data.user_id === null) {
+            notify('Tenant ID and User ID are required', 'error');
+            return;
+        }
+        if (!isEdit && data.role_id === null) {
+            notify(t('form.fields.role_id.required', 'Role is required'), 'error');
+            return;
+        }
 
         try {
-            const btnLabel = isEdit ? t('form.buttons.updating', 'Updating...') : t('form.buttons.saving', 'Saving...');
-            if (AF && AF.Loading) AF.Loading.show(el.btnSubmit, btnLabel);
-
+            if (AF && AF.Loading) AF.Loading.show(el.btnSubmit, isEdit ? t('form.buttons.updating') : t('form.buttons.saving'));
             let response;
             if (isEdit) {
-                response = await afApi(`${API}/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                response = await afApi(API, { method: 'PUT', body: JSON.stringify(data) });
             } else {
                 response = await afPost(API, data);
             }
 
-            const { payload } = normalizeApiResponse(response);
-            const serverOk = (response?.success === true) || (payload && (payload.id || payload.items));
-
-            if (serverOk || (payload && payload.id)) {
+            if (response && response.success) {
                 notify(isEdit ? t('messages.success.updated') : t('messages.success.created'), 'success');
                 closeForm();
-                await load(state.page);
-                return;
+                load(state.page);
+            } else {
+                notify(response?.message || t('messages.error.save_failed'), 'error');
             }
-
-            notify((response && response.message) || t('messages.error.save_failed'), 'error');
         } catch (err) {
-            console.error('[TenantUsers] Save error:', err);
-            notify((err && err.message) || t('messages.error.save_failed'), 'error');
+            notify(err.message || t('messages.error.save_failed'), 'error');
         } finally {
             if (AF && AF.Loading) AF.Loading.hide(el.btnSubmit);
         }
@@ -510,228 +413,134 @@
 
     async function edit(id) {
         try {
-            const response = await afGet(`${API}/${id}`);
+            // FIX: Use ?id= query param as expected by the PHP route
+            const response = await afGet(`${API}?id=${id}`);
             const { payload } = normalizeApiResponse(response);
-            let item = Array.isArray(payload) ? payload.find(i => i.id == id) || payload[0]
-                     : (payload?.items ? payload.items.find(i => i.id == id)  : payload);
-            if (!item) throw new Error(t('messages.error.not_found', 'Item not found'));
+            const item = Array.isArray(payload) ? payload[0] : payload;
+            if (!item) throw new Error(t('messages.error.not_found'));
 
-            const formEl = document.getElementById('tenantUserForm');
-            if (formEl) { formEl.reset(); formEl.classList.remove('was-validated'); }
-            if (el.tenantInfo) el.tenantInfo.style.display = 'none';
-            if (el.userInfo)   el.userInfo.style.display   = 'none';
-            if (el.entityInfo) el.entityInfo.style.display = 'none';
-
-            const formTitle = document.getElementById('formTitle');
-            if (formTitle) formTitle.textContent = t('form.edit_title', 'Edit Tenant User');
-            if (el.formId)       el.formId.value       = String(item.id    || '');
-            if (el.formTenantId) el.formTenantId.value = String(item.tenant_id || '');
-            if (el.formUserId)   el.formUserId.value   = String(item.user_id   || '');
+            if (el.formId)       el.formId.value       = item.id;
+            if (el.formTenantId) el.formTenantId.value = item.tenant_id;
+            if (el.formUserId)   el.formUserId.value   = item.user_id;
             if (el.formIsActive) el.formIsActive.value = item.is_active ? '1' : '0';
 
-            const btnDel = document.getElementById('btnDeleteTenantUser');
-            if (btnDel) btnDel.style.display = '';
+            // Wait for verifications to finish so selects are populated
+            await _verifyTenant();
+            await _verifyUser();
 
-            if (item.tenant_id) {
-                const tenant = await getTenant(item.tenant_id);
-                if (tenant && el.tenantInfo) {
-                    if (el.tenantName)   el.tenantName.textContent   = tenant.name || '';
-                    if (el.tenantDomain) el.tenantDomain.textContent = tenant.domain ? `${t('form.tenant_info.domain', 'Domain:')} ${tenant.domain}` : '';
-                    if (el.tenantStatus) { el.tenantStatus.textContent = tenant.status || ''; el.tenantStatus.className = `badge ${tenant.status === 'active' ? 'badge-success' : 'badge-warning'}`; }
-                    el.tenantInfo.style.display = 'block';
-                    const roles = await getRoles(item.tenant_id);
-                    if (el.formRoleId) {
-                        el.formRoleId.innerHTML = [`<option value="">${t('form.fields.role_id.placeholder', 'Select role')}</option>`,
-                            ...roles.map(r => `<option value="${r.id}"${r.id == item.role_id ? ' selected' : ''}>${esc(r.display_name || r.key_name || r.name || `Role ${r.id}`)}</option>`)
-                        ].join('');
-                        el.formRoleId.disabled = false;
-                    }
-                    const entities = await getEntities(item.tenant_id);
-                    if (el.formEntityId) {
-                        el.formEntityId.innerHTML = [`<option value="">${t('form.fields.entity_id.placeholder', 'Select entity (optional)')}</option>`,
-                            ...entities.map(e => `<option value="${e.id}"${e.id == item.entity_id ? ' selected' : ''}>${esc(e.store_name || e.name || `Entity ${e.id}`)}</option>`)
-                        ].join('');
-                        el.formEntityId.disabled = false;
-                    }
-                }
+            if (item.entity_id && el.formEntityId) {
+                el.formEntityId.value = item.entity_id;
+                await _verifyEntity();
+            }
+            if (item.role_id && el.formRoleId) {
+                el.formRoleId.value = item.role_id;
             }
 
-            if (item.user_id) {
-                const user = await getUser(item.user_id);
-                if (user && el.userInfo) {
-                    if (el.userName)   el.userName.textContent   = user.username || '';
-                    if (el.userEmail)  el.userEmail.textContent  = user.email    || '';
-                    if (el.userStatus) { el.userStatus.textContent = user.is_active ? t('form.fields.status.active', 'Active') : t('form.fields.status.inactive', 'Inactive'); el.userStatus.className = `badge ${user.is_active ? 'badge-success' : 'badge-danger'}`; }
-                    el.userInfo.style.display = 'block';
-                }
-            }
-
-            if (item.entity_id) {
-                const entity = await getEntity(item.entity_id);
-                if (entity && el.entityInfo) {
-                    if (el.entityName)   el.entityName.textContent   = entity.store_name || '';
-                    if (el.entitySlug)   el.entitySlug.textContent   = entity.slug       || '';
-                    if (el.entityStatus) { el.entityStatus.textContent = entity.status || ''; el.entityStatus.className = `badge ${entity.status === 'approved' ? 'badge-success' : 'badge-warning'}`; }
-                    el.entityInfo.style.display = 'block';
-                }
-            }
-
+            const formTitle = document.getElementById('formTitle');
+            if (formTitle) formTitle.textContent = t('form.edit_title');
             openForm();
         } catch (err) {
             console.error('[TenantUsers] Edit error:', err);
-            notify(t('messages.error.load_failed'), 'error');
+            notify(err.message || t('messages.error.load_failed'), 'error');
         }
     }
 
     async function remove(id) {
-        const confirmFn = AF?.Modal?.confirm
-            ? (msg, cb) => AF.Modal.confirm(msg, cb)
-            : (msg, cb) => { if (confirm(msg)) cb(); };
-
-        confirmFn(t('table.actions.confirm_delete', 'Are you sure?'), async function () {
-            try {
-                await afDel(`${API}/${id}`, { id: id });
-                notify(t('messages.success.deleted'), 'success');
-                closeForm();
-                load(state.page);
-            } catch (err) {
-                notify(t('messages.error.delete_failed'), 'error');
-            }
-        });
-    }
-
-    function add() {
-        const formEl = document.getElementById('tenantUserForm');
-        if (formEl) { formEl.reset(); formEl.classList.remove('was-validated'); }
-        if (el.formId) el.formId.value = '';
-        if (el.tenantInfo) el.tenantInfo.style.display = 'none';
-        if (el.userInfo)   el.userInfo.style.display   = 'none';
-        if (el.entityInfo) el.entityInfo.style.display = 'none';
-        if (el.formRoleId)   { el.formRoleId.innerHTML = `<option value="">${t('form.fields.role_id.enter_tenant_first')}</option>`;   el.formRoleId.disabled   = true; }
-        if (el.formEntityId) { el.formEntityId.innerHTML = `<option value="">${t('form.fields.entity_id.enter_tenant_first')}</option>`; el.formEntityId.disabled = true; }
-        const btnDel = document.getElementById('btnDeleteTenantUser');
-        if (btnDel) btnDel.style.display = 'none';
-        const formTitle = document.getElementById('formTitle');
-        if (formTitle) formTitle.textContent = t('form.add_title', 'Add New Tenant User');
-        openForm();
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 12. EXPORT
-    // ════════════════════════════════════════════════════════════
-    async function exportToExcel() {
-        const hasFilters = Object.keys(state.filters).length > 0 &&
-            Object.values(state.filters).some(v => v !== null && v !== undefined && String(v).trim() !== '');
-        if (!hasFilters) { notify(t('export.no_filters', 'Please apply filters before exporting'), 'warning'); return; }
-
+        if (!confirm(t('table.actions.confirm_delete'))) return;
         try {
-            notify(t('export.exporting', 'Exporting...'), 'info');
-            const reqData = { 
-                ...state.filters, 
-                limit: 10000,
-                lang: CFG.lang || window.USER_LANGUAGE || 'en',
-                format: 'json'
-            };
-            if (CFG.tenantId && CFG.tenantId > 0) reqData.tenant_id = CFG.tenantId;
-            const params = new URLSearchParams(reqData);
-            const { payload } = normalizeApiResponse(await afGet(`${API}?${params}`));
-            const items = Array.isArray(payload) ? payload : (payload?.items || []);
-            if (!items.length) { notify(t('messages.info.no_data', 'No data to export'), 'warning'); return; }
-
-            const headers = ['ID', 'Username', 'Email', 'Tenant', 'Tenant ID', 'Entity', 'Entity ID', 'Role', 'Joined At', 'Status'];
-            const rows    = items.map(item => [
-                item.id, item.username || '', item.email || '',
-                item.tenant_name || '', item.tenant_id || '',
-                item.entity_name || 'N/A', item.entity_id || '',
-                item.role_name   || '', item.joined_at   || '',
-                item.is_active ? 'Active' : 'Inactive'
-            ]);
-            const csv  = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href          = URL.createObjectURL(blob);
-            link.download      = `tenant_users_${new Date().toISOString().split('T')[0]}.csv`;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            notify(t('export.export_success', 'Exported successfully'), 'success');
-        } catch (error) {
-            notify(t('export.export_error', 'Export failed'), 'error');
+            const response = await afDel(`${API}?id=${id}`, { id });
+            if (response && response.success) {
+                notify(t('messages.success.deleted'), 'success');
+                load(state.page);
+            } else {
+                notify(response?.message || t('messages.error.delete_failed'), 'error');
+            }
+        } catch (err) {
+            notify(err.message || t('messages.error.delete_failed'), 'error');
         }
     }
 
+    function add() {
+        if (el.form) { el.form.reset(); el.formId.value = ''; }
+        if (el.tenantInfo) el.tenantInfo.style.display = 'none';
+        if (el.userInfo)   el.userInfo.style.display   = 'none';
+        if (el.entityInfo) el.entityInfo.style.display = 'none';
+        
+        const formTitle = document.getElementById('formTitle');
+        if (formTitle) formTitle.textContent = t('form.add_title');
+        
+        if (el.formTenantId && CFG.tenantId > 0 && !CFG.isPlatformAdmin) {
+            el.formTenantId.value = CFG.tenantId;
+            _verifyTenant();
+        }
+        openForm();
+    }
+
+    function openForm() { if (el.formContainer) el.formContainer.style.display = 'block'; el.formContainer?.scrollIntoView({ behavior: 'smooth' }); }
+    function closeForm() { if (el.formContainer) el.formContainer.style.display = 'none'; }
+
     // ════════════════════════════════════════════════════════════
-    // 13. DATA LOADING
+    // 8. DATA LOADING
     // ════════════════════════════════════════════════════════════
     async function load(page) {
-        page = page || 1;
+        state.page = page || 1;
+        showState('loading');
         try {
-            showState('loading');
-            state.page = page;
-            const reqData = { 
-                page, 
-                limit: state.perPage, 
-                lang: CFG.lang || window.USER_LANGUAGE || 'en',
-                format: 'json',
-                ...state.filters 
-            };
-            if (CFG.tenantId && CFG.tenantId > 0 && !CFG.isSuperAdmin) {
-                reqData.tenant_id = CFG.tenantId;
-            }
-            const params = new URLSearchParams(reqData);
+            const params = new URLSearchParams({
+                page: state.page,
+                limit: state.perPage,
+                ...state.filters
+            });
             const response = await afGet(`${API}?${params}`);
             const { payload, meta } = normalizeApiResponse(response);
-
-            let items = [];
-            if (Array.isArray(payload))           items = payload;
-            else if (payload?.items)              items = payload.items;
-            else if (payload?.data && Array.isArray(payload.data)) items = payload.data;
-            else if (payload && typeof payload === 'object' && Object.keys(payload).length) items = [payload];
-
-            const finalMeta = meta || { total: items.length, page, per_page: state.perPage, pages: Math.ceil(items.length / state.perPage) };
-            state.meta = finalMeta;
-
-            updatePaginationInfo();
+            state.meta = meta;
+            renderTable(payload?.items || payload || []);
             renderPagination();
-            renderTable(items);
         } catch (err) {
-            console.error('[TenantUsers] Load error:', err);
             showState('error', err.message);
         }
     }
 
-    // ════════════════════════════════════════════════════════════
-    // 14. FILTERS
-    // ════════════════════════════════════════════════════════════
-    function applyFilters() {
-        state.filters = {};
-        const s = el.searchInput && el.searchInput.value.trim();    if (s) state.filters.search    = s;
-        const te = el.tenantFilter && el.tenantFilter.value.trim(); if (te) state.filters.tenant_id = te;
-        const u = el.userFilter   && el.userFilter.value.trim();    if (u) state.filters.user_id   = u;
-        const en = el.entityFilter && el.entityFilter.value.trim(); if (en) state.filters.entity_id = en;
-        const st = el.statusFilter && el.statusFilter.value;        if (st !== '') state.filters.is_active = st;
-        load(1);
+    function renderTable(items) {
+        if (!el.tbody) return;
+        if (!items.length) { showState('empty'); return; }
+
+        el.tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>${item.id}</td>
+                <td><strong>${esc(item.username)}</strong><br><small>ID: ${item.user_id}</small></td>
+                <td>${esc(item.email)}</td>
+                <td><strong>${esc(item.tenant_name)}</strong><br><small>ID: ${item.tenant_id}</small></td>
+                <td>${item.entity_name ? esc(item.entity_name) : 'N/A'}</td>
+                <td><span class="badge badge-info">${esc(item.role_name)}</span></td>
+                <td><span class="badge ${item.is_active ? 'badge-success' : 'badge-danger'}">${item.is_active ? t('table.status.active') : t('table.status.inactive')}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="TenantUsers.edit(${item.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="TenantUsers.remove(${item.id})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+        showState('table');
     }
 
-    function resetFilters() {
-        ['searchInput', 'tenantFilter', 'userFilter', 'entityFilter', 'statusFilter'].forEach(function (k) {
-            if (el[k]) el[k].value = '';
-        });
-        state.filters = {};
-        load(1);
+    function renderPagination() {
+        const container = el.pagination;
+        if (!container || !state.meta || state.meta.pages <= 1) { if (container) container.innerHTML = ''; return; }
+        let html = '';
+        for (let i = 1; i <= state.meta.pages; i++) {
+            html += `<button class="pagination-btn ${i === state.page ? 'active' : ''}" onclick="TenantUsers.load(${i})">${i}</button>`;
+        }
+        container.innerHTML = html;
     }
 
     // ════════════════════════════════════════════════════════════
-    // 15. INIT
+    // 9. INIT
     // ════════════════════════════════════════════════════════════
     async function init() {
         reloadConfig();
-        await loadTranslations((CFG && CFG.lang) || window.USER_LANGUAGE || 'en');
-        setDirectionForLang(state.language);
-
+        await loadTranslations();
+        
         const $ = id => document.getElementById(id);
-
         el = {
             formContainer: $('tenantUserFormContainer'),
             form:          $('tenantUserForm'),
@@ -755,81 +564,21 @@
             userStatus:    $('userStatus'),
             tbody:         $('tableBody'),
             pagination:    $('pagination'),
-            paginationInfo:$('paginationInfo'),
-            searchInput:   $('searchInput'),
-            tenantFilter:  $('tenantFilter'),
-            userFilter:    $('userFilter'),
-            entityFilter:  $('entityFilter'),
-            statusFilter:  $('statusFilter'),
             btnSubmit:     $('btnSubmitForm')
         };
 
-        // Load permissions
-        try {
-            const permsScript = $('pagePermissions');
-            if (permsScript) state.permissions = JSON.parse(permsScript.textContent);
-        } catch (e) { state.permissions = { canCreate: false, canEdit: false, canDelete: false }; }
-
-        // ── Event Bindings ─────────────────────────────────────
-        const formEl = document.getElementById('tenantUserForm');
-        if (formEl) formEl.addEventListener('submit', save);
-
-        if (el.formTenantId) el.formTenantId.addEventListener('input',  verifyTenant);
-        if (el.formUserId)   el.formUserId.addEventListener('input',    verifyUser);
-        if (el.formEntityId) el.formEntityId.addEventListener('change', verifyEntity);
-
+        if (el.form) el.form.addEventListener('submit', save);
+        if (el.formTenantId) el.formTenantId.addEventListener('input', verifyTenant);
+        if (el.formUserId)   el.formUserId.addEventListener('input', verifyUser);
+        
         $('btnAddTenantUser')?.addEventListener('click', add);
-        $('btnAddFirst')?.addEventListener('click', add);
-        $('btnCloseForm')?.addEventListener('click',  closeForm);
+        $('btnCloseForm')?.addEventListener('click', closeForm);
         $('btnCancelForm')?.addEventListener('click', closeForm);
 
-        const btnDel = $('btnDeleteTenantUser');
-        if (btnDel) btnDel.addEventListener('click', function () {
-            const id = el.formId && el.formId.value ? parseInt(el.formId.value, 10) : null;
-            if (id) remove(id);
-        });
-
-        $('btnApplyFilters')?.addEventListener('click', applyFilters);
-        $('btnResetFilters')?.addEventListener('click', resetFilters);
-        $('btnExportExcel')?.addEventListener('click',  exportToExcel);
-        $('btnRetry')?.addEventListener('click', function () { load(state.page); });
-
-        // ESC closes form
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Escape') return;
-            if (el.formContainer && el.formContainer.style.display !== 'none') closeForm();
-        });
-
         load(1);
-        console.log('[TenantUsers] Initialized successfully!');
     }
 
-    // ════════════════════════════════════════════════════════════
-    // 16. REGISTER
-    // ════════════════════════════════════════════════════════════
-    window.TenantUsers = {
-        init,
-        load,
-        edit,
-        remove,
-        add,
-        verifyTenant,
-        verifyUser,
-        verifyEntity,
-        setLanguage: async function (lang) {
-            await loadTranslations(lang);
-            setDirectionForLang(lang);
-            load(state.page);
-        }
-    };
+    window.TenantUsers = { init, load, edit, remove };
+    document.addEventListener('DOMContentLoaded', init);
 
-    window.page = { run: init };
-
-    if (window.Admin && window.Admin.page && typeof window.Admin.page.register === 'function') {
-        window.Admin.page.register('tenant_users', init);
-    }
-
-    // Initialization is driven by the fragment's inline <script> which waits
-    // for admin:i18n:applied — do NOT self-invoke init() here.
-
-}());
+})();
