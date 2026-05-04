@@ -204,7 +204,7 @@ final class PdoTenant_usersRepository extends BaseRepository
      */
     public function find(int $tenantId, int $id): ?array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT
                 tu.id,
                 tu.user_id,
@@ -223,12 +223,18 @@ final class PdoTenant_usersRepository extends BaseRepository
             FROM tenant_users tu
             JOIN users u ON tu.user_id = u.id
             LEFT JOIN roles r ON tu.role_id = r.id
-            JOIN tenants t ON tu.tenant_id = t.id
+            LEFT JOIN tenants t ON tu.tenant_id = t.id
             LEFT JOIN entities e ON tu.entity_id = e.id
-            WHERE tu.tenant_id = :tenantId AND tu.id = :id
+            WHERE tu.id = :id
             LIMIT 1
-        ");
-        $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql = str_replace('WHERE tu.id = :id', 'WHERE tu.tenant_id = :tenantId AND tu.id = :id', $sql);
+            $params[':tenantId'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 
@@ -248,7 +254,7 @@ final class PdoTenant_usersRepository extends BaseRepository
     public function getByUserAndTenant(int $tenantId, int $userId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, tenant_id, user_id, role_id, entity_id, joined_at, is_active, updated_at
             FROM tenant_users
             WHERE tenant_id = :tenantId AND user_id = :userId
             LIMIT 1
@@ -291,6 +297,40 @@ final class PdoTenant_usersRepository extends BaseRepository
         $stmt->execute([':id' => $roleId]);
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
         return isset($r['cnt']) && (int)$r['cnt'] > 0;
+    }
+
+    public function roleExistsForTenant(int $tenantId, int $roleId): bool
+    {
+        $sql = 'SELECT COUNT(*) AS cnt FROM roles WHERE id = :id';
+        $params = [':id' => $roleId];
+
+        if ($tenantId > 0) {
+            $sql .= ' AND (tenant_id = :tenantId OR tenant_id IS NULL OR tenant_id = 0)';
+            $params[':tenantId'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return isset($row['cnt']) && (int)$row['cnt'] > 0;
+    }
+
+    public function entityExistsForTenant(int $tenantId, int $entityId): bool
+    {
+        $sql = 'SELECT COUNT(*) AS cnt FROM entities WHERE id = :id';
+        $params = [':id' => $entityId];
+
+        if ($tenantId > 0) {
+            $sql .= ' AND tenant_id = :tenantId';
+            $params[':tenantId'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return isset($row['cnt']) && (int)$row['cnt'] > 0;
     }
 
     /**
@@ -386,7 +426,7 @@ final class PdoTenant_usersRepository extends BaseRepository
         } catch (PDOException $ex) {
             // Log helpful context for debugging
             error_log('[PdoTenant_usersRepository::save] PDOException: ' . $ex->getMessage() . ' | Tenant: ' . $tenantId . ' | Data: ' . json_encode($data));
-            throw $ex;
+            throw new DatabaseException($ex->getMessage(), ['sqlstate' => $ex->getCode()], $ex);
         }
     }
 
@@ -398,11 +438,19 @@ final class PdoTenant_usersRepository extends BaseRepository
         $oldData = $this->find($tenantId, $id);
         if (!$oldData) return false;
 
-        $stmt = $this->pdo->prepare("
-            DELETE FROM tenant_users
-            WHERE tenant_id = :tenantId AND id = :id
-        ");
-        $result = $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("
+                DELETE FROM tenant_users
+                WHERE tenant_id = :tenantId AND id = :id
+            ");
+            $result = $stmt->execute([':tenantId' => $tenantId, ':id' => $id]);
+        } else {
+            $stmt = $this->pdo->prepare("
+                DELETE FROM tenant_users
+                WHERE id = :id
+            ");
+            $result = $stmt->execute([':id' => $id]);
+        }
 
         if ($userId) {
             $this->logAction($tenantId, $userId, 'delete', $id, $oldData, null);
@@ -486,12 +534,13 @@ final class PdoTenant_usersRepository extends BaseRepository
         }
 
         try {
+            $logTenantId = $tenantId > 0 ? $tenantId : ((is_array($oldData) && isset($oldData['tenant_id']) && is_numeric($oldData['tenant_id'])) ? (int)$oldData['tenant_id'] : 0);
             $stmt = $this->pdo->prepare("
                 INSERT INTO entity_logs (tenant_id, user_id, entity_type, entity_id, action, changes, ip_address, created_at)
                 VALUES (:tenantId, :userId, 'tenant_user', :entityId, :action, :changes, :ip, NOW())
             ");
             $stmt->execute([
-                ':tenantId' => $tenantId,
+                ':tenantId' => $logTenantId,
                 ':userId'   => $userId,
                 ':entityId' => $entityId,
                 ':action'   => $action,

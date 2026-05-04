@@ -40,7 +40,7 @@ final class PdoTenantsRepository
                    u.username AS owner_username, 
                    u.email AS owner_email
             FROM tenants t
-            JOIN users u ON t.owner_user_id = u.id
+            LEFT JOIN users u ON t.owner_user_id = u.id
             {$where}
             ORDER BY t.created_at DESC
             LIMIT :limit OFFSET :offset
@@ -85,7 +85,7 @@ final class PdoTenantsRepository
         $stmt = $this->pdo->prepare("
             SELECT COUNT(*) as total
             FROM tenants t
-            JOIN users u ON t.owner_user_id = u.id
+            LEFT JOIN users u ON t.owner_user_id = u.id
             {$where}
         ");
         
@@ -108,7 +108,7 @@ final class PdoTenantsRepository
                    u.username AS owner_username, 
                    u.email AS owner_email
             FROM tenants t
-            JOIN users u ON t.owner_user_id = u.id
+            LEFT JOIN users u ON t.owner_user_id = u.id
             WHERE t.id = :id
             LIMIT 1
         ");

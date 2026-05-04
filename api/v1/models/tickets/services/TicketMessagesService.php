@@ -35,7 +35,7 @@ final class TicketMessagesService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Message not found');
+            throw new ApplicationException('Message not found');
         }
         return $data;
     }

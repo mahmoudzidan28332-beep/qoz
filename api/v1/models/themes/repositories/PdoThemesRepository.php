@@ -108,7 +108,7 @@ final class PdoThemesRepository
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE (tenant_id = :tenant_id OR tenant_id IS NULL)
               AND theme_scope = :theme_scope
@@ -134,7 +134,7 @@ final class PdoThemesRepository
         }
 
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE (tenant_id = :tenant_id OR tenant_id IS NULL)
               AND theme_scope = :theme_scope
@@ -158,7 +158,7 @@ final class PdoThemesRepository
         $target = $this->normalizeTarget($data['theme_target'] ?? null);
         $ownerTenantId = $this->normalizeOwnerTenantId($data['owner_tenant_id'] ?? ($data['tenant_id'] ?? null), $scope, $target, $viewerTenantId);
         if ($scope !== self::SCOPE_TENANT && $viewerTenantId !== self::PLATFORM_TENANT_ID) {
-            throw new RuntimeException('Only platform themes owner can create shared themes');
+            throw new ApplicationException('Only platform themes owner can create shared themes');
         }
 
         if (!empty($data['id'])) {
@@ -168,10 +168,10 @@ final class PdoThemesRepository
                 'owner_tenant_id' => $ownerTenantId,
             ]);
             if (!$existing) {
-                throw new RuntimeException('Theme not found');
+                throw new ApplicationException('Theme not found');
             }
             if (!$this->canMutateTheme($viewerTenantId, $existing)) {
-                throw new RuntimeException('Theme is read only for this tenant');
+                throw new ApplicationException('Theme is read only for this tenant');
             }
 
             $stmt = $this->pdo->prepare("
@@ -260,7 +260,7 @@ final class PdoThemesRepository
                 ->execute([':id' => $id]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -297,7 +297,7 @@ final class PdoThemesRepository
                 ->execute([':id' => (int)$theme['id']]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -334,7 +334,7 @@ final class PdoThemesRepository
                 ->execute([':id' => (int)$theme['id']]);
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -360,7 +360,7 @@ final class PdoThemesRepository
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row && is_numeric($row['value'])) {
             // Override found — load the theme directly by ID (no target filter)
-            $stmtTheme = $this->pdo->prepare("SELECT * FROM themes WHERE id = ? LIMIT 1");
+            $stmtTheme = $this->pdo->prepare("SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target FROM themes WHERE id = ? LIMIT 1");
             $stmtTheme->execute([(int)$row['value']]);
             $theme = $stmtTheme->fetch(PDO::FETCH_ASSOC);
             if ($theme) {
@@ -370,7 +370,7 @@ final class PdoThemesRepository
 
         $legacyColumn = $mode === 'active' ? 'is_active' : 'is_default';
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, name, slug, description, thumbnail_url, preview_url, version, author, is_active, is_default, created_at, updated_at, tenant_id, theme_scope, theme_target
             FROM themes
             WHERE theme_target = :theme_target
               AND (
@@ -424,7 +424,7 @@ final class PdoThemesRepository
 
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

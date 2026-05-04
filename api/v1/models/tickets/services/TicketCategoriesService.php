@@ -36,7 +36,7 @@ final class TicketCategoriesService
     {
         $data = $this->repo->find($tenantId, $id, $lang);
         if (!$data) {
-            throw new RuntimeException('Category not found');
+            throw new ApplicationException('Category not found');
         }
         return $data;
     }

@@ -108,7 +108,7 @@ final class PdoUnitsRepository
 
             $this->pdo->commit();
             return true;
-        }catch(Throwable){
+        }catch (\PDOException){
             $this->pdo->rollBack();
             return false;
         }

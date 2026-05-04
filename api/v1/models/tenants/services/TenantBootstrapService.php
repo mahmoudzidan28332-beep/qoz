@@ -165,11 +165,11 @@ final class TenantBootstrapService
             $this->pdo->commit();
             return $tenantId;
 
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
-            throw new \RuntimeException(
+            throw new ApplicationException(
                 'TenantBootstrapService: failed to create tenant – ' . $e->getMessage(),
                 (int)$e->getCode(),
                 $e

@@ -74,7 +74,7 @@ final class TenantsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
         return $row;
     }
@@ -83,7 +83,7 @@ final class TenantsService
     {
         $row = $this->repo->findByDomain($domain);
         if (!$row) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
         return $row;
     }
@@ -125,7 +125,7 @@ final class TenantsService
         $row = $this->repo->find($id);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve created tenant');
+            throw new ApplicationException('Failed to retrieve created tenant');
         }
 
         // Audit log
@@ -150,7 +150,7 @@ final class TenantsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
 
         $data       = array_merge($existing, $data);
@@ -179,7 +179,7 @@ final class TenantsService
         $row     = $this->repo->find($savedId);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve updated tenant');
+            throw new ApplicationException('Failed to retrieve updated tenant');
         }
 
         // Audit log (with diff)
@@ -205,11 +205,11 @@ final class TenantsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Tenant not found');
+            throw new ApplicationException('Tenant not found');
         }
 
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete tenant');
+            throw new ApplicationException('Failed to delete tenant');
         }
 
         // Audit log
@@ -283,7 +283,7 @@ final class TenantsService
             }
         } catch (InvalidArgumentException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Bad-words service failure must not block the primary operation
             error_log('[TenantsService] Bad-words check failed: ' . $e->getMessage());
         }
@@ -301,7 +301,7 @@ final class TenantsService
         try {
             // whitelist allowed fields to prevent mass assignment
             $this->auditRepo->save($data);
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             // Audit failure must never break the primary operation
             error_log('[TenantsService] Audit log write failed: ' . $e->getMessage());
         }

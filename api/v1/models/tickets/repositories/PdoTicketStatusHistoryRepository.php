@@ -104,7 +104,7 @@ final class PdoTicketStatusHistoryRepository implements TicketStatusHistoryRepos
 
         // التحقق من أن التذكرة تابعة للمستأجر قبل الحفظ
         if (!$this->validateTicketOwnership($tenantId, (int)$data['ticket_id'])) {
-            throw new RuntimeException('Ticket does not belong to tenant');
+            throw new ApplicationException('Ticket does not belong to tenant');
         }
 
         $params = [
