@@ -26,7 +26,7 @@ final class PdoAdTranslationsRepository implements AdTranslationsRepositoryInter
                     ac.tenant_id AS campaign_tenant_id
                 FROM " . self::TABLE . " atr
                 INNER JOIN ad_campaigns ac ON atr.ad_id = ac.id
-                WHERE ac.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -66,7 +66,7 @@ final class PdoAdTranslationsRepository implements AdTranslationsRepositoryInter
     {
         $sql = "SELECT COUNT(*) FROM " . self::TABLE . " atr
                 INNER JOIN ad_campaigns ac ON atr.ad_id = ac.id
-                WHERE ac.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -98,7 +98,7 @@ final class PdoAdTranslationsRepository implements AdTranslationsRepositoryInter
                     ac.tenant_id AS campaign_tenant_id
              FROM " . self::TABLE . " atr
              INNER JOIN ad_campaigns ac ON atr.ad_id = ac.id
-             WHERE ac.tenant_id = :tenant_id AND atr.id = :id
+             WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id) AND atr.id = :id
              LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
@@ -147,7 +147,7 @@ final class PdoAdTranslationsRepository implements AdTranslationsRepositoryInter
         $stmt = $this->pdo->prepare(
             "DELETE atr FROM " . self::TABLE . " atr
              INNER JOIN ad_campaigns ac ON atr.ad_id = ac.id
-             WHERE atr.id = :id AND ac.tenant_id = :tenant_id"
+             WHERE atr.id = :id AND (:tenant_id = 0 OR ac.tenant_id = :tenant_id)"
         );
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }

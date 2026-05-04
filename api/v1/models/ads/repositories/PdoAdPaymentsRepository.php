@@ -32,7 +32,7 @@ final class PdoAdPaymentsRepository implements AdPaymentsRepositoryInterface
                 FROM " . self::TABLE . " ap
                 LEFT JOIN currencies   c  ON ap.currency_id  = c.id
                 INNER JOIN ad_campaigns ac ON ap.campaign_id  = ac.id
-                WHERE ac.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -71,7 +71,7 @@ final class PdoAdPaymentsRepository implements AdPaymentsRepositoryInterface
     {
         $sql = "SELECT COUNT(*) FROM " . self::TABLE . " ap
                 INNER JOIN ad_campaigns ac ON ap.campaign_id = ac.id
-                WHERE ac.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -108,7 +108,7 @@ final class PdoAdPaymentsRepository implements AdPaymentsRepositoryInterface
              FROM " . self::TABLE . " ap
              LEFT JOIN currencies   c  ON ap.currency_id  = c.id
              INNER JOIN ad_campaigns ac ON ap.campaign_id  = ac.id
-             WHERE ac.tenant_id = :tenant_id AND ap.id = :id
+             WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id) AND ap.id = :id
              LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
@@ -159,7 +159,7 @@ final class PdoAdPaymentsRepository implements AdPaymentsRepositoryInterface
         $stmt = $this->pdo->prepare(
             "DELETE ap FROM " . self::TABLE . " ap
              INNER JOIN ad_campaigns ac ON ap.campaign_id = ac.id
-             WHERE ap.id = :id AND ac.tenant_id = :tenant_id"
+             WHERE ap.id = :id AND (:tenant_id = 0 OR ac.tenant_id = :tenant_id)"
         );
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }

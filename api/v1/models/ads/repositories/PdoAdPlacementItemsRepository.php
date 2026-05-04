@@ -28,7 +28,7 @@ final class PdoAdPlacementItemsRepository implements AdPlacementItemsRepositoryI
                 INNER JOIN ad_placements ap ON api.placement_id = ap.id
                 LEFT JOIN ads a ON api.ad_id = a.id
                 LEFT JOIN ad_translations atr ON a.id = atr.ad_id AND atr.language_code = :lang
-                WHERE ap.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ap.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId, ':lang' => self::DEFAULT_LANG];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -62,7 +62,7 @@ final class PdoAdPlacementItemsRepository implements AdPlacementItemsRepositoryI
     {
         $sql = "SELECT COUNT(*) FROM " . self::TABLE . " api
                 INNER JOIN ad_placements ap ON api.placement_id = ap.id
-                WHERE ap.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ap.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -89,7 +89,7 @@ final class PdoAdPlacementItemsRepository implements AdPlacementItemsRepositoryI
              INNER JOIN ad_placements ap ON api.placement_id = ap.id
              LEFT JOIN ads a ON api.ad_id = a.id
              LEFT JOIN ad_translations atr ON a.id = atr.ad_id AND atr.language_code = :lang
-             WHERE ap.tenant_id = :tenant_id AND api.id = :id
+             WHERE (:tenant_id = 0 OR ap.tenant_id = :tenant_id) AND api.id = :id
              LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id, ':lang' => self::DEFAULT_LANG]);
@@ -142,7 +142,7 @@ final class PdoAdPlacementItemsRepository implements AdPlacementItemsRepositoryI
         $stmt = $this->pdo->prepare(
             "DELETE api FROM " . self::TABLE . " api
              INNER JOIN ad_placements ap ON api.placement_id = ap.id
-             WHERE api.id = :id AND ap.tenant_id = :tenant_id"
+             WHERE api.id = :id AND (:tenant_id = 0 OR ap.tenant_id = :tenant_id)"
         );
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }

@@ -37,7 +37,7 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
                 LEFT JOIN currencies c ON ac.currency_id  = c.id
                 LEFT JOIN entities   e ON ac.entity_id    = e.id AND ac.tenant_id = e.tenant_id
                 LEFT JOIN users      u ON ac.created_by   = u.id
-                WHERE ac.tenant_id = :tenant_id";
+                WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -79,7 +79,7 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
 
     public function count(int $tenantId, array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
+        $sql = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE (:tenant_id = 0 OR tenant_id = :tenant_id)";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -122,7 +122,7 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
              LEFT JOIN currencies c ON ac.currency_id  = c.id
              LEFT JOIN entities   e ON ac.entity_id    = e.id AND ac.tenant_id = e.tenant_id
              LEFT JOIN users      u ON ac.created_by   = u.id
-             WHERE ac.tenant_id = :tenant_id AND ac.id = :id
+             WHERE (:tenant_id = 0 OR ac.tenant_id = :tenant_id) AND ac.id = :id
              LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
@@ -158,7 +158,7 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
                     status        = :status,
                     entity_id     = :entity_id,
                     created_by    = :created_by
-                WHERE id = :id AND tenant_id = :tenant_id
+                WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)
             ");
             $params[':id']        = (int)$data['id'];
             $params[':tenant_id'] = $tenantId;
@@ -175,7 +175,9 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
                 :pricing_model, :start_date, :end_date, :status, :created_by
             )
         ");
-        $params[':tenant_id'] = $tenantId;
+        $params[':tenant_id'] = ($tenantId === 0 && isset($data['tenant_id']) && (int)$data['tenant_id'] > 0)
+            ? (int)$data['tenant_id']
+            : $tenantId;
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
     }
@@ -183,7 +185,7 @@ final class PdoAdCampaignsRepository implements AdCampaignsRepositoryInterface
     public function delete(int $tenantId, int $id): bool
     {
         $stmt = $this->pdo->prepare(
-            "DELETE FROM " . self::TABLE . " WHERE id = :id AND tenant_id = :tenant_id"
+            "DELETE FROM " . self::TABLE . " WHERE id = :id AND (:tenant_id = 0 OR tenant_id = :tenant_id)"
         );
         return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
     }
