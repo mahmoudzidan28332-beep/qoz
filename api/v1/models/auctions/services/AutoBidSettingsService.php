@@ -30,7 +30,7 @@ final class AutoBidSettingsService
     {
         $data = $this->repo->find($id);
         if (!$data) {
-            throw new RuntimeException('Auto-bid setting not found');
+            throw new ApplicationException('Auto-bid setting not found');
         }
         return $data;
     }

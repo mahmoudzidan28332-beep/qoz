@@ -30,7 +30,7 @@ final class AdPaymentsService
     {
         $data = $this->repo->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Ad payment not found');
+            throw new ApplicationException('Ad payment not found');
         }
         return $data;
     }

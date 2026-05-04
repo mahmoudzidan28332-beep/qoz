@@ -25,7 +25,7 @@ final class BrandsService
     {
         $row = $this->repo->find($slug, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Brand not found');
+            throw new ApplicationException('Brand not found');
         }
         return $row;
     }
@@ -34,7 +34,7 @@ final class BrandsService
     {
         $row = $this->repo->findById($id, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Brand not found');
+            throw new ApplicationException('Brand not found');
         }
         return $row;
     }
@@ -55,7 +55,7 @@ final class BrandsService
 
         $row = $this->repo->findById($id, 'en', true);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved brand');
+            throw new ApplicationException('Failed to load saved brand');
         }
 
         return $row;
@@ -64,14 +64,14 @@ final class BrandsService
     public function delete(string $slug, ?int $userId = null): void
     {
         if (!$this->repo->delete($slug, $userId)) {
-            throw new RuntimeException('Failed to delete brand');
+            throw new ApplicationException('Failed to delete brand');
         }
     }
 
     public function deleteById(int $id, ?int $userId = null): void
     {
         if (!$this->repo->deleteById($id, $userId)) {
-            throw new RuntimeException('Failed to delete brand');
+            throw new ApplicationException('Failed to delete brand');
         }
     }
 }

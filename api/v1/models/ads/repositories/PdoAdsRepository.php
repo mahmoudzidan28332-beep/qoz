@@ -161,7 +161,7 @@ final class PdoAdsRepository implements AdsRepositoryInterface
         );
         $checkStmt->execute([':campaign_id' => $params[':campaign_id'], ':tenant_id' => $tenantId]);
         if (!$checkStmt->fetch()) {
-            throw new \RuntimeException('Campaign not found or does not belong to this tenant');
+            throw new ApplicationException('Campaign not found or does not belong to this tenant');
         }
 
         $stmt = $this->pdo->prepare("

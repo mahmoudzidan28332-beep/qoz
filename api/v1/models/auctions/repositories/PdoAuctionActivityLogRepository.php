@@ -25,7 +25,7 @@ final class PdoAuctionActivityLogRepository implements AuctionActivityLogReposit
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT * FROM " . self::TABLE . " WHERE auction_id = :auction_id";
+        $sql    = "SELECT id, auction_id, user_id, activity_type, amount, notes, ip_address, created_at FROM " . self::TABLE . " WHERE auction_id = :auction_id";
         $params = [':auction_id' => $auctionId];
 
         if (isset($filters['user_id']) && $filters['user_id'] !== '') {
@@ -75,7 +75,7 @@ final class PdoAuctionActivityLogRepository implements AuctionActivityLogReposit
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, auction_id, user_id, activity_type, amount, notes, ip_address, created_at FROM " . self::TABLE . " WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

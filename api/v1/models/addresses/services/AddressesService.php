@@ -55,7 +55,7 @@ final class AddressesService extends BaseService
     {
         $item = $this->repo->find($id, $language);
         if (!$item) {
-            throw new \RuntimeException('Address not found', 404);
+            throw new ApplicationException('Address not found', 404);
         }
 
         // Policy check
@@ -100,7 +100,7 @@ final class AddressesService extends BaseService
         // Fetch the existing row so we can (a) policy-check and (b) capture old_values.
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new \RuntimeException('Address not found', 404);
+            throw new ApplicationException('Address not found', 404);
         }
 
         $policy = AddressPolicy::forCurrentUser((int)($existing['tenant_id'] ?? 0));
@@ -127,7 +127,7 @@ final class AddressesService extends BaseService
         // Fetch existing row for policy check and audit old_values capture.
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new \RuntimeException('Address not found', 404);
+            throw new ApplicationException('Address not found', 404);
         }
 
         $policy = AddressPolicy::forCurrentUser((int)($existing['tenant_id'] ?? 0));

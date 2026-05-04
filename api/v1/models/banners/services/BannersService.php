@@ -31,7 +31,7 @@ final class BannersService
     {
         $row = $this->repo->find($tenantId, $id, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('Banner not found');
+            throw new ApplicationException('Banner not found');
         }
         return $row;
     }
@@ -46,7 +46,7 @@ final class BannersService
         $id  = $this->repo->save($tenantId, $data, $userId);
         $row = $this->repo->find($tenantId, $id, 'en', true);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved banner');
+            throw new ApplicationException('Failed to load saved banner');
         }
         return $row;
     }
@@ -54,7 +54,7 @@ final class BannersService
     public function delete(int $tenantId, int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($tenantId, $id, $userId)) {
-            throw new RuntimeException('Failed to delete banner');
+            throw new ApplicationException('Failed to delete banner');
         }
     }
 

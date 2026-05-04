@@ -187,8 +187,11 @@ final class PdoAuditLogsRepository implements AuditLogsRepositoryInterface
         foreach ($allKeys as $key) {
             $oldVal = $old[$key] ?? null;
             $newVal = $new[$key] ?? null;
-            // Loose comparison to catch int/string mismatches from JSON decode
-            if ((string)$oldVal !== (string)$newVal) {
+            
+            $oldStr = is_scalar($oldVal) || $oldVal === null ? (string)$oldVal : json_encode($oldVal, JSON_UNESCAPED_UNICODE);
+            $newStr = is_scalar($newVal) || $newVal === null ? (string)$newVal : json_encode($newVal, JSON_UNESCAPED_UNICODE);
+            
+            if ($oldStr !== $newStr) {
                 $diff[] = ['field' => $key, 'old' => $oldVal, 'new' => $newVal];
             }
         }
