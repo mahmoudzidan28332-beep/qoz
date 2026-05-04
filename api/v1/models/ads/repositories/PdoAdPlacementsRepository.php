@@ -5,7 +5,7 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
 {
     private PDO $pdo;
     private const TABLE = 'ad_placements';
-    private const ALLOWED_ORDER_BY = ['id', 'name', 'placement_key', 'status', 'created_at', 'updated_at'];
+    private const ALLOWED_ORDER_BY = ['id', 'name', 'placement_key', 'status', 'created_at'];
     private const FILTERABLE_COLUMNS = ['status'];
 
     public function __construct(PDO $pdo)
@@ -21,7 +21,7 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql    = "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at, updated_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
+        $sql    = "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -84,7 +84,7 @@ final class PdoAdPlacementsRepository implements AdPlacementsRepositoryInterface
     public function find(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at, updated_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
+            "SELECT id, tenant_id, name, code, placement_key, description, page, width, height, max_ads, status, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
