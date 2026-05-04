@@ -29,6 +29,7 @@ if ($isFragment) {
 if (!is_admin_logged_in()) {
     if ($isFragment) {
         http_response_code(401);
+        header('Content-Type: application/json');
         echo json_encode(['error' => 'Not authenticated']);
         exit;
     }
@@ -41,11 +42,12 @@ if (!is_admin_logged_in()) {
 // ════════════════════════════════════════════════════════════
 $user     = admin_user();
 $lang     = admin_lang();
-$dir      = in_array($lang, ['ar', 'he', 'fa', 'ur']) ? 'rtl' : 'ltr';
+$dir      = in_array($lang, ['ar', 'he', 'fa', 'ur'], true) ? 'rtl' : 'ltr';
 $csrf     = admin_csrf();
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
 $userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $tenantId = admin_tenant_id();
+$userId   = admin_user_id();
 
 // ════════════════════════════════════════════════════════════
 // PERMISSIONS
@@ -94,9 +96,21 @@ if (!function_exists('_adst')) {
 }
 
 $apiBase = '/api';
+
+// assetVer() is defined in admin_context.php; define here only for standalone use
+if (!function_exists('assetVer')) {
+    function assetVer(string $path = ''): string {
+        static $cache = [];
+        if (!isset($cache[$path])) {
+            $full         = $_SERVER['DOCUMENT_ROOT'] . $path;
+            $cache[$path] = file_exists($full) ? (string) filemtime($full) : '0';
+        }
+        return $cache[$path];
+    }
+}
 ?>
 
-<link rel="stylesheet" href="/admin/assets/css/pages/ads.css?v=<?= time() ?>">
+<link rel="stylesheet" href="/admin/assets/css/pages/ads.css?v=<?= assetVer('/admin/assets/css/pages/ads.css') ?>">
 <meta data-page="ads"
       data-i18n-files="/languages/Ads/<?= rawurlencode($lang) ?>.json">
 
@@ -122,6 +136,50 @@ $apiBase = '/api';
             <?php endif; ?>
         </div>
     </div>
+
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= htmlspecialchars(_adst('platform_admin.panel_title', 'Platform Admin — Tenant Context'), ENT_QUOTES, 'UTF-8') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= htmlspecialchars(_adst('platform_admin.search_user', 'Search User (ID or name)'), ENT_QUOTES, 'UTF-8') ?></label>
+                <div style="display:flex;gap:6px">
+                    <input type="text" id="paUserSearch" class="form-control"
+                           placeholder="<?= htmlspecialchars(_adst('platform_admin.search_placeholder', 'User ID or name...'), ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="button" id="paUserSearchBtn" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div id="paUserSearchResults" class="pa-search-results" style="display:none"></div>
+            </div>
+            <div class="form-group col-4">
+                <label><?= htmlspecialchars(_adst('platform_admin.select_tenant', 'Select Tenant'), ENT_QUOTES, 'UTF-8') ?></label>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= htmlspecialchars(_adst('platform_admin.select_tenant_placeholder', '-- Select tenant --'), ENT_QUOTES, 'UTF-8') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm" disabled>
+                    <i class="fas fa-user-shield"></i>
+                    <?= htmlspecialchars(_adst('platform_admin.act_on_behalf', 'Act on Behalf'), ENT_QUOTES, 'UTF-8') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" class="pa-active-banner" style="display:none">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+            <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-outline-danger" style="margin-left:auto">
+                <i class="fas fa-times"></i> <?= htmlspecialchars(_adst('platform_admin.clear_context', 'Clear'), ENT_QUOTES, 'UTF-8') ?>
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
     <!-- Tabs -->
     <div class="ads-tabs">
@@ -404,6 +462,26 @@ $apiBase = '/api';
             <form id="campaignForm" onsubmit="return false;">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                 <input type="hidden" id="campaignId" name="id" value="">
+
+                <?php if ($isPlatformAdmin): ?>
+                <!-- Tenant ID (platform admin only) -->
+                <div class="form-group" id="campaignTenantIdGroup">
+                    <label for="campaignTenantId" data-i18n="form.tenant_id">
+                        <?= htmlspecialchars(_adst('form.tenant_id', 'Tenant ID'), ENT_QUOTES, 'UTF-8') ?> *
+                    </label>
+                    <input type="number" id="campaignTenantId" name="tenant_id" class="form-control"
+                           min="1" placeholder="<?= htmlspecialchars(_adst('form.tenant_id_placeholder', 'Enter tenant ID'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <?php endif; ?>
+
+                <!-- Entity ID -->
+                <div class="form-group">
+                    <label for="campaignEntityId" data-i18n="form.entity_id">
+                        <?= htmlspecialchars(_adst('form.entity_id', 'Entity ID (optional)'), ENT_QUOTES, 'UTF-8') ?>
+                    </label>
+                    <input type="number" id="campaignEntityId" name="entity_id" class="form-control"
+                           min="1" placeholder="<?= htmlspecialchars(_adst('form.entity_id_placeholder', 'Leave blank for tenant-wide'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
 
                 <!-- Name -->
                 <div class="form-group">
@@ -693,6 +771,17 @@ $apiBase = '/api';
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                 <input type="hidden" id="placementId" name="id" value="">
 
+                <?php if ($isPlatformAdmin): ?>
+                <!-- Tenant ID (platform admin only) -->
+                <div class="form-group" id="placementTenantIdGroup">
+                    <label for="placementTenantId" data-i18n="form.tenant_id">
+                        <?= htmlspecialchars(_adst('form.tenant_id', 'Tenant ID'), ENT_QUOTES, 'UTF-8') ?> *
+                    </label>
+                    <input type="number" id="placementTenantId" name="tenant_id" class="form-control"
+                           min="1" placeholder="<?= htmlspecialchars(_adst('form.tenant_id_placeholder', 'Enter tenant ID'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <?php endif; ?>
+
                 <!-- Name -->
                 <div class="form-group">
                     <label for="placementName" data-i18n="placement_form.name">
@@ -882,6 +971,8 @@ window.ADS_CONFIG = {
     apiBase:           <?= json_encode($apiBase) ?>,
     csrfToken:         <?= json_encode($csrf) ?>,
     tenantId:          <?= (int)$tenantId ?>,
+    userId:            <?= (int)$userId ?>,
+    userType:          <?= json_encode($userType) ?>,
     lang:              <?= json_encode($_safeLang) ?>,
     dir:               <?= json_encode($dir) ?>,
     strings:           <?= json_encode($_adsStrings, JSON_UNESCAPED_UNICODE) ?>,
@@ -893,12 +984,14 @@ window.ADS_CONFIG = {
     translationsApi:   <?= json_encode($apiBase . '/ad_translations') ?>,
     placementsApi:     <?= json_encode($apiBase . '/ad_placements') ?>,
     placementItemsApi: <?= json_encode($apiBase . '/ad_placement_items') ?>,
+    tenantsApi:        <?= json_encode($apiBase . '/tenants') ?>,
+    usersApi:          <?= json_encode($apiBase . '/users') ?>,
     statsApi:          '/api/get_ad_stats.php',
     trackViewApi:      '/api/track_view.php',
     trackClickApi:     '/api/track_click.php',
     adImageTypeId:     20
 };
 </script>
-<script src="/admin/assets/js/pages/ads.js?v=<?= time() ?>"></script>
+<script src="/admin/assets/js/pages/ads.js?v=<?= assetVer('/admin/assets/js/pages/ads.js') ?>"></script>
 
 <?php if (!$isFragment) require_once __DIR__ . '/../includes/footer.php'; ?>

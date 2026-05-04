@@ -44,6 +44,155 @@
     reloadConfig();
 
     /* ──────────────────────────────────────────────
+     * Platform Admin — Tenant Context
+     * ──────────────────────────────────────────── */
+    var platformAdmin = {
+        activeTenantId: 0,
+
+        /** Returns the effective tenant_id for all API calls. */
+        getTenantId: function () {
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CFG.tenantId || 0);
+        },
+
+        /** Returns 'tenant_id=N' query string parameter (always included). */
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+
+        /** Wires up the Platform Admin panel controls. */
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+            var self          = this;
+            var searchInput   = document.getElementById('paUserSearch');
+            var searchBtn     = document.getElementById('paUserSearchBtn');
+            var searchResults = document.getElementById('paUserSearchResults');
+            var tenantSelect  = document.getElementById('paTenantSelect');
+            var applyBtn      = document.getElementById('paApplyTenantBtn');
+            var banner        = document.getElementById('paActiveTenantBanner');
+            var bannerLabel   = document.getElementById('paActiveTenantLabel');
+            var clearBtn      = document.getElementById('paClearTenantBtn');
+
+            if (!searchBtn) return;
+
+            // Search users by ID or name
+            searchBtn.addEventListener('click', function () {
+                var q = searchInput ? searchInput.value.trim() : '';
+                if (!q) return;
+                var isId = /^\d+$/.test(q);
+                var url  = isId
+                    ? (CFG.usersApi || '/api/users') + '/' + encodeURIComponent(q)
+                    : (CFG.usersApi || '/api/users') + '?search=' + encodeURIComponent(q) + '&limit=20';
+                fetch(url, { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (json) {
+                        var users = isId
+                            ? (json.data ? [json.data] : (json.id ? [json] : []))
+                            : (json.data && Array.isArray(json.data) ? json.data : (Array.isArray(json.items) ? json.items : []));
+                        if (!searchResults) return;
+                        searchResults.innerHTML = '';
+                        searchResults.style.display = users.length ? 'block' : 'none';
+                        users.forEach(function (u) {
+                            var item = document.createElement('div');
+                            item.className = 'pa-user-item';
+                            item.textContent = (u.name || u.username || '') + ' (#' + u.id + ')';
+                            item.addEventListener('click', function () {
+                                if (searchResults) searchResults.style.display = 'none';
+                                if (searchInput) searchInput.value = item.textContent;
+                                self.loadTenantsForUser(u.id, tenantSelect, applyBtn);
+                            });
+                            searchResults.appendChild(item);
+                        });
+                    })
+                    .catch(function () {});
+            });
+
+            // Load all tenants for the dropdown on load
+            self.loadAllTenants(tenantSelect, applyBtn);
+
+            // Apply selected tenant
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    var tid = parseInt(tenantSelect ? tenantSelect.value : '', 10) || 0;
+                    if (!tid) return;
+                    self.activeTenantId = tid;
+                    if (banner) banner.style.display = 'flex';
+                    if (bannerLabel) {
+                        var opt = tenantSelect ? tenantSelect.options[tenantSelect.selectedIndex] : null;
+                        bannerLabel.textContent = t('platform_admin.acting_on_behalf', 'Acting on behalf of') + ': ' + (opt ? opt.text : 'Tenant #' + tid);
+                    }
+                    // Reload all data in new tenant context
+                    campaignCache = [];
+                    loadCampaigns({ page: 1, filters: {} });
+                    loadAds({ page: 1, filters: {} });
+                    loadPlacements({ page: 1, filters: {} });
+                    refreshCampaignFilter();
+                });
+            }
+
+            // Clear selected tenant
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    if (banner) banner.style.display = 'none';
+                    if (tenantSelect) tenantSelect.value = '';
+                    if (applyBtn) applyBtn.disabled = true;
+                    campaignCache = [];
+                    loadCampaigns({ page: 1, filters: {} });
+                    loadAds({ page: 1, filters: {} });
+                    loadPlacements({ page: 1, filters: {} });
+                    refreshCampaignFilter();
+                });
+            }
+
+            // Enable apply button when a tenant is selected
+            if (tenantSelect) {
+                tenantSelect.addEventListener('change', function () {
+                    if (applyBtn) applyBtn.disabled = !tenantSelect.value;
+                });
+            }
+        },
+
+        /** Populate tenant dropdown with all tenants. */
+        loadAllTenants: function (selectEl, applyBtn) {
+            if (!selectEl) return;
+            var url = (CFG.tenantsApi || '/api/tenants') + '?limit=500';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(function (t) {
+                        var opt = document.createElement('option');
+                        opt.value       = t.id;
+                        opt.textContent = (t.name || t.tenant_name || '') + ' (#' + t.id + ')';
+                        selectEl.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !selectEl.value;
+                })
+                .catch(function () {});
+        },
+
+        /** Populate tenant dropdown filtered by user. */
+        loadTenantsForUser: function (userId, selectEl, applyBtn) {
+            if (!selectEl) return;
+            var url = (CFG.usersApi || '/api/users') + '/' + encodeURIComponent(userId) + '/tenants';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = json.data || json.items || [];
+                    while (selectEl.options.length > 1) selectEl.remove(1);
+                    list.forEach(function (t) {
+                        var opt = document.createElement('option');
+                        opt.value       = t.tenant_id || t.id;
+                        opt.textContent = (t.tenant_name || t.name || '') + ' (#' + (t.tenant_id || t.id) + ')';
+                        selectEl.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !selectEl.value;
+                })
+                .catch(function () {});
+        }
+    };
+
+    /* ──────────────────────────────────────────────
      * Translation helper
      * ──────────────────────────────────────────── */
     function t(key, fallback) {
@@ -146,8 +295,7 @@
     /* Load currencies for campaign modal */
     function loadCurrencies(callback) {
         if (currencyCache.length > 0) { callback(currencyCache); return; }
-        var url = (CFG.apiBase || '/api') + '/currencies?limit=200&order_by=code&order_dir=ASC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/currencies?limit=200&order_by=code&order_dir=ASC&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -175,8 +323,7 @@
     /* Load campaigns (used by campaign tab + ads filter + ad form) */
     function loadCampaignsData(callback, ignoreCache) {
         if (!ignoreCache && campaignCache.length > 0) { callback(campaignCache); return; }
-        var url = (CFG.apiBase || '/api') + '/ad_campaigns?limit=500&order_by=id&order_dir=ASC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ad_campaigns?limit=500&order_by=id&order_dir=ASC&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -196,8 +343,7 @@
         var filters = params.filters || campaignsFilters;
         var offset  = (page - 1) * PER_PAGE;
 
-        var url = (CFG.apiBase || '/api') + '/ad_campaigns?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ad_campaigns?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC&' + platformAdmin.tenantParam();
         if (filters.status)        url += '&status='        + encodeURIComponent(filters.status);
         if (filters.pricing_model) url += '&pricing_model=' + encodeURIComponent(filters.pricing_model);
         if (filters.search)        url += '&search='        + encodeURIComponent(filters.search);
@@ -302,6 +448,10 @@
         var titleEl = document.getElementById('campaignModalTitle');
         if (titleEl) titleEl.textContent = t('modal.add_campaign_title', 'Add Campaign');
 
+        // Pre-fill tenant ID field for platform admin
+        var tenantIdEl = document.getElementById('campaignTenantId');
+        if (tenantIdEl) tenantIdEl.value = platformAdmin.getTenantId() || '';
+
         var currSel = document.getElementById('campaignCurrencyId');
         if (currSel) populateCurrencySelect(currSel, null);
 
@@ -311,8 +461,7 @@
     /* Campaign Modal - Edit */
     function openEditCampaignModal(id) {
         reloadConfig();
-        var url = (CFG.apiBase || '/api') + '/ad_campaigns?id=' + id;
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ad_campaigns?id=' + id + '&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -332,6 +481,7 @@
                 setVal('campaignStartDate',    c.start_date ? c.start_date.substring(0, 10) : '');
                 setVal('campaignEndDate',      c.end_date   ? c.end_date.substring(0, 10)   : '');
                 setVal('campaignStatus',       c.status);
+                setVal('campaignEntityId',     c.entity_id  ? c.entity_id  : '');
 
                 var currSel = document.getElementById('campaignCurrencyId');
                 if (currSel) populateCurrencySelect(currSel, c.currency_id);
@@ -358,9 +508,20 @@
             status:        getVal('campaignStatus'),
         };
 
-        if (id > 0) data.id = id;
+        // entity_id is optional for all admin types
+        var entityIdVal = parseInt(getVal('campaignEntityId'), 10) || 0;
+        if (entityIdVal > 0) data.entity_id = entityIdVal;
 
-        var url    = (CFG.apiBase || '/api') + '/ad_campaigns' + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        if (id > 0) {
+            data.id = id;
+        } else {
+            // For new campaigns: platform admin must specify tenant via the form field;
+            // tenant admin's tenant is resolved server-side from the session.
+            var formTenantId = parseInt(getVal('campaignTenantId'), 10) || 0;
+            if (formTenantId > 0) data.tenant_id = formTenantId;
+        }
+
+        var url    = (CFG.apiBase || '/api') + '/ad_campaigns?' + platformAdmin.tenantParam();
         var method = id > 0 ? 'PUT' : 'POST';
 
         var btn = document.getElementById('campaignSaveBtn');
@@ -397,7 +558,7 @@
     }
 
     function deleteCampaign(id) {
-        var url = (CFG.apiBase || '/api') + '/ad_campaigns' + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url = (CFG.apiBase || '/api') + '/ad_campaigns?' + platformAdmin.tenantParam();
         fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
@@ -473,8 +634,7 @@
         var filters = params.filters || adsFilters;
         var offset  = (page - 1) * PER_PAGE;
 
-        var url = (CFG.apiBase || '/api') + '/ads?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ads?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC&' + platformAdmin.tenantParam();
         if (filters.status)      url += '&status='      + encodeURIComponent(filters.status);
         if (filters.target_type) url += '&target_type=' + encodeURIComponent(filters.target_type);
         if (filters.campaign_id) url += '&campaign_id=' + encodeURIComponent(filters.campaign_id);
@@ -615,8 +775,7 @@
 
     function openEditAdModal(id) {
         reloadConfig();
-        var url = (CFG.apiBase || '/api') + '/ads?id=' + id;
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ads?id=' + id + '&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -647,7 +806,7 @@
                 loadAdTranslations(ad.id);
 
                 // Load English translation for the Basic tab fields
-                var enUrl = (CFG.translationsApi || '/api/ad_translations') + '?ad_id=' + ad.id + '&language_code=en';
+                var enUrl = (CFG.translationsApi || '/api/ad_translations') + '?ad_id=' + ad.id + '&language_code=en&' + platformAdmin.tenantParam();
                 fetch(enUrl, { credentials: 'same-origin' })
                     .then(function (r) { return r.json(); })
                     .then(function (json) {
@@ -694,7 +853,7 @@
 
         if (id > 0) data.id = id;
 
-        var url    = (CFG.apiBase || '/api') + '/ads' + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url    = (CFG.apiBase || '/api') + '/ads?' + platformAdmin.tenantParam();
         var method = id > 0 ? 'PUT' : 'POST';
 
         var btn = document.getElementById('adSaveBtn');
@@ -714,8 +873,7 @@
                     if (savedId && enTitleVal) {
                         var enDescVal = enDescEl ? enDescEl.value.trim() : '';
                         var transData = { ad_id: savedId, language_code: 'en', title: enTitleVal, description: enDescVal };
-                        var transUrl  = (CFG.translationsApi || '/api/ad_translations');
-                        if (CFG.tenantId) transUrl += '?tenant_id=' + CFG.tenantId;
+                        var transUrl  = (CFG.translationsApi || '/api/ad_translations') + '?' + platformAdmin.tenantParam();
                         fetch(transUrl, {
                             method: 'POST',
                             credentials: 'same-origin',
@@ -868,7 +1026,7 @@
         var overlay = document.getElementById('adMediaStudioModal');
         var frame   = document.getElementById('adMediaStudioFrame');
         if (!overlay || !frame) return;
-        frame.src = '/admin/fragments/media_studio.php?embedded=1&tenant_id=' + encodeURIComponent(CFG.tenantId || '') +
+        frame.src = '/admin/fragments/media_studio.php?embedded=1&tenant_id=' + encodeURIComponent(platformAdmin.getTenantId()) +
                     '&lang=' + encodeURIComponent(CFG.lang || 'en') +
                     '&owner_id=' + adId +
                     '&image_type_id=' + imgTypeId;
@@ -886,7 +1044,7 @@
      * AD TRANSLATIONS
      * ══════════════════════════════════════════ */
     function loadAdTranslations(adId) {
-        var url = (CFG.translationsApi || '/api/ad_translations') + '?ad_id=' + adId + '&limit=100';
+        var url = (CFG.translationsApi || '/api/ad_translations') + '?ad_id=' + adId + '&limit=100&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -970,8 +1128,7 @@
         var method = 'POST';
         if (editId > 0) { data.id = editId; method = 'PUT'; }
 
-        var url = (CFG.translationsApi || '/api/ad_translations');
-        if (CFG.tenantId) url += '?tenant_id=' + CFG.tenantId;
+        var url = (CFG.translationsApi || '/api/ad_translations') + '?' + platformAdmin.tenantParam();
 
         fetch(url, {
             method: method,
@@ -998,8 +1155,7 @@
 
     function deleteAdTranslation(id) {
         if (!confirm(t('translations.confirm_delete', 'Delete this translation?'))) return;
-        var url = (CFG.translationsApi || '/api/ad_translations');
-        if (CFG.tenantId) url += '?tenant_id=' + CFG.tenantId;
+        var url = (CFG.translationsApi || '/api/ad_translations') + '?' + platformAdmin.tenantParam();
         fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
@@ -1026,7 +1182,7 @@
     }
 
     function deleteAd(id) {
-        var url = (CFG.apiBase || '/api') + '/ads' + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url = (CFG.apiBase || '/api') + '/ads?' + platformAdmin.tenantParam();
         fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
@@ -1077,8 +1233,7 @@
         var filters = params.filters || placementsFilters;
         var offset  = (page - 1) * PER_PAGE;
 
-        var url = (CFG.placementsApi || '/api/ad_placements') + '?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.placementsApi || '/api/ad_placements') + '?limit=' + PER_PAGE + '&offset=' + offset + '&order_by=id&order_dir=DESC&' + platformAdmin.tenantParam();
         if (filters.status) url += '&status=' + encodeURIComponent(filters.status);
         if (filters.search) url += '&search=' + encodeURIComponent(filters.search);
 
@@ -1179,13 +1334,15 @@
         if (idEl) idEl.value = '';
         var titleEl = document.getElementById('placementModalTitle');
         if (titleEl) titleEl.textContent = t('add_placement', 'Add Placement');
+        // Pre-fill tenant ID field for platform admin
+        var tenantIdEl = document.getElementById('placementTenantId');
+        if (tenantIdEl) tenantIdEl.value = platformAdmin.getTenantId() || '';
         openModal('placementModal');
     }
 
     function openEditPlacementModal(id) {
         reloadConfig();
-        var url = (CFG.placementsApi || '/api/ad_placements') + '?id=' + id;
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.placementsApi || '/api/ad_placements') + '?id=' + id + '&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -1230,9 +1387,15 @@
             max_ads:       getVal('placementMaxAds') ? parseInt(getVal('placementMaxAds'), 10) : 1,
             status:        getVal('placementStatus') || 'active',
         };
-        if (id > 0) data.id = id;
+        if (id > 0) {
+            data.id = id;
+        } else {
+            // For new placements: platform admin may specify tenant via the form field
+            var formTenantIdPl = parseInt(getVal('placementTenantId'), 10) || 0;
+            if (formTenantIdPl > 0) data.tenant_id = formTenantIdPl;
+        }
 
-        var url    = (CFG.placementsApi || '/api/ad_placements') + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url    = (CFG.placementsApi || '/api/ad_placements') + '?' + platformAdmin.tenantParam();
         var method = id > 0 ? 'PUT' : 'POST';
         var btn    = document.getElementById('placementSaveBtn');
         if (btn) btn.disabled = true;
@@ -1263,7 +1426,7 @@
     }
 
     function deletePlacement(id) {
-        var url = (CFG.placementsApi || '/api/ad_placements') + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url = (CFG.placementsApi || '/api/ad_placements') + '?' + platformAdmin.tenantParam();
         fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
@@ -1326,8 +1489,7 @@
         page = page || placementItemsPage;
         var offset = (page - 1) * PER_PAGE;
         var url = (CFG.placementItemsApi || '/api/ad_placement_items') + '?placement_id=' + placementId +
-                  '&limit=' + PER_PAGE + '&offset=' + offset + '&order_by=priority&order_dir=ASC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+                  '&limit=' + PER_PAGE + '&offset=' + offset + '&order_by=priority&order_dir=ASC&' + platformAdmin.tenantParam();
 
         var tbody = document.getElementById('placementItemsTableBody');
         if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">...</td></tr>';
@@ -1401,8 +1563,7 @@
 
     function openEditPlacementItemModal(id) {
         reloadConfig();
-        var url = (CFG.placementItemsApi || '/api/ad_placement_items') + '?id=' + id;
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.placementItemsApi || '/api/ad_placement_items') + '?id=' + id + '&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -1444,7 +1605,7 @@
         };
         if (id > 0) data.id = id;
 
-        var url    = (CFG.placementItemsApi || '/api/ad_placement_items') + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url    = (CFG.placementItemsApi || '/api/ad_placement_items') + '?' + platformAdmin.tenantParam();
         var method = id > 0 ? 'PUT' : 'POST';
         var btn    = document.getElementById('placementItemSaveBtn');
         if (btn) btn.disabled = true;
@@ -1475,7 +1636,7 @@
     }
 
     function deletePlacementItem(id) {
-        var url = (CFG.placementItemsApi || '/api/ad_placement_items') + (CFG.tenantId ? '?tenant_id=' + CFG.tenantId : '');
+        var url = (CFG.placementItemsApi || '/api/ad_placement_items') + '?' + platformAdmin.tenantParam();
         fetch(url, {
             method: 'DELETE',
             credentials: 'same-origin',
@@ -1495,8 +1656,7 @@
     }
 
     function populateAdSelectForPlacementItem(selectEl, selectedId) {
-        var url = (CFG.apiBase || '/api') + '/ads?limit=500&order_by=id&order_dir=ASC';
-        if (CFG.tenantId) url += '&tenant_id=' + CFG.tenantId;
+        var url = (CFG.apiBase || '/api') + '/ads?limit=500&order_by=id&order_dir=ASC&' + platformAdmin.tenantParam();
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (json) {
@@ -1617,6 +1777,7 @@
      * ──────────────────────────────────────────── */
     function init() {
         reloadConfig();
+        platformAdmin.bind();
         bindEvents();
 
         // Show correct tab button
