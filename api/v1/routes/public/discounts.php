@@ -11,6 +11,7 @@ declare(strict_types=1);
  *   &entity_id=Y        — optional: filter by a single merchant/entity
  *   &type=percentage    — optional: filter by discount type
  *   &active_only=0      — optional: set to 0 to return all statuses
+ *   &expires_today=0    — optional: set to 1 to show only discounts expiring today
  *   &page=1             — pagination
  *   &per=20             — items per page (max 100, default 20)
  *   &lang=ar            — translation language
@@ -23,16 +24,20 @@ if ($first === 'discounts') {
         exit;
     }
 
+    require_once __DIR__ . '/../../models/discounts/repositories/PdoDiscountsRepository.php';
+    require_once __DIR__ . '/../../models/discounts/repositories/PdoDiscountExclusionsRepository.php';
+    require_once __DIR__ . '/../../models/discounts/services/DiscountsService.php';
+
     $discountsRepo = new PdoDiscountsRepository($pdo);
-    $discountsService = new DiscountsService($discountsRepo);
+    $discountsService = new DiscountsService($pdo);
 
     // Optional filters
     $entityId   = isset($_GET['entity_id']) && (int)$_GET['entity_id'] > 0 ? (int)$_GET['entity_id'] : null;
     $dType      = trim($_GET['type'] ?? '');
-    $activeOnly = ($_GET['active_only'] ?? '1') !== '0'; // default: only active+currently-valid
+    $activeOnly = ($_GET['active_only'] ?? '1') !== '0';
     $expiresToday = ($_GET['expires_today'] ?? '0') === '1';
 
-    // 🔒 SECURITY: Verify that the entity belongs to the tenant (IDOR Protection)
+    // Security: Verify entity belongs to tenant
     if ($entityId && class_exists('MultiTenantValidator')) {
         if (!MultiTenantValidator::checkOwnership($pdo, 'entities', $entityId, $tenantId)) {
             ResponseFormatter::error('Invalid entity_id for this tenant', 403);
@@ -44,7 +49,7 @@ if ($first === 'discounts') {
     $total = 0;
     try {
         $total = $discountsRepo->publicCount($tenantId, $entityId, $dType, $activeOnly, $expiresToday);
-    } catch (Throwable $e) {
+    } catch (Exception $e) {
         error_log('[public/discounts] count error: ' . $e->getMessage());
     }
 
@@ -53,35 +58,41 @@ if ($first === 'discounts') {
     $pg      = max(1, (int)($_GET['page'] ?? 1));
     $off     = ($pg - 1) * $perPage;
 
-    // Main query — ordered by updated_at DESC (newest discount activity first)
+    // Main query
     $rows = [];
     try {
         $rows = $discountsRepo->publicList($tenantId, $entityId, $dType, $activeOnly, $expiresToday, $lang, $perPage, $off);
-    } catch (Throwable $e) {
+    } catch (Exception $e) {
         error_log('[public/discounts] fetch error: ' . $e->getMessage());
     }
 
-    // Enrich rows with primary action (discount value & type from discount_actions)
+    // Enrich rows with actions and scopes
     if (!empty($rows)) {
         $ids = array_column($rows, 'id');
         
         try {
-            // 1. Actions logic
+            // Actions
             $actions = [];
             foreach ($discountsRepo->getActionsForIds($ids) as $a) {
                 if (!isset($actions[$a['discount_id']])) $actions[$a['discount_id']] = $a;
             }
 
-            // 2. Scopes logic (resolve names for "Applies to" label)
+            // Scopes
             $scopeMap = [];
             foreach ($discountsRepo->getScopesForIds($ids, $lang) as $s) {
                 $did = $s['discount_id'];
-                $txt = match($s['scope_type']) {
-                    'product'  => $s['product_name'],
-                    'category' => $s['category_name'],
-                    'entity'   => $s['entity_name'],
-                    default    => null
-                };
+                $txt = null;
+                switch ($s['scope_type']) {
+                    case 'product':
+                        $txt = $s['product_name'] ?? null;
+                        break;
+                    case 'category':
+                        $txt = $s['category_name'] ?? null;
+                        break;
+                    case 'entity':
+                        $txt = $s['entity_name'] ?? null;
+                        break;
+                }
                 if ($txt) $scopeMap[$did][] = $txt;
             }
 
@@ -92,21 +103,23 @@ if ($first === 'discounts') {
                 $row['discount_label'] = null;
                 if ($act) {
                     $v = $act['action_value'] ?? '';
-                    $row['discount_label'] = match (true) {
-                        in_array($act['action_type'], ['percentage_discount','percent_discount','percentage'], true)
-                            => number_format((float)$v, 0) . '%',
-                        in_array($act['action_type'], ['fixed_discount','fixed_amount','fixed'], true)
-                            => number_format((float)$v, 2) . ' ' . trim($row['currency_code'] ?? ''),
-                        $act['action_type'] === 'free_shipping' => 'free_shipping',
-                        default => (string)$v,
-                    };
+                    $at = $act['action_type'] ?? '';
+                    if (in_array($at, ['percentage_discount', 'percent_discount', 'percentage'], true)) {
+                        $row['discount_label'] = number_format((float)$v, 0) . '%';
+                    } elseif (in_array($at, ['fixed_discount', 'fixed_amount', 'fixed'], true)) {
+                        $row['discount_label'] = number_format((float)$v, 2) . ' ' . trim($row['currency_code'] ?? '');
+                    } elseif ($at === 'free_shipping') {
+                        $row['discount_label'] = 'free_shipping';
+                    } else {
+                        $row['discount_label'] = (string)$v;
+                    }
                 }
                 
                 $myScopes = $scopeMap[$row['id']] ?? [];
                 $row['scope_summary'] = !empty($myScopes) ? implode(', ', array_unique($myScopes)) : null;
             }
             unset($row);
-        } catch (Throwable $e) {
+        } catch (Exception $e) {
             error_log('[public/discounts] enrichment error: ' . $e->getMessage());
         }
     }
@@ -123,8 +136,3 @@ if ($first === 'discounts') {
     ]);
     exit;
 }
-
-/* -------------------------------------------------------
- * Route: Brands (public listing)
- * GET /api/public/brands?tenant_id=X&lang=Y[&is_featured=1][&per=N][&page=N]
- * ----------------------------------------------------- */

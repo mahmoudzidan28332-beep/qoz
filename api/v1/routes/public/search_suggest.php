@@ -32,7 +32,7 @@ try {
     if ($sessUser && isset($sessUser['id']) && (int)$sessUser['id'] > 0) {
         $currentUserId = (int)$sessUser['id'];
     }
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     error_log('[search_suggest] session initialization failed: ' . $e->getMessage());
 }
 
@@ -78,7 +78,7 @@ $trackQuery = function (string $query, ?int $entityIdOverride = null) use ($sear
         if ($currentUserId !== null) {
             $searchLogsRepo->trackQuery($query, $tenantId ?: null, $currentUserId, $eid, $lang);
         }
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         error_log('[search_suggest] track query failed: ' . $e->getMessage());
     }
 };
@@ -92,7 +92,7 @@ if (!empty($_GET['popular'])) {
         if ($searchLogsRepo) {
             $popular = $searchLogsRepo->popular($lang, $tenantId);
         }
-    } catch (Throwable $e) {
+    } catch (ApplicationException|\RuntimeException $e) {
         error_log('[search_suggest] popular queries lookup failed: ' . $e->getMessage());
     }
     ResponseFormatter::success(['popular' => array_map(fn($row) => (string)$row['query'], $popular)]);
