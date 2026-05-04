@@ -12,6 +12,18 @@ if ($isFragment) {
     require_once __DIR__ . '/../includes/header.php';
 }
 
+if (function_exists('is_admin_logged_in') && !is_admin_logged_in()) {
+    if ($isFragment) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Not authenticated']);
+        exit;
+    }
+
+    header('Location: /admin/login.php');
+    exit;
+}
+
 // Read context (matching categories.php pattern)
 $payload = $GLOBALS['ADMIN_UI'] ?? [];
 $user = $payload['user'] ?? (function_exists('admin_user') ? admin_user() : []);
@@ -72,7 +84,7 @@ if (!function_exists('assetVer')) {
 <meta data-page="discounts"
       data-i18n-files="/languages/Discounts/<?= rawurlencode($_dtLangCode) ?>.json">
 
-<div class="page-container full-page-admin" dir="<?= $dir ?>">
+<div class="page-container full-page-admin" id="discountsPage" dir="<?= $dir ?>">
   <div class="page-header">
     <div>
       <h2><?= _dt('title', 'Discount Management') ?></h2>
@@ -355,15 +367,18 @@ if (!function_exists('assetVer')) {
               <option value="product"><?= _dt('scopes.product', 'Product') ?></option>
               <option value="category"><?= _dt('scopes.category', 'Category') ?></option>
               <option value="brand"><?= _dt('scopes.brand', 'Brand') ?></option>
-              <option value="collection"><?= _dt('scopes.collection', 'Collection') ?></option>
-              <option value="supplier"><?= _dt('scopes.supplier', 'Supplier') ?></option>
-              <option value="customer_group"><?= _dt('scopes.customer_group', 'Customer Group') ?></option>
+
+
+
               <option value="entity"><?= _dt('scopes.entity', 'Entity') ?></option>
             </select>
           </div>
           <div class="form-group">
             <label id="scopeIdLabel"><?= _dt('scopes.scope_id', 'Scope ID') ?></label>
-            <input type="text" class="form-control" id="scopeId" placeholder="<?= _dt('scopes.enter_id', 'Enter ID') ?>">
+            <div id="scopeIdContainer">
+              <input type="text" class="form-control" id="scopeId" placeholder="<?= _dt('scopes.enter_id', 'Enter ID') ?>">
+              <select class="form-control" id="scopeIdSelect" style="display:none"></select>
+            </div>
             <span id="scopeIdName" class="lookup-name"></span>
           </div>
           <div class="form-group form-group-btn">
@@ -552,22 +567,23 @@ if (!function_exists('assetVer')) {
 </div>
 
 <script>
-window.DISCOUNTS_CONFIG = {
-    apiBase:      <?= json_encode('/api', JSON_UNESCAPED_SLASHES) ?>,
-    csrfToken:    <?= json_encode($csrf) ?>,
-    lang:         <?= json_encode($_dtLangCode) ?>,
-    dir:          <?= json_encode($dir) ?>,
-    tenantId:     <?= (int) $tenantId ?>,
-    entityId:     <?= (int) $entityId ?>,
-    userId:       <?= (int) $userId ?>,
-    strings:      <?= json_encode($_dtStrings, JSON_UNESCAPED_UNICODE) ?>,
-    canManage:    <?= json_encode($canManage) ?>,
-    canCreate:    <?= json_encode($canCreate) ?>,
-    canEdit:      <?= json_encode($canEdit) ?>,
-    canDelete:    <?= json_encode($canDelete) ?>,
-    isSuperAdmin: <?= json_encode($isSuperAdmin) ?>
-};
+window.DISCOUNTS_CONFIG = <?= json_encode([
+    'apiBase'      => '/api',
+    'csrfToken'    => $csrf,
+    'lang'         => $_dtLangCode,
+    'dir'          => $dir,
+    'tenantId'     => (int) $tenantId,
+    'entityId'     => (int) $entityId,
+    'userId'       => (int) $userId,
+    'strings'      => $_dtStrings,
+    'canManage'    => $canManage,
+    'canCreate'    => $canCreate,
+    'canEdit'      => $canEdit,
+    'canDelete'    => $canDelete,
+    'isSuperAdmin' => $isSuperAdmin
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="/admin/assets/js/pages/discounts.js?v=<?= assetVer('/admin/assets/js/pages/discounts.js') ?>"></script>
-
-<?php if (!$isFragment) require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php if (!$isFragment): ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php endif; ?>

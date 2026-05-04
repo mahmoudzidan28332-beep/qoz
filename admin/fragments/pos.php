@@ -192,22 +192,26 @@ if (!function_exists('renderFragmentThemeVars')) {
       data-i18n-files="/languages/POS/<?= rawurlencode($lang) ?>.json">
 
 <?php
-// Load default active currency from DB
-$defaultCurrency = 'SAR'; // fallback
-$defaultCurrencySymbol = 'ر.س';
-if (!empty($GLOBALS['ADMIN_DB']) && $GLOBALS['ADMIN_DB'] instanceof PDO) {
+// Load entity timezone from DB (entities → timezones)
+$entityTimezone = ''; // empty = use browser default
+if (!empty($GLOBALS['ADMIN_DB']) && $GLOBALS['ADMIN_DB'] instanceof PDO && $userEntityId) {
     try {
-        $currStmt = $GLOBALS['ADMIN_DB']->prepare(
-            "SELECT code, symbol FROM currencies WHERE is_active = 1 ORDER BY id ASC LIMIT 1"
+        $tzStmt = $GLOBALS['ADMIN_DB']->prepare(
+            "SELECT tz.timezone AS timezone_name
+             FROM entities e
+             LEFT JOIN timezones tz ON e.timezone_id = tz.id
+             WHERE e.id = :eid LIMIT 1"
         );
-        $currStmt->execute();
-        $currRow = $currStmt->fetch(PDO::FETCH_ASSOC);
-        if ($currRow && !empty($currRow['code'])) {
-            $defaultCurrency = (string)$currRow['code'];
-            $defaultCurrencySymbol = (string)($currRow['symbol'] ?? $currRow['code']);
+        $tzStmt->execute([':eid' => (int)$userEntityId]);
+        $tzRow = $tzStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tzRow && !empty($tzRow['timezone_name'])) {
+            $entityTimezone = (string)$tzRow['timezone_name'];
         }
-    } catch (Throwable $e) { /* use fallback */ }
+    } catch (\Exception $e) { /* use fallback */ }
 }
+// Note: Currency is NOT a single global value.
+// Each product has its own currency_code from product_pricing.
+// The JS will read currency_code per-product and use it in cart/totals.
 ?>
 <!-- POS Config -->
 <script>
@@ -221,8 +225,7 @@ window.POS_CONFIG = {
     LANG:             '<?= htmlspecialchars($lang, ENT_QUOTES) ?>',
     DIR:              '<?= htmlspecialchars($dir, ENT_QUOTES) ?>',
     CSRF:             '<?= htmlspecialchars($csrf, ENT_QUOTES) ?>',
-    CURRENCY:         '<?= htmlspecialchars($defaultCurrency, ENT_QUOTES) ?>',
-    CURRENCY_SYMBOL:  '<?= htmlspecialchars($defaultCurrencySymbol, ENT_QUOTES) ?>',
+    ENTITY_TIMEZONE:  '<?= htmlspecialchars($entityTimezone, ENT_QUOTES) ?>',
 };
 </script>
 
@@ -233,6 +236,9 @@ window.POS_CONFIG = {
 
     <!-- Alerts -->
     <div id="posAlerts" style="padding:0 16px;padding-top:8px"></div>
+
+    <!-- Print Container (Hidden) -->
+    <div id="posReceiptPrintContainer" style="display:none"></div>
 
     <!-- ── Session Status Bar ── -->
     <div class="pos-session-bar" id="posSessionBar">
@@ -271,7 +277,7 @@ window.POS_CONFIG = {
                 <!-- Opening balance -->
                 <div style="margin-bottom:14px">
                     <label style="display:block;font-size:.82rem;margin-bottom:4px;color:var(--text-secondary,#94a3b8)">
-                        <?= __pos_t('pos.session.opening_balance', 'Opening Balance') ?> (<?= htmlspecialchars($defaultCurrencySymbol ?: $defaultCurrency, ENT_QUOTES) ?>)
+                        <?= __pos_t('pos.session.opening_balance', 'Opening Balance') ?>
                     </label>
                     <input type="number" name="opening_balance" class="form-control"
                            step="0.01" min="0" value="0" placeholder="0.00">
@@ -377,14 +383,14 @@ window.POS_CONFIG = {
 
                 <!-- Totals -->
                 <div class="pos-totals">
-                    <?php $currLabel = htmlspecialchars($defaultCurrencySymbol ?: $defaultCurrency, ENT_QUOTES); ?>
+                    <?php /* currency labels populated by JS per-product */ ?>
                     <div class="pos-total-row">
                         <span><?= __pos_t('pos.subtotal', 'Subtotal') ?></span>
-                        <span id="posSubtotal">0.00 <?= $currLabel ?></span>
+                        <span id="posSubtotal">0.00</span>
                     </div>
                     <div class="pos-total-row">
                         <span><?= __pos_t('pos.tax', 'Tax') ?></span>
-                        <span id="posTax">0.00 <?= $currLabel ?></span>
+                        <span id="posTax">0.00</span>
                     </div>
                     <!-- Manual Discount -->
                     <div class="pos-discount-row">
@@ -394,15 +400,20 @@ window.POS_CONFIG = {
                     <!-- Coupon Discount Row (shown when coupon applied) -->
                     <div class="pos-total-row pos-coupon-discount-row" id="posCouponRow" style="display:none;color:var(--success-color,#10b981)">
                         <span><?= __pos_t('pos.coupon.label', 'Coupon') ?></span>
-                        <span id="posCouponDiscountAmt">0.00 <?= $currLabel ?></span>
+                        <span id="posCouponDiscountAmt">0.00</span>
+                    </div>
+                    <!-- Auto-Apply Discount Row -->
+                    <div class="pos-total-row pos-auto-discount-row" id="posAutoDiscountRow" style="display:none;color:var(--success-color,#10b981)">
+                        <span><?= __pos_t('pos.auto_discount', 'Offer Discount') ?></span>
+                        <span id="posAutoDiscountAmt">0.00</span>
                     </div>
                     <div class="pos-total-row">
                         <span><?= __pos_t('pos.total', 'Total') ?></span>
-                        <span id="posTotal">0.00 <?= $currLabel ?></span>
+                        <span id="posTotal">0.00</span>
                     </div>
                     <div class="pos-total-row grand">
                         <span><?= __pos_t('pos.grand_total', 'Grand Total') ?></span>
-                        <span class="amount" id="posGrandTotal">0.00 <?= $currLabel ?></span>
+                        <span class="amount" id="posGrandTotal">0.00</span>
                     </div>
                 </div>
 
