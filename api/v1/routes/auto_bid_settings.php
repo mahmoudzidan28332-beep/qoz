@@ -106,10 +106,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'auto_bid_settings.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'auto_bid_settings.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (\Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'auto_bid_settings.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error($e->getMessage(), 500);
 }

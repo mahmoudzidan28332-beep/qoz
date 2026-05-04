@@ -45,7 +45,7 @@ if ($isPlatformAdmin && isset($_GET['tenant_id'])) {
 }
 
 // 🔒 SECURITY: Enforce TenantContext
-TenantContext::set($effectiveId);
+TenantContext::set((int)($effectiveId ?? 0));
 
 $repo       = new PdoBrandsRepository($pdo);
 $validator  = new BrandsValidator();
@@ -98,11 +98,20 @@ try {
             break;
 
         case 'PUT':
+            if ($id !== null && empty($body['id'])) {
+                $body['id'] = $id;
+            }
             $body['user_id'] = get_user_id();
             ResponseFormatter::success($controller->update($body), 'Updated successfully');
             break;
 
         case 'DELETE':
+            if ($id !== null && empty($body['id'])) {
+                $body['id'] = $id;
+            }
+            if ($slug !== null && empty($body['slug'])) {
+                $body['slug'] = $slug;
+            }
             $body['user_id'] = get_user_id();
             $controller->delete($body);
             ResponseFormatter::success(['deleted' => true], 'Deleted successfully');
@@ -114,7 +123,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'brands.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'brands.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);

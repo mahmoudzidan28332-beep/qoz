@@ -4,6 +4,9 @@ declare(strict_types=1);
 $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
+if (file_exists(dirname(__DIR__, 3) . '/admin/includes/admin_context.php')) {
+    require_once dirname(__DIR__, 3) . '/admin/includes/admin_context.php';
+}
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
@@ -27,22 +30,21 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-// Load valid vendor_type codes from entity_types table
-$entityTypesRepo = new PdoEntityTypesRepository($pdo);
-$allEntityTypes  = $entityTypesRepo->all(null, null, [], 'code', 'ASC');
-$validVendorTypeCodes = array_column($allEntityTypes, 'code');
-
 $repo       = new PdoEntitiesRepository($pdo);
 $service    = new EntitiesService($repo);
 $controller = new EntitiesController($service);
-$validator  = new EntitiesValidator($validVendorTypeCodes);
+$validator  = null;
 
 // ================================
 // Tenant & Auth check
 // ================================
 $user = $_SESSION['user'] ?? [];
-
 $tenantId = resolve_tenant_id();
+$isPlatformAdmin = is_platform_admin();
+
+if ($tenantId === null && $isPlatformAdmin) {
+    $tenantId = 0; // Platform admin global scope
+}
 
 if ($tenantId === null) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
@@ -51,9 +53,6 @@ if ($tenantId === null) {
 
 TenantContext::set($tenantId);
 
-// ================================
-// Handle request
-// ================================
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $raw    = file_get_contents('php://input');
@@ -154,6 +153,11 @@ try {
         // POST
         // ================================
         case 'POST':
+            if (!$validator instanceof EntitiesValidator) {
+                $entityTypesRepo = new PdoEntityTypesRepository($pdo);
+                $allEntityTypes  = $entityTypesRepo->all(null, null, [], 'code', 'ASC');
+                $validator = new EntitiesValidator(array_column($allEntityTypes, 'code'));
+            }
             $validator->validate($data, false);
 
             $newId = $controller->save(
@@ -171,7 +175,7 @@ try {
                     'tenant_id'     => $tenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$newId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO sync on create failed: ' . $e->getMessage());
             }
 
@@ -191,6 +195,11 @@ try {
                 exit;
             }
 
+            if (!$validator instanceof EntitiesValidator) {
+                $entityTypesRepo = new PdoEntityTypesRepository($pdo);
+                $allEntityTypes  = $entityTypesRepo->all(null, null, [], 'code', 'ASC');
+                $validator = new EntitiesValidator(array_column($allEntityTypes, 'code'));
+            }
             $validator->validate($data, true);
 
             $updatedId = $controller->save(
@@ -208,7 +217,7 @@ try {
                     'tenant_id'     => $tenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'entity', (int)$updatedId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO sync on update failed: ' . $e->getMessage());
             }
 
@@ -235,7 +244,7 @@ try {
             // Auto-delete SEO meta
             try {
                 SeoAutoManager::delete($pdo, 'entity', (int)$data['id']);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[entities] SEO delete failed: ' . $e->getMessage());
             }
 
@@ -255,13 +264,13 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'entities.runtime', [
         'error' => $e->getMessage()
     ]);
     ResponseFormatter::error($e->getMessage(), 400);
 
-} catch (Throwable $e) {
+} catch (\Throwable $e) {
     safe_log('critical', 'entities.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()

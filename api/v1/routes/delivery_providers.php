@@ -173,7 +173,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[DeliveryProviders] Database error', [
         'tenant_id' => $tenantId,
         'code'      => $e->getCode(),
@@ -181,7 +181,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred.', 500);
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[DeliveryProviders] Unexpected error', [
         'tenant_id' => $tenantId,
         'error'     => $e->getMessage(),

@@ -212,10 +212,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning','entities_attribute_values.validation', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','entities_attribute_values.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     error_log("Error in entities_attribute_values: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
     safe_log('critical','entities_attribute_values.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);

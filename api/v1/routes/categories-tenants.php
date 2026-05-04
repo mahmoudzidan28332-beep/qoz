@@ -150,25 +150,33 @@ try {
             if (!$idPut) {
                 throw new InvalidArgumentException('ID is required for update');
             }
+            $isStatusToggle = isset($data['is_active']) && count($data) === 1;
+
+            $existingItem = $controller->get($idPut);
 
             // Verify ownership (Bypass for true platform admin)
             if (!($isPlatformAdmin && $tenantId === null)) {
-                $item = $controller->get($idPut);
-                if (!$item || (int)($item['tenant_id'] ?? 0) !== $tenantId) {
+                if (!$existingItem || (int)($existingItem['tenant_id'] ?? 0) !== $tenantId) {
                     ResponseFormatter::error('Access denied', 403);
                     break;
                 }
                 // Strip tenant_id from payload for regular users
                 unset($data['tenant_id']);
+            } else {
+                if (!isset($data['tenant_id']) || !is_numeric($data['tenant_id'])) {
+                    $data['tenant_id'] = (int)($existingItem['tenant_id'] ?? 0);
+                }
             }
-            
+
             $data['id'] = $idPut;
             
-            // Toggle if only id and is_active are sent (2 fields)
-            if (isset($data['is_active']) && count($data) === 2) {
+            if ($isStatusToggle) {
                 $toggled = $controller->toggleStatus($data);
                 ResponseFormatter::success($toggled, 'Status toggled');
             } else {
+                if (!isset($data['category_id']) || !is_numeric($data['category_id'])) {
+                    $data['category_id'] = (int)($existingItem['category_id'] ?? 0);
+                }
                 $updated = $controller->update($data);
                 ResponseFormatter::success($updated, 'Tenant Category updated');
             }
@@ -200,7 +208,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'categories_tenants.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'categories_tenants.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 404);
 } catch (\Throwable $e) {

@@ -36,8 +36,9 @@ if (!$pdo instanceof PDO) {
 
 $user     = $_SESSION['user'] ?? [];
 $tenantId = resolve_tenant_id();
+$isPlatformAdmin = is_platform_admin();
 
-if ($tenantId === null) {
+if ($tenantId === null && !$isPlatformAdmin) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
     exit;
 }
@@ -103,7 +104,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'currencies.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'currencies.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);

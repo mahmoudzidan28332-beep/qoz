@@ -267,7 +267,7 @@ try {
             try {
                 $deleted = $controller->delete($userId, (int)$data['id']);
                 ResponseFormatter::success(['deleted' => $deleted], 'Alert deleted');
-            } catch (RuntimeException $e) {
+            } catch (ApplicationException|RuntimeException $e) {
                 ResponseFormatter::error($e->getMessage(), 400);
             }
             break;
@@ -278,10 +278,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'job_alerts.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'job_alerts.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'job_alerts.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()
