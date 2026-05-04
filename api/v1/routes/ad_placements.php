@@ -7,6 +7,14 @@ require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
 $modelsPath = API_VERSION_PATH . '/models/ads';
 require_once $modelsPath . '/Contracts/AdPlacementsRepositoryInterface.php';
 require_once $modelsPath . '/repositories/PdoAdPlacementsRepository.php';
@@ -14,34 +22,44 @@ require_once $modelsPath . '/validators/AdPlacementsValidator.php';
 require_once $modelsPath . '/services/AdPlacementsService.php';
 require_once $modelsPath . '/controllers/AdPlacementsController.php';
 
-header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Key');
-header('Content-Type: application/json; charset=utf-8');
-
-if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($GLOBALS['ADMIN_DB']) || !$GLOBALS['ADMIN_DB'] instanceof PDO) {
-    ResponseFormatter::error('Database connection failed', 500);
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
-$pdo    = $GLOBALS['ADMIN_DB'];
-$method = $_SERVER['REQUEST_METHOD'];
-
-if ($method === 'OPTIONS') {
-    http_response_code(204);
-    exit;
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'POST' && !empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
 }
 
-$tenantId = resolve_tenant_id();
+$isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
+$tenantId        = resolve_tenant_id();
 
 if ($tenantId === null) {
-    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    if (!$isPlatformAdmin) {
+        ResponseFormatter::error('Unauthorized', 401);
+        exit;
+    }
+    $tenantId = 0;
+}
+$tenantId = (int)$tenantId;
+
+if (!$isPlatformAdmin && $tenantId === 0) {
+    ResponseFormatter::error('Unauthorized', 401);
     exit;
+}
+
+if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
+    PlatformContext::logCrossTenantAction(
+        sourceTenant: null,
+        targetTenant: $tenantId,
+        reason: 'Platform Admin — ad_placements management'
+    );
 }
 
 try {
@@ -108,10 +126,14 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'ad_placements.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
+} catch (DatabaseException|\PDOException $e) {
+    safe_log('error', 'ad_placements.database', [
+        'code'  => $e->getCode(),
+        'error' => $e->getMessage(),
+        'file'  => $e->getFile() . ':' . $e->getLine(),
+    ]);
+    ResponseFormatter::error('A database error occurred.', 500);
 } catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'ad_placements.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (ApplicationException|\RuntimeException $e) {
-    safe_log('critical', 'ad_placements.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-    ResponseFormatter::error('An unexpected error occurred', 500);
+    ResponseFormatter::error('An unexpected error occurred.', 500);
 }

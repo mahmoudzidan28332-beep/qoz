@@ -50,7 +50,7 @@ $tenantId = admin_tenant_id();
 // ════════════════════════════════════════════════════════════
 // PERMISSIONS
 // ════════════════════════════════════════════════════════════
-$canManageAds = can('manage_ads') || is_super_admin();
+$canManageAds = can('manage_ads') || is_super_admin() || $isPlatformAdmin;
 $canCreate    = $canManageAds;
 $canEdit      = $canManageAds;
 $canDelete    = $canManageAds;
@@ -885,6 +885,7 @@ window.ADS_CONFIG = {
     lang:              <?= json_encode($_safeLang) ?>,
     dir:               <?= json_encode($dir) ?>,
     strings:           <?= json_encode($_adsStrings, JSON_UNESCAPED_UNICODE) ?>,
+    isPlatformAdmin:   <?= json_encode($isPlatformAdmin) ?>,
     canCreate:         <?= json_encode($canCreate) ?>,
     canEdit:           <?= json_encode($canEdit) ?>,
     canDelete:         <?= json_encode($canDelete) ?>,
