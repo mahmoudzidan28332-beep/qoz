@@ -51,7 +51,7 @@ final class PdoDesignSettingsRepository
     public function find(int $tenantId, string $key, ?int $themeId = null): ?array
     {
         $sql = "
-            SELECT *
+            SELECT id, theme_id, setting_key, setting_name, setting_value, setting_type, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM design_settings
             WHERE tenant_id = :tenantId AND setting_key = :key
         ";
@@ -74,7 +74,7 @@ final class PdoDesignSettingsRepository
     public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT *
+            SELECT id, theme_id, setting_key, setting_name, setting_value, setting_type, category, is_active, sort_order, created_at, updated_at, tenant_id
             FROM design_settings
             WHERE tenant_id = :tenantId AND id = :id
             LIMIT 1
@@ -222,7 +222,7 @@ final class PdoDesignSettingsRepository
 
             $this->pdo->commit();
             return true;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

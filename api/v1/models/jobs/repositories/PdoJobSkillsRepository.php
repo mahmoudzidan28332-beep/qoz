@@ -31,7 +31,7 @@ final class PdoJobSkillsRepository
         string $orderDir = 'ASC'
     ): array {
         $sql = "
-            SELECT js.*,
+            SELECT js.id, js.job_id, js.skill_name, js.proficiency_level, js.is_required,
                    j.slug AS job_slug
             FROM job_skills js
             LEFT JOIN jobs j ON js.job_id = j.id
@@ -124,7 +124,7 @@ final class PdoJobSkillsRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT js.*,
+            SELECT js.id, js.job_id, js.skill_name, js.proficiency_level, js.is_required,
                    j.slug AS job_slug
             FROM job_skills js
             LEFT JOIN jobs j ON js.job_id = j.id
@@ -142,7 +142,7 @@ final class PdoJobSkillsRepository
     public function getByJob(int $jobId, bool $requiredOnly = false): array
     {
         $sql = "
-            SELECT * 
+            SELECT id, job_id, skill_name, proficiency_level, is_required
             FROM job_skills 
             WHERE job_id = :job_id
         ";

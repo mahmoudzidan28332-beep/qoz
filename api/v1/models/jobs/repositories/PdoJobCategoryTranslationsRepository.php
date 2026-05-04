@@ -170,9 +170,9 @@ final class PdoJobCategoryTranslationsRepository
             }
             $this->pdo->commit();
             return true;
-        } catch (\Exception $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 }

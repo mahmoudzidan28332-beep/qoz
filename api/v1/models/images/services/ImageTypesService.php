@@ -28,7 +28,7 @@ final class ImageTypesService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Image type not found');
+            throw new ApplicationException('Image type not found');
         }
 
         return $row;
@@ -41,7 +41,7 @@ final class ImageTypesService
     {
         $row = $this->repo->findByCode($code);
         if (!$row) {
-            throw new RuntimeException('Invalid image type');
+            throw new ApplicationException('Invalid image type');
         }
 
         return $row;
@@ -81,7 +81,7 @@ final class ImageTypesService
         }
 
         if (!$this->repo->update($id, $data)) {
-            throw new RuntimeException('Failed to update image type');
+            throw new ApplicationException('Failed to update image type');
         }
 
         return $this->get($id);
@@ -93,7 +93,7 @@ final class ImageTypesService
     public function delete(int $id): void
     {
         if (!$this->repo->delete($id)) {
-            throw new RuntimeException('Failed to delete image type');
+            throw new ApplicationException('Failed to delete image type');
         }
     }
 }

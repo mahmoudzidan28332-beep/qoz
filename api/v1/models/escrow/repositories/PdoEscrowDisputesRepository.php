@@ -21,7 +21,7 @@ final class PdoEscrowDisputesRepository implements EscrowDisputesRepositoryInter
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT * FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
+        $sql = "SELECT id, tenant_id, dispute_number, escrow_id, order_id, raised_by_entity_id, raised_by_entity_type, dispute_type, description, status, resolution_type, refund_amount, assigned_to, resolved_at, resolution_notes, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
         $params = [':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -83,7 +83,7 @@ final class PdoEscrowDisputesRepository implements EscrowDisputesRepositoryInter
     public function find(int $tenantId, int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT * FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
+            "SELECT id, tenant_id, dispute_number, escrow_id, order_id, raised_by_entity_id, raised_by_entity_type, dispute_type, description, status, resolution_type, refund_amount, assigned_to, resolved_at, resolution_notes, created_at FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
         );
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
