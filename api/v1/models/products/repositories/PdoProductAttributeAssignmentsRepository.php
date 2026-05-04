@@ -96,10 +96,12 @@ final class PdoProductAttributeAssignmentsRepository
 
         // Verify product belongs to tenant
         $productId = (int)$data['product_id'];
-        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-        $checkStmt->execute([$productId, $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new InvalidArgumentException("Product not found or access denied.");
+        if ($tenantId > 0) {
+            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $checkStmt->execute([$productId, $tenantId]);
+            if (!$checkStmt->fetch()) {
+                throw new InvalidArgumentException("Product not found or access denied.");
+            }
         }
 
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
@@ -108,14 +110,16 @@ final class PdoProductAttributeAssignmentsRepository
             $id = (int)$data['id'];
             
             // Security check: Verify assignment belongs to tenant
-            $assignCheck = $this->pdo->prepare("
-                SELECT paa.id FROM product_attribute_assignments paa 
-                JOIN products p ON paa.product_id = p.id 
-                WHERE paa.id = ? AND p.tenant_id = ?
-            ");
-            $assignCheck->execute([$id, $tenantId]);
-            if (!$assignCheck->fetch()) {
-                throw new InvalidArgumentException("Assignment record not found or access denied.");
+            if ($tenantId > 0) {
+                $assignCheck = $this->pdo->prepare("
+                    SELECT paa.id FROM product_attribute_assignments paa 
+                    JOIN products p ON paa.product_id = p.id 
+                    WHERE paa.id = ? AND p.tenant_id = ?
+                ");
+                $assignCheck->execute([$id, $tenantId]);
+                if (!$assignCheck->fetch()) {
+                    throw new InvalidArgumentException("Assignment record not found or access denied.");
+                }
             }
 
             $stmt = $this->pdo->prepare("
@@ -170,13 +174,20 @@ final class PdoProductAttributeAssignmentsRepository
             return false;
         }
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             DELETE paa FROM product_attribute_assignments paa
             INNER JOIN products p ON paa.product_id = p.id
-            WHERE paa.id = :id AND p.tenant_id = :tenant_id
-        ");
+            WHERE paa.id = :id
+        ";
+        $params = [':id' => $id];
+        
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
-        $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        $stmt = $this->pdo->prepare($sql);
+        $result = $stmt->execute($params);
 
         // Log the action
         if ($userId && $result) {
@@ -198,13 +209,20 @@ final class PdoProductAttributeAssignmentsRepository
         $this->pdo->beginTransaction();
 
         try {
-            $stmt = $this->pdo->prepare("
+            $sql = "
                 DELETE paa FROM product_attribute_assignments paa
                 INNER JOIN products p ON paa.product_id = p.id
-                WHERE paa.product_id = :productId AND p.tenant_id = :tenant_id
-            ");
+                WHERE paa.product_id = :productId
+            ";
+            $params = [':productId' => $productId];
+            
+            if ($tenantId > 0) {
+                $sql .= " AND p.tenant_id = :tenant_id";
+                $params[':tenant_id'] = $tenantId;
+            }
 
-            $result = $stmt->execute([':productId' => $productId, ':tenant_id' => $tenantId]);
+            $stmt = $this->pdo->prepare($sql);
+            $result = $stmt->execute($params);
 
             // Log the action for each deleted assignment
             if ($userId && $result) {
@@ -215,7 +233,7 @@ final class PdoProductAttributeAssignmentsRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

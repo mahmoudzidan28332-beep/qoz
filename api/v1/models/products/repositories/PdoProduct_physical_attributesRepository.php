@@ -40,14 +40,17 @@ final class PdoProductPhysicalAttributesRepository
         string $orderDir = 'DESC'
     ): array {
         $tenantId = TenantContext::require();
-        $params = [':tenant_id' => $tenantId];
+        $params = [
+            ':product_tenant_id' => $tenantId,
+            ':variant_tenant_id' => $tenantId,
+        ];
         
         $sql = "SELECT ppa.* 
                 FROM product_physical_attributes ppa
                 LEFT JOIN products p ON ppa.product_id = p.id
                 LEFT JOIN product_variants pv ON ppa.variant_id = pv.id
                 LEFT JOIN products pv_p ON pv.product_id = pv_p.id
-                WHERE (p.tenant_id = :tenant_id OR pv_p.tenant_id = :tenant_id)";
+                WHERE (p.tenant_id = :product_tenant_id OR pv_p.tenant_id = :variant_tenant_id)";
 
         if (!empty($filters['product_id'])) {
             $sql .= " AND ppa.product_id = :product_id";
@@ -106,14 +109,17 @@ final class PdoProductPhysicalAttributesRepository
     public function count(array $filters = []): int
     {
         $tenantId = TenantContext::require();
-        $params = [':tenant_id' => $tenantId];
+        $params = [
+            ':product_tenant_id' => $tenantId,
+            ':variant_tenant_id' => $tenantId,
+        ];
 
         $sql = "SELECT COUNT(*) 
                 FROM product_physical_attributes ppa
                 LEFT JOIN products p ON ppa.product_id = p.id
                 LEFT JOIN product_variants pv ON ppa.variant_id = pv.id
                 LEFT JOIN products pv_p ON pv.product_id = pv_p.id
-                WHERE (p.tenant_id = :tenant_id OR pv_p.tenant_id = :tenant_id)";
+                WHERE (p.tenant_id = :product_tenant_id OR pv_p.tenant_id = :variant_tenant_id)";
 
         if (!empty($filters['product_id'])) {
             $sql .= " AND ppa.product_id = :product_id";

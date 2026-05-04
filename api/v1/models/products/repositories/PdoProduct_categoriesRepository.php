@@ -29,8 +29,13 @@ final class PdoProduct_categoriesRepository
         $params = [':tenant_id' => $tenantId];
         
         $sql = 'SELECT pc.* FROM ' . self::TABLE . ' pc
-                INNER JOIN products p ON pc.product_id = p.id
-                WHERE p.tenant_id = :tenant_id';
+                INNER JOIN products p ON pc.product_id = p.id';
+        if ($tenantId > 0) {
+            $sql .= ' WHERE p.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        } else {
+            $sql .= ' WHERE 1=1';
+        }
 
         if (!empty($filters['product_id'])) {
             $sql .= ' AND pc.product_id = :product_id';
@@ -82,8 +87,13 @@ final class PdoProduct_categoriesRepository
         $params = [':tenant_id' => $tenantId];
         
         $sql = 'SELECT COUNT(*) FROM ' . self::TABLE . ' pc
-                INNER JOIN products p ON pc.product_id = p.id
-                WHERE p.tenant_id = :tenant_id';
+                INNER JOIN products p ON pc.product_id = p.id';
+        if ($tenantId > 0) {
+            $sql .= ' WHERE p.tenant_id = :tenant_id';
+            $params[':tenant_id'] = $tenantId;
+        } else {
+            $sql .= ' WHERE 1=1';
+        }
 
         if (!empty($filters['product_id'])) {
             $sql .= ' AND pc.product_id = :product_id';
@@ -116,13 +126,16 @@ final class PdoProduct_categoriesRepository
     {
         $tenantId = TenantContext::require();
         
-        $stmt = $this->pdo->prepare('
-            SELECT pc.* FROM ' . self::TABLE . ' pc
-            INNER JOIN products p ON pc.product_id = p.id
-            WHERE pc.id = :id AND p.tenant_id = :tenant_id
-            LIMIT 1
-        ');
-        $stmt->execute(['id' => $id, 'tenant_id' => $tenantId]);
+        $sql = 'SELECT pc.* FROM ' . self::TABLE . ' pc
+                INNER JOIN products p ON pc.product_id = p.id
+                WHERE pc.id = :id';
+        $params = ['id' => $id];
+        if ($tenantId > 0) {
+            $sql .= ' AND p.tenant_id = :tenant_id';
+            $params['tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
@@ -136,26 +149,31 @@ final class PdoProduct_categoriesRepository
         $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
 
-        // Verify product belongs to tenant
         $productId = (int)$data['product_id'];
-        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-        $checkStmt->execute([$productId, $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new InvalidArgumentException("Product not found or access denied.");
+
+        // Verify product belongs to tenant (skip check if platform admin)
+        if ($tenantId > 0) {
+            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $checkStmt->execute([$productId, $tenantId]);
+            if (!$checkStmt->fetch()) {
+                throw new InvalidArgumentException("Product not found or access denied.");
+            }
         }
 
         if ($isUpdate) {
             $id = (int)$data['id'];
             
-            // Verify assignment record belongs to tenant via product
-            $assignCheck = $this->pdo->prepare("
-                SELECT pc.id FROM " . self::TABLE . " pc 
-                JOIN products p ON pc.product_id = p.id 
-                WHERE pc.id = ? AND p.tenant_id = ?
-            ");
-            $assignCheck->execute([$id, $tenantId]);
-            if (!$assignCheck->fetch()) {
-                throw new InvalidArgumentException("Assignment record not found or access denied.");
+            if ($tenantId > 0) {
+                // Verify assignment record belongs to tenant via product
+                $assignCheck = $this->pdo->prepare("
+                    SELECT pc.id FROM " . self::TABLE . " pc 
+                    JOIN products p ON pc.product_id = p.id 
+                    WHERE pc.id = ? AND p.tenant_id = ?
+                ");
+                $assignCheck->execute([$id, $tenantId]);
+                if (!$assignCheck->fetch()) {
+                    throw new InvalidArgumentException("Assignment record not found or access denied.");
+                }
             }
 
             $stmt = $this->pdo->prepare("
@@ -194,15 +212,17 @@ final class PdoProduct_categoriesRepository
     {
         $tenantId = TenantContext::require();
         
-        // Verify assignment record belongs to tenant via product
-        $assignCheck = $this->pdo->prepare("
-            SELECT pc.id FROM " . self::TABLE . " pc 
-            JOIN products p ON pc.product_id = p.id 
-            WHERE pc.id = ? AND p.tenant_id = ?
-        ");
-        $assignCheck->execute([$id, $tenantId]);
-        if (!$assignCheck->fetch()) {
-            return false;
+        // Verify assignment record belongs to tenant via product (skip if platform admin)
+        if ($tenantId > 0) {
+            $assignCheck = $this->pdo->prepare("
+                SELECT pc.id FROM " . self::TABLE . " pc 
+                JOIN products p ON pc.product_id = p.id 
+                WHERE pc.id = ? AND p.tenant_id = ?
+            ");
+            $assignCheck->execute([$id, $tenantId]);
+            if (!$assignCheck->fetch()) {
+                return false;
+            }
         }
 
         $stmt = $this->pdo->prepare('DELETE FROM ' . self::TABLE . ' WHERE id = :id');

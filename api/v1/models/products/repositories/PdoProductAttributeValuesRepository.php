@@ -186,7 +186,7 @@ final class PdoProductAttributeValuesRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }
@@ -222,7 +222,7 @@ final class PdoProductAttributeValuesRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

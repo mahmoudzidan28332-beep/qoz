@@ -33,7 +33,7 @@ final class ProductAttributeValueTranslationsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Product attribute value translation not found');
+            throw new ApplicationException('Product attribute value translation not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class ProductAttributeValueTranslationsService
 
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved product attribute value translation');
+            throw new ApplicationException('Failed to load saved product attribute value translation');
         }
 
         return $row;
@@ -61,7 +61,7 @@ final class ProductAttributeValueTranslationsService
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete product attribute value translation');
+            throw new ApplicationException('Failed to delete product attribute value translation');
         }
     }
 }

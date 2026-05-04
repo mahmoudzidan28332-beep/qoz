@@ -34,7 +34,12 @@ final class PdoProductsRepository extends BaseRepository
         string $orderDir = 'DESC',
         string $lang = 'ar'
     ): array {
-        $tenantId = $this->getTenantId();
+        $contextTenantId = $this->getTenantId();
+        $effectiveTenantId = $contextTenantId > 0
+            ? $contextTenantId
+            : ((isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) && (int)$filters['tenant_id'] > 0)
+                ? (int)$filters['tenant_id']
+                : 0);
         $sql = "
             SELECT p.*,
                    COALESCE(pt.name, '') AS name,
@@ -67,9 +72,17 @@ final class PdoProductsRepository extends BaseRepository
                 GROUP BY product_id
             ) pp_min ON pp_min.product_id = p.id
             LEFT JOIN product_pricing pp ON pp.id = pp_min.min_id
-            WHERE p.tenant_id = :tenant_id
+            WHERE 1=1
         ";
-        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
+        $params = [':lang' => $lang];
+
+        if ($effectiveTenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $effectiveTenantId;
+        } else {
+            // Prevent BaseRepository from auto-injecting tenant_id filter by mentioning it
+            $sql .= " AND (p.tenant_id IS NULL OR p.tenant_id > 0)"; 
+        }
 
         // تطبيق كل الفلاتر بشكل ديناميكي
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -111,9 +124,22 @@ final class PdoProductsRepository extends BaseRepository
     // ================================
     public function count(array $filters = []): int
     {
-        $tenantId = $this->getTenantId();
-        $sql = "SELECT COUNT(*) FROM products WHERE tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
+        $contextTenantId = $this->getTenantId();
+        $effectiveTenantId = $contextTenantId > 0
+            ? $contextTenantId
+            : ((isset($filters['tenant_id']) && is_numeric($filters['tenant_id']) && (int)$filters['tenant_id'] > 0)
+                ? (int)$filters['tenant_id']
+                : 0);
+        $sql = "SELECT COUNT(*) FROM products WHERE 1=1";
+        $params = [];
+
+        if ($effectiveTenantId > 0) {
+            $sql .= " AND tenant_id = :tenant_id";
+            $params[':tenant_id'] = $effectiveTenantId;
+        } else {
+            // Prevent BaseRepository auto-injection
+            $sql .= " AND (tenant_id IS NULL OR tenant_id > 0)";
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -137,8 +163,8 @@ final class PdoProductsRepository extends BaseRepository
     // ================================
     public function find(int $id, string $lang = 'ar'): ?array
     {
-        $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare("
+        $contextTenantId = $this->getTenantId();
+        $sql = "
             SELECT p.*,
                    COALESCE(pt.name, '') AS name,
                    pt.short_description,
@@ -158,10 +184,16 @@ final class PdoProductsRepository extends BaseRepository
                 ON i.owner_id = p.id
                AND i.is_main = 1
                AND i.image_type_id = it.id
-            WHERE p.tenant_id = :tenant_id AND p.id = :id
+            WHERE p.id = :id
             LIMIT 1
-        ");
-        $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id, ':lang'=>$lang]);
+        ";
+        $params = [':id' => $id, ':lang' => $lang];
+        if ($contextTenantId > 0) {
+            $sql = str_replace('WHERE p.id = :id', 'WHERE p.tenant_id = :tenant_id AND p.id = :id', $sql);
+            $params[':tenant_id'] = $contextTenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -181,7 +213,8 @@ final class PdoProductsRepository extends BaseRepository
 
     public function save(array $data): int
     {
-        $tenantId = $this->getTenantId();
+        $contextTenantId = $this->getTenantId();
+        $tenantId = $contextTenantId > 0 ? $contextTenantId : (int)($data['tenant_id'] ?? 0);
         $isUpdate = !empty($data['id']);
 
         // استخراج الأعمدة المسموح بها فقط من البيانات الواردة
@@ -219,11 +252,26 @@ final class PdoProductsRepository extends BaseRepository
         }
 
         if ($isUpdate) {
-            $params[':tenant_id'] = $tenantId;
+            if ($tenantId <= 0) {
+                // If context is platform admin (0), we need to find which tenant this product belongs to
+                $existing = $this->find((int)$data['id']);
+                if ($existing && array_key_exists('tenant_id', $existing)) {
+                    $tenantId = $existing['tenant_id'] !== null ? (int)$existing['tenant_id'] : 0;
+                } else {
+                    $tenantId = 0; // Remains global
+                }
+            }
+            $params[':tenant_id'] = $tenantId > 0 ? $tenantId : null;
             $params[':id'] = (int)$data['id'];
+
+            $whereClause = $contextTenantId > 0 ? "tenant_id = :context_tenant_id AND id = :id" : "id = :id";
+            if ($contextTenantId > 0) {
+                $params[':context_tenant_id'] = $contextTenantId;
+            }
 
             $stmt = $this->pdo->prepare("
                 UPDATE products SET
+                    tenant_id = :tenant_id,
                     product_type_id = :product_type_id,
                     sku = :sku,
                     slug = :slug,
@@ -244,13 +292,17 @@ final class PdoProductsRepository extends BaseRepository
                     views_count = :views_count,
                     published_at = :published_at,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant_id AND id = :id
+                WHERE {$whereClause}
             ");
             $stmt->execute($params);
             return (int)$data['id'];
         }
 
-        $params[':tenant_id'] = $tenantId;
+        if ($tenantId < 0) {
+            throw new InvalidArgumentException('tenant_id is required for product creation');
+        }
+
+        $params[':tenant_id'] = $tenantId > 0 ? $tenantId : null;
 
         $stmt = $this->pdo->prepare("
             INSERT INTO products (
@@ -277,10 +329,15 @@ final class PdoProductsRepository extends BaseRepository
     public function delete(int $id): bool
     {
         $tenantId = $this->getTenantId();
-        $stmt = $this->pdo->prepare(
-            "DELETE FROM products WHERE tenant_id = :tenant_id AND id = :id"
-        );
-        return $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare(
+                "DELETE FROM products WHERE tenant_id = :tenant_id AND id = :id"
+            );
+            return $stmt->execute([':tenant_id'=>$tenantId, ':id'=>$id]);
+        }
+
+        $stmt = $this->pdo->prepare("DELETE FROM products WHERE id = :id");
+        return $stmt->execute([':id' => $id]);
     }
 
     // ================================

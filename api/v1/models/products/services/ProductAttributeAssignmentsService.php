@@ -33,7 +33,7 @@ final class ProductAttributeAssignmentsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Product attribute assignment not found');
+            throw new ApplicationException('Product attribute assignment not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class ProductAttributeAssignmentsService
 
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved product attribute assignment');
+            throw new ApplicationException('Failed to load saved product attribute assignment');
         }
 
         return $row;
@@ -61,7 +61,7 @@ final class ProductAttributeAssignmentsService
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete product attribute assignment');
+            throw new ApplicationException('Failed to delete product attribute assignment');
         }
     }
 

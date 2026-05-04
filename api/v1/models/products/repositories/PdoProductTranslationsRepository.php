@@ -28,8 +28,12 @@ final class PdoProductTranslationsRepository
         $sql = "SELECT pt.* 
                 FROM product_translations pt
                 INNER JOIN products p ON pt.product_id = p.id
-                WHERE p.tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
+                WHERE 1=1";
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         if ($languageCode !== null) {
             $sql .= " AND pt.language_code = :language_code";
@@ -72,8 +76,12 @@ final class PdoProductTranslationsRepository
         $sql = "SELECT COUNT(*) 
                 FROM product_translations pt
                 INNER JOIN products p ON pt.product_id = p.id
-                WHERE p.tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
+                WHERE 1=1";
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         if (!empty($filters['product_id'])) {
             $sql .= " AND pt.product_id = :product_id";
@@ -99,8 +107,12 @@ final class PdoProductTranslationsRepository
         $sql = "SELECT pt.* 
                 FROM product_translations pt
                 INNER JOIN products p ON pt.product_id = p.id
-                WHERE pt.id = :id AND p.tenant_id = :tenant_id";
-        $params = [':id'=>$id, ':tenant_id'=>$tenantId];
+                WHERE pt.id = :id";
+        $params = [':id'=>$id];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
         if ($languageCode !== null) {
             $sql .= " AND pt.language_code = :language_code";
             $params[':language_code'] = $languageCode;
@@ -120,12 +132,15 @@ final class PdoProductTranslationsRepository
         $tenantId = TenantContext::require();
         $isUpdate = !empty($data['id']);
 
-        // Verify product belongs to tenant
         $productId = (int)($data['product_id'] ?? 0);
-        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-        $checkStmt->execute([$productId, $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new InvalidArgumentException("Product not found or access denied.");
+
+        // Verify product belongs to tenant (skip if platform admin)
+        if ($tenantId > 0) {
+            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $checkStmt->execute([$productId, $tenantId]);
+            if (!$checkStmt->fetch()) {
+                throw new InvalidArgumentException("Product not found or access denied.");
+            }
         }
 
         // Extract only valid translation columns to prevent SQLSTATE[HY093]
@@ -144,15 +159,17 @@ final class PdoProductTranslationsRepository
         if ($isUpdate) {
             $params[':id'] = (int)$data['id'];
             
-            // Verify translation record belongs to tenant via product
-            $transCheck = $this->pdo->prepare("
-                SELECT pt.id FROM product_translations pt 
-                JOIN products p ON pt.product_id = p.id 
-                WHERE pt.id = ? AND p.tenant_id = ?
-            ");
-            $transCheck->execute([$params[':id'], $tenantId]);
-            if (!$transCheck->fetch()) {
-                throw new InvalidArgumentException("Translation record not found or access denied.");
+            if ($tenantId > 0) {
+                // Verify translation record belongs to tenant via product
+                $transCheck = $this->pdo->prepare("
+                    SELECT pt.id FROM product_translations pt 
+                    JOIN products p ON pt.product_id = p.id 
+                    WHERE pt.id = ? AND p.tenant_id = ?
+                ");
+                $transCheck->execute([$params[':id'], $tenantId]);
+                if (!$transCheck->fetch()) {
+                    throw new InvalidArgumentException("Translation record not found or access denied.");
+                }
             }
 
             $stmt = $this->pdo->prepare("
@@ -189,15 +206,17 @@ final class PdoProductTranslationsRepository
     {
         $tenantId = TenantContext::require();
 
-        // Verify translation record belongs to tenant via product
-        $transCheck = $this->pdo->prepare("
-            SELECT pt.id FROM product_translations pt 
-            JOIN products p ON pt.product_id = p.id 
-            WHERE pt.id = ? AND p.tenant_id = ?
-        ");
-        $transCheck->execute([$id, $tenantId]);
-        if (!$transCheck->fetch()) {
-            return false;
+        if ($tenantId > 0) {
+            // Verify translation record belongs to tenant via product
+            $transCheck = $this->pdo->prepare("
+                SELECT pt.id FROM product_translations pt 
+                JOIN products p ON pt.product_id = p.id 
+                WHERE pt.id = ? AND p.tenant_id = ?
+            ");
+            $transCheck->execute([$id, $tenantId]);
+            if (!$transCheck->fetch()) {
+                return false;
+            }
         }
 
         $stmt = $this->pdo->prepare("DELETE FROM product_translations WHERE id = :id");

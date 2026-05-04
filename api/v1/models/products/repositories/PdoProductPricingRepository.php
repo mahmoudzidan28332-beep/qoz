@@ -38,10 +38,13 @@ final class PdoProductPricingRepository
             SELECT pp.*
             FROM product_pricing pp
             INNER JOIN products p ON p.id = pp.product_id
-            WHERE p.tenant_id = :tenant_id
+            WHERE 1=1
         ";
-
-        $params = [':tenant_id' => $tenantId];
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -80,10 +83,13 @@ final class PdoProductPricingRepository
             SELECT COUNT(*)
             FROM product_pricing pp
             INNER JOIN products p ON p.id = pp.product_id
-            WHERE p.tenant_id = :tenant_id
+            WHERE 1=1
         ";
-
-        $params = [':tenant_id' => $tenantId];
+        $params = [];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -104,18 +110,21 @@ final class PdoProductPricingRepository
     {
         $tenantId = TenantContext::require();
 
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT pp.*
             FROM product_pricing pp
             INNER JOIN products p ON p.id = pp.product_id
-            WHERE p.tenant_id = :tenant_id AND pp.id = :id
-            LIMIT 1
-        ");
+            WHERE pp.id = :id
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        $sql .= " LIMIT 1";
 
-        $stmt->execute([
-            ':tenant_id' => $tenantId,
-            ':id'        => $id
-        ]);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -147,20 +156,20 @@ final class PdoProductPricingRepository
             ':is_active'        => $data['is_active'] ?? 1,
         ];
 
-        // Security check: Verify product belongs to tenant
-        $productId = (int)$params[':product_id'];
-        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-        $checkStmt->execute([$productId, $tenantId]);
-        if (!$checkStmt->fetch()) {
-            throw new \InvalidArgumentException('Product not found or access denied.');
+        // Security check: Verify product belongs to tenant (skip if platform admin)
+        if ($tenantId > 0) {
+            $productId = (int)$params[':product_id'];
+            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+            $checkStmt->execute([$productId, $tenantId]);
+            if (!$checkStmt->fetch()) {
+                throw new \InvalidArgumentException('Product not found or access denied.');
+            }
         }
 
         if ($isUpdate) {
             $params[':id'] = (int)$data['id'];
-            $params[':tenant_id'] = $tenantId;
 
-            $stmt = $this->pdo->prepare("
-                UPDATE product_pricing SET
+            $sql = "UPDATE product_pricing SET
                     product_id = :product_id,
                     variant_id = :variant_id,
                     entity_id = :entity_id,
@@ -176,15 +185,53 @@ final class PdoProductPricingRepository
                     city_id = :city_id,
                     is_active = :is_active,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id AND EXISTS (SELECT 1 FROM products WHERE id = :product_id AND tenant_id = :tenant_id)
-            ");
+                WHERE id = :id";
+            
+            $updateParams = [
+                'product_id'       => $data['product_id'] ?? null,
+                'variant_id'       => $data['variant_id'] ?? null,
+                'entity_id'        => $data['entity_id'] ?? null,
+                'price'            => $data['price'] ?? 0,
+                'tax_rate'         => $data['tax_rate'] ?? null,
+                'cost_price'       => $data['cost_price'] ?? null,
+                'compare_at_price' => $data['compare_at_price'] ?? null,
+                'currency_code'    => $data['currency_code'] ?? 'SAR',
+                'pricing_type'     => $data['pricing_type'] ?? 'fixed',
+                'start_at'         => $data['start_at'] ?? null,
+                'end_at'           => $data['end_at'] ?? null,
+                'country_id'       => $data['country_id'] ?? null,
+                'city_id'          => $data['city_id'] ?? null,
+                'is_active'        => $data['is_active'] ?? 1,
+                'id'               => (int)$data['id']
+            ];
 
-            $stmt->execute($params);
+            if ($tenantId > 0) {
+                // If not platform admin, enforce tenant check on the product
+                $sql .= " AND EXISTS (SELECT 1 FROM products WHERE id = :check_prod_id AND tenant_id = :tenant_id)";
+                $updateParams['check_prod_id'] = $updateParams['product_id'];
+                $updateParams['tenant_id'] = $tenantId;
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+
+            try {
+                $stmt->execute($updateParams);
+            } catch (\PDOException $e) {
+                if (function_exists('safe_log')) {
+                    safe_log('error', 'pricing_save_error', [
+                        'err' => $e->getMessage(),
+                        'sql' => $sql,
+                        'params_count' => count($updateParams)
+                    ]);
+                }
+                throw $e;
+            }
+
             if ($stmt->rowCount() === 0) {
                 // Either ID doesn't exist or tenant ownership check failed
                 $check = $this->find((int)$data['id']);
                 if (!$check) {
-                    throw new \RuntimeException('Pricing record not found or access denied.');
+                    throw new ApplicationException('Pricing record not found or access denied.');
                 }
             }
             return (int)$data['id'];
@@ -215,16 +262,15 @@ final class PdoProductPricingRepository
     {
         $tenantId = TenantContext::require();
 
-        $stmt = $this->pdo->prepare("
-            DELETE pp
-            FROM product_pricing pp
-            INNER JOIN products p ON p.id = pp.product_id
-            WHERE p.tenant_id = :tenant_id AND pp.id = :id
-        ");
-
-        return $stmt->execute([
-            ':tenant_id' => $tenantId,
-            ':id' => $id
-        ]);
+        $sql = "DELETE pp FROM product_pricing pp
+                INNER JOIN products p ON p.id = pp.product_id
+                WHERE pp.id = :id";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql .= " AND p.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $tenantId;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 }

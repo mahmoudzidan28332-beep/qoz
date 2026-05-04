@@ -49,7 +49,7 @@ final class TenantDomainsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Domain record not found');
+            throw new ApplicationException('Domain record not found');
         }
         return $row;
     }
@@ -89,7 +89,7 @@ final class TenantDomainsService
         $row = $this->repo->find($id);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve created domain record');
+            throw new ApplicationException('Failed to retrieve created domain record');
         }
 
         return $row;
@@ -99,7 +99,7 @@ final class TenantDomainsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Domain record not found');
+            throw new ApplicationException('Domain record not found');
         }
 
         $errors = TenantDomainsValidator::validateUpdate($data);
@@ -136,7 +136,7 @@ final class TenantDomainsService
         $row = $this->repo->find($id);
 
         if (!$row) {
-            throw new RuntimeException('Failed to retrieve updated domain record');
+            throw new ApplicationException('Failed to retrieve updated domain record');
         }
 
         return $row;
@@ -146,7 +146,7 @@ final class TenantDomainsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Domain record not found');
+            throw new ApplicationException('Domain record not found');
         }
         if ($row['type'] === 'primary') {
             throw new InvalidArgumentException(
@@ -154,7 +154,7 @@ final class TenantDomainsService
             );
         }
         if (!$this->repo->delete($id)) {
-            throw new RuntimeException('Failed to delete domain record');
+            throw new ApplicationException('Failed to delete domain record');
         }
     }
 
@@ -162,7 +162,7 @@ final class TenantDomainsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Domain record not found');
+            throw new ApplicationException('Domain record not found');
         }
         $this->repo->markVerified($id, date('Y-m-d H:i:s'));
         return $this->repo->find($id) ?? $row;
@@ -172,7 +172,7 @@ final class TenantDomainsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Domain record not found');
+            throw new ApplicationException('Domain record not found');
         }
         $this->repo->updateSslStatus($id, $status, $expiresAt);
         return $this->repo->find($id) ?? $row;
