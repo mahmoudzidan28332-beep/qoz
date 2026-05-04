@@ -33,7 +33,7 @@ final class CountryTaxesService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Country tax not found');
+            throw new ApplicationException('Country tax not found');
         }
 
         return $row;
@@ -52,7 +52,7 @@ final class CountryTaxesService
 
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved country tax');
+            throw new ApplicationException('Failed to load saved country tax');
         }
 
         return $row;
@@ -61,7 +61,7 @@ final class CountryTaxesService
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repo->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete country tax');
+            throw new ApplicationException('Failed to delete country tax');
         }
     }
 

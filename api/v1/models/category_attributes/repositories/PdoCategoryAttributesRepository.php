@@ -168,7 +168,7 @@ final class PdoCategoryAttributesRepository
 
             $this->pdo->commit();
             return $result;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return false;
         }

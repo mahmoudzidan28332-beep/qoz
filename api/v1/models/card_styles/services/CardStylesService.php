@@ -28,7 +28,7 @@ final class CardStylesService
     {
         $row = $this->repo->find($tenantId, $slug, $themeId);
         if (!$row) {
-            throw new RuntimeException('Card style not found');
+            throw new ApplicationException('Card style not found');
         }
 
         return $row;
@@ -38,7 +38,7 @@ final class CardStylesService
     {
         $row = $this->repo->findById($tenantId, $id);
         if (!$row) {
-            throw new RuntimeException('Card style not found');
+            throw new ApplicationException('Card style not found');
         }
 
         return $row;
@@ -70,7 +70,7 @@ final class CardStylesService
         $row = $this->repo->findById($tenantId, $id);
 
         if (!$row) {
-            throw new RuntimeException('Failed to load saved card style');
+            throw new ApplicationException('Failed to load saved card style');
         }
 
         return $row;

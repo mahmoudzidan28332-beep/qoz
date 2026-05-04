@@ -56,7 +56,7 @@ final class PdoCommissionPaymentsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT cp.*, e.store_name AS entity_name
+        $sql = "SELECT cp.id, cp.tenant_id, cp.entity_id, cp.commission_invoice_id, cp.payment_number, cp.payment_method, cp.amount_paid, cp.paid_at, cp.is_cancelled, cp.cancelled_at, cp.cancellation_reason, cp.created_by, cp.cancelled_by, cp.created_at, e.store_name AS entity_name
                 FROM commission_payments cp
                 LEFT JOIN entities e ON e.id = cp.entity_id
                 WHERE 1=1";
@@ -140,7 +140,7 @@ final class PdoCommissionPaymentsRepository
     // ================================
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM commission_payments WHERE id = :id LIMIT 1");
+        $stmt = $this->pdo->prepare("SELECT id, tenant_id, entity_id, commission_invoice_id, payment_number, payment_method, amount_paid, paid_at, is_cancelled, cancelled_at, cancellation_reason, created_by, cancelled_by, created_at FROM commission_payments WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -284,9 +284,9 @@ final class PdoCommissionPaymentsRepository
             $this->pdo->commit();
 
             return $number;
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 }

@@ -9,7 +9,7 @@ final class TenantCategoriesValidator
     {
         $errors = [];
 
-        if (empty($data['tenant_id']) || !is_numeric($data['tenant_id'])) {
+        if (!isset($data['tenant_id']) || !is_numeric($data['tenant_id'])) {
             $errors['tenant_id'] = 'Tenant ID is required and must be a number';
         }
 

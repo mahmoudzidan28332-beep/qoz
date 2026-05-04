@@ -43,7 +43,7 @@ final class CitiesService
     {
         $row = $this->repo->findWithTranslation($id, $lang, $allTranslations);
         if (!$row) {
-            throw new RuntimeException('City not found');
+            throw new ApplicationException('City not found');
         }
 
         return [
@@ -69,7 +69,7 @@ final class CitiesService
 
         $row = $this->repo->find($cityId);
         if (!$row) {
-            throw new RuntimeException('Failed to load saved city');
+            throw new ApplicationException('Failed to load saved city');
         }
 
         return [
@@ -87,7 +87,7 @@ final class CitiesService
     public function delete(int $id): void
     {
         if (!$this->repo->delete($id)) {
-            throw new RuntimeException('Failed to delete city');
+            throw new ApplicationException('Failed to delete city');
         }
     }
 }

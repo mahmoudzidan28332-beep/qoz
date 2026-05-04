@@ -191,7 +191,7 @@ final class PdoCartItemsRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT ci.id FROM cart_items ci INNER JOIN carts c ON ci.cart_id = c.id INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id WHERE ci.id = :id");
         $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart item not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart item not found or access denied'); }
         $params[':id'] = (int)$data['id'];
         $setParts = array_map(fn($c) => "$c = :$c", self::CART_ITEM_COLUMNS);
         $stmt = $this->pdo->prepare("UPDATE cart_items SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
@@ -204,7 +204,7 @@ final class PdoCartItemsRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT c.id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
         $checkStmt->execute([':cart_id' => $params[':cart_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('Cart not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart not found or access denied'); }
         $colStr = implode(', ', self::CART_ITEM_COLUMNS);
         $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_ITEM_COLUMNS));
         $stmt = $this->pdo->prepare("INSERT INTO cart_items ($colStr) VALUES ($phStr)");
