@@ -37,7 +37,7 @@ final class RolePermissionsService
     {
         $data = $this->repository->find($tenantId, $id);
         if (!$data) {
-            throw new RuntimeException('Role permission not found');
+            throw new ApplicationException('Role permission not found');
         }
         return $data;
     }
@@ -124,7 +124,7 @@ final class RolePermissionsService
         }
 
         if (!$this->repository->delete($tenantId, (int)$data['id'], $userId)) {
-            throw new RuntimeException('Failed to delete role permission');
+            throw new ApplicationException('Failed to delete role permission');
         }
     }
 

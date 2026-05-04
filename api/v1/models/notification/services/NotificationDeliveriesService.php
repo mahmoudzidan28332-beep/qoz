@@ -30,7 +30,7 @@ final class NotificationDeliveriesService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Notification delivery not found.');
+            throw new ApplicationException('Notification delivery not found.');
         }
         return $row;
     }
@@ -47,7 +47,7 @@ final class NotificationDeliveriesService
 
         $existing = $this->repo->find((int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Notification delivery not found.');
+            throw new ApplicationException('Notification delivery not found.');
         }
 
         return $this->repo->save($data);
@@ -57,7 +57,7 @@ final class NotificationDeliveriesService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification delivery not found.');
+            throw new ApplicationException('Notification delivery not found.');
         }
         $this->repo->delete($id);
     }

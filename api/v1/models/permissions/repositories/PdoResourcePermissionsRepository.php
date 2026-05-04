@@ -24,20 +24,21 @@ class PdoResourcePermissionsRepository
 
     public function list(array $filters = []): array
     {
-        $sql = "SELECT * FROM resource_permissions rp WHERE 1=1";
+        $sql = "SELECT rp.id, rp.permission_id, rp.role_id, rp.tenant_id, rp.resource_type, rp.can_view_all, rp.can_view_own, rp.can_view_tenant, rp.can_create, rp.can_edit_all, rp.can_edit_own, rp.can_delete_all, rp.can_delete_own, rp.created_at FROM resource_permissions rp WHERE 1=1";
         $params = [];
 
         if (array_key_exists('tenant_id', $filters)) {
-            if ($filters['tenant_id'] === null) {
-                $sql .= " AND rp.tenant_id IS NULL";
+            $tId = $filters['tenant_id'] === null ? 0 : (int)$filters['tenant_id'];
+            if ($tId > 0) {
+                $sql .= " AND (rp.tenant_id = :tenant_id OR rp.tenant_id = 0)";
+                $params[':tenant_id'] = $tId;
             } else {
-                $sql .= " AND (rp.tenant_id IS NULL OR rp.tenant_id = :tenant_id)";
-                $params[':tenant_id'] = (int)$filters['tenant_id'];
+                // Platform admin (tenant_id = 0) sees everything
             }
         }
 
         if (!empty($filters['role_id'])) {
-            $sql .= " AND (rp.role_id IS NULL OR rp.role_id = :role_id)";
+            $sql .= " AND rp.role_id = :role_id";
             $params[':role_id'] = (int)$filters['role_id'];
         }
 
@@ -73,7 +74,7 @@ class PdoResourcePermissionsRepository
 
     public function get(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM resource_permissions WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
@@ -112,7 +113,7 @@ class PdoResourcePermissionsRepository
 
         try {
             return $this->upsertFastPath($norm);
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.failed', ['error' => $e->getMessage(), 'payload' => $norm]); }
             return $this->upsertFallback($norm);
         }
@@ -176,10 +177,10 @@ class PdoResourcePermissionsRepository
             $this->pdo->commit();
             if (function_exists('safe_log')) { safe_log('info', 'rp.upsert.fallback.inserted', ['id' => $newId, 'payload' => $norm]); }
             return $newId;
-        } catch (Throwable $e2) {
+        } catch (\PDOException $e2) {
             if ($this->pdo->inTransaction()) { $this->pdo->rollBack(); }
             if (function_exists('safe_log')) { safe_log('error', 'rp.upsert.fallback.failed', ['error' => $e2->getMessage(), 'payload' => $norm]); }
-            throw new RuntimeException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
+            throw new ApplicationException('Upsert fallback failed: ' . $e2->getMessage(), 0, $e2);
         }
     }
 
@@ -189,7 +190,7 @@ class PdoResourcePermissionsRepository
      */
     public function findByUnique(?int $roleId, string $resourceType, $tenantId): ?array
     {
-        $sql = "SELECT * FROM resource_permissions WHERE resource_type = :resource_type";
+        $sql = "SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE resource_type = :resource_type";
         $params = [':resource_type' => $resourceType];
 
         if ($roleId === null) {
@@ -221,7 +222,7 @@ class PdoResourcePermissionsRepository
      */
     private function findByUniqueForUpdate(?int $roleId, string $resourceType, $tenantId): ?array
     {
-        $sql = "SELECT * FROM resource_permissions WHERE resource_type = :resource_type";
+        $sql = "SELECT id, permission_id, role_id, tenant_id, resource_type, can_view_all, can_view_own, can_view_tenant, can_create, can_edit_all, can_edit_own, can_delete_all, can_delete_own, created_at FROM resource_permissions WHERE resource_type = :resource_type";
         $params = [':resource_type' => $resourceType];
 
         if ($roleId === null) {
@@ -274,7 +275,7 @@ class PdoResourcePermissionsRepository
                         if ($newId > 0) $inserted++;
                         else $updated++; // defensive (should not happen now)
                     }
-                } catch (Throwable $e) {
+                } catch (\PDOException $e) {
                     $errors[] = "Index {$idx}: " . $e->getMessage();
                 }
             }
@@ -286,9 +287,9 @@ class PdoResourcePermissionsRepository
 
             $this->pdo->commit();
             return ['inserted'=>$inserted,'updated'=>$updated,'skipped'=>$skipped,'errors'=>[]];
-        } catch (Throwable $e) {
+        } catch (\PDOException $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw $e;
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
     }
 

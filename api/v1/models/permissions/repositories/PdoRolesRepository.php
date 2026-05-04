@@ -23,12 +23,19 @@ final class PdoRolesRepository
             FROM roles r
             LEFT JOIN role_permissions rp ON r.id = rp.role_id
             LEFT JOIN permissions p ON rp.permission_id = p.id
-            WHERE r.tenant_id = :tenant_id
+            WHERE 1=1
             GROUP BY r.id
             ORDER BY r.created_at DESC
         ";
 
-        $params = [':tenant_id' => $tenantId];
+        $params = [];
+        if ($tenantId > 0) {
+            $sql = str_replace('WHERE 1=1', 'WHERE (r.tenant_id = :tenant_id OR r.tenant_id IS NULL OR r.tenant_id = 0)', $sql);
+            $params[':tenant_id'] = $tenantId;
+        } else {
+            // For Platform Admin (tenantId 0), show EVERYTHING
+            $sql = str_replace('WHERE 1=1', 'WHERE 1=1', $sql);
+        }
 
         if ($limit !== null) {
             $sql .= " LIMIT :limit";
@@ -49,43 +56,64 @@ final class PdoRolesRepository
 
     public function count(int $tenantId): int
     {
-        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM roles WHERE tenant_id = :tenant_id");
-        $stmt->execute([':tenant_id' => $tenantId]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM roles WHERE tenant_id = :tenant_id");
+            $stmt->execute([':tenant_id' => $tenantId]);
+        } else {
+            $stmt = $this->pdo->query('SELECT COUNT(*) FROM roles');
+        }
         return (int)$stmt->fetchColumn();
     }
 
     public function find(int $tenantId, int $id): ?array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT r.*, 
                    COUNT(rp.id) as permissions_count,
                    GROUP_CONCAT(p.display_name SEPARATOR ', ') as permissions_names
             FROM roles r
             LEFT JOIN role_permissions rp ON r.id = rp.role_id
             LEFT JOIN permissions p ON rp.permission_id = p.id
-            WHERE r.id = :id AND r.tenant_id = :tenant_id
+            WHERE r.id = :id
             GROUP BY r.id
             LIMIT 1
-        ");
-        $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        ";
+        $params = [':id' => $id];
+        if ($tenantId > 0) {
+            $sql = str_replace('WHERE r.id = :id', 'WHERE r.id = :id AND r.tenant_id = :tenant_id', $sql);
+            $params[':tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
 
     public function findByKey(int $tenantId, string $key): ?array
     {
-        $stmt = $this->pdo->prepare("
+        $sql = "
             SELECT r.*, 
                    COUNT(rp.id) as permissions_count,
                    GROUP_CONCAT(p.display_name SEPARATOR ', ') as permissions_names
             FROM roles r
             LEFT JOIN role_permissions rp ON r.id = rp.role_id
             LEFT JOIN permissions p ON rp.permission_id = p.id
-            WHERE r.key_name = :key_name AND r.tenant_id = :tenant_id
+            WHERE r.key_name = :key_name
             GROUP BY r.id
             LIMIT 1
-        ");
-        $stmt->execute([':key_name' => $key, ':tenant_id' => $tenantId]);
+        ";
+        $params = [':key_name' => $key];
+
+        if ($tenantId > 0) {
+            $sql = str_replace('WHERE r.key_name = :key_name', 'WHERE r.key_name = :key_name AND r.tenant_id = :tenant_id', $sql);
+            $params[':tenant_id'] = $tenantId;
+        } else {
+            $sql = str_replace('WHERE r.key_name = :key_name', 'WHERE r.key_name = :key_name AND (r.tenant_id IS NULL OR r.tenant_id = 0)', $sql);
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -101,30 +129,36 @@ final class PdoRolesRepository
         // Check uniqueness
         if (!$isUpdate || ($oldData && $oldData['key_name'] !== ($filtered['key_name'] ?? ''))) {
             if ($this->findByKey($tenantId, $filtered['key_name'] ?? '')) {
-                throw new RuntimeException('Role key already exists in this tenant');
+                throw new ApplicationException('Role key already exists in this tenant');
             }
         }
 
         if ($isUpdate) {
-            $stmt = $this->pdo->prepare("
+            $sql = "
                 UPDATE roles
                 SET key_name = :key_name, display_name = :display_name
-                WHERE id = :id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([
+                WHERE id = :id
+            ";
+            $params = [
                 ':key_name' => $filtered['key_name'] ?? $oldData['key_name'],
                 ':display_name' => $filtered['display_name'] ?? $oldData['display_name'],
                 ':id' => (int)$data['id'],
-                ':tenant_id' => $tenantId
-            ]);
+            ];
+            if ($tenantId > 0) {
+                $sql .= " AND tenant_id = :tenant_id";
+                $params[':tenant_id'] = $tenantId;
+            }
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
             $id = (int)$data['id'];
         } else {
             $stmt = $this->pdo->prepare("
                 INSERT INTO roles (tenant_id, key_name, display_name, created_at)
                 VALUES (:tenant_id, :key_name, :display_name, NOW())
             ");
+            $writeTenantId = $this->normalizeWriteTenantId($tenantId);
             $stmt->execute([
-                ':tenant_id' => $tenantId,
+                ':tenant_id' => $writeTenantId,
                 ':key_name' => $filtered['key_name'] ?? null,
                 ':display_name' => $filtered['display_name'] ?? null
             ]);
@@ -146,12 +180,22 @@ final class PdoRolesRepository
         if (!$oldData) return false;
 
         // Delete role permissions first
-        $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id AND tenant_id = :tenant_id");
-        $stmt->execute([':role_id' => $id, ':tenant_id' => $tenantId]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id AND tenant_id = :tenant_id");
+            $stmt->execute([':role_id' => $id, ':tenant_id' => $tenantId]);
+        } else {
+            $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id");
+            $stmt->execute([':role_id' => $id]);
+        }
 
         // Delete role
-        $stmt = $this->pdo->prepare("DELETE FROM roles WHERE id = :id AND tenant_id = :tenant_id");
-        $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("DELETE FROM roles WHERE id = :id AND tenant_id = :tenant_id");
+            $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        } else {
+            $stmt = $this->pdo->prepare("DELETE FROM roles WHERE id = :id AND tenant_id = 0");
+            $result = $stmt->execute([':id' => $id]);
+        }
 
         if ($userId) {
             $this->logAction($tenantId, $userId, 'delete', $id, $oldData, null);
@@ -163,21 +207,36 @@ final class PdoRolesRepository
 
     public function getRolePermissions(int $tenantId, int $roleId): array
     {
-        $stmt = $this->pdo->prepare("
-            SELECT p.* FROM permissions p
-            INNER JOIN role_permissions rp ON p.id = rp.permission_id
-            WHERE rp.role_id = :role_id AND rp.tenant_id = :tenant_id
-            ORDER BY p.display_name
-        ");
-        $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("
+                SELECT p.* FROM permissions p
+                INNER JOIN role_permissions rp ON p.id = rp.permission_id
+                WHERE rp.role_id = :role_id AND rp.tenant_id = :tenant_id
+                ORDER BY p.display_name
+            ");
+            $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        } else {
+            $stmt = $this->pdo->prepare("
+                SELECT p.* FROM permissions p
+                INNER JOIN role_permissions rp ON p.id = rp.permission_id
+                WHERE rp.role_id = :role_id
+                ORDER BY p.display_name
+            ");
+            $stmt->execute([':role_id' => $roleId]);
+        }
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function assignPermissions(int $tenantId, int $roleId, array $permissionIds, ?int $userId = null): void
     {
         // Delete existing
-        $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id AND tenant_id = :tenant_id");
-        $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        if ($tenantId > 0) {
+            $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id AND tenant_id = :tenant_id");
+            $stmt->execute([':role_id' => $roleId, ':tenant_id' => $tenantId]);
+        } else {
+            $stmt = $this->pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id");
+            $stmt->execute([':role_id' => $roleId]);
+        }
 
         // Insert new
         if (!empty($permissionIds)) {
@@ -185,9 +244,10 @@ final class PdoRolesRepository
             $params = [];
             $now = date('Y-m-d H:i:s');
             $i = 0;
+            $writeTenantId = $this->normalizeWriteTenantId($tenantId);
             foreach ($permissionIds as $permId) {
                 $values[] = "(:tenant_id_{$i}, :role_id_{$i}, :permission_id_{$i}, :created_at_{$i})";
-                $params[":tenant_id_{$i}"] = $tenantId;
+                $params[":tenant_id_{$i}"] = $writeTenantId;
                 $params[":role_id_{$i}"] = $roleId;
                 $params[":permission_id_{$i}"] = (int)$permId;
                 $params[":created_at_{$i}"] = $now;
@@ -216,18 +276,53 @@ final class PdoRolesRepository
             $changes = json_encode($newData);
         }
 
-        $stmt = $this->pdo->prepare("
-            INSERT INTO entity_logs (tenant_id, user_id, entity_type, entity_id, action, changes, ip_address, created_at)
-            VALUES (?, ?, 'role', ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([
-            $tenantId,
-            $userId,
-            $entityId,
-            $action,
-            $changes,
-            $_SERVER['REMOTE_ADDR'] ?? null
-        ]);
+        try {
+            $logTenantId = $this->resolveLogTenantId($tenantId, $entityId, $oldData, $newData);
+
+            $stmt = $this->pdo->prepare("
+                INSERT INTO entity_logs (tenant_id, user_id, entity_type, entity_id, action, changes, ip_address, created_at)
+                VALUES (?, ?, 'role', ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $logTenantId,
+                $userId,
+                $entityId,
+                $action,
+                $changes,
+                $_SERVER['REMOTE_ADDR'] ?? null
+            ]);
+        } catch (PDOException $e) {
+            error_log('[PdoRolesRepository::logAction] ' . $e->getMessage());
+        }
+    }
+
+    private function normalizeWriteTenantId(int $tenantId): int
+    {
+        return $tenantId > 0 ? $tenantId : 0;
+    }
+
+    private function resolveLogTenantId(int $tenantId, int $entityId, ?array $oldData, ?array $newData): ?int
+    {
+        if ($tenantId > 0) {
+            return $tenantId;
+        }
+
+        foreach ([$oldData, $newData] as $row) {
+            if (is_array($row) && isset($row['tenant_id']) && is_numeric($row['tenant_id']) && (int)$row['tenant_id'] > 0) {
+                return (int)$row['tenant_id'];
+            }
+        }
+
+        if ($entityId > 0) {
+            $stmt = $this->pdo->prepare("SELECT tenant_id FROM roles WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $entityId]);
+            $value = $stmt->fetchColumn();
+            if ($value !== false && $value !== null && is_numeric($value) && (int)$value > 0) {
+                return (int)$value;
+            }
+        }
+
+        return null;
     }
 
 }

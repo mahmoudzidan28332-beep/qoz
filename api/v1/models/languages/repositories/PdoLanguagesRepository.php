@@ -1,11 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use RuntimeException;
-
 final class PdoLanguagesRepository
 {
     private PDO $pdo;
+    private ?array $columns = null;
 
     private const ALLOWED_COLUMNS = [
         'code', 'name', 'native_name', 'direction', 'is_active', 'flag_url'
@@ -16,26 +15,75 @@ final class PdoLanguagesRepository
         $this->pdo = $pdo;
     }
 
+    private function columns(): array
+    {
+        if ($this->columns !== null) {
+            return $this->columns;
+        }
+
+        $stmt = $this->pdo->query('SHOW COLUMNS FROM languages');
+        $this->columns = array_map(
+            static fn(array $row): string => (string)$row['Field'],
+            $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : []
+        );
+
+        return $this->columns;
+    }
+
+    private function hasColumn(string $column): bool
+    {
+        return in_array($column, $this->columns(), true);
+    }
+
+    private function selectColumns(): array
+    {
+        $columns = [];
+
+        if ($this->hasColumn('id')) {
+            $columns[] = 'l.id';
+        }
+
+        foreach (['code', 'name', 'native_name', 'direction', 'is_active', 'flag_url', 'created_at'] as $column) {
+            if ($this->hasColumn($column)) {
+                $columns[] = 'l.' . $column;
+            }
+        }
+
+        if (empty($columns)) {
+            throw new RuntimeException('Languages table has no readable columns');
+        }
+
+        return $columns;
+    }
+
     public function all(?int $limit = null, ?int $offset = null, array $filters = []): array
     {
         $sql = "
-            SELECT l.*
+            SELECT " . implode(', ', $this->selectColumns()) . "
             FROM languages l
             WHERE 1=1
         ";
 
         $params = [];
 
-        if (isset($filters['is_active'])) {
+        if ($this->hasColumn('is_active') && isset($filters['is_active'])) {
             $sql .= " AND l.is_active = :is_active";
             $params[':is_active'] = $filters['is_active'] ? 1 : 0;
         }
         if (isset($filters['search']) && $filters['search']) {
-            $sql .= " AND (l.name LIKE :search OR l.code LIKE :search OR l.native_name LIKE :search)";
-            $params[':search'] = '%' . $filters['search'] . '%';
+            $searchClauses = [];
+            foreach (['name', 'code', 'native_name'] as $column) {
+                if ($this->hasColumn($column)) {
+                    $searchClauses[] = 'l.' . $column . ' LIKE :search';
+                }
+            }
+            if (!empty($searchClauses)) {
+                $sql .= ' AND (' . implode(' OR ', $searchClauses) . ')';
+                $params[':search'] = '%' . $filters['search'] . '%';
+            }
         }
 
-        $sql .= " ORDER BY l.name";
+        $sql .= $this->hasColumn('name') ? ' ORDER BY l.name' : ' ORDER BY l.code';
 
         if ($limit !== null) {
             $sql .= " LIMIT :limit";
@@ -59,13 +107,21 @@ final class PdoLanguagesRepository
         $sql = "SELECT COUNT(*) FROM languages l WHERE 1=1";
         $params = [];
 
-        if (isset($filters['is_active'])) {
+        if ($this->hasColumn('is_active') && isset($filters['is_active'])) {
             $sql .= " AND l.is_active = :is_active";
             $params[':is_active'] = $filters['is_active'] ? 1 : 0;
         }
         if (isset($filters['search']) && $filters['search']) {
-            $sql .= " AND (l.name LIKE :search OR l.code LIKE :search OR l.native_name LIKE :search)";
-            $params[':search'] = '%' . $filters['search'] . '%';
+            $searchClauses = [];
+            foreach (['name', 'code', 'native_name'] as $column) {
+                if ($this->hasColumn($column)) {
+                    $searchClauses[] = 'l.' . $column . ' LIKE :search';
+                }
+            }
+            if (!empty($searchClauses)) {
+                $sql .= ' AND (' . implode(' OR ', $searchClauses) . ')';
+                $params[':search'] = '%' . $filters['search'] . '%';
+            }
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -75,7 +131,16 @@ final class PdoLanguagesRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM languages WHERE id = :id LIMIT 1");
+        if (!$this->hasColumn('id')) {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT ' . implode(', ', array_map(
+                static fn(string $column): string => str_starts_with($column, 'l.') ? substr($column, 2) : $column,
+                $this->selectColumns()
+            )) . ' FROM languages WHERE id = :id LIMIT 1'
+        );
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -83,7 +148,12 @@ final class PdoLanguagesRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM languages WHERE code = :code LIMIT 1");
+        $stmt = $this->pdo->prepare(
+            'SELECT ' . implode(', ', array_map(
+                static fn(string $column): string => str_starts_with($column, 'l.') ? substr($column, 2) : $column,
+                $this->selectColumns()
+            )) . ' FROM languages WHERE code = :code LIMIT 1'
+        );
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -91,48 +161,69 @@ final class PdoLanguagesRepository
 
     public function save(array $data, ?int $userId = null): int
     {
-        $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS)) + (isset($data['id']) ? ['id' => $data['id']] : []);
+        $availableColumns = array_filter(
+            self::ALLOWED_COLUMNS,
+            fn(string $column): bool => $this->hasColumn($column)
+        );
+        $data = array_intersect_key($data, array_flip($availableColumns)) + (isset($data['id']) ? ['id' => $data['id']] : []);
         $isUpdate = !empty($data['id']);
         $oldData = $isUpdate ? $this->find((int)$data['id']) : null;
+
+        if (empty($data['code'])) {
+            throw new InvalidArgumentException('Language code is required');
+        }
 
         // Check uniqueness
         if (!$isUpdate || ($oldData && $oldData['code'] !== $data['code'])) {
             if ($this->findByCode($data['code'])) {
-                throw new RuntimeException('Language code already exists');
+                throw new ApplicationException('Language code already exists');
             }
         }
 
         if ($isUpdate) {
-            $stmt = $this->pdo->prepare("
-                UPDATE languages
-                SET name = :name, code = :code, native_name = :native_name, 
-                    direction = :direction, is_active = :is_active, flag_url = :flag_url
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':name' => $data['name'],
-                ':code' => $data['code'],
-                ':native_name' => $data['native_name'] ?: null,
-                ':direction' => $data['direction'] ?? 'ltr',
-                ':is_active' => (int)($data['is_active'] ?? 1),
-                ':flag_url' => $data['flag_url'] ?: null,
-                ':id' => (int)$data['id']
-            ]);
+            if (!$this->hasColumn('id')) {
+                throw new ApplicationException('Language updates require an id column in the current schema');
+            }
+
+            $sets = [];
+            $params = [':id' => (int)$data['id']];
+            foreach ($availableColumns as $column) {
+                if (!array_key_exists($column, $data)) {
+                    continue;
+                }
+                $sets[] = $column . ' = :' . $column;
+                $params[':' . $column] = $column === 'is_active' ? (int)$data[$column] : ($data[$column] === '' ? null : $data[$column]);
+            }
+
+            $stmt = $this->pdo->prepare(
+                'UPDATE languages SET ' . implode(', ', $sets) . ' WHERE id = :id'
+            );
+            $stmt->execute($params);
             $id = (int)$data['id'];
         } else {
-            $stmt = $this->pdo->prepare("
-                INSERT INTO languages (name, code, native_name, direction, is_active, flag_url, created_at)
-                VALUES (:name, :code, :native_name, :direction, :is_active, :flag_url, NOW())
-            ");
-            $stmt->execute([
-                ':name' => $data['name'],
-                ':code' => $data['code'],
-                ':native_name' => $data['native_name'] ?: null,
-                ':direction' => $data['direction'] ?? 'ltr',
-                ':is_active' => (int)($data['is_active'] ?? 1),
-                ':flag_url' => $data['flag_url'] ?: null
-            ]);
-            $id = (int)$this->pdo->lastInsertId();
+            $insertColumns = [];
+            $placeholders = [];
+            $params = [];
+
+            foreach ($availableColumns as $column) {
+                if (!array_key_exists($column, $data)) {
+                    continue;
+                }
+                $insertColumns[] = $column;
+                $placeholders[] = ':' . $column;
+                $params[':' . $column] = $column === 'is_active' ? (int)$data[$column] : ($data[$column] === '' ? null : $data[$column]);
+            }
+
+            if ($this->hasColumn('created_at') && !in_array('created_at', $insertColumns, true)) {
+                $insertColumns[] = 'created_at';
+                $placeholders[] = 'NOW()';
+            }
+
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO languages (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $placeholders) . ')'
+            );
+            $stmt->execute($params);
+            $id = $this->hasColumn('id') ? (int)$this->pdo->lastInsertId() : 0;
         }
 
         if ($userId) {
@@ -144,6 +235,10 @@ final class PdoLanguagesRepository
 
     public function delete(int $id, ?int $userId = null): bool
     {
+        if (!$this->hasColumn('id')) {
+            throw new ApplicationException('Language deletes require an id column in the current schema');
+        }
+
         $oldData = $this->find($id);
         if (!$oldData) return false;
 
@@ -159,6 +254,10 @@ final class PdoLanguagesRepository
 
     private function logAction(int $userId, string $action, int $entityId, ?array $oldData, ?array $newData): void
     {
+        if (!$this->hasColumn('id')) {
+            return;
+        }
+
         $changes = null;
         if ($action === 'update' && $oldData && $newData) {
             $changes = json_encode(['old' => $oldData, 'new' => $newData]);

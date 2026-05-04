@@ -163,7 +163,7 @@ final class PdoOrdersRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT o.id FROM orders o INNER JOIN entities e ON o.user_id = e.user_id WHERE o.id = :id AND e.tenant_id = :tenant_id");
         $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('Order not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('Order not found or access denied'); }
         $params[':id'] = (int)$data['id'];
         $cols = self::ORDER_COLUMNS;
         $setParts = array_map(fn($c) => "$c = :$c", $cols);
@@ -176,7 +176,7 @@ final class PdoOrdersRepository
     {
         $checkStmt = $this->pdo->prepare("SELECT id FROM users WHERE id = :user_id AND tenant_id = :tenant_id");
         $checkStmt->execute([':user_id' => $params[':user_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new RuntimeException('User not found or access denied'); }
+        if (!$checkStmt->fetch()) { throw new ApplicationException('User not found or access denied'); }
         $cols = self::ORDER_COLUMNS;
         $colStr = implode(', ', $cols);
         $phStr = implode(', ', array_map(fn($c) => ":$c", $cols));

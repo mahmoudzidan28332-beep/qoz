@@ -26,7 +26,7 @@ final class LanguagesService
     {
         $data = $this->repository->find($id);
         if (!$data) {
-            throw new RuntimeException('Language not found');
+            throw new ApplicationException('Language not found');
         }
         return $data;
     }
@@ -40,13 +40,24 @@ final class LanguagesService
         }
 
         $id = $this->repository->save($data, $userId);
-        return $this->get($id);
+        if ($id > 0) {
+            return $this->get($id);
+        }
+
+        if (!empty($data['code'])) {
+            $row = $this->repository->findByCode((string)$data['code']);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        throw new ApplicationException('Failed to load saved language');
     }
 
     public function delete(int $id, ?int $userId = null): void
     {
         if (!$this->repository->delete($id, $userId)) {
-            throw new RuntimeException('Failed to delete language');
+            throw new ApplicationException('Failed to delete language');
         }
     }
 }

@@ -30,7 +30,7 @@ final class NotificationChannelsService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Notification channel not found.');
+            throw new ApplicationException('Notification channel not found.');
         }
         return $row;
     }
@@ -53,7 +53,7 @@ final class NotificationChannelsService
 
         $existing = $this->repo->find((int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Notification channel not found.');
+            throw new ApplicationException('Notification channel not found.');
         }
 
         if (isset($data['code']) && $data['code'] !== $existing['code']) {
@@ -70,7 +70,7 @@ final class NotificationChannelsService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification channel not found.');
+            throw new ApplicationException('Notification channel not found.');
         }
         $this->repo->delete($id);
     }

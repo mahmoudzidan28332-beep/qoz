@@ -33,7 +33,7 @@ final class PdoPaymentMethodsRepository
             $params[':search'] = '%' . $filters['search'] . '%';
         }
 
-        $sql = 'SELECT * FROM payment_methods';
+        $sql = 'SELECT id, method_key, method_name, description, gateway_name, icon_url, config, created_at, updated_at FROM payment_methods';
         if ($where) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
@@ -76,7 +76,7 @@ final class PdoPaymentMethodsRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM payment_methods WHERE id = :id LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT id, method_key, method_name, description, gateway_name, icon_url, config, created_at, updated_at FROM payment_methods WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;

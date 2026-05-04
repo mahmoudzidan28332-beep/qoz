@@ -30,7 +30,7 @@ final class NotificationCountersService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Notification counter not found.');
+            throw new ApplicationException('Notification counter not found.');
         }
         return $row;
     }
@@ -47,7 +47,7 @@ final class NotificationCountersService
 
         $existing = $this->repo->find((int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Notification counter not found.');
+            throw new ApplicationException('Notification counter not found.');
         }
 
         return $this->repo->save($data);
@@ -57,7 +57,7 @@ final class NotificationCountersService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification counter not found.');
+            throw new ApplicationException('Notification counter not found.');
         }
         $this->repo->delete($id);
     }
@@ -66,7 +66,7 @@ final class NotificationCountersService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification counter not found.');
+            throw new ApplicationException('Notification counter not found.');
         }
         $this->repo->increment($id, $amount);
     }
@@ -75,7 +75,7 @@ final class NotificationCountersService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification counter not found.');
+            throw new ApplicationException('Notification counter not found.');
         }
         $this->repo->reset($id);
     }

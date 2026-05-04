@@ -65,7 +65,7 @@ class ResourcePermissionsController
                             }
                         }
                     }
-                } catch (\Throwable $e) {
+                } catch (\RuntimeException $e) {
                     $summary['errors'][] = "Index {$idx}: {$e->getMessage()}";
                 }
             }

@@ -30,7 +30,7 @@ final class NotificationTypesService
     {
         $row = $this->repo->find($id);
         if (!$row) {
-            throw new RuntimeException('Notification type not found.');
+            throw new ApplicationException('Notification type not found.');
         }
         return $row;
     }
@@ -54,7 +54,7 @@ final class NotificationTypesService
 
         $existing = $this->repo->find((int)$data['id']);
         if (!$existing) {
-            throw new RuntimeException('Notification type not found.');
+            throw new ApplicationException('Notification type not found.');
         }
 
         // If code is being changed, check uniqueness
@@ -72,7 +72,7 @@ final class NotificationTypesService
     {
         $existing = $this->repo->find($id);
         if (!$existing) {
-            throw new RuntimeException('Notification type not found.');
+            throw new ApplicationException('Notification type not found.');
         }
         $this->repo->delete($id);
     }
