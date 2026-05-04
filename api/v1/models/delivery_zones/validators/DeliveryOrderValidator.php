@@ -9,11 +9,8 @@ final class DeliveryOrderValidator
     public function validate(array $data, bool $isUpdate = false): void
     {
         if (!$isUpdate) {
-            $required = ['order_id', 'pickup_address_id', 'dropoff_address_id'];
-            foreach ($required as $field) {
-                if (empty($data[$field])) {
-                    throw new InvalidArgumentException("$field is required.");
-                }
+            if (empty($data['order_id'])) {
+                throw new InvalidArgumentException('order_id is required.');
             }
         }
 

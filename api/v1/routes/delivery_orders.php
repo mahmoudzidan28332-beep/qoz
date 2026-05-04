@@ -207,10 +207,13 @@ try {
     ResponseFormatter::error($e->getMessage(), 422);
 
 } catch (DatabaseException|\PDOException $e) {
+    $sqlState = is_string($e->getCode()) ? $e->getCode() : sprintf('%05d', $e->getCode());
     safe_log('error', '[DeliveryOrders] Database error', [
         'tenant_id' => $tenantId,
+        'sqlstate'  => $sqlState,
         'code'      => $e->getCode(),
         'error'     => $e->getMessage(),
+        'file'      => $e->getFile() . ':' . $e->getLine(),
     ]);
     ResponseFormatter::error('A database error occurred.', 500);
 

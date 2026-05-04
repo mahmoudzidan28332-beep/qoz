@@ -107,10 +107,10 @@ final class PdoDeliveryOrderRepository implements DeliveryOrderRepositoryInterfa
 
         $stmt->execute([
             ':tenant_id'          => $tenantId,
-            ':order_id'           => $data['order_id'],
+            ':order_id'           => isset($data['order_id']) && $data['order_id'] !== '' ? (int)$data['order_id'] : null,
             ':provider_id'        => isset($data['provider_id']) && $data['provider_id'] !== '' ? (int)$data['provider_id'] : null,
-            ':pickup_address_id'  => $data['pickup_address_id'] ?? null,
-            ':dropoff_address_id' => $data['dropoff_address_id'] ?? null,
+            ':pickup_address_id'  => isset($data['pickup_address_id']) && $data['pickup_address_id'] !== '' ? (int)$data['pickup_address_id'] : null,
+            ':dropoff_address_id' => isset($data['dropoff_address_id']) && $data['dropoff_address_id'] !== '' ? (int)$data['dropoff_address_id'] : null,
             ':delivery_zone_id'   => isset($data['delivery_zone_id']) && $data['delivery_zone_id'] !== '' ? (int)$data['delivery_zone_id'] : null,
             ':delivery_status'    => $data['delivery_status'] ?? 'pending',
             ':delivery_fee'       => $data['delivery_fee'] ?? 0.00,
