@@ -32,13 +32,15 @@ if (!$pdo instanceof PDO) {
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 if (session_status() === PHP_SESSION_NONE) session_start();
-
-// Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
-
-$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$rawRequestBody = file_get_contents('php://input');
+$requestData = $rawRequestBody ? (json_decode($rawRequestBody, true) ?? []) : [];
+$effectiveTenantId = resolve_product_scope_tenant_id($pdo, $requestData);
+if (is_platform_admin() && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+    $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null || $effectiveTenantId <= 0) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
 TenantContext::set($effectiveTenantId);
 
 // Setup
@@ -97,14 +99,14 @@ try {
             break;
 
         case 'POST':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = $requestData;
             $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'weight', 'weight_unit', 'length', 'width', 'height', 'dimension_unit']));
             $id = $controller->create($data);
             ResponseFormatter::success(['id' => $id], 'Created successfully');
             break;
 
         case 'PUT':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = $requestData;
             $id = $controller->update($data);
             ResponseFormatter::success(['id' => $id], 'Updated successfully');
             break;
@@ -131,7 +133,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
     
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'Database error in ProductPhysicalAttributes route', [
         'error' => $e->getMessage(),
         'code' => $e->getCode(),
@@ -142,7 +144,7 @@ try {
     // في وضع التطوير فقط - أظهر التفاصيل
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
     
-} catch (Throwable $e) {
+} catch (\Throwable $e) {
     safe_log('error', 'ProductPhysicalAttributes route failed', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),

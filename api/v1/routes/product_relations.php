@@ -208,7 +208,7 @@ try {
     ]);
     ResponseFormatter::error($e->getMessage(), 422);
 
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', '[ProductRelations] Database error', [
         'tenant_id' => $tenantId,
         'method'    => $method,
@@ -219,7 +219,7 @@ try {
     ]);
     ResponseFormatter::error('A database error occurred. Please try again later.', 500);
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[ProductRelations] Unexpected error', [
         'tenant_id' => $tenantId,
         'method'    => $method,

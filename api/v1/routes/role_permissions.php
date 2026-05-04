@@ -24,8 +24,13 @@ if (!$pdo instanceof PDO) {
     return;
 }
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // ===== احصل على tenantId و roleId من query string =====
 $tenantId = resolve_tenant_id();
+$isPlatformAdmin = is_platform_admin();
 $roleId = isset($_GET['role_id']) ? (int)$_GET['role_id'] : null;
 
 // ===== تحميل بيانات المستخدم الحالي =====
@@ -34,7 +39,7 @@ $roles = $user['roles'] ?? [];
 $permissions = $user['permissions'] ?? [];
 
 // ===== تحقق إذا كان super_admin =====
-$isSuperAdmin = in_array('super_admin', $roles, true);
+$isSuperAdmin = in_array('super_admin', $roles, true) || $isPlatformAdmin;
 
 // إذا لم يكن super_admin، تحقق من أنه يملك الوصول لهذا الـ tenant
 if (!$isSuperAdmin && $tenantId !== ($_SESSION['tenant_id'] ?? 0)) {
@@ -52,11 +57,22 @@ $controller = new RolePermissionsController($service);
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $rawInput = file_get_contents('php://input');
-    $data = $rawInput ? json_decode($rawInput, true) : [];
+    $data = $rawInput ? (json_decode($rawInput, true) ?? []) : [];
+    $effectiveTenantId = $tenantId;
+
+    if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+        if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
+            $effectiveTenantId = (int)$_GET['tenant_id'];
+        } elseif (isset($data['tenant_id']) && is_numeric($data['tenant_id'])) {
+            $effectiveTenantId = (int)$data['tenant_id'];
+        } else {
+            $effectiveTenantId = 0;
+        }
+    }
 
     safe_log('debug', 'Role permissions request', [
         'method' => $method,
-        'tenant_id' => $tenantId,
+        'tenant_id' => $effectiveTenantId,
         'role_id' => $roleId,
         'data' => $data
     ]);
@@ -65,23 +81,23 @@ try {
         case 'GET':
             // إذا تم تمرير role_id، جلب صلاحيات هذا الدور فقط
             if ($roleId) {
-                $all = $controller->list($tenantId);
-                $filtered = array_filter($all, fn($item) => $item['role_id'] === $roleId);
+                $all = $controller->list($effectiveTenantId);
+                $filtered = array_filter($all, fn($item) => (int)($item['role_id'] ?? 0) === $roleId);
                 ResponseFormatter::success(array_values($filtered));
             } else {
                 // جلب جميع صلاحيات tenant
-                ResponseFormatter::success($controller->list($tenantId));
+                ResponseFormatter::success($controller->list($effectiveTenantId));
             }
             break;
 
         case 'POST':
             // تفريق بين bulk و single assign
-            $result = $controller->assign($tenantId, $data);
+            $result = $controller->assign($effectiveTenantId, $data, get_user_id());
             ResponseFormatter::success($result);
             break;
 
         case 'DELETE':
-            $controller->delete($tenantId, $data);
+            $controller->delete($effectiveTenantId, $data, get_user_id());
             ResponseFormatter::success(['deleted' => true]);
             break;
 
@@ -91,10 +107,10 @@ try {
 } catch (InvalidArgumentException $e) {
     safe_log('warning', 'Validation error', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     safe_log('error', 'Runtime error', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (\Throwable $e) {
     safe_log('error', 'Role permissions route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

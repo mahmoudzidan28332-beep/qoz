@@ -123,7 +123,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     // Handle Duplicate entry error for create
     if ($e->getCode() == 23000) { 
          ResponseFormatter::error('This provider is already assigned to this zone.', 409);
@@ -131,7 +131,7 @@ try {
         safe_log('error', '[ProviderZones] DB Error', ['error' => $e->getMessage()]);
         ResponseFormatter::error('Database error', 500);
     }
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', '[ProviderZones] Error', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Unexpected error', 500);
 }

@@ -12,7 +12,9 @@ require_once $baseDir . '/bootstrap.php';
 // ===== تحميل ResponseFormatter =====
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 
-// ===== تحميل safe_helpers =====
+if (file_exists(dirname(__DIR__, 3) . '/admin/includes/admin_context.php')) {
+    require_once dirname(__DIR__, 3) . '/admin/includes/admin_context.php';
+}
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 
 // ===== تحميل قاعدة البيانات =====
@@ -270,9 +272,9 @@ try {
     } else {
         ResponseFormatter::error($e->getMessage(), 422);
     }
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     ResponseFormatter::error($e->getMessage(), 404);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'Tenants route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

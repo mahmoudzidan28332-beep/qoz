@@ -5,6 +5,7 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
 
 $sharedPath = $baseDir . '/shared/core';
@@ -23,17 +24,21 @@ require_once $modelsPath . '/controllers/ProductTranslationsController.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
-
-$user = $_SESSION['user'] ?? [];
-$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
-TenantContext::set($effectiveTenantId);
-
 $pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) ResponseFormatter::error('Database not initialized', 500);
+
+$rawRequestBody = file_get_contents('php://input');
+$requestData = $rawRequestBody ? (json_decode($rawRequestBody, true) ?? []) : [];
+
+$user = $_SESSION['user'] ?? [];
+$effectiveTenantId = resolve_product_scope_tenant_id($pdo, $requestData);
+if (is_platform_admin() && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+    $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null || $effectiveTenantId <= 0) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
+TenantContext::set($effectiveTenantId);
 
 $repo = new PdoProductTranslationsRepository($pdo);
 $service = new ProductTranslationsService($repo);
@@ -43,8 +48,7 @@ $languageCode = $user['preferred_language'] ?? 'en';
 
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $raw = file_get_contents('php://input');
-    $data = $raw ? json_decode($raw, true) : [];
+    $data = $requestData;
 
     if ($method === 'GET') {
         $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
@@ -79,7 +83,7 @@ try {
                     'description' => $data['description'] ?? '',
                 ]);
             }
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[product_translations] SEO sync on create failed: ' . $e->getMessage());
         }
 
@@ -100,7 +104,7 @@ try {
                     'description' => $data['description'] ?? '',
                 ]);
             }
-        } catch (\Throwable $e) {
+        } catch (ApplicationException|\RuntimeException $e) {
             error_log('[product_translations] SEO sync on update failed: ' . $e->getMessage());
         }
 
@@ -117,7 +121,7 @@ try {
     }
 
     ResponseFormatter::error('Method not allowed', 405);
-} catch(Throwable $e){
+} catch (\Throwable $e){
     safe_log('critical','product_translations.fatal',['error'=>$e->getMessage()]);
     $msg = ($e instanceof InvalidArgumentException) ? $e->getMessage() : 'Internal server error';
     ResponseFormatter::error($msg,500);

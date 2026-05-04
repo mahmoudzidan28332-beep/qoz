@@ -118,7 +118,7 @@ try {
             break;
     }
 
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     error_log("Services route error: " . $e->getMessage());
     Response::error('Server error', 500);
 }

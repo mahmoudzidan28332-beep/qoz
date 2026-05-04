@@ -1,6 +1,16 @@
 <?php
 declare(strict_types=1);
-
+ini_set('display_errors', 0);
+set_exception_handler(function(\Throwable $e) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'file'    => $e->getFile(),
+        'line'    => $e->getLine(),
+    ]);
+    exit;
+});
 $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
@@ -121,7 +131,7 @@ try {
                         break;
                     }
                 }
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[products] subscription limit check failed: ' . $e->getMessage());
             }
 
@@ -148,7 +158,7 @@ try {
                     );
                     break;
                 }
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 // Don't block product creation if bad-words check fails (service unavailable)
                 safe_log('warning', 'products.bad_words_check_failed', ['error' => $e->getMessage()]);
             }
@@ -164,7 +174,7 @@ try {
                     'tenant_id'     => $effectiveTenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$newId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[products] SEO sync on create failed: ' . $e->getMessage());
             }
 
@@ -207,7 +217,7 @@ try {
                     );
                     break;
                 }
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 safe_log('warning', 'products.bad_words_check_failed', ['error' => $e->getMessage()]);
             }
 
@@ -216,7 +226,7 @@ try {
             if (!empty($data['id'])) {
                 try {
                     $oldProductState = $controller->get((int)$data['id'], $lang);
-                } catch (\Throwable $e) {
+                } catch (ApplicationException|\RuntimeException $e) {
                     error_log('[products] fetch old product state failed: ' . $e->getMessage());
                 }
             }
@@ -232,7 +242,7 @@ try {
                     'tenant_id'     => $effectiveTenantId,
                 ]);
                 SeoAutoManager::syncAllTranslations($pdo, 'product', (int)$updatedId);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[products] SEO sync on update failed: ' . $e->getMessage());
             }
 
@@ -260,7 +270,7 @@ try {
             $deletedProductState = null;
             try {
                 $deletedProductState = $controller->get((int)$data['id'], $lang);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[products] fetch deleted product state failed: ' . $e->getMessage());
             }
 
@@ -269,7 +279,7 @@ try {
             // Auto-delete SEO meta
             try {
                 SeoAutoManager::delete($pdo, 'product', (int)$data['id']);
-            } catch (\Throwable $e) {
+            } catch (ApplicationException|\RuntimeException $e) {
                 error_log('[products] SEO delete failed: ' . $e->getMessage());
             }
 
@@ -294,10 +304,10 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning','products.validation', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','products.runtime', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical','products.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error($e->getMessage(), 500);
 }

@@ -117,10 +117,10 @@ try {
             }
             
             $data['tenant_id'] = $targetTenantId;
-            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-            
+            $actingUserId = get_user_id();
+             
             $row = $controller->create($targetTenantId, $data, $actingUserId);
-            ResponseFormatter::success($row, 201);
+            ResponseFormatter::success($row, 'Created successfully', 201);
             break;
 
         case 'PUT':
@@ -140,9 +140,9 @@ try {
             $targetTenantId = ($isPlatformAdmin && $tenantId === null)
                 ? (int)($data['tenant_id'] ?? 0)
                 : $tenantId;
-                
-            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-            $row = $controller->update($targetTenantId, (int)$data['id'], $data, $actingUserId);
+                 
+            $actingUserId = get_user_id();
+            $row = $controller->update($targetTenantId, $data, $actingUserId);
             ResponseFormatter::success($row);
             break;
 
@@ -158,10 +158,13 @@ try {
                 $controller->get($tenantId, $id);
             }
             
-            $actingUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $actingUserId = get_user_id();
             $scopedTenantId = ($isPlatformAdmin && $tenantId === null) ? 0 : $tenantId;
-            
-            $controller->delete($scopedTenantId, $id, $actingUserId);
+             
+            $controller->delete($scopedTenantId, [
+                'id' => $id,
+                'user_id' => $actingUserId,
+            ]);
             ResponseFormatter::success(['success' => true]);
             break;
 
@@ -171,10 +174,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'tenant_users.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
-    safe_log('error', 'tenant_users.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 404);
-} catch (\PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'tenant_users.db_error', [
         'message'     => $e->getMessage(),
         'file'        => $e->getFile(),
@@ -182,6 +182,9 @@ try {
         'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
     ]);
     ResponseFormatter::error('Database error', 500);
+} catch (ApplicationException|\RuntimeException $e) {
+    safe_log('error', 'tenant_users.runtime', ['error' => $e->getMessage()]);
+    ResponseFormatter::error($e->getMessage(), 404);
 } catch (\Throwable $e) {
     safe_log('critical', 'tenant_users.fatal', [
         'error' => $e->getMessage(),

@@ -26,13 +26,15 @@ if (!$pdo instanceof PDO) {
 }
 
 if (session_status() === PHP_SESSION_NONE) session_start();
-
-// Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
-
-$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$rawRequestBody = file_get_contents('php://input');
+$requestData = $rawRequestBody ? (json_decode($rawRequestBody, true) ?? []) : [];
+$effectiveTenantId = resolve_product_scope_tenant_id($pdo, $requestData);
+if (is_platform_admin() && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+    $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null || $effectiveTenantId <= 0) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
 TenantContext::set($effectiveTenantId);
 
 // إنشاء الاعتمادات
@@ -74,19 +76,19 @@ try {
             );
         }
     } elseif ($method === 'POST') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = $requestData;
         $data = array_intersect_key($data, array_flip(['product_id', 'attribute_id', 'attribute_value_id', 'custom_value']));
         ResponseFormatter::success(
             $controller->create($data)
         );
     } elseif ($method === 'PUT') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = $requestData;
         $data = array_intersect_key($data, array_flip(['product_id', 'attribute_id', 'attribute_value_id', 'custom_value'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
         ResponseFormatter::success(
             $controller->update($data)
         );
     } elseif ($method === 'DELETE') {
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = $requestData;
         $controller->delete($data);
         ResponseFormatter::success(['deleted' => true]);
     } else {
@@ -94,7 +96,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (Throwable $e) {
+} catch (\Throwable $e) {
     safe_log('error', 'Product attribute assignments route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

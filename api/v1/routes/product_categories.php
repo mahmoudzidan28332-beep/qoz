@@ -28,13 +28,15 @@ if (!$pdo instanceof PDO) {
 }
 
 if (session_status() === PHP_SESSION_NONE) session_start();
-
-// Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
-
-$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$rawRequestBody = file_get_contents('php://input');
+$requestData = $rawRequestBody ? (json_decode($rawRequestBody, true) ?? []) : [];
+$effectiveTenantId = resolve_product_scope_tenant_id($pdo, $requestData);
+if (is_platform_admin() && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+    $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null || $effectiveTenantId <= 0) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
 TenantContext::set($effectiveTenantId);
 
 // Controller setup
@@ -75,19 +77,19 @@ try {
             break;
 
         case 'POST':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = $requestData;
             $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order']));
             ResponseFormatter::success($controller->create($data));
             break;
 
         case 'PUT':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = $requestData;
             $data = array_intersect_key($data, array_flip(['product_id', 'category_id', 'is_primary', 'sort_order'])) + (isset($data['id']) ? ['id' => $data['id']] : []);
             ResponseFormatter::success($controller->update($data));
             break;
 
         case 'DELETE':
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = $requestData;
             $controller->delete($data);
             ResponseFormatter::success(['deleted' => true]);
             break;
@@ -97,7 +99,7 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (Throwable $e) {
+} catch (\Throwable $e) {
     safe_log('error', 'Product_categories route failed', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

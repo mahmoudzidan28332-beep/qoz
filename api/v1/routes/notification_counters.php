@@ -125,10 +125,10 @@ try {
 } catch (InvalidArgumentException $e) {
     safe_log('warning', 'notification_counters.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (RuntimeException $e) {
+} catch (ApplicationException|RuntimeException $e) {
     safe_log('error', 'notification_counters.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 400);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('critical', 'notification_counters.fatal', [
         'error' => $e->getMessage(),
         'file'  => $e->getFile(),

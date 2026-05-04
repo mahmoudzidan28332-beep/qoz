@@ -4,6 +4,9 @@ declare(strict_types=1);
 $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
+if (file_exists(dirname(__DIR__, 3) . '/admin/includes/admin_context.php')) {
+    require_once dirname(__DIR__, 3) . '/admin/includes/admin_context.php';
+}
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
 require_once $baseDir . '/shared/config/db.php';
 
@@ -36,8 +39,9 @@ if (!$pdo instanceof PDO) {
 
 $user     = $_SESSION['user'] ?? [];
 $tenantId = resolve_tenant_id();
+$isPlatformAdmin = is_platform_admin();
 
-if ($tenantId === null) {
+if ($tenantId === null && !$isPlatformAdmin) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
     exit;
 }
@@ -51,6 +55,17 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $raw    = file_get_contents('php://input');
     $data   = $raw ? (json_decode($raw, true) ?? []) : [];
+    $effectiveTenantId = $tenantId;
+
+    if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+        if (isset($_GET['tenant_id']) && is_numeric($_GET['tenant_id'])) {
+            $effectiveTenantId = (int)$_GET['tenant_id'];
+        } elseif (isset($data['tenant_id']) && is_numeric($data['tenant_id'])) {
+            $effectiveTenantId = (int)$data['tenant_id'];
+        } else {
+            $effectiveTenantId = 0;
+        }
+    }
 
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
@@ -62,7 +77,7 @@ try {
     $filters = [
         'id'        => isset($_GET['id']) ? (int)$_GET['id'] : null,
         'language'  => $language,
-        'tenant_id' => $tenantId,
+        'tenant_id' => $effectiveTenantId,
     ];
 
     switch ($method) {
@@ -74,7 +89,8 @@ try {
             exit;
 
         case 'GET':
-            ResponseFormatter::success($controller->list($tenantId));
+            $listTenantId = $effectiveTenantId > 0 ? $effectiveTenantId : 0;
+            ResponseFormatter::success($controller->list($listTenantId));
             break;
 
         case 'POST':
@@ -83,7 +99,7 @@ try {
             $filtered = array_intersect_key($data, array_flip($allowed));
 
             ResponseFormatter::success(
-                $controller->create($tenantId, $filtered, (int)($user['id'] ?? 0))
+                $controller->create($effectiveTenantId, $filtered, (int)($user['id'] ?? 0))
             );
             break;
 
@@ -94,8 +110,8 @@ try {
             }
 
             // 🔒 SECURITY: Verify ownership before update (IDOR Protection)
-            if (class_exists('MultiTenantValidator')) {
-                if (!MultiTenantValidator::checkOwnership($pdo, 'roles', (int)$data['id'], $tenantId)) {
+            if (class_exists('MultiTenantValidator') && $effectiveTenantId > 0) {
+                if (!MultiTenantValidator::checkOwnership($pdo, 'roles', (int)$data['id'], $effectiveTenantId)) {
                     ResponseFormatter::error('Role not found or unauthorized', 404);
                     break;
                 }
@@ -106,7 +122,7 @@ try {
             $filtered = array_intersect_key($data, array_flip($allowed));
 
             ResponseFormatter::success(
-                $controller->update($tenantId, $filtered, (int)($user['id'] ?? 0))
+                $controller->update($effectiveTenantId, $filtered, (int)($user['id'] ?? 0))
             );
             break;
 
@@ -117,14 +133,14 @@ try {
             }
 
             // 🔒 SECURITY: Verify ownership before delete (IDOR Protection)
-            if (class_exists('MultiTenantValidator')) {
-                if (!MultiTenantValidator::checkOwnership($pdo, 'roles', (int)$data['id'], $tenantId)) {
+            if (class_exists('MultiTenantValidator') && $effectiveTenantId > 0) {
+                if (!MultiTenantValidator::checkOwnership($pdo, 'roles', (int)$data['id'], $effectiveTenantId)) {
                     ResponseFormatter::error('Role not found or unauthorized', 404);
                     break;
                 }
             }
 
-            $controller->delete($tenantId, $data, (int)($user['id'] ?? 0));
+            $controller->delete($effectiveTenantId, $data, (int)($user['id'] ?? 0));
             ResponseFormatter::success(['deleted' => true]);
             break;
 
@@ -134,7 +150,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'roles.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (\RuntimeException $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'roles.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);

@@ -128,10 +128,10 @@ try {
 } catch (InvalidArgumentException $e) {
     safe_log('error', 'Validation error in ProductBundles', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (PDOException $e) {
+} catch (DatabaseException|\PDOException $e) {
     safe_log('error', 'Database error in ProductBundles', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Database error: ' . $e->getMessage(), 500);
-} catch (Throwable $e) {
+} catch (ApplicationException|\RuntimeException $e) {
     safe_log('error', 'ProductBundles route failed', ['error' => $e->getMessage()]);
     ResponseFormatter::error('Internal server error: ' . $e->getMessage(), 500);
 }

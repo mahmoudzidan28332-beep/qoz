@@ -19,16 +19,23 @@ require_once $modelsPath.'/services/ProductPricingService.php';
 require_once $modelsPath.'/controllers/ProductPricingController.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
+    exit;
+}
 
-// Multi-tenant isolation hardening
-require_once $baseDir . '/shared/helpers/admin_context.php';
-require_once $baseDir . '/shared/helpers/TenantContext.php';
-
-$isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
-$effectiveTenantId = resolve_tenant_id($_GET, $_SESSION, $isPlatformAdmin);
+$rawRequestBody = file_get_contents('php://input');
+$requestData = $rawRequestBody ? (json_decode($rawRequestBody, true) ?? []) : [];
+$effectiveTenantId = resolve_product_scope_tenant_id($pdo, $requestData);
+if (is_platform_admin() && ($effectiveTenantId === null || $effectiveTenantId <= 0)) {
+    $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null || $effectiveTenantId <= 0) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
+}
 TenantContext::set($effectiveTenantId);
 
-$pdo = $GLOBALS['ADMIN_DB'];
 $repo = new PdoProductPricingRepository($pdo);
 $service = new ProductPricingService($repo);
 $controller = new ProductPricingController($service);
@@ -50,7 +57,7 @@ function whitelistProductPricingInput(mixed $payload, array $allowedFields): arr
 
 try {
     $method = $_SERVER['REQUEST_METHOD'];
-    $rawInput = json_decode(file_get_contents('php://input'), true);
+    $rawInput = $requestData;
 
     $filters = [
         'product_id' => $_GET['product_id'] ?? null,
@@ -142,8 +149,13 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 
-} catch (Throwable $e) {
-    safe_log('error','product_pricing', ['error'=>$e->getMessage()]);
-    $msg = ($e instanceof InvalidArgumentException) ? $e->getMessage() : 'Internal server error';
+} catch (\Throwable $e) {
+    if (function_exists('safe_log')) {
+        safe_log('error','product_pricing', ['error'=>$e->getMessage(), 'trace'=>$e->getTraceAsString()]);
+    }
+    
+    // EXPOSE FULL ERROR TO USER
+    $msg = 'ERROR: ' . $e->getMessage() . ' | IN: ' . $e->getFile() . ':' . $e->getLine();
+    
     ResponseFormatter::error($msg, 500);
 }
