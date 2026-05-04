@@ -230,6 +230,36 @@
 [dir="rtl"] #addressesPage select,
 [dir="rtl"] #addressesPage textarea             { direction: rtl; text-align: start; }
 
+#addressesPage .form-group {
+    margin-bottom: 1.25rem;
+    position: relative;
+}
+
+#addressesPage .form-control {
+    width: 100%;
+    min-height: 42px;
+}
+
+/* Ensure native selects aren't cut off and have enough room */
+#addressesPage select.form-control {
+    padding-inline-end: 30px;
+    appearance: auto;
+    background-color: var(--input-bg, #0f172a);
+    color: var(--text-primary, #fff);
+    border: 1px solid var(--border-color, #334155);
+}
+
+#addressesPage .form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+#addressesPage .form-row > .form-group {
+    flex: 1 1 200px;
+}
+
 @keyframes addrToastInRtl {
     from { opacity: 0; transform: translateX(-12px); }
     to   { opacity: 1; transform: translateX(0); }

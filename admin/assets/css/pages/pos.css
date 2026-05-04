@@ -443,17 +443,18 @@
 .pos-page .pos-qty-controls {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    gap: 8px;
+    margin-top: 8px;
+    user-select: none;
 }
 .pos-page .pos-qty-btn {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 6px;
-    border: 1px solid var(--border-color, #334155);
+    border: 1.5px solid var(--border-color, #334155);
     background: var(--background-secondary, #1e293b);
     color: var(--text-primary, #e2e8f0);
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
@@ -464,16 +465,33 @@
     line-height: 1;
     padding: 0;
 }
-.pos-page .pos-qty-btn:hover { background: var(--primary-color, #3b82f6); border-color: var(--primary-color, #3b82f6); color: #fff; }
-.pos-page .pos-qty-btn.remove:hover { background: var(--danger-color, #ef4444); border-color: var(--danger-color, #ef4444); }
-
-.pos-page .pos-qty-display {
-    min-width: 28px;
-    text-align: center;
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+.pos-page .pos-qty-btn:hover { 
+    background: var(--primary-color, #3b82f6); 
+    border-color: var(--primary-color, #3b82f6); 
+    color: #fff;
 }
+.pos-page .pos-qty-input {
+    width: 45px;
+    height: 30px;
+    background: var(--background-secondary, #1e293b);
+    border: 1.5px solid var(--border-color, #334155);
+    border-radius: 6px;
+    color: var(--text-primary, #e2e8f0);
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    outline: none;
+    -moz-appearance: textfield;
+}
+.pos-page .pos-qty-input::-webkit-outer-spin-button,
+.pos-page .pos-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.pos-page .pos-qty-input:focus {
+    border-color: var(--primary-color, #3b82f6);
+}
+
 
 /* ════════════════════════════════════════
    TOTALS & PAYMENT SECTION
@@ -714,20 +732,7 @@
     gap: 8px;
 }
 
-.pos-page .pos-receipt {
-    border: 1px dashed var(--border-color, #334155);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 16px;
-    font-family: "Courier New", monospace;
-    font-size: 0.82rem;
-    color: var(--text-primary, #e2e8f0);
-    line-height: 1.7;
-}
-.pos-page .pos-receipt .receipt-divider { border: none; border-top: 1px dashed var(--border-color, #334155); margin: 8px 0; }
-.pos-page .pos-receipt .receipt-row { display: flex; justify-content: space-between; }
-.pos-page .pos-receipt .receipt-row.total-row { font-weight: 700; font-size: 0.9rem; }
-.pos-page .pos-receipt .receipt-center { text-align: center; }
+/* Receipt styles moved to bottom of file – Professional Receipt section */
 
 /* ════════════════════════════════════════
    CLOSE SESSION MODAL
@@ -1241,4 +1246,184 @@
 .pos-page .pos-filter-input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(1) brightness(0.8);
     cursor: pointer;
+}
+
+/* ════════════════════════════════════════
+   PROFESSIONAL RECEIPT (Screen & Print)
+   ════════════════════════════════════════ */
+.pos-page .pos-receipt {
+    background: #fff;
+    color: #000;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    padding: 25px 20px;
+    margin-bottom: 16px;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+}
+
+.pos-page .pos-receipt .receipt-header {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.pos-page .pos-receipt .receipt-title {
+    font-size: 18px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    color: #000;
+}
+
+.pos-page .pos-receipt .receipt-store-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+}
+
+.pos-page .pos-receipt .receipt-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+.pos-page .pos-receipt .receipt-divider {
+    border: none;
+    border-top: 1px dashed #bbb;
+    margin: 12px 0;
+}
+
+.pos-page .pos-receipt .receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.pos-page .pos-receipt .receipt-table th {
+    border-bottom: 1px solid #000;
+    text-align: start;
+    font-size: 11px;
+    padding: 5px 0;
+    text-transform: uppercase;
+}
+
+.pos-page .pos-receipt .receipt-table td {
+    padding: 6px 0;
+    vertical-align: top;
+}
+
+.pos-page .pos-receipt .receipt-table .col-qty { width: 40px; text-align: center; }
+.pos-page .pos-receipt .receipt-table .col-price { width: 80px; text-align: end; }
+.pos-page .pos-receipt .receipt-table .col-total { width: 90px; text-align: end; font-weight: 700; }
+
+.pos-page .pos-receipt .receipt-summary {
+    margin-top: 10px;
+}
+
+.pos-page .pos-receipt .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 13px;
+}
+
+.pos-page .pos-receipt .receipt-row.grand-total {
+    font-size: 18px;
+    font-weight: 800;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+    margin: 8px 0;
+    padding: 8px 0;
+}
+
+.pos-page .pos-receipt .receipt-row.discount-row {
+    color: #d32f2f;
+    font-style: italic;
+}
+
+.pos-page .pos-receipt .receipt-qr-section {
+    text-align: center;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.pos-page .pos-receipt .receipt-qr-code {
+    width: 120px;
+    height: 120px;
+    background: #f1f1f1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ddd;
+    font-size: 10px;
+    color: #999;
+}
+
+.pos-page .pos-receipt .receipt-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    color: #444;
+}
+
+.pos-page .pos-receipt .thank-you {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #000;
+}
+
+/* ════════════════════════════════════════
+   PRINT STYLES – ULTRA CLEAN
+   ════════════════════════════════════════ */
+@media print {
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+/* ════════════════════════════════════════
+   PRINT OPTIMIZATION (80mm Thermal)
+   ════════════════════════════════════════ */
+@media print {
+    /* Hide everything on the page */
+    body > * { display: none !important; }
+    
+    /* ONLY show our receipt container */
+    #posReceiptPrintContainer {
+        display: block !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 80mm !important;
+        visibility: visible !important;
+    }
+    #posReceiptPrintContainer * { visibility: visible !important; }
+    
+    .pos-page .pos-receipt {
+        width: 80mm !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 5mm !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+    
+    @page { size: auto; margin: 0; }
+}
+
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
 }
