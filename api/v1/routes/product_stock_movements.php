@@ -148,7 +148,7 @@ try {
                 'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
             ]));
 
-            $validation = StockMovementsValidator::validateCreate($data);
+            $validation = StockMovementsValidator::validateUpdate($data);
             if (!$validation['valid']) {
                 ResponseFormatter::error('Validation failed: ' . implode(', ', $validation['errors']), 422);
                 break;
