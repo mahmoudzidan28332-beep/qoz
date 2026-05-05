@@ -707,7 +707,10 @@
         }
 
         try {
-            const result = await apiFetch(`${API.auctions}?${platformAdmin.tenantParam()}`, {
+            const tenantParam = (isEdit && state.currentAuction?.tenant_id)
+                ? 'tenant_id=' + state.currentAuction.tenant_id
+                : platformAdmin.tenantParam();
+            const result = await apiFetch(`${API.auctions}?${tenantParam}`, {
                 method: isEdit ? 'PUT' : 'POST',
                 body:   JSON.stringify(body),
             });
@@ -763,7 +766,11 @@
     async function deleteAuction(id) {
         if (!confirm(t('messages.confirm_delete','Delete this auction?'))) return;
         try {
-            const result = await apiFetch(`${API.auctions}?${platformAdmin.tenantParam()}`, {
+            const auction    = state.auctions.find(a => String(a.id) === String(id));
+            const tenantParam = auction?.tenant_id
+                ? 'tenant_id=' + auction.tenant_id
+                : platformAdmin.tenantParam();
+            const result = await apiFetch(`${API.auctions}?${tenantParam}`, {
                 method: 'DELETE',
                 body:   JSON.stringify({ id }),
             });
