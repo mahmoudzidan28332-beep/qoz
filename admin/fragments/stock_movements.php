@@ -528,6 +528,30 @@ function _smt(string $key, string $fallback = ''): string {
                     </div>
                     <?php endif; ?>
 
+                    <!-- ═══ TARGET TABLE SELECTOR ═══ -->
+                    <div class="form-group" id="formTargetTableGroup">
+                        <label class="filter-label required">
+                            <?= _smt('form.target_table', 'Update Stock In') ?> *
+                        </label>
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500">
+                                <input type="radio" name="target_table" id="targetEntityProduct"
+                                       value="entity_product" checked
+                                       style="accent-color:var(--color-primary,#3b82f6);width:16px;height:16px">
+                                <span><?= _smt('form.target_entity_product', 'Entity Product') ?></span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500">
+                                <input type="radio" name="target_table" id="targetEntityVariant"
+                                       value="entity_product_variant"
+                                       style="accent-color:var(--color-primary,#3b82f6);width:16px;height:16px">
+                                <span><?= _smt('form.target_entity_variant', 'Entity Product Variant') ?></span>
+                            </label>
+                        </div>
+                        <small id="formTargetTableHint" style="color:var(--text-secondary,#6b7280);margin-top:4px;display:block">
+                            <?= _smt('form.target_hint_product', 'Movement will update entity_products.stock_quantity') ?>
+                        </small>
+                    </div>
+
                     <div class="form-group">
                         <label class="filter-label required" for="formEntityProductId">
                             <?= _smt('form.entity_product', 'Product') ?> *
@@ -540,8 +564,8 @@ function _smt(string $key, string $fallback = ''): string {
                     </div>
 
                     <div class="form-group" id="formVariantGroup" style="display:none">
-                        <label class="filter-label" for="formEntityProductVariantId">
-                            <?= _smt('form.entity_product_variant', 'Variant (optional)') ?>
+                        <label class="filter-label" id="formVariantLabel" for="formEntityProductVariantId">
+                            <?= _smt('form.entity_product_variant', 'Variant') ?>
                         </label>
                         <select class="form-control" id="formEntityProductVariantId"
                                 name="entity_product_variant_id" disabled>

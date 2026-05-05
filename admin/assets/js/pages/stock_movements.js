@@ -28,6 +28,9 @@
     var pvPage = 1;
     var vaPage = 1;
 
+    // Which table the current movement will update: 'entity_product' | 'entity_product_variant'
+    var targetTable = 'entity_product';
+
     function reloadConfig() {
         CFG  = window.STOCK_MOVEMENTS_CONFIG || {};
         CSRF = CFG.csrfToken || '';
@@ -189,6 +192,73 @@
     // ════════════════════════════════════════════════════════════
     // 1d. FORM ENTITY CASCADE (entity → entity_product → entity_product_variant)
     // ════════════════════════════════════════════════════════════
+
+    /**
+     * Sync UI state (labels, save-button, hint) to the current targetTable value.
+     * Call after targetTable changes or after product/variant selection changes.
+     */
+    function applyTargetTableUI() {
+        var hintEl   = document.getElementById('formTargetTableHint');
+        var varLabel = document.getElementById('formVariantLabel');
+        var varGroup = document.getElementById('formVariantGroup');
+        var epSel    = document.getElementById('formEntityProductId');
+        var epvSel   = document.getElementById('formEntityProductVariantId');
+        var saveBtn  = document.getElementById('btnSaveMovement');
+
+        var epId  = epSel  ? (parseInt(epSel.value,  10) || 0) : 0;
+        var epvId = epvSel ? (parseInt(epvSel.value, 10) || 0) : 0;
+
+        if (targetTable === 'entity_product_variant') {
+            if (hintEl) hintEl.textContent = t('form.target_hint_variant', 'Movement will update entity_product_variants.stock_quantity');
+            if (varLabel) varLabel.textContent = t('form.entity_product_variant', 'Variant') + ' *';
+            // Show variant group whenever a product is selected
+            if (varGroup && epId) varGroup.style.display = 'block';
+            // Save requires both product and variant
+            if (saveBtn) saveBtn.disabled = !(epId && epvId);
+        } else {
+            if (hintEl) hintEl.textContent = t('form.target_hint_product', 'Movement will update entity_products.stock_quantity');
+            if (varLabel) varLabel.textContent = t('form.entity_product_variant', 'Variant') + ' (' + t('form.optional', 'optional') + ')';
+            // Save requires only product
+            if (saveBtn) saveBtn.disabled = !epId;
+        }
+    }
+
+    /**
+     * Bind the "Update Stock In" radio buttons to the targetTable variable.
+     * Must be called once during init().
+     */
+    function bindTargetTableRadios() {
+        var radios = document.querySelectorAll('input[name="target_table"]');
+        radios.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                targetTable = this.value;
+                applyTargetTableUI();
+
+                var epSel    = document.getElementById('formEntityProductId');
+                var epId     = epSel ? (parseInt(epSel.value, 10) || 0) : 0;
+                var varGroup = document.getElementById('formVariantGroup');
+                var epvSel   = document.getElementById('formEntityProductVariantId');
+
+                if (targetTable === 'entity_product_variant') {
+                    // Immediately show variant group if a product is already selected
+                    if (epId && varGroup) varGroup.style.display = 'block';
+                    if (epId && epvSel) epvSel.disabled = (epvSel.options.length <= 1);
+                } else {
+                    // Clear variant selection; hide group only when no variants loaded
+                    if (epvSel) {
+                        epvSel.value = '';
+                        var infoEl = document.getElementById('formVariantStockInfo');
+                        if (infoEl) infoEl.textContent = '';
+                    }
+                    if (varGroup && epvSel && epvSel.options.length <= 1) {
+                        varGroup.style.display = 'none';
+                    }
+                    applyTargetTableUI();
+                }
+            });
+        });
+    }
+
     function getFormEntityId() {
         if (CFG.isPlatformAdmin) {
             var sel = document.getElementById('formEntitySelect');
@@ -238,13 +308,13 @@
                             infoEl.textContent = t('form.current_stock', 'Current stock') + ': ' + (opt.dataset.stock || 0);
                             infoEl.className   = 'sm-lookup-name';
                         }
-                        if (saveBtn) saveBtn.disabled = false;
                         var pid = opt.dataset.productId ? parseInt(opt.dataset.productId, 10) : 0;
                         if (pid) {
                             loadFormVariants(parseInt(opt.value, 10), pid, entityId, preSelectVariantId || 0);
                         }
                     }
                 }
+                applyTargetTableUI();
             })
             .catch(function () {
                 sel.disabled = false;
@@ -285,7 +355,13 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
-                if (!items.length) return;
+                if (!items.length) {
+                    // In variant target mode, show the group even when empty so user sees "no variants"
+                    if (targetTable === 'entity_product_variant') {
+                        group.style.display = 'block';
+                    }
+                    return;
+                }
                 items.forEach(function (item) {
                     var opt = document.createElement('option');
                     opt.value        = item.id;
@@ -300,6 +376,7 @@
                     sel.value = String(preSelectId);
                     sel.dispatchEvent(new Event('change'));
                 }
+                applyTargetTableUI();
             })
             .catch(function () {});
     }
@@ -321,11 +398,12 @@
             epSel.addEventListener('change', function () {
                 var epId    = parseInt(epSel.value, 10) || 0;
                 var infoEl  = document.getElementById('formProductStockInfo');
-                var saveBtn = document.getElementById('btnSaveMovement');
                 resetFormVariants();
-                if (saveBtn) saveBtn.disabled = !epId;
                 if (infoEl) infoEl.textContent = '';
-                if (!epId) return;
+                if (!epId) {
+                    applyTargetTableUI();
+                    return;
+                }
                 var opt = epSel.options[epSel.selectedIndex];
                 if (opt && opt.dataset.stock !== undefined) {
                     if (infoEl) {
@@ -339,21 +417,29 @@
                 if (pid) {
                     loadFormVariants(epId, pid, eid, 0);
                 }
+                applyTargetTableUI();
             });
         }
 
-        // entity_product_variant select drives variant stock info
+        // entity_product_variant select drives variant stock info and save-button state
         var epvSel = document.getElementById('formEntityProductVariantId');
         if (epvSel) {
             epvSel.addEventListener('change', function () {
-                var infoEl = document.getElementById('formVariantStockInfo');
-                if (!infoEl) return;
-                if (!epvSel.value) { infoEl.textContent = ''; return; }
+                var infoEl  = document.getElementById('formVariantStockInfo');
+                var saveBtn = document.getElementById('btnSaveMovement');
+                if (infoEl) infoEl.textContent = '';
+                if (!epvSel.value) {
+                    applyTargetTableUI();
+                    return;
+                }
                 var opt = epvSel.options[epvSel.selectedIndex];
                 if (opt && opt.dataset.stock !== undefined) {
-                    infoEl.textContent = t('form.current_stock', 'Current stock') + ': ' + opt.dataset.stock;
-                    infoEl.className   = 'sm-lookup-name';
+                    if (infoEl) {
+                        infoEl.textContent = t('form.current_stock', 'Current stock') + ': ' + opt.dataset.stock;
+                        infoEl.className   = 'sm-lookup-name';
+                    }
                 }
+                applyTargetTableUI();
             });
         }
     }
@@ -715,13 +801,28 @@
         var epId       = epSel  ? (parseInt(epSel.value,  10) || 0) : 0;
         var epvId      = epvSel ? (parseInt(epvSel.value, 10) || 0) : 0;
 
+        // Validate: entity_product required
+        if (!epId) {
+            showNotification(t('messages.product_required', 'Please select a product'), 'error');
+            return;
+        }
+
+        // Validate: variant required when targeting entity_product_variants
+        if (targetTable === 'entity_product_variant' && !epvId) {
+            showNotification(t('messages.variant_required', 'Please select a variant'), 'error');
+            return;
+        }
+
         var payload = {
             entity_product_id: epId,
             change_quantity:   parseInt(document.getElementById('changeQuantity').value, 10) || 0,
             type:              document.getElementById('movementType').value
         };
 
-        if (epvId)  payload.entity_product_variant_id = epvId;
+        // Only include entity_product_variant_id when targeting variant table
+        if (targetTable === 'entity_product_variant' && epvId) {
+            payload.entity_product_variant_id = epvId;
+        }
         var referenceId = document.getElementById('referenceId').value;
         if (referenceId) payload.reference_id = parseInt(referenceId, 10);
         var notes = document.getElementById('movementNotes').value;
@@ -806,6 +907,14 @@
                     document.getElementById('movementNotes').value    = item.notes        || '';
                     document.getElementById('modalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
 
+                    // Restore target table from movement data
+                    var entityVariantId = item.entity_product_variant_id
+                        ? parseInt(item.entity_product_variant_id, 10) : 0;
+                    targetTable = entityVariantId ? 'entity_product_variant' : 'entity_product';
+                    var radioId = entityVariantId ? 'targetEntityVariant' : 'targetEntityProduct';
+                    var radio   = document.getElementById(radioId);
+                    if (radio) radio.checked = true;
+
                     // Pre-fill entity context for PA
                     if (CFG.isPlatformAdmin) {
                         var htid = document.getElementById('movementTenantId');
@@ -815,11 +924,9 @@
                     }
 
                     // Load entity products and pre-select entity_product_id
-                    var entityId       = item.entity_id       ? parseInt(item.entity_id, 10)       : (CFG.entityId || 0);
+                    var entityId        = item.entity_id       ? parseInt(item.entity_id, 10)       : (CFG.entityId || 0);
                     var entityProductId = item.entity_product_id
                         ? parseInt(item.entity_product_id, 10) : 0;
-                    var entityVariantId = item.entity_product_variant_id
-                        ? parseInt(item.entity_product_variant_id, 10) : 0;
 
                     if (CFG.isPlatformAdmin && entityId) {
                         var tenantId = item.tenant_id ? parseInt(item.tenant_id, 10) : platformAdmin.getTenantId();
@@ -1158,8 +1265,13 @@
         if (pInfo)  pInfo.textContent = '';
         document.getElementById('modalTitle').textContent = t('form.adjust_stock_title', 'Adjust Stock');
 
-        var saveBtn = document.getElementById('btnSaveMovement');
-        if (saveBtn) saveBtn.disabled = true;
+        // Set target table based on whether we're adjusting a variant or a product
+        var hasVariant = !!(entityVariantId && parseInt(entityVariantId, 10) > 0);
+        targetTable    = hasVariant ? 'entity_product_variant' : 'entity_product';
+        var radioId    = hasVariant ? 'targetEntityVariant' : 'targetEntityProduct';
+        var radio      = document.getElementById(radioId);
+        if (radio) radio.checked = true;
+        applyTargetTableUI();
 
         if (CFG.isPlatformAdmin) {
             var htid = document.getElementById('movementTenantId');
@@ -1242,9 +1354,12 @@
             if (epSel) { epSel.innerHTML = '<option value="">' + t('form.select_product', '— Select product —') + '</option>'; epSel.disabled = true; }
             var pInfo = document.getElementById('formProductStockInfo');
             if (pInfo) pInfo.textContent = '';
-            var saveBtn = document.getElementById('btnSaveMovement');
-            if (saveBtn) saveBtn.disabled = true;
             document.getElementById('modalTitle').textContent = t('add_movement', 'Add Movement');
+            // Reset target table to default
+            targetTable = 'entity_product';
+            var radioDefault = document.getElementById('targetEntityProduct');
+            if (radioDefault) radioDefault.checked = true;
+            applyTargetTableUI();
             // For non-PA: auto-load entity products
             if (!CFG.isPlatformAdmin && CFG.entityId) {
                 loadFormEntityProducts(CFG.entityId, 0);
@@ -1270,6 +1385,7 @@
 
         // ── Form cascade ──────────────────────────────────────────
         bindFormCascade();
+        bindTargetTableRadios();
 
         // ── Barcode ───────────────────────────────────────────────
         var scanBtn   = document.getElementById('btnScanBarcode');
