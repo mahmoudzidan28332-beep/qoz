@@ -211,7 +211,9 @@ final class PdoStockMovementsRepository
                 $epEntityId = (int)$ep['entity_id'];
 
                 if ($entityId !== null && $entityId !== $epEntityId) {
-                    throw new \RuntimeException('Entity mismatch: entity_product does not belong to the specified entity');
+                    throw new \RuntimeException(
+                        "Entity mismatch: entity_product belongs to entity {$epEntityId}, but entity {$entityId} was specified"
+                    );
                 }
                 if ($entityId === null) {
                     $entityId = $epEntityId;
