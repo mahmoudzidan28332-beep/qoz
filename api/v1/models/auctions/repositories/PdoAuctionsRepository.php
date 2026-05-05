@@ -55,9 +55,9 @@ final class PdoAuctionsRepository implements AuctionsRepositoryInterface
             LEFT JOIN currencies c  ON c.id  = a.currency_id
             LEFT JOIN entities e    ON e.id  = a.entity_id
             LEFT JOIN tenants tn    ON tn.id = a.tenant_id
-            WHERE a.tenant_id = :tenant_id
+            WHERE (:tid = 0 OR a.tenant_id = :tenant_id)
         ";
-        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId, ':lang' => $lang];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -94,8 +94,8 @@ final class PdoAuctionsRepository implements AuctionsRepositoryInterface
 
     public function count(int $tenantId, array $filters = []): int
     {
-        $sql    = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE tenant_id = :tenant_id";
-        $params = [':tenant_id' => $tenantId];
+        $sql    = "SELECT COUNT(*) FROM " . self::TABLE . " WHERE (:tid = 0 OR tenant_id = :tenant_id)";
+        $params = [':tid' => $tenantId, ':tenant_id' => $tenantId];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
             if (isset($filters[$col]) && $filters[$col] !== '') {
@@ -128,10 +128,10 @@ final class PdoAuctionsRepository implements AuctionsRepositoryInterface
             LEFT JOIN currencies c  ON c.id  = a.currency_id
             LEFT JOIN entities e    ON e.id  = a.entity_id
             LEFT JOIN tenants tn    ON tn.id = a.tenant_id
-            WHERE a.tenant_id = :tenant_id AND a.id = :id
+            WHERE (:tid = 0 OR a.tenant_id = :tenant_id) AND a.id = :id
             LIMIT 1
         ");
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id, ':lang' => $lang]);
+        $stmt->execute([':tid' => $tenantId, ':tenant_id' => $tenantId, ':id' => $id, ':lang' => $lang]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

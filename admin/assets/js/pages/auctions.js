@@ -707,7 +707,7 @@
         }
 
         try {
-            const result = await apiFetch(API.auctions, {
+            const result = await apiFetch(`${API.auctions}?${platformAdmin.tenantParam()}`, {
                 method: isEdit ? 'PUT' : 'POST',
                 body:   JSON.stringify(body),
             });
@@ -763,7 +763,7 @@
     async function deleteAuction(id) {
         if (!confirm(t('messages.confirm_delete','Delete this auction?'))) return;
         try {
-            const result = await apiFetch(API.auctions, {
+            const result = await apiFetch(`${API.auctions}?${platformAdmin.tenantParam()}`, {
                 method: 'DELETE',
                 body:   JSON.stringify({ id }),
             });
