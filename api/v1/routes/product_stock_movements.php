@@ -121,6 +121,7 @@ try {
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
             $data = array_intersect_key($data, array_flip([
                 'entity_product_id', 'entity_product_variant_id',
+                'product_id', 'variant_id',
                 'change_quantity', 'type', 'reference_id', 'notes', 'entity_id'
             ]));
             // Always inject resolved tenant_id (prevents client-side spoofing)

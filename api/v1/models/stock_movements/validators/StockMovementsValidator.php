@@ -18,8 +18,14 @@ final class StockMovementsValidator
     {
         $errors = [];
 
-        if (empty($data['entity_product_id']) || !is_numeric($data['entity_product_id'])) {
-            $errors[] = "Field 'entity_product_id' is required and must be numeric";
+        // Either entity_product_id OR product_id is required
+        $hasEntityProduct = !empty($data['entity_product_id']) && is_numeric($data['entity_product_id']);
+        $hasProduct       = !empty($data['product_id'])        && is_numeric($data['product_id']);
+        if (!$hasEntityProduct && !$hasProduct) {
+            $errors[] = "Either 'entity_product_id' or 'product_id' is required and must be numeric";
+        }
+        if (!empty($data['product_id']) && !is_numeric($data['product_id'])) {
+            $errors[] = "Field 'product_id' must be numeric";
         }
 
         if (!isset($data['change_quantity']) || !is_numeric($data['change_quantity']) || (int)$data['change_quantity'] === 0) {

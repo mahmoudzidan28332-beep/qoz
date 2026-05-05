@@ -546,12 +546,26 @@ function _smt(string $key, string $fallback = ''): string {
                                        style="accent-color:var(--color-primary,#3b82f6);width:16px;height:16px">
                                 <span><?= _smt('form.target_entity_variant', 'Entity Product Variant') ?></span>
                             </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500">
+                                <input type="radio" name="target_table" id="targetProduct"
+                                       value="product"
+                                       style="accent-color:var(--color-primary,#3b82f6);width:16px;height:16px">
+                                <span><?= _smt('form.target_product', 'Product (Global)') ?></span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500">
+                                <input type="radio" name="target_table" id="targetProductVariant"
+                                       value="product_variant"
+                                       style="accent-color:var(--color-primary,#3b82f6);width:16px;height:16px">
+                                <span><?= _smt('form.target_product_variant', 'Product Variant (Global)') ?></span>
+                            </label>
                         </div>
                         <small id="formTargetTableHint" style="color:var(--text-secondary,#6b7280);margin-top:4px;display:block">
                             <?= _smt('form.target_hint_product', 'Movement will update entity_products.stock_quantity') ?>
                         </small>
                     </div>
 
+                    <!-- Entity-scoped product / variant selectors (entity_product / entity_product_variant modes) -->
+                    <div id="formEntityScopedGroup">
                     <div class="form-group">
                         <label class="filter-label required" for="formEntityProductId">
                             <?= _smt('form.entity_product', 'Product') ?> *
@@ -573,6 +587,29 @@ function _smt(string $key, string $fallback = ''): string {
                         </select>
                         <small id="formVariantStockInfo" class="sm-lookup-name"></small>
                     </div>
+                    </div><!-- /#formEntityScopedGroup -->
+
+                    <!-- Global product / variant selectors (product / product_variant modes) -->
+                    <div id="formGlobalProductGroup" style="display:none">
+                    <div class="form-group">
+                        <label class="filter-label required" for="formProductId">
+                            <?= _smt('form.product_global', 'Product (Global)') ?> *
+                        </label>
+                        <select class="form-control" id="formProductId" name="product_id" disabled>
+                            <option value=""><?= _smt('form.select_product', '— Select product —') ?></option>
+                        </select>
+                        <small id="formGlobalProductStockInfo" class="sm-lookup-name"></small>
+                    </div>
+                    <div class="form-group" id="formGlobalVariantGroup" style="display:none">
+                        <label class="filter-label required" for="formProductVariantId">
+                            <?= _smt('form.product_variant_global', 'Variant (Global)') ?> *
+                        </label>
+                        <select class="form-control" id="formProductVariantId" name="variant_id" disabled>
+                            <option value=""><?= _smt('form.no_variant', '— No variant —') ?></option>
+                        </select>
+                        <small id="formGlobalVariantStockInfo" class="sm-lookup-name"></small>
+                    </div>
+                    </div><!-- /#formGlobalProductGroup -->
 
                     <div class="form-row">
                         <div class="form-group">
@@ -707,7 +744,9 @@ window.STOCK_MOVEMENTS_CONFIG = {
     tenantsApi:          '/api/tenants',
     entitiesApi:         '/api/entities',
     entityProductsApi:   '/api/entity_products',
-    entityVariantsApi:   '/api/entity_product_variants'
+    entityVariantsApi:   '/api/entity_product_variants',
+    productsApi:         '/api/products',
+    productVariantsApi:  '/api/product_variants'
 };
 </script>
 
