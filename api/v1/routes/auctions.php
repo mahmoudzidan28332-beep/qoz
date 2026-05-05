@@ -119,7 +119,7 @@ try {
             } else {
                 $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $language);
                 ResponseFormatter::success([
-                    'data' => $result['items'],
+                    'items' => $result['items'],
                     'meta' => [
                         'total'       => $result['total'],
                         'page'        => $page,
