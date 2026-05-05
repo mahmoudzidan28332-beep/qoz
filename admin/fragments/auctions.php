@@ -123,6 +123,50 @@ if (!function_exists('assetVer')) {
         </div>
     </div>
 
+    <?php if ($isPlatformAdmin): ?>
+    <!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+    <div class="card platform-admin-panel" id="platformAdminPanel">
+        <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+            <i class="fas fa-shield-alt"></i>
+            <strong><?= htmlspecialchars(_auct('platform_admin.panel_title', 'Platform Admin — Tenant Context'), ENT_QUOTES, 'UTF-8') ?></strong>
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-5">
+                    <label><?= htmlspecialchars(_auct('platform_admin.search_user', 'Search User (ID or name)'), ENT_QUOTES, 'UTF-8') ?></label>
+                    <div style="display:flex;gap:6px">
+                        <input type="text" id="paUserSearch" class="form-control"
+                               placeholder="<?= htmlspecialchars(_auct('platform_admin.search_placeholder', 'User ID or name...'), ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="button" id="paUserSearchBtn" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div id="paUserSearchResults" class="pa-search-results" style="display:none"></div>
+                </div>
+                <div class="form-group col-4">
+                    <label><?= htmlspecialchars(_auct('platform_admin.select_tenant', 'Select Tenant'), ENT_QUOTES, 'UTF-8') ?></label>
+                    <select id="paTenantSelect" class="form-control">
+                        <option value=""><?= htmlspecialchars(_auct('platform_admin.select_tenant_placeholder', '-- Select tenant --'), ENT_QUOTES, 'UTF-8') ?></option>
+                    </select>
+                </div>
+                <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                    <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-user-shield"></i>
+                        <?= htmlspecialchars(_auct('platform_admin.act_on_behalf', 'Act on Behalf'), ENT_QUOTES, 'UTF-8') ?>
+                    </button>
+                </div>
+            </div>
+            <div id="paActiveTenantBanner" class="pa-active-banner" style="display:none">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="paActiveTenantLabel"></span>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-outline-danger" style="margin-left:auto">
+                    <i class="fas fa-times"></i> <?= htmlspecialchars(_auct('platform_admin.clear_context', 'Clear'), ENT_QUOTES, 'UTF-8') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- ═══ FORM CARD ══════════════════════════════════════ -->
     <div id="auctionFormContainer" class="card auc-form-card" style="display:none;">
         <div class="card-header">
@@ -138,6 +182,9 @@ if (!function_exists('assetVer')) {
                 <input type="hidden" id="auctionFormId"   name="id">
                 <input type="hidden" name="csrf_token"     value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" id="auctionTenantId" name="tenant_id" value="<?= (int)$tenantId ?>">
+                <?php if ($isPlatformAdmin): ?>
+                <input type="hidden" id="auctionEntityId" name="entity_id_pa" value="">
+                <?php endif; ?>
 
                 <!-- TABS NAV -->
                 <div class="auc-tabs">
@@ -491,7 +538,7 @@ if (!function_exists('assetVer')) {
                     <input type="text" id="auctionSearch" class="form-control"
                            placeholder="<?= htmlspecialchars(_auct('filters.search_placeholder','Search auctions...'), ENT_QUOTES,'UTF-8') ?>">
                 </div>
-                <?php if ($isSA): ?>
+                <?php if ($isSA || $isPlatformAdmin): ?>
                 <div class="filter-group">
                     <label class="filter-label" for="auctionTenantFilter" data-i18n="filters.tenant_id">
                         <?= htmlspecialchars(_auct('filters.tenant_id','Tenant ID'), ENT_QUOTES,'UTF-8') ?>
@@ -592,7 +639,7 @@ if (!function_exists('assetVer')) {
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <?php if ($isSA): ?>
+                            <?php if ($isSA || $isPlatformAdmin): ?>
                             <th data-i18n="table.headers.tenant">
                                 <?= htmlspecialchars(_auct('table.headers.tenant','Tenant'), ENT_QUOTES,'UTF-8') ?>
                             </th>
@@ -637,25 +684,28 @@ if (!function_exists('assetVer')) {
 
 <script>
 window.AUCTIONS_CONFIG = {
-    apiBase:     <?= json_encode($apiBase, JSON_UNESCAPED_SLASHES) ?>,
-    lang:        <?= json_encode($_aucSafeLang) ?>,
-    dir:         <?= json_encode($dir) ?>,
-    tenantId:    <?= (int)$tenantId ?>,
-    csrfToken:   <?= json_encode($csrf) ?>,
-    userId:      <?= (int)$userId ?>,
-    strings:     <?= json_encode($_aucStrings, JSON_UNESCAPED_UNICODE) ?>,
-    canCreate:   <?= json_encode($canCreate) ?>,
-    canEdit:     <?= json_encode($canEdit) ?>,
-    canDelete:   <?= json_encode($canDelete) ?>,
-    isSuperAdmin:<?= json_encode($isSA) ?>,
+    apiBase:          <?= json_encode($apiBase, JSON_UNESCAPED_SLASHES) ?>,
+    lang:             <?= json_encode($_aucSafeLang) ?>,
+    dir:              <?= json_encode($dir) ?>,
+    tenantId:         <?= (int)$tenantId ?>,
+    csrfToken:        <?= json_encode($csrf) ?>,
+    userId:           <?= (int)$userId ?>,
+    strings:          <?= json_encode($_aucStrings, JSON_UNESCAPED_UNICODE) ?>,
+    isPlatformAdmin:  <?= json_encode($isPlatformAdmin) ?>,
+    canCreate:        <?= json_encode($canCreate) ?>,
+    canEdit:          <?= json_encode($canEdit) ?>,
+    canDelete:        <?= json_encode($canDelete) ?>,
+    isSuperAdmin:     <?= json_encode($isSA) ?>,
+    tenantsApi:       <?= json_encode($apiBase . '/tenants') ?>,
+    usersApi:         <?= json_encode($apiBase . '/users') ?>,
     urls: {
-        auctions:     <?= json_encode($apiBase.'/auctions',            JSON_UNESCAPED_SLASHES) ?>,
-        bids:         <?= json_encode($apiBase.'/auction_bids',        JSON_UNESCAPED_SLASHES) ?>,
-        translations: <?= json_encode($apiBase.'/auction_translations',JSON_UNESCAPED_SLASHES) ?>,
-        products:     <?= json_encode($apiBase.'/products',            JSON_UNESCAPED_SLASHES) ?>,
-        currencies:   <?= json_encode($apiBase.'/currencies',          JSON_UNESCAPED_SLASHES) ?>,
-        languages:    <?= json_encode($apiBase.'/languages',           JSON_UNESCAPED_SLASHES) ?>,
-        entities:     <?= json_encode($apiBase.'/entities',            JSON_UNESCAPED_SLASHES) ?>
+        auctions:     <?= json_encode($apiBase.'/auctions',             JSON_UNESCAPED_SLASHES) ?>,
+        bids:         <?= json_encode($apiBase.'/auction_bids',         JSON_UNESCAPED_SLASHES) ?>,
+        translations: <?= json_encode($apiBase.'/auction_translations', JSON_UNESCAPED_SLASHES) ?>,
+        products:     <?= json_encode($apiBase.'/products',             JSON_UNESCAPED_SLASHES) ?>,
+        currencies:   <?= json_encode($apiBase.'/currencies',           JSON_UNESCAPED_SLASHES) ?>,
+        languages:    <?= json_encode($apiBase.'/languages',            JSON_UNESCAPED_SLASHES) ?>,
+        entities:     <?= json_encode($apiBase.'/entities',             JSON_UNESCAPED_SLASHES) ?>
     }
 };
 </script>
