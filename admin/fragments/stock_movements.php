@@ -394,6 +394,14 @@ function _smt(string $key, string $fallback = ''): string {
 
     <!-- ═══════════════════ TAB 2: ENTITY PRODUCTS ═══════════════════ -->
     <div id="tabEntityProducts" class="sm-tab-panel" style="display:none">
+        <?php if ($canCreate): ?>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <button class="btn btn-primary btn-sm" id="btnAddEntityProduct">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                <span><?= _smt('ep.add', 'Add Entity Product') ?></span>
+            </button>
+        </div>
+        <?php endif; ?>
         <div class="card">
             <div class="card-body sm-table-overflow">
                 <table class="data-table" id="entityProductsTable" aria-label="Entity Products">
@@ -408,10 +416,11 @@ function _smt(string $key, string $fallback = ''): string {
                             <th><?= _smt('ep.is_active',       'Active') ?></th>
                             <th><?= _smt('ep.is_featured',     'Featured') ?></th>
                             <th><?= _smt('ep.created_at',      'Created') ?></th>
+                            <th><?= _smt('table.actions',      'Actions') ?></th>
                         </tr>
                     </thead>
                     <tbody id="epBody">
-                        <tr><td colspan="9" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                        <tr><td colspan="10" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -424,6 +433,14 @@ function _smt(string $key, string $fallback = ''): string {
 
     <!-- ═══════════════════ TAB 3: PRODUCT VARIANTS ═══════════════════ -->
     <div id="tabProductVariants" class="sm-tab-panel" style="display:none">
+        <?php if ($canCreate): ?>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <button class="btn btn-primary btn-sm" id="btnAddProductVariant">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                <span><?= _smt('pv.add', 'Add Product Variant') ?></span>
+            </button>
+        </div>
+        <?php endif; ?>
         <div class="card">
             <div class="card-body sm-table-overflow">
                 <table class="data-table" id="productVariantsTable" aria-label="Product Variants">
@@ -438,10 +455,11 @@ function _smt(string $key, string $fallback = ''): string {
                             <th><?= _smt('pv.is_active',      'Active') ?></th>
                             <th><?= _smt('pv.is_default',     'Default') ?></th>
                             <th><?= _smt('pv.created_at',     'Created') ?></th>
+                            <th><?= _smt('table.actions',     'Actions') ?></th>
                         </tr>
                     </thead>
                     <tbody id="pvBody">
-                        <tr><td colspan="9" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                        <tr><td colspan="10" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -454,6 +472,14 @@ function _smt(string $key, string $fallback = ''): string {
 
     <!-- ═══════════════════ TAB 4: VARIANT ATTRIBUTES ═══════════════════ -->
     <div id="tabVariantAttributes" class="sm-tab-panel" style="display:none">
+        <?php if ($canCreate): ?>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <button class="btn btn-primary btn-sm" id="btnAddVariantAttribute">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                <span><?= _smt('va.add', 'Add Variant Attribute') ?></span>
+            </button>
+        </div>
+        <?php endif; ?>
         <div class="card">
             <div class="card-body sm-table-overflow">
                 <table class="data-table" id="variantAttributesTable" aria-label="Variant Attributes">
@@ -464,10 +490,11 @@ function _smt(string $key, string $fallback = ''): string {
                             <th><?= _smt('va.attribute_id',        'Attribute ID') ?></th>
                             <th><?= _smt('va.attribute_value_id',  'Value ID') ?></th>
                             <th><?= _smt('va.created_at',          'Created') ?></th>
+                            <th><?= _smt('table.actions',          'Actions') ?></th>
                         </tr>
                     </thead>
                     <tbody id="vaBody">
-                        <tr><td colspan="5" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                        <tr><td colspan="6" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -564,6 +591,177 @@ function _smt(string $key, string $fallback = ''): string {
                 </button>
                 <button type="button" class="btn btn-primary" id="btnSaveMovement">
                     <span id="btnSaveMovementText"><?= _smt('form.save', 'Save') ?></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Modal: Entity Product ═══ -->
+    <div class="sm-modal-backdrop" id="entityProductModal"
+         style="display:none" role="dialog" aria-modal="true" aria-labelledby="epModalTitle">
+        <div class="sm-modal-panel">
+            <div class="sm-modal-header">
+                <h3 id="epModalTitle"><?= _smt('ep.add', 'Add Entity Product') ?></h3>
+                <button class="sm-modal-close icon-btn" id="btnCloseEpModal" aria-label="<?= _smt('accessibility.close', 'Close') ?>">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="sm-modal-body">
+                <form id="entityProductForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                    <input type="hidden" id="epId" name="id" value="">
+                    <?php if ($isPlatformAdmin): ?>
+                    <input type="hidden" id="epTenantId" name="tenant_id" value="">
+                    <?php endif; ?>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label required" for="epEntityId"><?= _smt('ep.entity_id', 'Entity ID') ?> *</label>
+                            <input type="number" class="form-control" id="epEntityId" name="entity_id" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label required" for="epProductId"><?= _smt('ep.product_id', 'Product ID') ?> *</label>
+                            <input type="number" class="form-control" id="epProductId" name="product_id" required min="1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label" for="epStockQty"><?= _smt('ep.stock_quantity', 'Stock Qty') ?></label>
+                            <input type="number" class="form-control" id="epStockQty" name="stock_quantity" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="epLowThreshold"><?= _smt('ep.low_threshold', 'Low Threshold') ?></label>
+                            <input type="number" class="form-control" id="epLowThreshold" name="low_stock_threshold" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label" for="epIsActive"><?= _smt('ep.is_active', 'Active') ?></label>
+                            <select class="form-control" id="epIsActive" name="is_active">
+                                <option value="1"><?= _smt('yes', 'Yes') ?></option>
+                                <option value="0"><?= _smt('no', 'No') ?></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="epIsFeatured"><?= _smt('ep.is_featured', 'Featured') ?></label>
+                            <select class="form-control" id="epIsFeatured" name="is_featured">
+                                <option value="0"><?= _smt('no', 'No') ?></option>
+                                <option value="1"><?= _smt('yes', 'Yes') ?></option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="sm-modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelEpModal"><?= _smt('form.cancel', 'Cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="btnSaveEntityProduct">
+                    <span id="btnSaveEpText"><?= _smt('form.save', 'Save') ?></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Modal: Product Variant ═══ -->
+    <div class="sm-modal-backdrop" id="productVariantModal"
+         style="display:none" role="dialog" aria-modal="true" aria-labelledby="pvModalTitle">
+        <div class="sm-modal-panel">
+            <div class="sm-modal-header">
+                <h3 id="pvModalTitle"><?= _smt('pv.add', 'Add Product Variant') ?></h3>
+                <button class="sm-modal-close icon-btn" id="btnClosePvModal" aria-label="<?= _smt('accessibility.close', 'Close') ?>">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="sm-modal-body">
+                <form id="productVariantForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                    <input type="hidden" id="pvId" name="id" value="">
+                    <?php if ($isPlatformAdmin): ?>
+                    <input type="hidden" id="pvTenantId" name="tenant_id" value="">
+                    <?php endif; ?>
+                    <div class="form-group">
+                        <label class="filter-label required" for="pvProductId"><?= _smt('pv.product_id', 'Product ID') ?> *</label>
+                        <input type="number" class="form-control" id="pvProductId" name="product_id" required min="1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label" for="pvSku"><?= _smt('pv.sku', 'SKU') ?></label>
+                            <input type="text" class="form-control" id="pvSku" name="sku" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="pvBarcode"><?= _smt('pv.barcode', 'Barcode') ?></label>
+                            <input type="text" class="form-control" id="pvBarcode" name="barcode" maxlength="100">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label" for="pvStockQty"><?= _smt('pv.stock_quantity', 'Stock Qty') ?></label>
+                            <input type="number" class="form-control" id="pvStockQty" name="stock_quantity" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="pvLowThreshold"><?= _smt('pv.low_threshold', 'Low Threshold') ?></label>
+                            <input type="number" class="form-control" id="pvLowThreshold" name="low_stock_threshold" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label" for="pvIsActive"><?= _smt('pv.is_active', 'Active') ?></label>
+                            <select class="form-control" id="pvIsActive" name="is_active">
+                                <option value="1"><?= _smt('yes', 'Yes') ?></option>
+                                <option value="0"><?= _smt('no', 'No') ?></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="pvIsDefault"><?= _smt('pv.is_default', 'Default') ?></label>
+                            <select class="form-control" id="pvIsDefault" name="is_default">
+                                <option value="0"><?= _smt('no', 'No') ?></option>
+                                <option value="1"><?= _smt('yes', 'Yes') ?></option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="sm-modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelPvModal"><?= _smt('form.cancel', 'Cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="btnSaveProductVariant">
+                    <span id="btnSavePvText"><?= _smt('form.save', 'Save') ?></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Modal: Variant Attribute ═══ -->
+    <div class="sm-modal-backdrop" id="variantAttributeModal"
+         style="display:none" role="dialog" aria-modal="true" aria-labelledby="vaModalTitle">
+        <div class="sm-modal-panel">
+            <div class="sm-modal-header">
+                <h3 id="vaModalTitle"><?= _smt('va.add', 'Add Variant Attribute') ?></h3>
+                <button class="sm-modal-close icon-btn" id="btnCloseVaModal" aria-label="<?= _smt('accessibility.close', 'Close') ?>">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="sm-modal-body">
+                <form id="variantAttributeForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                    <input type="hidden" id="vaId" name="id" value="">
+                    <div class="form-group">
+                        <label class="filter-label required" for="vaVariantId"><?= _smt('va.variant_id', 'Variant ID') ?> *</label>
+                        <input type="number" class="form-control" id="vaVariantId" name="variant_id" required min="1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="filter-label required" for="vaAttributeId"><?= _smt('va.attribute_id', 'Attribute ID') ?> *</label>
+                            <input type="number" class="form-control" id="vaAttributeId" name="attribute_id" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label required" for="vaAttributeValueId"><?= _smt('va.attribute_value_id', 'Value ID') ?> *</label>
+                            <input type="number" class="form-control" id="vaAttributeValueId" name="attribute_value_id" required min="1">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="sm-modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelVaModal"><?= _smt('form.cancel', 'Cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="btnSaveVariantAttribute">
+                    <span id="btnSaveVaText"><?= _smt('form.save', 'Save') ?></span>
                 </button>
             </div>
         </div>

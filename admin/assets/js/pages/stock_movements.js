@@ -102,11 +102,15 @@
                         bannerLabel.textContent = 'Acting on behalf of: ' + tenantLabel + (entityLabel ? ' / ' + entityLabel : '');
                     }
                     if (clearBtn) clearBtn.style.display = 'inline-flex';
-                    // Sync hidden fields in modal
+                    // Sync hidden fields in modals
                     var htid = document.getElementById('movementTenantId');
                     var heid = document.getElementById('movementEntityId');
                     if (htid) htid.value = self.activeTenantId;
                     if (heid) heid.value = self.activeEntityId;
+                    var epTid = document.getElementById('epTenantId');
+                    if (epTid) epTid.value = self.activeTenantId;
+                    var pvTid = document.getElementById('pvTenantId');
+                    if (pvTid) pvTid.value = self.activeTenantId;
                     // Reload only active tab + stats
                     loadStats();
                     if (activeTab === 'movements')          loadMovements(1);
@@ -131,6 +135,10 @@
                     var heid = document.getElementById('movementEntityId');
                     if (htid) htid.value = '';
                     if (heid) heid.value = '';
+                    var epTid = document.getElementById('epTenantId');
+                    if (epTid) epTid.value = '';
+                    var pvTid = document.getElementById('pvTenantId');
+                    if (pvTid) pvTid.value = '';
                     loadStats();
                     if (activeTab === 'movements')           loadMovements(1);
                     else if (activeTab === 'entity-products')    loadEntityProducts(1);
@@ -710,7 +718,7 @@
         var url = '/api/entity_products?' + platformAdmin.tenantParam() + platformAdmin.entityParam() +
                   '&limit=' + PER_PAGE + '&offset=' + ((epPage - 1) * PER_PAGE);
         var tbody = document.getElementById('epBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -718,7 +726,7 @@
                 tbody.innerHTML = '';
                 var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
                 if (!items.length) {
-                    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
                     return;
                 }
                 items.forEach(function (item) {
@@ -732,7 +740,11 @@
                         '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
                         '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
                         '<td><span class="badge ' + (item.is_featured ? 'badge-warning' : 'badge-secondary') + '">' + (item.is_featured ? '★' : '—') + '</span></td>' +
-                        '<td>' + esc(item.created_at || '—') + '</td>';
+                        '<td>' + esc(item.created_at || '—') + '</td>' +
+                        '<td class="actions-cell">' +
+                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary ep-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
+                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger ep-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                        '</td>';
                     tbody.appendChild(tr);
                 });
                 if (d.data && d.data.total !== undefined) {
@@ -740,8 +752,80 @@
                 }
             })
             .catch(function (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
             });
+    }
+
+    function saveEntityProduct() {
+        var editId  = document.getElementById('epId').value;
+        var isEdit  = editId && parseInt(editId, 10) > 0;
+        var payload = {
+            entity_id:          parseInt(document.getElementById('epEntityId').value, 10)    || 0,
+            product_id:         parseInt(document.getElementById('epProductId').value, 10)   || 0,
+            stock_quantity:     parseInt(document.getElementById('epStockQty').value, 10)    || 0,
+            low_stock_threshold:parseInt(document.getElementById('epLowThreshold').value, 10)|| 0,
+            is_active:          parseInt(document.getElementById('epIsActive').value, 10),
+            is_featured:        parseInt(document.getElementById('epIsFeatured').value, 10)
+        };
+        if (CFG.isPlatformAdmin) {
+            var htid = document.getElementById('epTenantId');
+            if (htid && htid.value) payload.tenant_id = parseInt(htid.value, 10);
+        }
+        var url    = '/api/entity_products?' + platformAdmin.tenantParam();
+        var method = 'POST';
+        if (isEdit) { payload.id = parseInt(editId, 10); url += '&id=' + editId; method = 'PUT'; }
+        var btn = document.getElementById('btnSaveEntityProduct');
+        var txt = document.getElementById('btnSaveEpText');
+        if (btn) btn.disabled = true;
+        if (txt) txt.textContent = t('form.saving', 'Saving...');
+        fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(payload), credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) {
+                    closeModal('entityProductModal');
+                    showNotification(t('messages.saved', 'Saved successfully'), 'success');
+                    loadEntityProducts(epPage);
+                } else {
+                    showNotification(d.message || t('messages.error', 'Error'), 'error');
+                }
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); })
+            .finally(function () {
+                if (btn) btn.disabled = false;
+                if (txt) txt.textContent = t('form.save', 'Save');
+            });
+    }
+
+    function editEntityProduct(id) {
+        fetch('/api/entity_products?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var item = d.data || d;
+                if (!item || !item.id) { showNotification(t('messages.error', 'Error'), 'error'); return; }
+                document.getElementById('epId').value           = item.id;
+                document.getElementById('epEntityId').value     = item.entity_id        || '';
+                document.getElementById('epProductId').value    = item.product_id       || '';
+                document.getElementById('epStockQty').value     = item.stock_quantity   ?? 0;
+                document.getElementById('epLowThreshold').value = item.low_stock_threshold ?? 0;
+                document.getElementById('epIsActive').value     = item.is_active    ? '1' : '0';
+                document.getElementById('epIsFeatured').value   = item.is_featured  ? '1' : '0';
+                document.getElementById('epModalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
+                openModal('entityProductModal');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
+    }
+
+    function deleteEntityProduct(id) {
+        if (!confirm(t('messages.confirm_delete', 'Are you sure?'))) return;
+        fetch('/api/entity_products?' + platformAdmin.tenantParam() + '&id=' + id, {
+            method: 'DELETE', headers: authHeaders(), credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) { showNotification(t('messages.deleted', 'Deleted'), 'success'); loadEntityProducts(epPage); }
+                else showNotification(d.message || t('messages.error', 'Error'), 'error');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
     }
 
     // ════════════════════════════════════════════════════════════
@@ -752,7 +836,7 @@
         var url = '/api/product_variants?' + platformAdmin.tenantParam() +
                   '&limit=' + PER_PAGE + '&offset=' + ((pvPage - 1) * PER_PAGE);
         var tbody = document.getElementById('pvBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -760,7 +844,7 @@
                 tbody.innerHTML = '';
                 var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
                 if (!items.length) {
-                    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
                     return;
                 }
                 items.forEach(function (item) {
@@ -774,7 +858,11 @@
                         '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
                         '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
                         '<td><span class="badge ' + (item.is_default ? 'badge-primary' : 'badge-secondary') + '">' + (item.is_default ? '★' : '—') + '</span></td>' +
-                        '<td>' + esc(item.created_at || '—') + '</td>';
+                        '<td>' + esc(item.created_at || '—') + '</td>' +
+                        '<td class="actions-cell">' +
+                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary pv-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
+                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger pv-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                        '</td>';
                     tbody.appendChild(tr);
                 });
                 if (d.data && d.data.total !== undefined) {
@@ -782,8 +870,82 @@
                 }
             })
             .catch(function (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
             });
+    }
+
+    function saveProductVariant() {
+        var editId = document.getElementById('pvId').value;
+        var isEdit = editId && parseInt(editId, 10) > 0;
+        var payload = {
+            product_id:          parseInt(document.getElementById('pvProductId').value, 10)    || 0,
+            sku:                 document.getElementById('pvSku').value.trim(),
+            barcode:             document.getElementById('pvBarcode').value.trim(),
+            stock_quantity:      parseInt(document.getElementById('pvStockQty').value, 10)     || 0,
+            low_stock_threshold: parseInt(document.getElementById('pvLowThreshold').value, 10) || 0,
+            is_active:           parseInt(document.getElementById('pvIsActive').value, 10),
+            is_default:          parseInt(document.getElementById('pvIsDefault').value, 10)
+        };
+        if (CFG.isPlatformAdmin) {
+            var htid = document.getElementById('pvTenantId');
+            if (htid && htid.value) payload.tenant_id = parseInt(htid.value, 10);
+        }
+        var url    = '/api/product_variants?' + platformAdmin.tenantParam();
+        var method = 'POST';
+        if (isEdit) { payload.id = parseInt(editId, 10); url += '&id=' + editId; method = 'PUT'; }
+        var btn = document.getElementById('btnSaveProductVariant');
+        var txt = document.getElementById('btnSavePvText');
+        if (btn) btn.disabled = true;
+        if (txt) txt.textContent = t('form.saving', 'Saving...');
+        fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(payload), credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) {
+                    closeModal('productVariantModal');
+                    showNotification(t('messages.saved', 'Saved successfully'), 'success');
+                    loadProductVariants(pvPage);
+                } else {
+                    showNotification(d.message || t('messages.error', 'Error'), 'error');
+                }
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); })
+            .finally(function () {
+                if (btn) btn.disabled = false;
+                if (txt) txt.textContent = t('form.save', 'Save');
+            });
+    }
+
+    function editProductVariant(id) {
+        fetch('/api/product_variants?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var item = (d.data && d.data.id) ? d.data : d;
+                if (!item || !item.id) { showNotification(t('messages.error', 'Error'), 'error'); return; }
+                document.getElementById('pvId').value           = item.id;
+                document.getElementById('pvProductId').value    = item.product_id           || '';
+                document.getElementById('pvSku').value          = item.sku                  || '';
+                document.getElementById('pvBarcode').value      = item.barcode              || '';
+                document.getElementById('pvStockQty').value     = item.stock_quantity       ?? 0;
+                document.getElementById('pvLowThreshold').value = item.low_stock_threshold  ?? 0;
+                document.getElementById('pvIsActive').value     = item.is_active   ? '1' : '0';
+                document.getElementById('pvIsDefault').value    = item.is_default  ? '1' : '0';
+                document.getElementById('pvModalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
+                openModal('productVariantModal');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
+    }
+
+    function deleteProductVariant(id) {
+        if (!confirm(t('messages.confirm_delete', 'Are you sure?'))) return;
+        fetch('/api/product_variants?' + platformAdmin.tenantParam() + '&id=' + id, {
+            method: 'DELETE', headers: authHeaders(), credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) { showNotification(t('messages.deleted', 'Deleted'), 'success'); loadProductVariants(pvPage); }
+                else showNotification(d.message || t('messages.error', 'Error'), 'error');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
     }
 
     // ════════════════════════════════════════════════════════════
@@ -794,7 +956,7 @@
         var url = '/api/product_variant_attributes?' + platformAdmin.tenantParam() +
                   '&limit=' + PER_PAGE + '&offset=' + ((vaPage - 1) * PER_PAGE);
         var tbody = document.getElementById('vaBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -802,7 +964,7 @@
                 tbody.innerHTML = '';
                 var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
                 if (!items.length) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
                     return;
                 }
                 items.forEach(function (item) {
@@ -812,7 +974,11 @@
                         '<td>' + esc(String(item.variant_id || '')) + '</td>' +
                         '<td>' + esc(String(item.attribute_id || '')) + '</td>' +
                         '<td>' + esc(String(item.attribute_value_id || '')) + '</td>' +
-                        '<td>' + esc(item.created_at || '—') + '</td>';
+                        '<td>' + esc(item.created_at || '—') + '</td>' +
+                        '<td class="actions-cell">' +
+                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary va-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
+                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger va-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                        '</td>';
                     tbody.appendChild(tr);
                 });
                 if (d.data && d.data.total !== undefined) {
@@ -820,8 +986,70 @@
                 }
             })
             .catch(function (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
             });
+    }
+
+    function saveVariantAttribute() {
+        var editId = document.getElementById('vaId').value;
+        var isEdit = editId && parseInt(editId, 10) > 0;
+        var payload = {
+            variant_id:          parseInt(document.getElementById('vaVariantId').value, 10)        || 0,
+            attribute_id:        parseInt(document.getElementById('vaAttributeId').value, 10)      || 0,
+            attribute_value_id:  parseInt(document.getElementById('vaAttributeValueId').value, 10) || 0
+        };
+        var url    = '/api/product_variant_attributes?' + platformAdmin.tenantParam();
+        var method = 'POST';
+        if (isEdit) { payload.id = parseInt(editId, 10); url += '&id=' + editId; method = 'PUT'; }
+        var btn = document.getElementById('btnSaveVariantAttribute');
+        var txt = document.getElementById('btnSaveVaText');
+        if (btn) btn.disabled = true;
+        if (txt) txt.textContent = t('form.saving', 'Saving...');
+        fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(payload), credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) {
+                    closeModal('variantAttributeModal');
+                    showNotification(t('messages.saved', 'Saved successfully'), 'success');
+                    loadVariantAttributes(vaPage);
+                } else {
+                    showNotification(d.message || t('messages.error', 'Error'), 'error');
+                }
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); })
+            .finally(function () {
+                if (btn) btn.disabled = false;
+                if (txt) txt.textContent = t('form.save', 'Save');
+            });
+    }
+
+    function editVariantAttribute(id) {
+        fetch('/api/product_variant_attributes?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var item = (d.data && d.data.id) ? d.data : d;
+                if (!item || !item.id) { showNotification(t('messages.error', 'Error'), 'error'); return; }
+                document.getElementById('vaId').value               = item.id;
+                document.getElementById('vaVariantId').value        = item.variant_id         || '';
+                document.getElementById('vaAttributeId').value      = item.attribute_id       || '';
+                document.getElementById('vaAttributeValueId').value = item.attribute_value_id || '';
+                document.getElementById('vaModalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
+                openModal('variantAttributeModal');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
+    }
+
+    function deleteVariantAttribute(id) {
+        if (!confirm(t('messages.confirm_delete', 'Are you sure?'))) return;
+        fetch('/api/product_variant_attributes?' + platformAdmin.tenantParam() + '&id=' + id, {
+            method: 'DELETE', headers: authHeaders(), credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.success) { showNotification(t('messages.deleted', 'Deleted'), 'success'); loadVariantAttributes(vaPage); }
+                else showNotification(d.message || t('messages.error', 'Error'), 'error');
+            })
+            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
     }
 
     // ════════════════════════════════════════════════════════════
@@ -892,13 +1120,6 @@
             if (e.target === this) closeModal('movementModal');
         });
 
-        // ESC closes modal
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Escape') return;
-            var modal = document.getElementById('movementModal');
-            if (modal && modal.style.display !== 'none') closeModal('movementModal');
-        });
-
         // ── Save ─────────────────────────────────────────────────
         document.getElementById('btnSaveMovement').addEventListener('click', saveMovement);
 
@@ -935,6 +1156,98 @@
             if (btnDel)  deleteMovement(parseInt(btnDel.getAttribute('data-id'), 10));
             var btnEdit = e.target.closest('.btn-edit');
             if (btnEdit) editMovement(parseInt(btnEdit.getAttribute('data-id'), 10));
+        });
+
+        // ── Entity Products modal ─────────────────────────────────
+        var btnAddEp = document.getElementById('btnAddEntityProduct');
+        if (btnAddEp) btnAddEp.addEventListener('click', function () {
+            document.getElementById('entityProductForm').reset();
+            document.getElementById('epId').value = '';
+            document.getElementById('epModalTitle').textContent = t('ep.add', 'Add Entity Product');
+            if (CFG.isPlatformAdmin) {
+                var htid = document.getElementById('epTenantId');
+                if (htid) htid.value = platformAdmin.getTenantId() || '';
+            }
+            openModal('entityProductModal');
+        });
+        var btnCloseEp  = document.getElementById('btnCloseEpModal');
+        var btnCancelEp = document.getElementById('btnCancelEpModal');
+        if (btnCloseEp)  btnCloseEp.addEventListener('click',  function () { closeModal('entityProductModal'); });
+        if (btnCancelEp) btnCancelEp.addEventListener('click', function () { closeModal('entityProductModal'); });
+        var epModal = document.getElementById('entityProductModal');
+        if (epModal) epModal.addEventListener('click', function (e) { if (e.target === this) closeModal('entityProductModal'); });
+        var btnSaveEp = document.getElementById('btnSaveEntityProduct');
+        if (btnSaveEp) btnSaveEp.addEventListener('click', saveEntityProduct);
+
+        var epBody = document.getElementById('epBody');
+        if (epBody) epBody.addEventListener('click', function (e) {
+            var btnEdit = e.target.closest('.ep-btn-edit');
+            if (btnEdit) editEntityProduct(parseInt(btnEdit.getAttribute('data-id'), 10));
+            var btnDel  = e.target.closest('.ep-btn-delete');
+            if (btnDel)  deleteEntityProduct(parseInt(btnDel.getAttribute('data-id'), 10));
+        });
+
+        // ── Product Variants modal ────────────────────────────────
+        var btnAddPv = document.getElementById('btnAddProductVariant');
+        if (btnAddPv) btnAddPv.addEventListener('click', function () {
+            document.getElementById('productVariantForm').reset();
+            document.getElementById('pvId').value = '';
+            document.getElementById('pvModalTitle').textContent = t('pv.add', 'Add Product Variant');
+            if (CFG.isPlatformAdmin) {
+                var htid = document.getElementById('pvTenantId');
+                if (htid) htid.value = platformAdmin.getTenantId() || '';
+            }
+            openModal('productVariantModal');
+        });
+        var btnClosePv  = document.getElementById('btnClosePvModal');
+        var btnCancelPv = document.getElementById('btnCancelPvModal');
+        if (btnClosePv)  btnClosePv.addEventListener('click',  function () { closeModal('productVariantModal'); });
+        if (btnCancelPv) btnCancelPv.addEventListener('click', function () { closeModal('productVariantModal'); });
+        var pvModal = document.getElementById('productVariantModal');
+        if (pvModal) pvModal.addEventListener('click', function (e) { if (e.target === this) closeModal('productVariantModal'); });
+        var btnSavePv = document.getElementById('btnSaveProductVariant');
+        if (btnSavePv) btnSavePv.addEventListener('click', saveProductVariant);
+
+        var pvBody = document.getElementById('pvBody');
+        if (pvBody) pvBody.addEventListener('click', function (e) {
+            var btnEdit = e.target.closest('.pv-btn-edit');
+            if (btnEdit) editProductVariant(parseInt(btnEdit.getAttribute('data-id'), 10));
+            var btnDel  = e.target.closest('.pv-btn-delete');
+            if (btnDel)  deleteProductVariant(parseInt(btnDel.getAttribute('data-id'), 10));
+        });
+
+        // ── Variant Attributes modal ──────────────────────────────
+        var btnAddVa = document.getElementById('btnAddVariantAttribute');
+        if (btnAddVa) btnAddVa.addEventListener('click', function () {
+            document.getElementById('variantAttributeForm').reset();
+            document.getElementById('vaId').value = '';
+            document.getElementById('vaModalTitle').textContent = t('va.add', 'Add Variant Attribute');
+            openModal('variantAttributeModal');
+        });
+        var btnCloseVa  = document.getElementById('btnCloseVaModal');
+        var btnCancelVa = document.getElementById('btnCancelVaModal');
+        if (btnCloseVa)  btnCloseVa.addEventListener('click',  function () { closeModal('variantAttributeModal'); });
+        if (btnCancelVa) btnCancelVa.addEventListener('click', function () { closeModal('variantAttributeModal'); });
+        var vaModal = document.getElementById('variantAttributeModal');
+        if (vaModal) vaModal.addEventListener('click', function (e) { if (e.target === this) closeModal('variantAttributeModal'); });
+        var btnSaveVa = document.getElementById('btnSaveVariantAttribute');
+        if (btnSaveVa) btnSaveVa.addEventListener('click', saveVariantAttribute);
+
+        var vaBody = document.getElementById('vaBody');
+        if (vaBody) vaBody.addEventListener('click', function (e) {
+            var btnEdit = e.target.closest('.va-btn-edit');
+            if (btnEdit) editVariantAttribute(parseInt(btnEdit.getAttribute('data-id'), 10));
+            var btnDel  = e.target.closest('.va-btn-delete');
+            if (btnDel)  deleteVariantAttribute(parseInt(btnDel.getAttribute('data-id'), 10));
+        });
+
+        // ESC closes all modals
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            ['movementModal', 'entityProductModal', 'productVariantModal', 'variantAttributeModal'].forEach(function (mid) {
+                var m = document.getElementById(mid);
+                if (m && m.style.display !== 'none') closeModal(mid);
+            });
         });
     }
 
