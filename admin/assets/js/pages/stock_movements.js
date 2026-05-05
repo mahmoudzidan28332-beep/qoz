@@ -964,7 +964,7 @@
             if (entityId) platformAdmin.activeEntityId = parseInt(entityId, 10) || 0;
         }
         if (productId) {
-            // Auto-lookup product name via the existing lookupProduct helper
+            // Use lookupProduct() which queries /api/products?id= (not /api/product_stock_movements?id=)
             lookupProduct();
         }
         openModal('movementModal');
