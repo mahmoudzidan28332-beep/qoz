@@ -61,14 +61,20 @@ final class EntityProductVariantQueryRepository
         string $orderBy  = 'id',
         string $orderDir = 'DESC',
     ): array {
-        if (empty($filters['tenant_id'])) {
+        if (!array_key_exists('tenant_id', $filters)) {
             return [];
         }
 
         $tenantId     = (int) $filters['tenant_id'];
+        $globalView   = $tenantId === 0; // platform-admin global view
         $filterResult = $this->buildFilterClauses($filters);
         $orderBy      = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
         $orderDir     = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
+
+        $entityJoin  = $globalView
+            ? 'JOIN entities e ON e.id = epv.entity_id'
+            : 'JOIN entities e ON e.id = epv.entity_id AND e.tenant_id = :tenant_id';
+        $tenantWhere = $globalView ? '' : 'AND epv.tenant_id = :tenant_id';
 
         $sql = "
             SELECT
@@ -80,9 +86,7 @@ final class EntityProductVariantQueryRepository
                 pv.sku                AS variant_sku,
                 pp_v.price            AS variant_price
             FROM entity_product_variants epv
-            JOIN entities e
-                ON e.id = epv.entity_id
-               AND e.tenant_id = :tenant_id
+            {$entityJoin}
             LEFT JOIN products p
                 ON p.id = epv.product_id
             LEFT JOIN product_translations pt
@@ -94,7 +98,8 @@ final class EntityProductVariantQueryRepository
                AND pp_v.variant_id  = epv.variant_id
                AND pp_v.entity_id  IS NULL
                AND pp_v.is_active   = 1
-            WHERE epv.tenant_id = :tenant_id
+            WHERE 1=1
+            {$tenantWhere}
             {$filterResult['sql']}
             ORDER BY epv.{$orderBy} {$orderDir}
         ";
@@ -103,7 +108,9 @@ final class EntityProductVariantQueryRepository
         if ($offset !== null) $sql .= ' OFFSET :offset';
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        if (!$globalView) {
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        }
 
         foreach ($filterResult['params'] as $key => $value) {
             $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -120,31 +127,38 @@ final class EntityProductVariantQueryRepository
      */
     public function count(array $filters = []): int
     {
-        if (empty($filters['tenant_id'])) {
+        if (!array_key_exists('tenant_id', $filters)) {
             return 0;
         }
 
         $tenantId     = (int) $filters['tenant_id'];
+        $globalView   = $tenantId === 0;
         $filterResult = $this->buildFilterClauses($filters);
+
+        $entityJoin  = $globalView
+            ? 'JOIN entities e ON e.id = epv.entity_id'
+            : 'JOIN entities e ON e.id = epv.entity_id AND e.tenant_id = :tenant_id';
+        $tenantWhere = $globalView ? '' : 'AND epv.tenant_id = :tenant_id';
 
         $sql = "
             SELECT COUNT(*)
             FROM entity_product_variants epv
-            JOIN entities e
-                ON e.id = epv.entity_id
-               AND e.tenant_id = :tenant_id
+            {$entityJoin}
             LEFT JOIN products p
                 ON p.id = epv.product_id
             LEFT JOIN product_translations pt
                 ON pt.product_id = p.id AND pt.language_code = 'ar'
             LEFT JOIN product_variants pv
                 ON pv.id = epv.variant_id
-            WHERE epv.tenant_id = :tenant_id
+            WHERE 1=1
+            {$tenantWhere}
             {$filterResult['sql']}
         ";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        if (!$globalView) {
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+        }
         foreach ($filterResult['params'] as $key => $value) {
             $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }

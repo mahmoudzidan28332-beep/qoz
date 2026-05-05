@@ -1,0 +1,163 @@
+{
+    "title": "Stock Movements",
+    "subtitle": "Track and manage product inventory changes",
+    "add_movement": "Add Movement",
+    "adjust_stock": "Adjust Stock",
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No",
+
+    "platform_admin": {
+        "panel_title": "Platform Admin",
+        "select_tenant": "Tenant",
+        "select_tenant_placeholder": "Select tenant...",
+        "select_entity": "Entity",
+        "all_entities": "All Entities",
+        "apply": "Apply",
+        "clear": "Clear"
+    },
+
+    "tab": {
+        "movements": "Stock Movements",
+        "entity_products": "Entity Products",
+        "product_variants": "Product Variants",
+        "entity_variant_stock": "Entity Variant Stock"
+    },
+
+    "scan": {
+        "barcode": "Scan Barcode",
+        "placeholder": "Enter barcode...",
+        "btn": "Scan",
+        "sku": "Search by SKU",
+        "sku_placeholder": "Enter SKU...",
+        "open_camera": "Open Camera",
+        "stop_camera": "Stop Camera"
+    },
+
+    "lookup": {
+        "search": "Search",
+        "sku": "Search by SKU",
+        "sku_placeholder": "Enter SKU...",
+        "open_camera": "Open Camera",
+        "stop_camera": "Stop Camera"
+    },
+
+    "stats": {
+        "total": "Total Movements",
+        "restocked": "Restocked",
+        "sold": "Sold",
+        "returned": "Returned"
+    },
+
+    "filter": {
+        "search": "Search",
+        "search_placeholder": "Search products...",
+        "type": "Type",
+        "all_types": "All Types",
+        "date_from": "From Date",
+        "date_to": "To Date",
+        "apply": "Filter",
+        "clear": "Clear"
+    },
+
+    "types": {
+        "restock": "Restock",
+        "sale": "Sale",
+        "return": "Return",
+        "adjustment": "Adjustment"
+    },
+
+    "table": {
+        "id": "ID",
+        "product": "Product",
+        "variant": "Variant",
+        "type": "Type",
+        "quantity": "Qty",
+        "reference": "Reference",
+        "notes": "Notes",
+        "date": "Date",
+        "actions": "Actions",
+        "loading": "Loading...",
+        "no_records": "No records found"
+    },
+
+    "ep": {
+        "add": "Add Entity Product",
+        "id": "ID",
+        "tenant_id": "Tenant",
+        "entity_id": "Entity",
+        "product_id": "Product ID",
+        "stock_quantity": "Stock Qty",
+        "low_threshold": "Low Threshold",
+        "is_active": "Active",
+        "is_featured": "Featured",
+        "created_at": "Created",
+        "adjust_stock": "Adjust Stock"
+    },
+
+    "pv": {
+        "id": "ID",
+        "product_id": "Product ID",
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "stock_quantity": "Stock Qty",
+        "low_threshold": "Low Threshold",
+        "is_active": "Active",
+        "is_default": "Default",
+        "created_at": "Created",
+        "adjust_stock": "Adjust Stock"
+    },
+
+    "epv": {
+        "id": "ID",
+        "tenant_id": "Tenant",
+        "entity_id": "Entity",
+        "product_id": "Product",
+        "variant_id": "Variant ID",
+        "variant_sku": "Variant SKU",
+        "stock_quantity": "Stock Qty",
+        "stock_status": "Status",
+        "is_active": "Active",
+        "created_at": "Created",
+        "adjust_stock": "Adjust Stock"
+    },
+
+    "form": {
+        "product_id": "Product ID",
+        "variant_id": "Variant ID (optional)",
+        "type": "Movement Type",
+        "quantity": "Quantity",
+        "reference_id": "Reference ID",
+        "notes": "Notes",
+        "edit": "Edit",
+        "save": "Save",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "delete": "Delete",
+        "adjust_stock_title": "Adjust Stock"
+    },
+
+    "messages": {
+        "saved": "Saved successfully",
+        "deleted": "Deleted successfully",
+        "error": "An error occurred",
+        "confirm_delete": "Are you sure you want to delete this record?",
+        "product_found": "Product found",
+        "product_not_found": "Product not found",
+        "barcode_not_found": "Barcode not found",
+        "sku_not_found": "SKU not found",
+        "camera_not_supported": "Camera not supported in this browser",
+        "camera_error": "Cannot access camera"
+    },
+
+    "pagination": {
+        "showing": "Showing",
+        "of": "of",
+        "prev": "‹",
+        "next": "›"
+    },
+
+    "accessibility": {
+        "close": "Close"
+    }
+}

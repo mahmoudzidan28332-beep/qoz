@@ -736,14 +736,22 @@
                         '<td>' + esc(String(item.tenant_id || '')) + '</td>' +
                         '<td>' + esc(String(item.entity_id || '')) + '</td>' +
                         '<td>' + esc(String(item.product_id || '')) + '</td>' +
-                        '<td>' + esc(String(item.stock_quantity ?? '')) + '</td>' +
+                        '<td><strong>' + esc(String(item.stock_quantity ?? '')) + '</strong></td>' +
                         '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
                         '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
                         '<td><span class="badge ' + (item.is_featured ? 'badge-warning' : 'badge-secondary') + '">' + (item.is_featured ? '★' : '—') + '</span></td>' +
                         '<td>' + esc(item.created_at || '—') + '</td>' +
                         '<td class="actions-cell">' +
-                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary ep-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
-                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger ep-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                            '<button class="btn btn-sm btn-warning ep-btn-adjust" ' +
+                                'data-product-id="' + esc(String(item.product_id)) + '" ' +
+                                'data-entity-id="' + esc(String(item.entity_id)) + '" ' +
+                                'data-tenant-id="' + esc(String(item.tenant_id)) + '" ' +
+                                'title="' + t('ep.adjust_stock', 'Adjust Stock') + '" ' +
+                                'aria-label="' + t('ep.adjust_stock', 'Adjust Stock') + '">' +
+                                '<i class="fas fa-sliders-h" aria-hidden="true"></i>' +
+                            '</button>' +
+                            (CFG.canEdit   ? ' <button class="btn btn-sm btn-primary ep-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button>' : '') +
+                            (CFG.canDelete ? ' <button class="btn btn-sm btn-danger ep-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
                         '</td>';
                     tbody.appendChild(tr);
                 });
@@ -829,7 +837,7 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    // 11c. PRODUCT VARIANTS
+    // 11c. PRODUCT VARIANTS (stock-adjust only)
     // ════════════════════════════════════════════════════════════
     function loadProductVariants(page) {
         pvPage = page || 1;
@@ -854,14 +862,19 @@
                         '<td>' + esc(String(item.product_id || '')) + '</td>' +
                         '<td>' + esc(item.sku || '—') + '</td>' +
                         '<td>' + esc(item.barcode || '—') + '</td>' +
-                        '<td>' + esc(String(item.stock_quantity ?? '')) + '</td>' +
+                        '<td><strong>' + esc(String(item.stock_quantity ?? '')) + '</strong></td>' +
                         '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
                         '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
                         '<td><span class="badge ' + (item.is_default ? 'badge-primary' : 'badge-secondary') + '">' + (item.is_default ? '★' : '—') + '</span></td>' +
                         '<td>' + esc(item.created_at || '—') + '</td>' +
                         '<td class="actions-cell">' +
-                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary pv-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
-                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger pv-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                            '<button class="btn btn-sm btn-warning pv-btn-adjust" ' +
+                                'data-product-id="' + esc(String(item.product_id)) + '" ' +
+                                'data-variant-id="' + esc(String(item.id)) + '" ' +
+                                'title="' + t('pv.adjust_stock', 'Adjust Stock') + '" ' +
+                                'aria-label="' + t('pv.adjust_stock', 'Adjust Stock') + '">' +
+                                '<i class="fas fa-sliders-h" aria-hidden="true"></i>' +
+                            '</button>' +
                         '</td>';
                     tbody.appendChild(tr);
                 });
@@ -874,89 +887,15 @@
             });
     }
 
-    function saveProductVariant() {
-        var editId = document.getElementById('pvId').value;
-        var isEdit = editId && parseInt(editId, 10) > 0;
-        var payload = {
-            product_id:          parseInt(document.getElementById('pvProductId').value, 10)    || 0,
-            sku:                 document.getElementById('pvSku').value.trim(),
-            barcode:             document.getElementById('pvBarcode').value.trim(),
-            stock_quantity:      parseInt(document.getElementById('pvStockQty').value, 10)     || 0,
-            low_stock_threshold: parseInt(document.getElementById('pvLowThreshold').value, 10) || 0,
-            is_active:           parseInt(document.getElementById('pvIsActive').value, 10),
-            is_default:          parseInt(document.getElementById('pvIsDefault').value, 10)
-        };
-        if (CFG.isPlatformAdmin) {
-            var htid = document.getElementById('pvTenantId');
-            if (htid && htid.value) payload.tenant_id = parseInt(htid.value, 10);
-        }
-        var url    = '/api/product_variants?' + platformAdmin.tenantParam();
-        var method = 'POST';
-        if (isEdit) { payload.id = parseInt(editId, 10); url += '&id=' + editId; method = 'PUT'; }
-        var btn = document.getElementById('btnSaveProductVariant');
-        var txt = document.getElementById('btnSavePvText');
-        if (btn) btn.disabled = true;
-        if (txt) txt.textContent = t('form.saving', 'Saving...');
-        fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(payload), credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (d.success) {
-                    closeModal('productVariantModal');
-                    showNotification(t('messages.saved', 'Saved successfully'), 'success');
-                    loadProductVariants(pvPage);
-                } else {
-                    showNotification(d.message || t('messages.error', 'Error'), 'error');
-                }
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); })
-            .finally(function () {
-                if (btn) btn.disabled = false;
-                if (txt) txt.textContent = t('form.save', 'Save');
-            });
-    }
-
-    function editProductVariant(id) {
-        fetch('/api/product_variants?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                var item = (d.data && d.data.id) ? d.data : d;
-                if (!item || !item.id) { showNotification(t('messages.error', 'Error'), 'error'); return; }
-                document.getElementById('pvId').value           = item.id;
-                document.getElementById('pvProductId').value    = item.product_id           || '';
-                document.getElementById('pvSku').value          = item.sku                  || '';
-                document.getElementById('pvBarcode').value      = item.barcode              || '';
-                document.getElementById('pvStockQty').value     = item.stock_quantity       ?? 0;
-                document.getElementById('pvLowThreshold').value = item.low_stock_threshold  ?? 0;
-                document.getElementById('pvIsActive').value     = item.is_active   ? '1' : '0';
-                document.getElementById('pvIsDefault').value    = item.is_default  ? '1' : '0';
-                document.getElementById('pvModalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
-                openModal('productVariantModal');
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
-    }
-
-    function deleteProductVariant(id) {
-        if (!confirm(t('messages.confirm_delete', 'Are you sure?'))) return;
-        fetch('/api/product_variants?' + platformAdmin.tenantParam() + '&id=' + id, {
-            method: 'DELETE', headers: authHeaders(), credentials: 'same-origin'
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (d.success) { showNotification(t('messages.deleted', 'Deleted'), 'success'); loadProductVariants(pvPage); }
-                else showNotification(d.message || t('messages.error', 'Error'), 'error');
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
-    }
-
     // ════════════════════════════════════════════════════════════
-    // 11d. VARIANT ATTRIBUTES
+    // 11d. ENTITY VARIANT STOCK (stock-adjust only, was "Variant Attributes")
     // ════════════════════════════════════════════════════════════
     function loadVariantAttributes(page) {
         vaPage = page || 1;
-        var url = '/api/product_variant_attributes?' + platformAdmin.tenantParam() +
+        var url = '/api/entity_product_variants?' + platformAdmin.tenantParam() + platformAdmin.entityParam() +
                   '&limit=' + PER_PAGE + '&offset=' + ((vaPage - 1) * PER_PAGE);
         var tbody = document.getElementById('vaBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
         fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -964,20 +903,35 @@
                 tbody.innerHTML = '';
                 var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
                 if (!items.length) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="11" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
                     return;
                 }
                 items.forEach(function (item) {
+                    var statusBadge = item.stock_status === 'in_stock'
+                        ? '<span class="badge badge-success">' + esc(item.stock_status) + '</span>'
+                        : '<span class="badge badge-danger">' + esc(item.stock_status || '—') + '</span>';
                     var tr = document.createElement('tr');
                     tr.innerHTML =
                         '<td>' + esc(String(item.id)) + '</td>' +
+                        '<td>' + esc(String(item.tenant_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.entity_id || '')) + '</td>' +
+                        '<td>' + esc(item.product_name || String(item.product_id || '')) + '</td>' +
                         '<td>' + esc(String(item.variant_id || '')) + '</td>' +
-                        '<td>' + esc(String(item.attribute_id || '')) + '</td>' +
-                        '<td>' + esc(String(item.attribute_value_id || '')) + '</td>' +
+                        '<td>' + esc(item.variant_sku || '—') + '</td>' +
+                        '<td><strong>' + esc(String(item.stock_quantity ?? '')) + '</strong></td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
                         '<td>' + esc(item.created_at || '—') + '</td>' +
                         '<td class="actions-cell">' +
-                            (CFG.canEdit   ? '<button class="btn btn-sm btn-primary va-btn-edit" data-id="' + item.id + '" aria-label="' + t('form.edit', 'Edit') + '"><i class="fas fa-edit" aria-hidden="true"></i></button> ' : '') +
-                            (CFG.canDelete ? '<button class="btn btn-sm btn-danger va-btn-delete" data-id="' + item.id + '" aria-label="' + t('form.delete', 'Delete') + '"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '') +
+                            '<button class="btn btn-sm btn-warning va-btn-adjust" ' +
+                                'data-product-id="' + esc(String(item.product_id)) + '" ' +
+                                'data-variant-id="' + esc(String(item.variant_id)) + '" ' +
+                                'data-entity-id="' + esc(String(item.entity_id)) + '" ' +
+                                'data-tenant-id="' + esc(String(item.tenant_id)) + '" ' +
+                                'title="' + t('epv.adjust_stock', 'Adjust Stock') + '" ' +
+                                'aria-label="' + t('epv.adjust_stock', 'Adjust Stock') + '">' +
+                                '<i class="fas fa-sliders-h" aria-hidden="true"></i>' +
+                            '</button>' +
                         '</td>';
                     tbody.appendChild(tr);
                 });
@@ -986,70 +940,41 @@
                 }
             })
             .catch(function (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
             });
     }
 
-    function saveVariantAttribute() {
-        var editId = document.getElementById('vaId').value;
-        var isEdit = editId && parseInt(editId, 10) > 0;
-        var payload = {
-            variant_id:          parseInt(document.getElementById('vaVariantId').value, 10)        || 0,
-            attribute_id:        parseInt(document.getElementById('vaAttributeId').value, 10)      || 0,
-            attribute_value_id:  parseInt(document.getElementById('vaAttributeValueId').value, 10) || 0
-        };
-        var url    = '/api/product_variant_attributes?' + platformAdmin.tenantParam();
-        var method = 'POST';
-        if (isEdit) { payload.id = parseInt(editId, 10); url += '&id=' + editId; method = 'PUT'; }
-        var btn = document.getElementById('btnSaveVariantAttribute');
-        var txt = document.getElementById('btnSaveVaText');
-        if (btn) btn.disabled = true;
-        if (txt) txt.textContent = t('form.saving', 'Saving...');
-        fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(payload), credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (d.success) {
-                    closeModal('variantAttributeModal');
-                    showNotification(t('messages.saved', 'Saved successfully'), 'success');
-                    loadVariantAttributes(vaPage);
-                } else {
-                    showNotification(d.message || t('messages.error', 'Error'), 'error');
-                }
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); })
-            .finally(function () {
-                if (btn) btn.disabled = false;
-                if (txt) txt.textContent = t('form.save', 'Save');
-            });
-    }
-
-    function editVariantAttribute(id) {
-        fetch('/api/product_variant_attributes?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                var item = (d.data && d.data.id) ? d.data : d;
-                if (!item || !item.id) { showNotification(t('messages.error', 'Error'), 'error'); return; }
-                document.getElementById('vaId').value               = item.id;
-                document.getElementById('vaVariantId').value        = item.variant_id         || '';
-                document.getElementById('vaAttributeId').value      = item.attribute_id       || '';
-                document.getElementById('vaAttributeValueId').value = item.attribute_value_id || '';
-                document.getElementById('vaModalTitle').textContent = t('form.edit', 'Edit') + ' #' + id;
-                openModal('variantAttributeModal');
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
-    }
-
-    function deleteVariantAttribute(id) {
-        if (!confirm(t('messages.confirm_delete', 'Are you sure?'))) return;
-        fetch('/api/product_variant_attributes?' + platformAdmin.tenantParam() + '&id=' + id, {
-            method: 'DELETE', headers: authHeaders(), credentials: 'same-origin'
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (d.success) { showNotification(t('messages.deleted', 'Deleted'), 'success'); loadVariantAttributes(vaPage); }
-                else showNotification(d.message || t('messages.error', 'Error'), 'error');
-            })
-            .catch(function () { showNotification(t('messages.error', 'Error'), 'error'); });
+    /**
+     * Open the stock movement modal pre-filled for a specific product/variant/entity.
+     * Used by "Adjust Stock" buttons in tabs 2, 3, and 4.
+     */
+    function openAdjustStockModal(productId, variantId, entityId, tenantId) {
+        document.getElementById('movementForm').reset();
+        document.getElementById('movementId').value      = '';
+        document.getElementById('productIdInput').value  = productId  || '';
+        document.getElementById('variantIdInput').value  = variantId  || '';
+        document.getElementById('productName').textContent = '';
+        document.getElementById('modalTitle').textContent = t('form.adjust_stock_title', 'Adjust Stock');
+        if (CFG.isPlatformAdmin) {
+            var htid = document.getElementById('movementTenantId');
+            var heid = document.getElementById('movementEntityId');
+            if (htid) htid.value = tenantId || '';
+            if (heid) heid.value = entityId || '';
+            if (tenantId) platformAdmin.activeTenantId = parseInt(tenantId, 10) || 0;
+            if (entityId) platformAdmin.activeEntityId = parseInt(entityId, 10) || 0;
+        }
+        if (productId) {
+            // Auto-lookup product name
+            fetch('/api/product_stock_movements?' + platformAdmin.tenantParam() + '&product_lookup=1&id=' + productId, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.success && d.data && d.data.product_name) {
+                        document.getElementById('productName').textContent = d.data.product_name;
+                    }
+                })
+                .catch(function () {});
+        }
+        openModal('movementModal');
     }
 
     // ════════════════════════════════════════════════════════════
@@ -1181,70 +1106,53 @@
 
         var epBody = document.getElementById('epBody');
         if (epBody) epBody.addEventListener('click', function (e) {
+            var btnAdj  = e.target.closest('.ep-btn-adjust');
+            if (btnAdj) {
+                openAdjustStockModal(
+                    parseInt(btnAdj.getAttribute('data-product-id'), 10) || 0,
+                    0,
+                    parseInt(btnAdj.getAttribute('data-entity-id'), 10)  || 0,
+                    parseInt(btnAdj.getAttribute('data-tenant-id'), 10)  || 0
+                );
+            }
             var btnEdit = e.target.closest('.ep-btn-edit');
             if (btnEdit) editEntityProduct(parseInt(btnEdit.getAttribute('data-id'), 10));
             var btnDel  = e.target.closest('.ep-btn-delete');
             if (btnDel)  deleteEntityProduct(parseInt(btnDel.getAttribute('data-id'), 10));
         });
 
-        // ── Product Variants modal ────────────────────────────────
-        var btnAddPv = document.getElementById('btnAddProductVariant');
-        if (btnAddPv) btnAddPv.addEventListener('click', function () {
-            document.getElementById('productVariantForm').reset();
-            document.getElementById('pvId').value = '';
-            document.getElementById('pvModalTitle').textContent = t('pv.add', 'Add Product Variant');
-            if (CFG.isPlatformAdmin) {
-                var htid = document.getElementById('pvTenantId');
-                if (htid) htid.value = platformAdmin.getTenantId() || '';
-            }
-            openModal('productVariantModal');
-        });
-        var btnClosePv  = document.getElementById('btnClosePvModal');
-        var btnCancelPv = document.getElementById('btnCancelPvModal');
-        if (btnClosePv)  btnClosePv.addEventListener('click',  function () { closeModal('productVariantModal'); });
-        if (btnCancelPv) btnCancelPv.addEventListener('click', function () { closeModal('productVariantModal'); });
-        var pvModal = document.getElementById('productVariantModal');
-        if (pvModal) pvModal.addEventListener('click', function (e) { if (e.target === this) closeModal('productVariantModal'); });
-        var btnSavePv = document.getElementById('btnSaveProductVariant');
-        if (btnSavePv) btnSavePv.addEventListener('click', saveProductVariant);
-
+        // ── Product Variants — adjust-stock delegation ────────────
         var pvBody = document.getElementById('pvBody');
         if (pvBody) pvBody.addEventListener('click', function (e) {
-            var btnEdit = e.target.closest('.pv-btn-edit');
-            if (btnEdit) editProductVariant(parseInt(btnEdit.getAttribute('data-id'), 10));
-            var btnDel  = e.target.closest('.pv-btn-delete');
-            if (btnDel)  deleteProductVariant(parseInt(btnDel.getAttribute('data-id'), 10));
+            var btnAdj = e.target.closest('.pv-btn-adjust');
+            if (btnAdj) {
+                openAdjustStockModal(
+                    parseInt(btnAdj.getAttribute('data-product-id'), 10) || 0,
+                    parseInt(btnAdj.getAttribute('data-variant-id'), 10) || 0,
+                    0,
+                    0
+                );
+            }
         });
 
-        // ── Variant Attributes modal ──────────────────────────────
-        var btnAddVa = document.getElementById('btnAddVariantAttribute');
-        if (btnAddVa) btnAddVa.addEventListener('click', function () {
-            document.getElementById('variantAttributeForm').reset();
-            document.getElementById('vaId').value = '';
-            document.getElementById('vaModalTitle').textContent = t('va.add', 'Add Variant Attribute');
-            openModal('variantAttributeModal');
-        });
-        var btnCloseVa  = document.getElementById('btnCloseVaModal');
-        var btnCancelVa = document.getElementById('btnCancelVaModal');
-        if (btnCloseVa)  btnCloseVa.addEventListener('click',  function () { closeModal('variantAttributeModal'); });
-        if (btnCancelVa) btnCancelVa.addEventListener('click', function () { closeModal('variantAttributeModal'); });
-        var vaModal = document.getElementById('variantAttributeModal');
-        if (vaModal) vaModal.addEventListener('click', function (e) { if (e.target === this) closeModal('variantAttributeModal'); });
-        var btnSaveVa = document.getElementById('btnSaveVariantAttribute');
-        if (btnSaveVa) btnSaveVa.addEventListener('click', saveVariantAttribute);
-
+        // ── Entity Variant Stock — adjust-stock delegation ────────
         var vaBody = document.getElementById('vaBody');
         if (vaBody) vaBody.addEventListener('click', function (e) {
-            var btnEdit = e.target.closest('.va-btn-edit');
-            if (btnEdit) editVariantAttribute(parseInt(btnEdit.getAttribute('data-id'), 10));
-            var btnDel  = e.target.closest('.va-btn-delete');
-            if (btnDel)  deleteVariantAttribute(parseInt(btnDel.getAttribute('data-id'), 10));
+            var btnAdj = e.target.closest('.va-btn-adjust');
+            if (btnAdj) {
+                openAdjustStockModal(
+                    parseInt(btnAdj.getAttribute('data-product-id'), 10) || 0,
+                    parseInt(btnAdj.getAttribute('data-variant-id'), 10) || 0,
+                    parseInt(btnAdj.getAttribute('data-entity-id'),  10) || 0,
+                    parseInt(btnAdj.getAttribute('data-tenant-id'),  10) || 0
+                );
+            }
         });
 
         // ESC closes all modals
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
-            ['movementModal', 'entityProductModal', 'productVariantModal', 'variantAttributeModal'].forEach(function (mid) {
+            ['movementModal', 'entityProductModal'].forEach(function (mid) {
                 var m = document.getElementById(mid);
                 if (m && m.style.display !== 'none') closeModal(mid);
             });
