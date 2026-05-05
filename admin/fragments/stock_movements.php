@@ -145,6 +145,69 @@ function _smt(string $key, string $fallback = ''): string {
         </div>
     </div>
 
+    <?php if ($isPlatformAdmin): ?>
+    <!-- ═══ PLATFORM ADMIN — TENANT / ENTITY CONTEXT ═══ -->
+    <div class="card" id="paPanel" style="border-left:4px solid var(--color-warning,#ff9800);margin-bottom:14px">
+        <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-shield-alt"></i>
+            <strong><?= _smt('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+        </div>
+        <div class="card-body" style="padding:12px 16px">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+                <div class="form-group" style="margin:0;min-width:220px">
+                    <label class="filter-label"><?= _smt('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                    <select id="paTenantSelect" class="form-control">
+                        <option value=""><?= _smt('platform_admin.select_tenant_placeholder', '— Select tenant —') ?></option>
+                    </select>
+                </div>
+                <div class="form-group" id="paEntityGroup" style="margin:0;min-width:220px;display:none">
+                    <label class="filter-label"><?= _smt('platform_admin.select_entity', 'Select Entity (optional)') ?></label>
+                    <select id="paEntitySelect" class="form-control">
+                        <option value=""><?= _smt('platform_admin.all_entities', '— All entities —') ?></option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="button" id="paApplyBtn" class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-user-shield"></i>
+                        <?= _smt('platform_admin.apply', 'Apply') ?>
+                    </button>
+                    <button type="button" id="paClearBtn" class="btn btn-secondary btn-sm" style="display:none">
+                        <i class="fas fa-times"></i>
+                        <?= _smt('platform_admin.clear', 'Clear') ?>
+                    </button>
+                </div>
+            </div>
+            <div id="paActiveBanner" style="display:none;margin-top:10px;padding:7px 14px;background:rgba(255,152,0,.12);border-radius:6px;font-weight:600;color:#b45309">
+                <i class="fas fa-exclamation-triangle"></i>&nbsp;
+                <span id="paActiveBannerLabel"></span>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Tab Navigation -->
+    <div id="smTabNav" style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:14px;border-bottom:2px solid var(--border-color,#e5e7eb)">
+        <button class="sm-tab-btn" data-tab="movements"
+                style="padding:9px 18px;border:none;background:none;cursor:pointer;font-weight:600;border-bottom:3px solid var(--color-primary,#3b82f6);color:var(--color-primary,#3b82f6);margin-bottom:-2px">
+            <i class="fas fa-exchange-alt"></i> <?= _smt('tab.movements', 'Stock Movements') ?>
+        </button>
+        <button class="sm-tab-btn" data-tab="entity-products"
+                style="padding:9px 18px;border:none;background:none;cursor:pointer;color:var(--text-secondary,#6b7280);border-bottom:3px solid transparent;margin-bottom:-2px">
+            <i class="fas fa-boxes"></i> <?= _smt('tab.entity_products', 'Entity Products') ?>
+        </button>
+        <button class="sm-tab-btn" data-tab="product-variants"
+                style="padding:9px 18px;border:none;background:none;cursor:pointer;color:var(--text-secondary,#6b7280);border-bottom:3px solid transparent;margin-bottom:-2px">
+            <i class="fas fa-layer-group"></i> <?= _smt('tab.product_variants', 'Product Variants') ?>
+        </button>
+        <button class="sm-tab-btn" data-tab="variant-attributes"
+                style="padding:9px 18px;border:none;background:none;cursor:pointer;color:var(--text-secondary,#6b7280);border-bottom:3px solid transparent;margin-bottom:-2px">
+            <i class="fas fa-tags"></i> <?= _smt('tab.variant_attributes', 'Variant Attributes') ?>
+        </button>
+    </div>
+
+    <!-- ═══════════════════ TAB 1: STOCK MOVEMENTS ═══════════════════ -->
+    <div id="tabMovements" class="sm-tab-panel">
+
     <!-- Product Lookup Strip -->
     <div class="sm-lookup-strip">
         <div class="filter-group">
@@ -327,6 +390,94 @@ function _smt(string $key, string $fallback = ''): string {
         <div class="pagination" id="pagination" role="navigation"></div>
     </div>
 
+    </div><!-- /#tabMovements -->
+
+    <!-- ═══════════════════ TAB 2: ENTITY PRODUCTS ═══════════════════ -->
+    <div id="tabEntityProducts" class="sm-tab-panel" style="display:none">
+        <div class="card">
+            <div class="card-body sm-table-overflow">
+                <table class="data-table" id="entityProductsTable" aria-label="Entity Products">
+                    <thead>
+                        <tr>
+                            <th><?= _smt('ep.id',              'ID') ?></th>
+                            <th><?= _smt('ep.tenant_id',       'Tenant') ?></th>
+                            <th><?= _smt('ep.entity_id',       'Entity') ?></th>
+                            <th><?= _smt('ep.product_id',      'Product ID') ?></th>
+                            <th><?= _smt('ep.stock_quantity',  'Stock Qty') ?></th>
+                            <th><?= _smt('ep.low_threshold',   'Low Threshold') ?></th>
+                            <th><?= _smt('ep.is_active',       'Active') ?></th>
+                            <th><?= _smt('ep.is_featured',     'Featured') ?></th>
+                            <th><?= _smt('ep.created_at',      'Created') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="epBody">
+                        <tr><td colspan="9" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="pagination-wrapper">
+            <div class="pagination-info" id="epPaginationInfo" aria-live="polite"></div>
+            <div class="pagination" id="epPagination" role="navigation"></div>
+        </div>
+    </div><!-- /#tabEntityProducts -->
+
+    <!-- ═══════════════════ TAB 3: PRODUCT VARIANTS ═══════════════════ -->
+    <div id="tabProductVariants" class="sm-tab-panel" style="display:none">
+        <div class="card">
+            <div class="card-body sm-table-overflow">
+                <table class="data-table" id="productVariantsTable" aria-label="Product Variants">
+                    <thead>
+                        <tr>
+                            <th><?= _smt('pv.id',             'ID') ?></th>
+                            <th><?= _smt('pv.product_id',     'Product ID') ?></th>
+                            <th><?= _smt('pv.sku',            'SKU') ?></th>
+                            <th><?= _smt('pv.barcode',        'Barcode') ?></th>
+                            <th><?= _smt('pv.stock_quantity', 'Stock Qty') ?></th>
+                            <th><?= _smt('pv.low_threshold',  'Low Threshold') ?></th>
+                            <th><?= _smt('pv.is_active',      'Active') ?></th>
+                            <th><?= _smt('pv.is_default',     'Default') ?></th>
+                            <th><?= _smt('pv.created_at',     'Created') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="pvBody">
+                        <tr><td colspan="9" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="pagination-wrapper">
+            <div class="pagination-info" id="pvPaginationInfo" aria-live="polite"></div>
+            <div class="pagination" id="pvPagination" role="navigation"></div>
+        </div>
+    </div><!-- /#tabProductVariants -->
+
+    <!-- ═══════════════════ TAB 4: VARIANT ATTRIBUTES ═══════════════════ -->
+    <div id="tabVariantAttributes" class="sm-tab-panel" style="display:none">
+        <div class="card">
+            <div class="card-body sm-table-overflow">
+                <table class="data-table" id="variantAttributesTable" aria-label="Variant Attributes">
+                    <thead>
+                        <tr>
+                            <th><?= _smt('va.id',                  'ID') ?></th>
+                            <th><?= _smt('va.variant_id',          'Variant ID') ?></th>
+                            <th><?= _smt('va.attribute_id',        'Attribute ID') ?></th>
+                            <th><?= _smt('va.attribute_value_id',  'Value ID') ?></th>
+                            <th><?= _smt('va.created_at',          'Created') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="vaBody">
+                        <tr><td colspan="5" class="text-center"><?= _smt('table.loading', 'Loading...') ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="pagination-wrapper">
+            <div class="pagination-info" id="vaPaginationInfo" aria-live="polite"></div>
+            <div class="pagination" id="vaPagination" role="navigation"></div>
+        </div>
+    </div><!-- /#tabVariantAttributes -->
+
     <!-- Add / Edit Modal — prefix: sm -->
     <div class="sm-modal-backdrop" id="movementModal"
          style="display:none" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -343,6 +494,10 @@ function _smt(string $key, string $fallback = ''): string {
                 <form id="movementForm" novalidate>
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                     <input type="hidden" id="movementId" name="id" value="">
+                    <?php if ($isPlatformAdmin): ?>
+                    <input type="hidden" id="movementTenantId"  name="tenant_id"  value="">
+                    <input type="hidden" id="movementEntityId"  name="entity_id"  value="">
+                    <?php endif; ?>
 
                     <div class="form-group">
                         <label class="filter-label required" for="productIdInput">
@@ -427,7 +582,11 @@ window.STOCK_MOVEMENTS_CONFIG = {
     canEdit:     <?= json_encode($canEdit)   ?>,
     canDelete:   <?= json_encode($canDelete) ?>,
     isSuperAdmin:<?= json_encode($isSuperAdmin) ?>,
-    tenantId:    <?= json_encode($tenantId) ?>
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    tenantId:    <?= json_encode($tenantId) ?>,
+    entityId:    <?= json_encode($entityId) ?>,
+    tenantsApi:  '/api/tenants',
+    entitiesApi: '/api/entities'
 };
 </script>
 

@@ -20,9 +20,185 @@
     var currentPage    = 1;
     var currentFilters = {};
 
+    // Tab state
+    var activeTab = 'movements';
+
+    // Secondary table state
+    var epPage = 1;
+    var pvPage = 1;
+    var vaPage = 1;
+
     function reloadConfig() {
         CFG  = window.STOCK_MOVEMENTS_CONFIG || {};
         CSRF = CFG.csrfToken || '';
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 1b. PLATFORM ADMIN — Tenant / Entity Context
+    // ════════════════════════════════════════════════════════════
+    var platformAdmin = {
+        activeTenantId: 0,
+        activeEntityId: 0,
+
+        getTenantId: function () {
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CFG.tenantId || 0);
+        },
+        getEntityId: function () {
+            return this.activeEntityId !== 0 ? this.activeEntityId : (CFG.entityId || 0);
+        },
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+        entityParam: function () {
+            var eid = this.getEntityId();
+            return eid ? '&entity_id=' + eid : '';
+        },
+
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+            var self         = this;
+            var tenantSel    = document.getElementById('paTenantSelect');
+            var entityGroup  = document.getElementById('paEntityGroup');
+            var entitySel    = document.getElementById('paEntitySelect');
+            var applyBtn     = document.getElementById('paApplyBtn');
+            var clearBtn     = document.getElementById('paClearBtn');
+            var banner       = document.getElementById('paActiveBanner');
+            var bannerLabel  = document.getElementById('paActiveBannerLabel');
+
+            if (!tenantSel) return;
+
+            // Load all tenants on open
+            self.loadAllTenants(tenantSel, applyBtn);
+
+            // When tenant changes, enable apply and load entities
+            tenantSel.addEventListener('change', function () {
+                var tid = parseInt(tenantSel.value, 10) || 0;
+                if (applyBtn) applyBtn.disabled = !tid;
+                if (entitySel) {
+                    while (entitySel.options.length > 1) entitySel.remove(1);
+                }
+                self.activeEntityId = 0;
+                if (tid && entityGroup) {
+                    entityGroup.style.display = 'block';
+                    self.loadEntitiesForTenant(tid, entitySel);
+                } else if (entityGroup) {
+                    entityGroup.style.display = 'none';
+                }
+            });
+
+            // Apply
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    var tid = parseInt(tenantSel.value, 10) || 0;
+                    if (!tid) return;
+                    self.activeTenantId = tid;
+                    self.activeEntityId = entitySel ? (parseInt(entitySel.value, 10) || 0) : 0;
+                    var tenantLabel = (tenantSel.options[tenantSel.selectedIndex] || {}).text || ('Tenant #' + tid);
+                    var entityLabel = self.activeEntityId
+                        ? ((entitySel.options[entitySel.selectedIndex] || {}).text || ('Entity #' + self.activeEntityId))
+                        : '';
+                    if (banner) banner.style.display = 'block';
+                    if (bannerLabel) {
+                        bannerLabel.textContent = 'Acting on behalf of: ' + tenantLabel + (entityLabel ? ' / ' + entityLabel : '');
+                    }
+                    if (clearBtn) clearBtn.style.display = 'inline-flex';
+                    // Sync hidden fields in modal
+                    var htid = document.getElementById('movementTenantId');
+                    var heid = document.getElementById('movementEntityId');
+                    if (htid) htid.value = self.activeTenantId;
+                    if (heid) heid.value = self.activeEntityId;
+                    // Reload all tabs
+                    loadMovements(1);
+                    loadEntityProducts(1);
+                    loadProductVariants(1);
+                    loadVariantAttributes(1);
+                    loadStats();
+                });
+            }
+
+            // Clear
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    self.activeEntityId = 0;
+                    if (tenantSel) tenantSel.value = '';
+                    if (entitySel) { while (entitySel.options.length > 1) entitySel.remove(1); }
+                    if (entityGroup) entityGroup.style.display = 'none';
+                    if (applyBtn) applyBtn.disabled = true;
+                    if (banner) banner.style.display = 'none';
+                    if (clearBtn) clearBtn.style.display = 'none';
+                    var htid = document.getElementById('movementTenantId');
+                    var heid = document.getElementById('movementEntityId');
+                    if (htid) htid.value = '';
+                    if (heid) heid.value = '';
+                    loadMovements(1);
+                    loadEntityProducts(1);
+                    loadProductVariants(1);
+                    loadVariantAttributes(1);
+                    loadStats();
+                });
+            }
+        },
+
+        loadAllTenants: function (sel, applyBtn) {
+            if (!sel) return;
+            var url = (CFG.tenantsApi || '/api/tenants') + '?limit=500';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        opt.textContent = (item.name || item.tenant_name || '') + ' (#' + item.id + ')';
+                        sel.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !sel.value;
+                })
+                .catch(function () {});
+        },
+
+        loadEntitiesForTenant: function (tenantId, sel) {
+            if (!sel) return;
+            var url = (CFG.entitiesApi || '/api/entities') + '?tenant_id=' + tenantId + '&limit=500';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        opt.textContent = (item.name || item.entity_name || '') + ' (#' + item.id + ')';
+                        sel.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+        }
+    };
+
+    // ════════════════════════════════════════════════════════════
+    // 1c. TAB SWITCHING
+    // ════════════════════════════════════════════════════════════
+    function switchTab(tab) {
+        activeTab = tab;
+        var panels = ['movements', 'entity-products', 'product-variants', 'variant-attributes'];
+        panels.forEach(function (p) {
+            var panelId = 'tab' + p.split('-').map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join('');
+            var el = document.getElementById(panelId);
+            if (el) el.style.display = (p === tab) ? 'block' : 'none';
+        });
+        document.querySelectorAll('#smTabNav .sm-tab-btn').forEach(function (btn) {
+            var isActive = btn.getAttribute('data-tab') === tab;
+            btn.style.borderBottomColor = isActive ? 'var(--color-primary,#3b82f6)' : 'transparent';
+            btn.style.color = isActive ? 'var(--color-primary,#3b82f6)' : 'var(--text-secondary,#6b7280)';
+            btn.style.fontWeight = isActive ? '600' : '400';
+        });
+        // Lazy-load tab on first visit
+        if (tab === 'entity-products')    loadEntityProducts(1);
+        if (tab === 'product-variants')   loadProductVariants(1);
+        if (tab === 'variant-attributes') loadVariantAttributes(1);
     }
 
     // ════════════════════════════════════════════════════════════
@@ -149,7 +325,8 @@
     // 7. STATS
     // ════════════════════════════════════════════════════════════
     function loadStats() {
-        fetch('/api/product_stock_movements?stats=1', { credentials: 'same-origin' })
+        var url = '/api/product_stock_movements?stats=1&' + platformAdmin.tenantParam() + platformAdmin.entityParam();
+        fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d.success && d.data) {
@@ -168,7 +345,8 @@
     function loadMovements(page) {
         currentPage = page || 1;
         var offset  = (currentPage - 1) * PER_PAGE;
-        var url     = '/api/product_stock_movements?limit=' + PER_PAGE + '&offset=' + offset;
+        var url     = '/api/product_stock_movements?' + platformAdmin.tenantParam() + platformAdmin.entityParam() +
+                      '&limit=' + PER_PAGE + '&offset=' + offset;
         if (currentFilters.search)    url += '&search='    + encodeURIComponent(currentFilters.search);
         if (currentFilters.type)      url += '&type='      + encodeURIComponent(currentFilters.type);
         if (currentFilters.date_from) url += '&date_from=' + encodeURIComponent(currentFilters.date_from);
@@ -359,12 +537,19 @@
         var notes = document.getElementById('movementNotes').value;
         if (notes)       payload.notes = notes;
 
-        var url    = '/api/product_stock_movements';
+        var url    = '/api/product_stock_movements?' + platformAdmin.tenantParam() + platformAdmin.entityParam();
         var method = 'POST';
         if (isEdit) {
             payload.id = parseInt(editId, 10);
-            url += '?id=' + editId;
+            url += '&id=' + editId;
             method = 'PUT';
+        }
+        // inject tenant/entity for platform admin
+        if (CFG.isPlatformAdmin) {
+            var htid = document.getElementById('movementTenantId');
+            var heid = document.getElementById('movementEntityId');
+            if (htid && htid.value) payload.tenant_id = parseInt(htid.value, 10);
+            if (heid && heid.value) payload.entity_id = parseInt(heid.value, 10);
         }
 
         var saveBtn  = document.getElementById('btnSaveMovement');
@@ -396,7 +581,7 @@
 
     function deleteMovement(id) {
         if (!confirm(t('messages.confirm_delete', 'Are you sure you want to delete?'))) return;
-        fetch('/api/product_stock_movements?id=' + id, {
+        fetch('/api/product_stock_movements?' + platformAdmin.tenantParam() + platformAdmin.entityParam() + '&id=' + id, {
             method: 'DELETE',
             headers: authHeaders(),
             credentials: 'same-origin'
@@ -415,7 +600,7 @@
     }
 
     function editMovement(id) {
-        fetch('/api/product_stock_movements?id=' + id, { credentials: 'same-origin' })
+        fetch('/api/product_stock_movements?' + platformAdmin.tenantParam() + '&id=' + id, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d.success && d.data) {
@@ -491,6 +676,155 @@
     }
 
     // ════════════════════════════════════════════════════════════
+    // 11b. ENTITY PRODUCTS
+    // ════════════════════════════════════════════════════════════
+    function renderSimplePagination(meta, pagId, infoId, PER, loadFn) {
+        var total      = meta.total || 0;
+        var totalPages = meta.total_pages || Math.ceil(total / PER) || 1;
+        var page       = meta.page || 1;
+        var start      = ((page - 1) * PER) + 1;
+        var end        = Math.min(page * PER, total);
+        var infoEl     = document.getElementById(infoId);
+        var pagEl      = document.getElementById(pagId);
+        if (infoEl) infoEl.textContent = start + '–' + end + ' / ' + total;
+        if (!pagEl) return;
+        pagEl.innerHTML = '';
+        if (totalPages <= 1) return;
+        function mkBtn2(label, p, disabled, active) {
+            var btn = document.createElement('button');
+            btn.className = 'btn btn-sm' + (active ? ' btn-primary active' : '') + (disabled ? ' disabled' : '');
+            btn.textContent = label;
+            btn.disabled = !!disabled;
+            if (!disabled) btn.addEventListener('click', function () { loadFn(p); });
+            return btn;
+        }
+        pagEl.appendChild(mkBtn2('‹', page - 1, page <= 1, false));
+        for (var i = 1; i <= Math.min(totalPages, 7); i++) {
+            pagEl.appendChild(mkBtn2(String(i), i, false, i === page));
+        }
+        pagEl.appendChild(mkBtn2('›', page + 1, page >= totalPages, false));
+    }
+
+    function loadEntityProducts(page) {
+        epPage = page || 1;
+        var url = '/api/entity_products?' + platformAdmin.tenantParam() + platformAdmin.entityParam() +
+                  '&limit=' + PER_PAGE + '&offset=' + ((epPage - 1) * PER_PAGE);
+        var tbody = document.getElementById('epBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    return;
+                }
+                items.forEach(function (item) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + esc(String(item.id)) + '</td>' +
+                        '<td>' + esc(String(item.tenant_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.entity_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.product_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.stock_quantity ?? '')) + '</td>' +
+                        '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
+                        '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
+                        '<td><span class="badge ' + (item.is_featured ? 'badge-warning' : 'badge-secondary') + '">' + (item.is_featured ? '★' : '—') + '</span></td>' +
+                        '<td>' + esc(item.created_at || '—') + '</td>';
+                    tbody.appendChild(tr);
+                });
+                if (d.data && d.data.total !== undefined) {
+                    renderSimplePagination({total: d.data.total, total_pages: d.data.total_pages, page: epPage}, 'epPagination', 'epPaginationInfo', PER_PAGE, loadEntityProducts);
+                }
+            })
+            .catch(function (err) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+            });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 11c. PRODUCT VARIANTS
+    // ════════════════════════════════════════════════════════════
+    function loadProductVariants(page) {
+        pvPage = page || 1;
+        var url = '/api/product_variants?' + platformAdmin.tenantParam() +
+                  '&limit=' + PER_PAGE + '&offset=' + ((pvPage - 1) * PER_PAGE);
+        var tbody = document.getElementById('pvBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    return;
+                }
+                items.forEach(function (item) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + esc(String(item.id)) + '</td>' +
+                        '<td>' + esc(String(item.product_id || '')) + '</td>' +
+                        '<td>' + esc(item.sku || '—') + '</td>' +
+                        '<td>' + esc(item.barcode || '—') + '</td>' +
+                        '<td>' + esc(String(item.stock_quantity ?? '')) + '</td>' +
+                        '<td>' + esc(String(item.low_stock_threshold ?? '')) + '</td>' +
+                        '<td><span class="badge ' + (item.is_active ? 'badge-success' : 'badge-secondary') + '">' + (item.is_active ? '✓' : '✗') + '</span></td>' +
+                        '<td><span class="badge ' + (item.is_default ? 'badge-primary' : 'badge-secondary') + '">' + (item.is_default ? '★' : '—') + '</span></td>' +
+                        '<td>' + esc(item.created_at || '—') + '</td>';
+                    tbody.appendChild(tr);
+                });
+                if (d.data && d.data.total !== undefined) {
+                    renderSimplePagination({total: d.data.total, total_pages: d.data.total_pages, page: pvPage}, 'pvPagination', 'pvPaginationInfo', PER_PAGE, loadProductVariants);
+                }
+            })
+            .catch(function (err) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+            });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 11d. VARIANT ATTRIBUTES
+    // ════════════════════════════════════════════════════════════
+    function loadVariantAttributes(page) {
+        vaPage = page || 1;
+        var url = '/api/product_variant_attributes?' + platformAdmin.tenantParam() +
+                  '&limit=' + PER_PAGE + '&offset=' + ((vaPage - 1) * PER_PAGE);
+        var tbody = document.getElementById('vaBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center">' + t('table.loading', 'Loading...') + '</td></tr>';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                var items = (d.data && d.data.items) ? d.data.items : (Array.isArray(d.data) ? d.data : []);
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">' + t('table.no_records', 'No records') + '</td></tr>';
+                    return;
+                }
+                items.forEach(function (item) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + esc(String(item.id)) + '</td>' +
+                        '<td>' + esc(String(item.variant_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.attribute_id || '')) + '</td>' +
+                        '<td>' + esc(String(item.attribute_value_id || '')) + '</td>' +
+                        '<td>' + esc(item.created_at || '—') + '</td>';
+                    tbody.appendChild(tr);
+                });
+                if (d.data && d.data.total !== undefined) {
+                    renderSimplePagination({total: d.data.total, total_pages: d.data.total_pages, page: vaPage}, 'vaPagination', 'vaPaginationInfo', PER_PAGE, loadVariantAttributes);
+                }
+            })
+            .catch(function (err) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+            });
+    }
+
+    // ════════════════════════════════════════════════════════════
     // 13. FILTERS
     // ════════════════════════════════════════════════════════════
     function clearFilters() {
@@ -509,8 +843,17 @@
         reloadConfig();
         applyI18n();
 
+        platformAdmin.bind();
+
         loadStats();
         loadMovements(1);
+
+        // Wire up tabs
+        document.querySelectorAll('#smTabNav .sm-tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                switchTab(btn.getAttribute('data-tab'));
+            });
+        });
 
         if (window.Admin && Admin.buttons && Admin.buttons.applyHoverEffects) {
             Admin.buttons.applyHoverEffects(document.getElementById('stockMovementsContainer'));
