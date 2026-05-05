@@ -120,7 +120,8 @@ try {
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
             $data = array_intersect_key($data, array_flip([
-                'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes', 'entity_id'
+                'entity_product_id', 'entity_product_variant_id',
+                'change_quantity', 'type', 'reference_id', 'notes', 'entity_id'
             ]));
             // Always inject resolved tenant_id (prevents client-side spoofing)
             $data['tenant_id'] = $tenantId;
@@ -145,7 +146,7 @@ try {
             if ($id <= 0) { ResponseFormatter::error('ID is required', 400); break; }
 
             $data = array_intersect_key($data, array_flip([
-                'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
+                'change_quantity', 'type', 'reference_id', 'notes'
             ]));
 
             $validation = StockMovementsValidator::validateUpdate($data);

@@ -84,7 +84,8 @@ final class EntityProductVariantQueryRepository
                 epv.created_at, epv.updated_at,
                 COALESCE(pt.name, '') AS product_name,
                 pv.sku                AS variant_sku,
-                pp_v.price            AS variant_price
+                pp_v.price            AS variant_price,
+                ep.id                 AS entity_product_id
             FROM entity_product_variants epv
             {$entityJoin}
             LEFT JOIN products p
@@ -98,6 +99,10 @@ final class EntityProductVariantQueryRepository
                AND pp_v.variant_id  = epv.variant_id
                AND pp_v.entity_id  IS NULL
                AND pp_v.is_active   = 1
+            LEFT JOIN entity_products ep
+                ON ep.product_id = epv.product_id
+               AND ep.entity_id  = epv.entity_id
+               AND ep.tenant_id  = epv.tenant_id
             WHERE 1=1
             {$tenantWhere}
             {$filterResult['sql']}

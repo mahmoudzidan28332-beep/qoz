@@ -513,29 +513,41 @@ function _smt(string $key, string $fallback = ''): string {
                     <?php if ($isPlatformAdmin): ?>
                     <input type="hidden" id="movementTenantId"  name="tenant_id"  value="">
                     <input type="hidden" id="movementEntityId"  name="entity_id"  value="">
+                    <?php else: ?>
+                    <input type="hidden" name="entity_id" value="<?= (int)$entityId ?>">
+                    <?php endif; ?>
+
+                    <?php if ($isPlatformAdmin): ?>
+                    <div class="form-group" id="formEntityGroup">
+                        <label class="filter-label required" for="formEntitySelect">
+                            <?= _smt('form.entity', 'Entity') ?> *
+                        </label>
+                        <select class="form-control" id="formEntitySelect">
+                            <option value=""><?= _smt('form.select_entity', '— Select entity —') ?></option>
+                        </select>
+                    </div>
                     <?php endif; ?>
 
                     <div class="form-group">
-                        <label class="filter-label required" for="productIdInput">
-                            <?= _smt('form.product_id', 'Product ID') ?> *
+                        <label class="filter-label required" for="formEntityProductId">
+                            <?= _smt('form.entity_product', 'Product') ?> *
                         </label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="productIdInput"
-                                   name="product_id" required min="1">
-                            <button type="button" class="btn btn-sm btn-secondary"
-                                    id="btnLookupProduct"
-                                    aria-label="<?= _smt('lookup.search', 'Search') ?>">
-                                <i class="fas fa-search" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <small id="productName" class="sm-lookup-name"></small>
+                        <select class="form-control" id="formEntityProductId"
+                                name="entity_product_id" required disabled>
+                            <option value=""><?= _smt('form.select_product', '— Select product —') ?></option>
+                        </select>
+                        <small id="formProductStockInfo" class="sm-lookup-name"></small>
                     </div>
 
-                    <div class="form-group">
-                        <label class="filter-label" for="variantIdInput">
-                            <?= _smt('form.variant_id', 'Variant ID (optional)') ?>
+                    <div class="form-group" id="formVariantGroup" style="display:none">
+                        <label class="filter-label" for="formEntityProductVariantId">
+                            <?= _smt('form.entity_product_variant', 'Variant (optional)') ?>
                         </label>
-                        <input type="number" class="form-control" id="variantIdInput" name="variant_id" min="1">
+                        <select class="form-control" id="formEntityProductVariantId"
+                                name="entity_product_variant_id" disabled>
+                            <option value=""><?= _smt('form.no_variant', '— No variant —') ?></option>
+                        </select>
+                        <small id="formVariantStockInfo" class="sm-lookup-name"></small>
                     </div>
 
                     <div class="form-row">
@@ -668,8 +680,10 @@ window.STOCK_MOVEMENTS_CONFIG = {
     isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
     tenantId:    <?= json_encode($tenantId) ?>,
     entityId:    <?= json_encode($entityId) ?>,
-    tenantsApi:  '/api/tenants',
-    entitiesApi: '/api/entities'
+    tenantsApi:          '/api/tenants',
+    entitiesApi:         '/api/entities',
+    entityProductsApi:   '/api/entity_products',
+    entityVariantsApi:   '/api/entity_product_variants'
 };
 </script>
 

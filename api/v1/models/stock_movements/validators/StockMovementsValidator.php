@@ -18,8 +18,8 @@ final class StockMovementsValidator
     {
         $errors = [];
 
-        if (empty($data['product_id']) || !is_numeric($data['product_id'])) {
-            $errors[] = "Field 'product_id' is required and must be numeric";
+        if (empty($data['entity_product_id']) || !is_numeric($data['entity_product_id'])) {
+            $errors[] = "Field 'entity_product_id' is required and must be numeric";
         }
 
         if (!isset($data['change_quantity']) || !is_numeric($data['change_quantity']) || (int)$data['change_quantity'] === 0) {
@@ -36,6 +36,14 @@ final class StockMovementsValidator
 
         if (isset($data['entity_id']) && $data['entity_id'] !== '' && !is_numeric($data['entity_id'])) {
             $errors[] = "Field 'entity_id' must be numeric";
+        }
+
+        if (isset($data['entity_product_id']) && $data['entity_product_id'] !== '' && !is_numeric($data['entity_product_id'])) {
+            $errors[] = "Field 'entity_product_id' must be numeric";
+        }
+
+        if (isset($data['entity_product_variant_id']) && $data['entity_product_variant_id'] !== '' && !is_numeric($data['entity_product_variant_id'])) {
+            $errors[] = "Field 'entity_product_variant_id' must be numeric";
         }
 
         if (isset($data['variant_id']) && $data['variant_id'] !== '' && !is_numeric($data['variant_id'])) {
