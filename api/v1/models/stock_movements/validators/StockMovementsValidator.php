@@ -30,6 +30,14 @@ final class StockMovementsValidator
             $errors[] = "Field 'type' is required and must be one of: " . implode(', ', self::ALLOWED_TYPES);
         }
 
+        if (isset($data['tenant_id']) && $data['tenant_id'] !== '' && !is_numeric($data['tenant_id'])) {
+            $errors[] = "Field 'tenant_id' must be numeric";
+        }
+
+        if (isset($data['entity_id']) && $data['entity_id'] !== '' && !is_numeric($data['entity_id'])) {
+            $errors[] = "Field 'entity_id' must be numeric";
+        }
+
         if (isset($data['variant_id']) && $data['variant_id'] !== '' && !is_numeric($data['variant_id'])) {
             $errors[] = "Field 'variant_id' must be numeric";
         }

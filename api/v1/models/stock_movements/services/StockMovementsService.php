@@ -28,9 +28,9 @@ final class StockMovementsService
         return $this->movements->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function getMovement(int $id): ?array
+    public function getMovement(int $id, int $tenantId = 0): ?array
     {
-        return $this->movements->find($id);
+        return $this->movements->find($id, $tenantId);
     }
 
     public function createMovement(array $data): int
@@ -38,18 +38,18 @@ final class StockMovementsService
         return $this->movements->create($data);
     }
 
-    public function deleteMovement(int $id): bool
+    public function deleteMovement(int $id, int $tenantId = 0): bool
     {
-        $existing = $this->movements->find($id);
+        $existing = $this->movements->find($id, $tenantId);
         if (!$existing) {
             throw new ApplicationException("Stock movement not found with ID: $id");
         }
         return $this->movements->delete($id);
     }
 
-    public function getByProduct(int $productId): array
+    public function getByProduct(int $productId, int $tenantId = 0): array
     {
-        return $this->movements->getByProduct($productId);
+        return $this->movements->getByProduct($productId, $tenantId);
     }
 
     public function movementStats(array $filters = []): array
@@ -67,9 +67,9 @@ final class StockMovementsService
         return $this->movements->lookupBySku($sku, $lang, $entityId);
     }
 
-    public function findWithProductName(int $id): ?array
+    public function findWithProductName(int $id, int $tenantId = 0): ?array
     {
-        return $this->movements->findWithProductName($id);
+        return $this->movements->findWithProductName($id, $tenantId);
     }
 
     public function listPaginated(array $filters, int $limit, int $offset): array

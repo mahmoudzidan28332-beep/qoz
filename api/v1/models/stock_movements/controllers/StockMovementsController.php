@@ -27,9 +27,9 @@ final class StockMovementsController
         return $this->service->listMovements($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function getMovement(int $id): ?array
+    public function getMovement(int $id, int $tenantId = 0): ?array
     {
-        return $this->service->getMovement($id);
+        return $this->service->getMovement($id, $tenantId);
     }
 
     public function createMovement(array $data): int
@@ -37,14 +37,14 @@ final class StockMovementsController
         return $this->service->createMovement($data);
     }
 
-    public function deleteMovement(int $id): bool
+    public function deleteMovement(int $id, int $tenantId = 0): bool
     {
-        return $this->service->deleteMovement($id);
+        return $this->service->deleteMovement($id, $tenantId);
     }
 
-    public function getByProduct(int $productId): array
+    public function getByProduct(int $productId, int $tenantId = 0): array
     {
-        return $this->service->getByProduct($productId);
+        return $this->service->getByProduct($productId, $tenantId);
     }
 
     public function movementStats(array $filters = []): array
@@ -62,9 +62,9 @@ final class StockMovementsController
         return $this->service->lookupBySku($sku, $lang, $entityId);
     }
 
-    public function findWithProductName(int $id): ?array
+    public function findWithProductName(int $id, int $tenantId = 0): ?array
     {
-        return $this->service->findWithProductName($id);
+        return $this->service->findWithProductName($id, $tenantId);
     }
 
     public function listPaginated(array $filters, int $limit, int $offset): array
