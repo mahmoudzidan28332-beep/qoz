@@ -964,15 +964,8 @@
             if (entityId) platformAdmin.activeEntityId = parseInt(entityId, 10) || 0;
         }
         if (productId) {
-            // Auto-lookup product name
-            fetch('/api/product_stock_movements?' + platformAdmin.tenantParam() + '&product_lookup=1&id=' + productId, { credentials: 'same-origin' })
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (d.success && d.data && d.data.product_name) {
-                        document.getElementById('productName').textContent = d.data.product_name;
-                    }
-                })
-                .catch(function () {});
+            // Auto-lookup product name via the existing lookupProduct helper
+            lookupProduct();
         }
         openModal('movementModal');
     }
