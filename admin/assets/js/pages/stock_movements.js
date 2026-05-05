@@ -107,12 +107,12 @@
                     var heid = document.getElementById('movementEntityId');
                     if (htid) htid.value = self.activeTenantId;
                     if (heid) heid.value = self.activeEntityId;
-                    // Reload all tabs
-                    loadMovements(1);
-                    loadEntityProducts(1);
-                    loadProductVariants(1);
-                    loadVariantAttributes(1);
+                    // Reload only active tab + stats
                     loadStats();
+                    if (activeTab === 'movements')          loadMovements(1);
+                    else if (activeTab === 'entity-products')   loadEntityProducts(1);
+                    else if (activeTab === 'product-variants')  loadProductVariants(1);
+                    else if (activeTab === 'variant-attributes') loadVariantAttributes(1);
                 });
             }
 
@@ -131,11 +131,11 @@
                     var heid = document.getElementById('movementEntityId');
                     if (htid) htid.value = '';
                     if (heid) heid.value = '';
-                    loadMovements(1);
-                    loadEntityProducts(1);
-                    loadProductVariants(1);
-                    loadVariantAttributes(1);
                     loadStats();
+                    if (activeTab === 'movements')           loadMovements(1);
+                    else if (activeTab === 'entity-products')    loadEntityProducts(1);
+                    else if (activeTab === 'product-variants')   loadProductVariants(1);
+                    else if (activeTab === 'variant-attributes') loadVariantAttributes(1);
                 });
             }
         },
