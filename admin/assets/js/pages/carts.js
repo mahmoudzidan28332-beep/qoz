@@ -11,7 +11,6 @@
     var API_CARTS      = CFG.apiCarts || '/api/carts';
     var API_CART_ITEMS  = CFG.apiCartItems || '/api/cart_items';
     var API_CART_EVENTS = CFG.apiCartEvents || '/api/cart_events';
-    var TENANT_ID      = CFG.tenantId || 1;
     var PER_PAGE       = CFG.itemsPerPage || 25;
     var CAN_EDIT       = CFG.canEdit !== false;
     var CAN_DELETE     = CFG.canDelete !== false;
@@ -24,6 +23,149 @@
     var itemsFilters = {};
     var eventsFilters = {};
     var activeTab = 'carts';
+
+    // ════════════════════════════════════════════
+    // PLATFORM ADMIN — Tenant / Entity Context
+    // ════════════════════════════════════════════
+    var platformAdmin = {
+        activeTenantId: 0,
+        activeEntityId: 0,
+
+        getTenantId: function () {
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CFG.tenantId || 0);
+        },
+        getEntityId: function () {
+            return this.activeEntityId !== 0 ? this.activeEntityId : (CFG.entityId || 0);
+        },
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+        entityParam: function () {
+            var eid = this.getEntityId();
+            return eid ? '&entity_id=' + eid : '';
+        },
+
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+            var self         = this;
+            var tenantSearch = document.getElementById('paTenantSearch');
+            var tenantSel    = document.getElementById('paTenantSelect');
+            var entityGroup  = document.getElementById('paEntityGroup');
+            var entitySel    = document.getElementById('paEntitySelect');
+            var applyBtn     = document.getElementById('paApplyBtn');
+            var clearBtn     = document.getElementById('paClearBtn');
+            var banner       = document.getElementById('paActiveBanner');
+            var bannerLabel  = document.getElementById('paActiveBannerLabel');
+
+            if (!tenantSel) return;
+
+            // Debounced tenant search (supports search by numeric ID or name)
+            if (tenantSearch) {
+                var searchTimer = null;
+                tenantSearch.addEventListener('input', function () {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(function () {
+                        self.searchTenants(tenantSearch.value.trim(), tenantSel, applyBtn);
+                    }, 350);
+                });
+            }
+
+            tenantSel.addEventListener('change', function () {
+                var tid = parseInt(tenantSel.value, 10) || 0;
+                if (applyBtn) applyBtn.disabled = !tid;
+                if (entitySel) { while (entitySel.options.length > 1) entitySel.remove(1); }
+                self.activeEntityId = 0;
+                if (tid && entityGroup) {
+                    entityGroup.style.display = 'block';
+                    self.loadEntitiesForTenant(tid, entitySel);
+                } else if (entityGroup) {
+                    entityGroup.style.display = 'none';
+                }
+            });
+
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    var tid = parseInt(tenantSel.value, 10) || 0;
+                    if (!tid) return;
+                    self.activeTenantId = tid;
+                    self.activeEntityId = entitySel ? (parseInt(entitySel.value, 10) || 0) : 0;
+                    var tenantLabel = (tenantSel.options[tenantSel.selectedIndex] || {}).text || ('Tenant #' + tid);
+                    var entityLabel = self.activeEntityId
+                        ? ((entitySel && entitySel.options[entitySel.selectedIndex] || {}).text || ('Entity #' + self.activeEntityId))
+                        : '';
+                    if (banner) banner.style.display = 'block';
+                    if (bannerLabel) {
+                        bannerLabel.textContent = 'Acting on behalf of: ' + tenantLabel + (entityLabel ? ' / ' + entityLabel : '');
+                    }
+                    if (clearBtn) clearBtn.style.display = 'inline-flex';
+                    cartsPage = 1; itemsPage = 1; eventsPage = 1;
+                    if (activeTab === 'carts') loadCarts();
+                    else if (activeTab === 'items') loadItems();
+                    else if (activeTab === 'events') loadEvents();
+                });
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    self.activeEntityId = 0;
+                    if (tenantSearch) tenantSearch.value = '';
+                    if (tenantSel) { tenantSel.value = ''; while (tenantSel.options.length > 1) tenantSel.remove(1); }
+                    if (entitySel) { while (entitySel.options.length > 1) entitySel.remove(1); }
+                    if (entityGroup) entityGroup.style.display = 'none';
+                    if (applyBtn) applyBtn.disabled = true;
+                    if (banner) banner.style.display = 'none';
+                    if (clearBtn) clearBtn.style.display = 'none';
+                    cartsPage = 1; itemsPage = 1; eventsPage = 1;
+                    if (activeTab === 'carts') loadCarts();
+                    else if (activeTab === 'items') loadItems();
+                    else if (activeTab === 'events') loadEvents();
+                });
+            }
+        },
+
+        // Search tenants by numeric ID or name string
+        searchTenants: function (query, sel, applyBtn) {
+            if (!sel) return;
+            var base = CFG.tenantsApi || '/api/tenants';
+            var url = base + (/^\d+$/.test(query) && query
+                ? '?id=' + encodeURIComponent(query) + '&limit=20'
+                : (query ? '?search=' + encodeURIComponent(query) + '&limit=50' : '?limit=100'));
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    while (sel.options.length > 1) sel.remove(1);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        opt.textContent = (item.name || item.tenant_name || '') + ' (#' + item.id + ')';
+                        sel.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !sel.value;
+                })
+                .catch(function () {});
+        },
+
+        loadEntitiesForTenant: function (tenantId, sel) {
+            if (!sel) return;
+            var url = (CFG.entitiesApi || '/api/entities') + '?tenant_id=' + tenantId + '&limit=500';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        opt.textContent = (item.name || item.entity_name || '') + ' (#' + item.id + ')';
+                        sel.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+        }
+    };
 
     // ════════════════════════════════════════════
     // UTILITIES
@@ -70,7 +212,7 @@
     }
 
     function apiUrl(base, params) {
-        var qs = ['tenant_id=' + TENANT_ID];
+        var qs = [platformAdmin.tenantParam()];
         if (params) {
             for (var k in params) {
                 if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
@@ -121,8 +263,10 @@
         if (cartsFilters.status) params.status = cartsFilters.status;
         if (cartsFilters.entity_id) params.entity_id = cartsFilters.entity_id;
         if (cartsFilters.user_id) params.user_id = cartsFilters.user_id;
+        var eid = platformAdmin.getEntityId();
+        if (!params.entity_id && eid) params.entity_id = eid;
 
-        fetch(apiUrl(API_CARTS, params))
+        fetch(apiUrl(API_CARTS, params), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load carts');
@@ -198,7 +342,7 @@
         document.getElementById('cartDetailEventsBody').innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
 
         // Load cart details
-        fetch(apiUrl(API_CARTS, { id: id }))
+        fetch(apiUrl(API_CARTS, { id: id }), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var c = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? d.data : {};
@@ -231,7 +375,7 @@
             });
 
         // Load items for this cart
-        fetch(apiUrl(API_CART_ITEMS, { cart_id: id }))
+        fetch(apiUrl(API_CART_ITEMS, { cart_id: id }), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var items = (d.data && d.data.items) ? d.data.items : [];
@@ -257,7 +401,7 @@
             });
 
         // Load events for this cart
-        fetch(apiUrl(API_CART_EVENTS, { cart_id: id, limit: 20 }))
+        fetch(apiUrl(API_CART_EVENTS, { cart_id: id, limit: 20 }), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var items = (d.data && d.data.items) ? d.data.items : [];
@@ -283,7 +427,7 @@
     }
 
     function editCart(id) {
-        fetch(apiUrl(API_CARTS, { id: id }))
+        fetch(apiUrl(API_CARTS, { id: id }), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var c = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? d.data : {};
@@ -320,6 +464,7 @@
 
         fetch(apiUrl(API_CARTS, {}), {
             method: 'PUT',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         })
@@ -341,6 +486,7 @@
 
         fetch(apiUrl(API_CARTS, {}), {
             method: 'DELETE',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
         })
@@ -374,8 +520,10 @@
         if (itemsFilters.sku) params.sku = itemsFilters.sku;
         if (itemsFilters.product_id) params.product_id = itemsFilters.product_id;
         if (itemsFilters.entity_id) params.entity_id = itemsFilters.entity_id;
+        var eid = platformAdmin.getEntityId();
+        if (!params.entity_id && eid) params.entity_id = eid;
 
-        fetch(apiUrl(API_CART_ITEMS, params))
+        fetch(apiUrl(API_CART_ITEMS, params), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load items');
@@ -436,7 +584,7 @@
     }
 
     function editItem(id) {
-        fetch(apiUrl(API_CART_ITEMS, { id: id }))
+        fetch(apiUrl(API_CART_ITEMS, { id: id }), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 var it = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? d.data : {};
@@ -467,6 +615,7 @@
 
         fetch(apiUrl(API_CART_ITEMS, {}), {
             method: 'PUT',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         })
@@ -488,6 +637,7 @@
 
         fetch(apiUrl(API_CART_ITEMS, {}), {
             method: 'DELETE',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
         })
@@ -520,8 +670,10 @@
         if (eventsFilters.cart_id) params.cart_id = eventsFilters.cart_id;
         if (eventsFilters.event_type) params.event_type = eventsFilters.event_type;
         if (eventsFilters.actor_type) params.actor_type = eventsFilters.actor_type;
+        var eid = platformAdmin.getEntityId();
+        if (eid) params.entity_id = eid;
 
-        fetch(apiUrl(API_CART_EVENTS, params))
+        fetch(apiUrl(API_CART_EVENTS, params), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load events');
@@ -687,6 +839,7 @@
     // INIT
     // ════════════════════════════════════════════
     function init() {
+        platformAdmin.bind();
         initTabs();
         initCartFilters();
         initItemFilters();

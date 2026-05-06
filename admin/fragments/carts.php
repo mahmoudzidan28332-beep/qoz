@@ -53,7 +53,8 @@ $csrf = admin_csrf();
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
 $userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $tenantId = admin_tenant_id();
-$userId = admin_user_id();
+$userId   = admin_user_id();
+$entityId = $GLOBALS['ADMIN_UI']['entity_id'] ?? ($_SESSION['entity_id'] ?? 0);
 
 // ════════════════════════════════════════════════════════════
 // CHECK PERMISSIONS
@@ -83,15 +84,52 @@ if (!$canView && !is_super_admin()) {
 }
 
 // ════════════════════════════════════════════════════════════
-// TRANSLATION HELPERS
+// assetVer()
 // ════════════════════════════════════════════════════════════
-if (!function_exists('__t')) {
-    function __t($key, $fallback = '') {
-        if (function_exists('i18n_get')) {
-            $v = i18n_get($key);
-            return $v ?? ($fallback ?? $key);
+if (!function_exists('assetVer')) {
+    function assetVer(string $path = ''): string
+    {
+        static $cache = [];
+        if (!isset($cache[$path])) {
+            $full         = $_SERVER['DOCUMENT_ROOT'] . $path;
+            $cache[$path] = file_exists($full) ? (string) filemtime($full) : '0';
         }
-        return $fallback ?? $key;
+        return $cache[$path];
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+// TRANSLATION HELPER — load from Carts language file
+// ════════════════════════════════════════════════════════════
+$_ctAllowedLangs = ['ar','en','fr','de','es','it','pt','ru','zh','ja','ko','tr','nl','sv','pl','uk','hi','bn','id','ms','th','vi','cs','ro','hu','el'];
+$_ctLangCode     = in_array($lang, $_ctAllowedLangs) ? $lang : 'en';
+$_ctStringsFile  = __DIR__ . '/../../languages/Carts/' . $_ctLangCode . '.json';
+$GLOBALS['_ctStrings'] = file_exists($_ctStringsFile)
+    ? (json_decode(file_get_contents($_ctStringsFile), true) ?: [])
+    : [];
+
+if (!function_exists('_ctFlatten')) {
+    function _ctFlatten(array $arr, string $prefix = ''): array {
+        $result = [];
+        foreach ($arr as $k => $v) {
+            $key = $prefix ? $prefix . '.' . $k : $k;
+            if (is_array($v)) { $result += _ctFlatten($v, $key); }
+            else { $result[$key] = $v; }
+        }
+        return $result;
+    }
+}
+$GLOBALS['_ctStringsFlat'] = _ctFlatten($GLOBALS['_ctStrings']);
+
+if (!function_exists('__t')) {
+    function __t(string $key, string $fallback = ''): string {
+        $parts = explode('.', $key);
+        $val   = $GLOBALS['_ctStrings'];
+        foreach ($parts as $p) {
+            if (!is_array($val) || !isset($val[$p])) return $fallback ?: $key;
+            $val = $val[$p];
+        }
+        return is_string($val) ? $val : ($fallback ?: $key);
     }
 }
 
@@ -100,8 +138,11 @@ $apiBase = '/api';
 ?>
 <!-- Force load CSS if embedded -->
 <?php if ($isFragment): ?>
-<link rel="stylesheet" href="/admin/assets/css/pages/carts.css?v=<?= time() ?>">
+<link rel="stylesheet" href="/admin/assets/css/pages/carts.css?v=<?= assetVer('/admin/assets/css/pages/carts.css') ?>">
 <?php endif; ?>
+
+<meta data-page="carts"
+      data-i18n-files="/languages/Carts/<?= rawurlencode($_ctLangCode) ?>.json">
 
 <div class="page-container" id="cartsPageContainer" dir="<?= htmlspecialchars($dir) ?>">
 
@@ -118,11 +159,56 @@ $apiBase = '/api';
 
     <!-- Stats Cards -->
     <div class="stats-grid" id="statsGrid">
-        <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label"><?= __t('carts.stats.total', 'Total Carts') ?></div></div>
-        <div class="stat-card stat-active"><div class="stat-value" id="statActive">0</div><div class="stat-label"><?= __t('carts.stats.active', 'Active') ?></div></div>
-        <div class="stat-card stat-abandoned"><div class="stat-value" id="statAbandoned">0</div><div class="stat-label"><?= __t('carts.stats.abandoned', 'Abandoned') ?></div></div>
-        <div class="stat-card stat-converted"><div class="stat-value" id="statConverted">0</div><div class="stat-label"><?= __t('carts.stats.converted', 'Converted') ?></div></div>
+        <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label"><?= __t('stats.total', 'Total Carts') ?></div></div>
+        <div class="stat-card stat-active"><div class="stat-value" id="statActive">0</div><div class="stat-label"><?= __t('stats.active', 'Active') ?></div></div>
+        <div class="stat-card stat-abandoned"><div class="stat-value" id="statAbandoned">0</div><div class="stat-label"><?= __t('stats.abandoned', 'Abandoned') ?></div></div>
+        <div class="stat-card stat-converted"><div class="stat-value" id="statConverted">0</div><div class="stat-label"><?= __t('stats.converted', 'Converted') ?></div></div>
     </div>
+
+    <?php if ($isPlatformAdmin): ?>
+    <!-- ═══ PLATFORM ADMIN — TENANT CONTEXT ═══ -->
+    <div class="card" id="paPanel" style="border-left:4px solid var(--color-warning,#ff9800);margin-bottom:14px">
+        <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-shield-alt"></i>
+            <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+        </div>
+        <div class="card-body" style="padding:12px 16px">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+                <div class="form-group" style="margin:0;min-width:260px">
+                    <label class="filter-label"><?= __t('platform_admin.search_tenant', 'Search Tenant (ID or name)') ?></label>
+                    <input type="text" id="paTenantSearch" class="form-control"
+                           placeholder="<?= htmlspecialchars(__t('platform_admin.search_tenant_placeholder', 'Type tenant ID or name...')) ?>">
+                </div>
+                <div class="form-group" style="margin:0;min-width:220px">
+                    <label class="filter-label"><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                    <select id="paTenantSelect" class="form-control">
+                        <option value=""><?= __t('platform_admin.select_tenant_placeholder', '— Select tenant —') ?></option>
+                    </select>
+                </div>
+                <div class="form-group" id="paEntityGroup" style="margin:0;min-width:220px;display:none">
+                    <label class="filter-label"><?= __t('platform_admin.select_entity', 'Select Entity (optional)') ?></label>
+                    <select id="paEntitySelect" class="form-control">
+                        <option value=""><?= __t('platform_admin.all_entities', '— All entities —') ?></option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="button" id="paApplyBtn" class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-user-shield"></i>
+                        <?= __t('platform_admin.apply', 'Apply') ?>
+                    </button>
+                    <button type="button" id="paClearBtn" class="btn btn-secondary btn-sm" style="display:none">
+                        <i class="fas fa-times"></i>
+                        <?= __t('platform_admin.clear', 'Clear') ?>
+                    </button>
+                </div>
+            </div>
+            <div id="paActiveBanner" style="display:none;margin-top:10px;padding:7px 14px;background:rgba(255,152,0,.12);border-radius:6px;font-weight:600;color:#b45309">
+                <i class="fas fa-exclamation-triangle"></i>&nbsp;
+                <span id="paActiveBannerLabel"></span>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Main Tabs -->
     <div class="tabs-nav">
@@ -419,26 +505,31 @@ $apiBase = '/api';
 <script type="text/javascript">
 window.APP_CONFIG = window.APP_CONFIG || {};
 window.APP_CONFIG.API_BASE = window.APP_CONFIG.API_BASE || '<?= $apiBase ?>';
-window.APP_CONFIG.TENANT_ID = window.APP_CONFIG.TENANT_ID || <?= $tenantId ?>;
-window.APP_CONFIG.CSRF_TOKEN = window.APP_CONFIG.CSRF_TOKEN || '<?= addslashes($csrf) ?>';
-window.APP_CONFIG.USER_ID = window.APP_CONFIG.USER_ID || <?= admin_user_id() ?>;
+window.APP_CONFIG.TENANT_ID = window.APP_CONFIG.TENANT_ID || <?= (int)$tenantId ?>;
+window.APP_CONFIG.CSRF_TOKEN = window.APP_CONFIG.CSRF_TOKEN || <?= json_encode($csrf) ?>;
+window.APP_CONFIG.USER_ID = window.APP_CONFIG.USER_ID || <?= (int)admin_user_id() ?>;
 
 window.CARTS_CONFIG = {
-    apiCarts: '<?= $apiBase ?>/carts',
-    apiCartItems: '<?= $apiBase ?>/cart_items',
-    apiCartEvents: '<?= $apiBase ?>/cart_events',
-    tenantId: <?= $tenantId ?>,
-    lang: '<?= addslashes($lang) ?>',
-    dir: '<?= addslashes($dir) ?>',
-    csrfToken: '<?= addslashes($csrf) ?>',
-    canEdit: <?= json_encode($canEdit) ?>,
-    canDelete: <?= json_encode($canDelete) ?>,
-    itemsPerPage: 25
+    apiCarts:        '<?= $apiBase ?>/carts',
+    apiCartItems:    '<?= $apiBase ?>/cart_items',
+    apiCartEvents:   '<?= $apiBase ?>/cart_events',
+    tenantsApi:      '<?= $apiBase ?>/tenants',
+    entitiesApi:     '<?= $apiBase ?>/entities',
+    tenantId:        <?= (int)$tenantId ?>,
+    entityId:        <?= (int)$entityId ?>,
+    lang:            <?= json_encode($lang) ?>,
+    dir:             <?= json_encode($dir) ?>,
+    csrfToken:       <?= json_encode($csrf) ?>,
+    canEdit:         <?= json_encode($canEdit) ?>,
+    canDelete:       <?= json_encode($canDelete) ?>,
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    strings:         <?= json_encode($GLOBALS['_ctStringsFlat'], JSON_UNESCAPED_UNICODE) ?>,
+    itemsPerPage:    25
 };
 </script>
 
 <!-- Load JS -->
-<script src="/admin/assets/js/pages/carts.js?v=<?= time() ?>"></script>
+<script src="/admin/assets/js/pages/carts.js?v=<?= assetVer('/admin/assets/js/pages/carts.js') ?>"></script>
 
 <?php if (!$isFragment): ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

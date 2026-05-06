@@ -1,0 +1,121 @@
+{
+    "platform_admin": {
+        "panel_title": "مدير المنصة — سياق المستأجر",
+        "search_tenant": "البحث عن المستأجر (رقم أو اسم)",
+        "search_tenant_placeholder": "اكتب رقم أو اسم المستأجر...",
+        "select_tenant": "اختر المستأجر",
+        "select_tenant_placeholder": "— اختر مستأجراً —",
+        "select_entity": "اختر الكيان (اختياري)",
+        "all_entities": "— جميع الكيانات —",
+        "apply": "تطبيق",
+        "clear": "مسح"
+    },
+
+    "carts": {
+        "title": "إدارة سلات التسوق",
+        "subtitle": "إدارة سلات التسوق والعناصر والنشاط",
+        "refresh": "تحديث",
+        "loading": "جاري التحميل...",
+        "yes": "نعم",
+        "no": "لا",
+
+        "stats": {
+            "total": "إجمالي السلات",
+            "active": "نشطة",
+            "abandoned": "مهجورة",
+            "converted": "محولة"
+        },
+
+        "tab_carts": "السلات",
+        "tab_items": "عناصر السلة",
+        "tab_events": "سجل الأحداث",
+
+        "filter": {
+            "search": "بحث برقم المستخدم أو الجلسة...",
+            "all_status": "جميع الحالات",
+            "active": "نشطة",
+            "abandoned": "مهجورة",
+            "converted": "محولة",
+            "expired": "منتهية",
+            "entity_id": "رقم الكيان",
+            "apply": "تصفية",
+            "clear": "مسح"
+        },
+
+        "table": {
+            "id": "الرقم",
+            "entity": "الكيان",
+            "user": "المستخدم",
+            "items": "العناصر",
+            "total": "الإجمالي",
+            "currency": "العملة",
+            "status": "الحالة",
+            "coupon": "القسيمة",
+            "last_activity": "آخر نشاط",
+            "actions": "الإجراءات"
+        },
+
+        "status": {
+            "active": "نشطة",
+            "abandoned": "مهجورة",
+            "converted": "محولة",
+            "expired": "منتهية"
+        },
+
+        "items": {
+            "filter_cart_id": "رقم السلة",
+            "filter_sku": "الرمز التعريفي",
+            "filter_product_id": "رقم المنتج",
+            "id": "الرقم",
+            "cart_id": "السلة",
+            "product": "المنتج",
+            "sku": "الرمز التعريفي",
+            "qty": "الكمية",
+            "unit_price": "سعر الوحدة",
+            "discount": "الخصم",
+            "tax": "الضريبة",
+            "total": "الإجمالي",
+            "gift": "هدية",
+            "added_at": "تاريخ الإضافة",
+            "actions": "الإجراءات",
+            "edit_title": "تعديل عنصر السلة",
+            "special_instructions": "تعليمات خاصة"
+        },
+
+        "events": {
+            "filter_cart_id": "رقم السلة",
+            "all_types": "جميع أنواع الأحداث",
+            "all_actors": "جميع الجهات",
+            "user": "المستخدم",
+            "admin": "المشرف",
+            "system": "النظام",
+            "id": "الرقم",
+            "cart_id": "السلة",
+            "event_type": "نوع الحدث",
+            "actor": "الجهة",
+            "actor_id": "رقم الجهة",
+            "item_id": "رقم العنصر",
+            "old_value": "القيمة السابقة",
+            "new_value": "القيمة الجديدة",
+            "note": "ملاحظة",
+            "created_at": "التاريخ"
+        },
+
+        "detail": {
+            "title": "تفاصيل السلة",
+            "info": "معلومات السلة",
+            "amounts": "المبالغ",
+            "items_in_cart": "عناصر السلة",
+            "events": "الأحداث الأخيرة"
+        },
+
+        "edit": {
+            "title": "تعديل السلة",
+            "status": "الحالة",
+            "coupon_code": "رمز القسيمة",
+            "expires_at": "تاريخ الانتهاء",
+            "cancel": "إلغاء",
+            "save": "حفظ التغييرات"
+        }
+    }
+}
