@@ -159,7 +159,8 @@
                     list.forEach(function (item) {
                         var opt = document.createElement('option');
                         opt.value       = item.id;
-                        opt.textContent = (item.store_name || item.name || item.entity_name || '') + ' (#' + item.id + ')';
+                        var name = item.store_name || item.name || item.entity_name || '';
+                        opt.textContent = name ? (name + ' (#' + item.id + ')') : ('Entity #' + item.id);
                         sel.appendChild(opt);
                     });
                 })

@@ -202,9 +202,13 @@ final class PdoCartItemsRepository
 
     private function insertCartItem(int $tenantId, array $params): int
     {
-        $checkStmt = $this->pdo->prepare("SELECT c.id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
+        $checkStmt = $this->pdo->prepare("SELECT c.id, c.entity_id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
         $checkStmt->execute([':cart_id' => $params[':cart_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart not found or access denied'); }
+        $cartRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cartRow) { throw new ApplicationException('Cart not found or access denied'); }
+        if (empty($params[':entity_id'])) {
+            $params[':entity_id'] = (int)$cartRow['entity_id'];
+        }
         $colStr = implode(', ', self::CART_ITEM_COLUMNS);
         $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_ITEM_COLUMNS));
         $stmt = $this->pdo->prepare("INSERT INTO cart_items ($colStr) VALUES ($phStr)");

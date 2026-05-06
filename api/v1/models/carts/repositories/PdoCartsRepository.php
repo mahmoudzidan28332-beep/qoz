@@ -32,13 +32,16 @@ final class PdoCartsRepository
         string $lang = 'ar'
     ): array {
         $sql = "
-            SELECT c.*
+            SELECT c.*,
+                   COALESCE(et.store_name, e.store_name) AS entity_name
             FROM carts c
+            LEFT JOIN entities e ON c.entity_id = e.id
+            LEFT JOIN entity_translations et ON e.id = et.entity_id AND et.language_code = :lang
             WHERE c.entity_id IN (
                 SELECT id FROM entities WHERE tenant_id = :tenant_id
             )
         ";
-        $params = [':tenant_id' => $tenantId];
+        $params = [':tenant_id' => $tenantId, ':lang' => $lang];
 
         // Apply dynamic filters
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -112,15 +115,18 @@ final class PdoCartsRepository
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT c.*
+            SELECT c.*,
+                   COALESCE(et.store_name, e.store_name) AS entity_name
             FROM carts c
+            LEFT JOIN entities e ON c.entity_id = e.id
+            LEFT JOIN entity_translations et ON e.id = et.entity_id AND et.language_code = :lang
             WHERE c.entity_id IN (
                 SELECT id FROM entities WHERE tenant_id = :tenant_id
             )
             AND c.id = :id
             LIMIT 1
         ");
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id, ':lang' => $lang]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -184,7 +190,7 @@ final class PdoCartsRepository
         'entity_id', 'user_id', 'session_id', 'device_id', 'ip_address',
         'total_items', 'subtotal', 'tax_amount', 'shipping_cost', 
         'discount_amount', 'total_amount', 'currency_code', 'coupon_code',
-        'discount_id', 'items', 'loyalty_points_used', 'status',
+        'discount_id', 'loyalty_points_used', 'status',
         'last_activity_at', 'converted_to_order_id', 'expires_at'
     ];
 
