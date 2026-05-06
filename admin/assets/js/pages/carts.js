@@ -159,7 +159,7 @@
                     list.forEach(function (item) {
                         var opt = document.createElement('option');
                         opt.value       = item.id;
-                        opt.textContent = (item.name || item.entity_name || '') + ' (#' + item.id + ')';
+                        opt.textContent = (item.store_name || item.name || item.entity_name || '') + ' (#' + item.id + ')';
                         sel.appendChild(opt);
                     });
                 })
@@ -271,7 +271,7 @@
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load carts');
                 var data = d.data || {};
-                var items = data.items || [];
+                var items = data.data || data.items || [];
                 var meta = data.meta || {};
 
                 renderCartsTable(items);
@@ -293,7 +293,7 @@
         items.forEach(function (c) {
             html += '<tr>';
             html += '<td>' + esc(c.id) + '</td>';
-            html += '<td>' + esc(c.entity_id || c.entity_name || '-') + '</td>';
+            html += '<td>' + esc(c.entity_name || c.entity_id || '-') + '</td>';
             html += '<td>' + esc(c.user_id || c.session_id || '-') + '</td>';
             html += '<td>' + esc(c.total_items) + '</td>';
             html += '<td>' + formatMoney(c.total_amount, c.currency_code) + '</td>';
@@ -528,7 +528,7 @@
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load items');
                 var data = d.data || {};
-                var items = data.items || [];
+                var items = data.data || data.items || [];
                 var meta = data.meta || {};
                 renderItemsTable(items);
                 renderPagination('itemsPagination', 'itemsPaginationInfo', meta, function (p) { itemsPage = p; loadItems(); });
@@ -678,7 +678,7 @@
             .then(function (d) {
                 if (!d.success) throw new Error(d.message || 'Failed to load events');
                 var data = d.data || {};
-                var items = data.items || [];
+                var items = data.data || data.items || [];
                 var meta = data.meta || {};
                 renderEventsTable(items);
                 renderPagination('eventsPagination', 'eventsPaginationInfo', meta, function (p) { eventsPage = p; loadEvents(); });
