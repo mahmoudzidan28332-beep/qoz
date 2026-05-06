@@ -115,8 +115,9 @@ try {
     }
 } catch (InvalidArgumentException $e) {
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (ApplicationException|RuntimeException $e) {
-    ResponseFormatter::error($e->getMessage(), 404);
 } catch (ApplicationException|\RuntimeException $e) {
-    ResponseFormatter::error('Server error: ' . $e->getMessage(), 500);
+    $code = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
+    ResponseFormatter::error($e->getMessage(), $code);
+} catch (\Throwable $e) {
+    ResponseFormatter::error('Internal Server Error', 500);
 }

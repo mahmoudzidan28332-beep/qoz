@@ -20,7 +20,9 @@
         get items()    { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.itemsApi)   || '/api/return_items'; },
         get history()  { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.historyApi) || '/api/return_status_history'; },
         get orders()   { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.ordersApi)  || '/api/orders'; },
-        get users()    { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.usersApi)   || '/api/users'; }
+        get users()    { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.usersApi)   || '/api/users'; },
+        get tenants()  { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.tenantsApi) || '/api/tenants'; },
+        get entities() { return (window.RETURNS_CONFIG && window.RETURNS_CONFIG.entitiesApi) || '/api/entities'; }
     };
 
     const state = {
@@ -35,6 +37,156 @@
     };
 
     let el = {};
+
+    // ════════════════════════════════════════════════════════════
+    // PLATFORM ADMIN — Tenant / Entity Context
+    // ════════════════════════════════════════════════════════════
+    var platformAdmin = {
+        activeTenantId: 0,
+        activeEntityId: 0,
+
+        getTenantId: function () {
+            var cfg = window.RETURNS_CONFIG || {};
+            return this.activeTenantId !== 0 ? this.activeTenantId : (cfg.tenantId || 0);
+        },
+        getEntityId: function () {
+            var cfg = window.RETURNS_CONFIG || {};
+            return this.activeEntityId !== 0 ? this.activeEntityId : (cfg.entityId || 0);
+        },
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+        entityParam: function () {
+            var eid = this.getEntityId();
+            return eid ? '&entity_id=' + eid : '';
+        },
+
+        bind: function () {
+            var cfg = window.RETURNS_CONFIG || {};
+            if (!cfg.isPlatformAdmin) return;
+            var self         = this;
+            var tenantSearch = document.getElementById('ret-paTenantSearch');
+            var tenantSel    = document.getElementById('ret-paTenantSelect');
+            var entityGroup  = document.getElementById('ret-paEntityGroup');
+            var entitySel    = document.getElementById('ret-paEntitySelect');
+            var applyBtn     = document.getElementById('ret-paApplyBtn');
+            var clearBtn     = document.getElementById('ret-paClearBtn');
+            var banner       = document.getElementById('ret-paActiveBanner');
+            var bannerLabel  = document.getElementById('ret-paActiveBannerLabel');
+
+            if (!tenantSel) return;
+
+            if (tenantSearch) {
+                var searchTimer = null;
+                tenantSearch.addEventListener('input', function () {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(function () {
+                        self.searchTenants(tenantSearch.value.trim(), tenantSel, applyBtn);
+                    }, 350);
+                });
+            }
+
+            tenantSel.addEventListener('change', function () {
+                var tid = parseInt(tenantSel.value, 10) || 0;
+                if (applyBtn) applyBtn.disabled = !tid;
+                if (entitySel) { while (entitySel.options.length > 1) entitySel.remove(1); }
+                self.activeEntityId = 0;
+                if (tid && entityGroup) {
+                    entityGroup.style.display = 'block';
+                    self.loadEntitiesForTenant(tid, entitySel);
+                } else if (entityGroup) {
+                    entityGroup.style.display = 'none';
+                }
+            });
+
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    var tid = parseInt(tenantSel.value, 10) || 0;
+                    if (!tid) return;
+                    self.activeTenantId = tid;
+                    self.activeEntityId = entitySel ? (parseInt(entitySel.value, 10) || 0) : 0;
+                    var tenantLabel = (tenantSel.options[tenantSel.selectedIndex] || {}).text || ('Tenant #' + tid);
+                    var entityLabel = self.activeEntityId
+                        ? ((entitySel && entitySel.options[entitySel.selectedIndex] || {}).text || ('Entity #' + self.activeEntityId))
+                        : '';
+                    if (banner) banner.style.display = 'block';
+                    if (bannerLabel) {
+                        bannerLabel.textContent = 'Acting on behalf of: ' + tenantLabel + (entityLabel ? ' / ' + entityLabel : '');
+                    }
+                    if (clearBtn) clearBtn.style.display = 'inline-flex';
+                    // Update form hidden fields
+                    var hiddenTenant = document.getElementById('ret-tenantId');
+                    var hiddenEntity = document.getElementById('ret-entityId');
+                    if (hiddenTenant) hiddenTenant.value = tid;
+                    if (hiddenEntity) hiddenEntity.value = self.activeEntityId || 0;
+                    state.page = 1;
+                    loadReturns(1);
+                });
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    var cfg = window.RETURNS_CONFIG || {};
+                    self.activeTenantId = 0;
+                    self.activeEntityId = 0;
+                    if (tenantSearch) tenantSearch.value = '';
+                    if (tenantSel) { tenantSel.value = ''; while (tenantSel.options.length > 1) tenantSel.remove(1); }
+                    if (entitySel) { while (entitySel.options.length > 1) entitySel.remove(1); }
+                    if (entityGroup) entityGroup.style.display = 'none';
+                    if (applyBtn) applyBtn.disabled = true;
+                    if (banner) banner.style.display = 'none';
+                    if (clearBtn) clearBtn.style.display = 'none';
+                    // Restore form hidden fields to session defaults
+                    var hiddenTenant = document.getElementById('ret-tenantId');
+                    var hiddenEntity = document.getElementById('ret-entityId');
+                    if (hiddenTenant) hiddenTenant.value = cfg.tenantId || 0;
+                    if (hiddenEntity) hiddenEntity.value = cfg.entityId || 0;
+                    state.page = 1;
+                    loadReturns(1);
+                });
+            }
+        },
+
+        searchTenants: function (query, sel, applyBtn) {
+            if (!sel) return;
+            var url = API.tenants + (/^\d+$/.test(query) && query
+                ? '?id=' + encodeURIComponent(query) + '&limit=20'
+                : (query ? '?search=' + encodeURIComponent(query) + '&limit=50' : '?limit=100'));
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    while (sel.options.length > 1) sel.remove(1);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        opt.textContent = (item.name || item.tenant_name || '') + ' (#' + item.id + ')';
+                        sel.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !sel.value;
+                })
+                .catch(function () {});
+        },
+
+        loadEntitiesForTenant: function (tenantId, sel) {
+            if (!sel) return;
+            fetch(API.entities + '?tenant_id=' + tenantId + '&limit=500', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var list = (json.data && json.data.items) ? json.data.items
+                             : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(function (item) {
+                        var opt = document.createElement('option');
+                        opt.value       = item.id;
+                        var name = item.store_name || item.name || item.entity_name || '';
+                        opt.textContent = name ? (name + ' (#' + item.id + ')') : ('Entity #' + item.id);
+                        sel.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+        }
+    };
 
     // ════════════════════════════════════════════════════════════
     // 2. HELPERS
@@ -152,14 +304,15 @@
             showState('loading');
             state.page = page || 1;
             const cfg    = window.RETURNS_CONFIG || {};
-            const tenant = cfg.tenantId || 1;
             const lang   = cfg.lang || 'en';
             const params = new URLSearchParams({
                 page:      state.page,
                 limit:     cfg.itemsPerPage || state.perPage,
-                tenant_id: tenant,
+                tenant_id: platformAdmin.getTenantId(),
                 lang:      lang
             });
+            const eid = platformAdmin.getEntityId();
+            if (eid) params.set('entity_id', eid);
             Object.keys(state.filters).forEach(function (k) {
                 if (state.filters[k]) params.set(k, state.filters[k]);
             });
@@ -290,8 +443,7 @@
     }
 
     async function loadReturnDetails(returnId) {
-        const cfg    = window.RETURNS_CONFIG || {};
-        const tenant = cfg.tenantId || 1;
+        const tenant = platformAdmin.getTenantId();
 
         // Items
         try {
@@ -375,8 +527,8 @@
     // ════════════════════════════════════════════════════════════
     async function saveReturn(e) {
         e.preventDefault();
-        const cfg    = window.RETURNS_CONFIG || {};
-        const tenant = cfg.tenantId || 1;
+        const tenant = platformAdmin.getTenantId();
+        const eid    = platformAdmin.getEntityId();
         const formData = new FormData(el.form);
         const id = formData.get('id');
         const data = {
@@ -385,6 +537,7 @@
             reason:      formData.get('reason')      || null,
             admin_notes: formData.get('admin_notes') || null
         };
+        if (eid) data.entity_id = eid;
         if (id) data.id = id;
 
         try {
@@ -408,8 +561,7 @@
 
     async function deleteReturn(id) {
         if (!confirm(t('messages.confirm_delete', 'Are you sure you want to delete this return?'))) return;
-        const cfg    = window.RETURNS_CONFIG || {};
-        const tenant = cfg.tenantId || 1;
+        const tenant = platformAdmin.getTenantId();
         try {
             const res = await apiCall(API.returns, {
                 method: 'DELETE',
@@ -470,6 +622,9 @@
             historyList:    document.getElementById('ret-historyList')
         };
 
+        // Platform admin tenant/entity panel
+        platformAdmin.bind();
+
         // ── Event Bindings ─────────────────────────────────────
         document.getElementById('ret-btnAdd')?.addEventListener('click', function () { showForm(); });
         document.getElementById('ret-btnCloseForm')?.addEventListener('click', closeForm);
@@ -521,8 +676,7 @@
         load:   loadReturns,
         edit:   async function (id) {
             try {
-                const cfg    = window.RETURNS_CONFIG || {};
-                const tenant = cfg.tenantId || 1;
+                const tenant = platformAdmin.getTenantId();
                 const res    = await apiCall(API.returns + '?id=' + id + '&tenant_id=' + tenant);
                 if (res.success) await showForm(res.data);
             } catch (e) { console.error('[Returns] edit error:', e); }

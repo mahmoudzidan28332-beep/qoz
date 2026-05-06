@@ -123,6 +123,29 @@ final class PdoReturnsRepository implements ReturnsRepositoryInterface
         }
 
         if ($isUpdate) {
+            // Fetch existing row so we can preserve order_id / user_id / entity_id
+            // if the caller did not supply them — setting them to NULL would violate
+            // the NOT-NULL / FK constraints on those columns.
+            $existStmt = $this->pdo->prepare(
+                "SELECT order_id, user_id, entity_id FROM " . self::TABLE .
+                " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
+            );
+            $existStmt->execute([':tenant_id' => $tenantId, ':id' => (int)$data['id']]);
+            $existing = $existStmt->fetch(\PDO::FETCH_ASSOC);
+            if (!$existing) {
+                throw new \RuntimeException('Return not found or access denied', 404);
+            }
+            // Preserve FK-constrained columns when not explicitly provided
+            if (!isset($data['order_id'])  || $data['order_id']  === '' || $data['order_id']  === null) {
+                $data['order_id']  = $existing['order_id'];
+            }
+            if (!isset($data['user_id'])   || $data['user_id']   === '' || $data['user_id']   === null) {
+                $data['user_id']   = $existing['user_id'];
+            }
+            if (!isset($data['entity_id']) || $data['entity_id'] === '' || $data['entity_id'] === null) {
+                $data['entity_id'] = $existing['entity_id'];
+            }
+
             $stmt = $this->pdo->prepare("
                 UPDATE " . self::TABLE . " SET
                     order_id            = :order_id,
