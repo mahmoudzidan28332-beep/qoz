@@ -252,6 +252,21 @@ $_strings = [
 
                 <!-- Tab: Details -->
                 <div class="tab-content active" id="ret-tab-details" style="display:block">
+                    <!-- Order & User (required for new returns) -->
+                    <div class="form-row" id="ret-orderUserRow">
+                        <div class="form-group">
+                            <label class="filter-label" for="ret-orderId">Order ID <span class="ret-required-star" style="color:var(--color-danger,#e53935)">*</span></label>
+                            <input type="number" id="ret-orderId" name="order_id" class="form-control" min="1"
+                                   placeholder="Enter order ID">
+                            <small id="ret-orderInfo" style="color:var(--text-secondary);font-size:0.8em"></small>
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="ret-userId">User ID <span class="ret-required-star" style="color:var(--color-danger,#e53935)">*</span></label>
+                            <input type="number" id="ret-userId" name="user_id" class="form-control" min="1"
+                                   placeholder="Enter user ID">
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="filter-label" for="ret-returnNumber" data-i18n="form.fields.return_number.label">Return Number</label>

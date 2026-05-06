@@ -431,11 +431,21 @@
             if (el.status)       el.status.value          = data.status;
             if (el.reason)       el.reason.value          = data.reason       || '';
             if (el.adminNotes)   el.adminNotes.value      = data.admin_notes  || '';
-            if (el.btnDelete)    el.btnDelete.style.display = 'inline-flex';
+            // Populate order/user (read-only when editing — backend preserves on update)
+            if (el.orderId) { el.orderId.value = data.order_id || ''; el.orderId.readOnly = true; }
+            if (el.userId)  { el.userId.value  = data.user_id  || ''; el.userId.readOnly  = true; }
+            if (el.orderInfo) {
+                el.orderInfo.textContent = data.order_number ? 'Order #' + data.order_number : '';
+            }
+            if (el.btnDelete) el.btnDelete.style.display = 'inline-flex';
             await loadReturnDetails(data.id);
         } else {
             if (el.formTitle) el.formTitle.textContent = t('form.add_title', 'New Return Request');
             if (el.formId)    el.formId.value          = '';
+            // Clear & enable order/user for new returns
+            if (el.orderId) { el.orderId.value = ''; el.orderId.readOnly = false; }
+            if (el.userId)  { el.userId.value  = ''; el.userId.readOnly  = false; }
+            if (el.orderInfo) el.orderInfo.textContent = '';
             if (el.btnDelete) el.btnDelete.style.display = 'none';
         }
 
@@ -538,7 +548,25 @@
             admin_notes: formData.get('admin_notes') || null
         };
         if (eid) data.entity_id = eid;
-        if (id) data.id = id;
+        if (id) {
+            data.id = id;
+        } else {
+            // order_id and user_id are required when creating a new return
+            const rawOrderId = formData.get('order_id');
+            const rawUserId  = formData.get('user_id');
+            if (!rawOrderId || parseInt(rawOrderId, 10) <= 0) {
+                notify('Order ID is required', 'error');
+                if (el.orderId) el.orderId.focus();
+                return;
+            }
+            if (!rawUserId || parseInt(rawUserId, 10) <= 0) {
+                notify('User ID is required', 'error');
+                if (el.userId) el.userId.focus();
+                return;
+            }
+            data.order_id = parseInt(rawOrderId, 10);
+            data.user_id  = parseInt(rawUserId,  10);
+        }
 
         try {
             const method = id ? 'PUT' : 'POST';
@@ -613,6 +641,9 @@
             form:           document.getElementById('ret-form'),
             formTitle:      document.getElementById('ret-formTitle'),
             formId:         document.getElementById('ret-formId'),
+            orderId:        document.getElementById('ret-orderId'),
+            orderInfo:      document.getElementById('ret-orderInfo'),
+            userId:         document.getElementById('ret-userId'),
             returnNumber:   document.getElementById('ret-returnNumber'),
             status:         document.getElementById('ret-status'),
             reason:         document.getElementById('ret-reason'),
