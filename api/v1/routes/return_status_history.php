@@ -106,5 +106,10 @@ try {
     $code = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     ResponseFormatter::error($e->getMessage(), $code);
 } catch (\Throwable $e) {
+    safe_log('critical', 'return_status_history.fatal', [
+        'error' => $e->getMessage(),
+        'class' => get_class($e),
+        'trace' => $e->getTraceAsString(),
+    ]);
     ResponseFormatter::error('Internal Server Error', 500);
 }
