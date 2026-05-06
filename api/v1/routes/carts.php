@@ -20,6 +20,10 @@ require_once $modelsPath . '/repositories/PdoCartsRepository.php';
 require_once $modelsPath . '/services/CartsService.php';
 require_once $modelsPath . '/controllers/CartsController.php';
 
+$cartEventsPath = API_VERSION_PATH . '/models/cart_events';
+require_once $cartEventsPath . '/repositories/PdoCartEventsRepository.php';
+require_once $cartEventsPath . '/CartEventLogger.php';
+
 // Audit logs
 $auditPath = API_VERSION_PATH . '/models/audit_logs';
 require_once $auditPath . '/Contracts/AuditLogsRepositoryInterface.php';
@@ -34,11 +38,14 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-$repo = new PdoCartsRepository($pdo);
-$service = new CartsService($repo);
+$repo           = new PdoCartsRepository($pdo);
+$cartEventLogger = new CartEventLogger(new PdoCartEventsRepository($pdo));
+$user            = $_SESSION['user'] ?? [];
+$actorId         = !empty($user['id']) ? (int)$user['id'] : null;
+$cartEventLogger->setActor($actorId ? 'admin' : 'system', $actorId);
+$service    = new CartsService($repo, $cartEventLogger);
 $controller = new CartsController($service);
 
-$user     = $_SESSION['user'] ?? [];
 $tenantId = resolve_tenant_id();
 
 if ($tenantId === null) {
