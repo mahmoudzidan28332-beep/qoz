@@ -13,6 +13,9 @@ require_once $modelsPath . '/repositories/PdoReturnsRepository.php';
 require_once $modelsPath . '/validators/ReturnsValidator.php';
 require_once $modelsPath . '/services/ReturnsService.php';
 require_once $modelsPath . '/controllers/ReturnsController.php';
+// Load history repo so status changes are logged automatically
+require_once $modelsPath . '/Contracts/ReturnStatusHistoryRepositoryInterface.php';
+require_once $modelsPath . '/repositories/PdoReturnStatusHistoryRepository.php';
 
 header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
 header('Access-Control-Allow-Credentials: true');
@@ -45,9 +48,10 @@ if ($tenantId === null) {
 }
 
 try {
-    $repo       = new PdoReturnsRepository($pdo);
-    $service    = new ReturnsService($repo);
-    $controller = new ReturnsController($service);
+    $repo        = new PdoReturnsRepository($pdo);
+    $historyRepo = new PdoReturnStatusHistoryRepository($pdo);
+    $service     = new ReturnsService($repo, $historyRepo);
+    $controller  = new ReturnsController($service);
 
     $lang     = $_GET['lang']      ?? 'en';
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])           : 1;
@@ -95,7 +99,8 @@ try {
                 ResponseFormatter::error('ID is required', 400);
                 break;
             }
-            $affected = $controller->update($tenantId, $input);
+            $changedBy = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $affected = $controller->update($tenantId, $input, $changedBy);
             ResponseFormatter::success(['affected' => $affected], 'Return request updated successfully');
             break;
 
