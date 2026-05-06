@@ -221,9 +221,14 @@ final class PdoCartsRepository
 
     private function updateCart(int $tenantId, array $data, array $params): int
     {
-        $checkStmt = $this->pdo->prepare("SELECT id FROM carts WHERE id = :id AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)");
+        $checkStmt = $this->pdo->prepare("SELECT id, entity_id FROM carts WHERE id = :id AND entity_id IN (SELECT id FROM entities WHERE tenant_id = :tenant_id)");
         $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart not found or access denied'); }
+        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) { throw new ApplicationException('Cart not found or access denied'); }
+        // Preserve entity_id if not supplied — setting it to NULL would violate the FK
+        if (empty($params[':entity_id'])) {
+            $params[':entity_id'] = (int)$existing['entity_id'];
+        }
         $params[':id'] = (int)$data['id'];
         $setParts = array_map(fn($c) => "$c = :$c", self::CART_COLUMNS);
         $stmt = $this->pdo->prepare("UPDATE carts SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
@@ -236,8 +241,10 @@ final class PdoCartsRepository
         $checkStmt = $this->pdo->prepare("SELECT id FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id");
         $checkStmt->execute([':entity_id' => $params[':entity_id'], ':tenant_id' => $tenantId]);
         if (!$checkStmt->fetch()) { throw new ApplicationException('Entity not found or access denied'); }
-        $colStr = implode(', ', self::CART_COLUMNS);
-        $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_COLUMNS));
+        $params[':tenant_id'] = $tenantId;
+        $cols = array_merge(['tenant_id'], self::CART_COLUMNS);
+        $colStr = implode(', ', $cols);
+        $phStr = implode(', ', array_map(fn($c) => ":$c", $cols));
         $stmt = $this->pdo->prepare("INSERT INTO carts ($colStr) VALUES ($phStr)");
         $stmt->execute($params);
         return (int)$this->pdo->lastInsertId();
