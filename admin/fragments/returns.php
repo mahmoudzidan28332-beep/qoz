@@ -459,6 +459,7 @@ window.RETURNS_CONFIG = {
     itemsPerPage:    20,
     tenantId:        <?= json_encode((int)$tenantId) ?>,
     entityId:        <?= json_encode((int)$entityId) ?>,
+    currentUserId:   <?= json_encode((int)($user['id'] ?? 0)) ?>,
     isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>
 };
 </script>

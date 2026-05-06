@@ -442,9 +442,13 @@
         } else {
             if (el.formTitle) el.formTitle.textContent = t('form.add_title', 'New Return Request');
             if (el.formId)    el.formId.value          = '';
-            // Clear & enable order/user for new returns
+            // Clear & enable order/user for new returns; auto-fill user_id from session
             if (el.orderId) { el.orderId.value = ''; el.orderId.readOnly = false; }
-            if (el.userId)  { el.userId.value  = ''; el.userId.readOnly  = false; }
+            if (el.userId)  {
+                const cfg = window.RETURNS_CONFIG || {};
+                el.userId.value = cfg.currentUserId || '';
+                el.userId.readOnly = false;
+            }
             if (el.orderInfo) el.orderInfo.textContent = '';
             if (el.btnDelete) el.btnDelete.style.display = 'none';
         }
@@ -453,16 +457,39 @@
     }
 
     async function loadReturnDetails(returnId) {
-        const tenant = platformAdmin.getTenantId();
+        const tenant  = platformAdmin.getTenantId();
+        const orderId = state.currentReturn && state.currentReturn.order_id
+            ? parseInt(state.currentReturn.order_id, 10)
+            : 0;
 
-        // Items
-        try {
-            const res = await apiCall(API.items + '?return_id=' + returnId + '&tenant_id=' + tenant);
-            if (res.success) {
-                state.returnItems = res.data.items || res.data || [];
-                renderItems();
-            }
-        } catch (e) { /* silent */ }
+        // Order items — load products from the original order
+        if (orderId) {
+            try {
+                const res = await apiCall(API.orders + '?id=' + orderId + '&tenant_id=' + tenant);
+                if (res.success && res.data) {
+                    let orderItems = [];
+                    const rawItems = res.data.items;
+                    if (Array.isArray(rawItems)) {
+                        orderItems = rawItems;
+                    } else if (typeof rawItems === 'string' && rawItems) {
+                        try { orderItems = JSON.parse(rawItems); } catch (_) {}
+                    }
+                    state.returnItems = orderItems;
+                    renderItems();
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        // Return items (fallback when no order items)
+        if (!state.returnItems.length) {
+            try {
+                const res = await apiCall(API.items + '?return_id=' + returnId + '&tenant_id=' + tenant);
+                if (res.success) {
+                    state.returnItems = res.data.items || res.data || [];
+                    renderItems();
+                }
+            } catch (e) { /* silent */ }
+        }
 
         // History
         try {
@@ -488,15 +515,24 @@
             '<thead><tr>' +
             '<th>' + t('items.headers.product',       'Product') + '</th>' +
             '<th>' + t('items.headers.quantity',      'Qty')     + '</th>' +
-            '<th>' + t('items.headers.reason',        'Reason')  + '</th>' +
-            '<th>' + t('items.headers.refund_amount', 'Refund')  + '</th>' +
+            '<th>' + t('items.headers.reason',        'Reason / Unit Price')  + '</th>' +
+            '<th>' + t('items.headers.refund_amount', 'Total / Refund')  + '</th>' +
             '</tr></thead><tbody>' +
             state.returnItems.map(function (item) {
+                const productLabel = item.product_name
+                    ? esc(item.product_name) + ' (#' + esc(String(item.product_id)) + ')'
+                    : '#' + esc(String(item.product_id));
+                const middleCol = item.unit_price != null
+                    ? parseFloat(item.unit_price).toFixed(2)
+                    : esc(item.reason || '-');
+                const lastCol = item.total != null
+                    ? parseFloat(item.total).toFixed(2)
+                    : (item.refund_amount != null ? parseFloat(item.refund_amount).toFixed(2) : '-');
                 return '<tr>' +
-                    '<td>#' + esc(item.product_id) + '</td>' +
+                    '<td>' + productLabel + '</td>' +
                     '<td>' + esc(String(item.quantity)) + '</td>' +
-                    '<td>' + esc(item.reason || '-') + '</td>' +
-                    '<td>' + (item.refund_amount != null ? parseFloat(item.refund_amount).toFixed(2) : '-') + '</td>' +
+                    '<td>' + middleCol + '</td>' +
+                    '<td>' + lastCol + '</td>' +
                     '</tr>';
             }).join('') +
             '</tbody></table></div>';
@@ -570,7 +606,8 @@
 
         try {
             const method = id ? 'PUT' : 'POST';
-            const res = await apiCall(API.returns, {
+            const url    = API.returns + '?' + platformAdmin.tenantParam();
+            const res = await apiCall(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -591,7 +628,7 @@
         if (!confirm(t('messages.confirm_delete', 'Are you sure you want to delete this return?'))) return;
         const tenant = platformAdmin.getTenantId();
         try {
-            const res = await apiCall(API.returns, {
+            const res = await apiCall(API.returns + '?' + platformAdmin.tenantParam(), {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: id, tenant_id: tenant })

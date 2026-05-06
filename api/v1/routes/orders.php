@@ -157,10 +157,10 @@ try {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'orders.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (ApplicationException|\RuntimeException $e) {
+} catch (\Throwable $e) {
     safe_log('critical', 'orders.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error($e->getMessage(), 500);
+    ResponseFormatter::error('Internal Server Error', 500);
 }
