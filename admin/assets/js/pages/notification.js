@@ -203,6 +203,7 @@
                 return [
                     t('table.headers.id'), t('table.headers.code'), t('table.headers.name'),
                     t('table.headers.description'), t('table.headers.status'),
+                    t('table.headers.owner_scope') || 'Scope',
                     t('table.headers.default_template'), t('table.headers.actions')
                 ];
             case 'list':
@@ -259,12 +260,16 @@
                 const status = (item.is_active == 1)
                     ? `<span class="badge badge-success">${t('table.status.active')}</span>`
                     : `<span class="badge badge-danger">${t('table.status.inactive')}</span>`;
+                const scopeColors = { platform: 'warning', tenant: 'info', shared: 'secondary' };
+                const scope = item.owner_scope || 'shared';
+                const scopeBadge = `<span class="badge badge-${scopeColors[scope] || 'secondary'}">${esc(scope)}</span>`;
                 return `<tr data-id="${item.id}">
                     <td>${esc(item.id)}</td>
                     <td><code style="background:var(--primary-light, rgba(59,130,246,0.1));padding:2px 6px;border-radius:4px;font-size:0.8rem;">${esc(item.code)}</code></td>
                     <td>${esc(item.name)}</td>
                     <td><span class="text-truncate" title="${esc(item.description)}">${esc(truncate(item.description))}</span></td>
                     <td>${status}</td>
+                    <td>${scopeBadge}</td>
                     <td><span style="color:var(--text-secondary,#94a3b8);font-size:0.8rem;">${item.default_template ? '✓' : '—'}</span></td>
                     <td>${actions}</td>
                 </tr>`;
@@ -394,6 +399,11 @@
         if (f.recipient_type) params.set('recipient_type', f.recipient_type);
         if (f.tenant_id) params.set('tenant_id', f.tenant_id);
         if (f.device_type) params.set('device_type', f.device_type);
+        if (f.owner_scope) params.set('owner_scope', f.owner_scope);
+
+        // Platform admin tenant override (always wins over filter value)
+        const paTid = platformAdmin.getActiveTenantId();
+        if (paTid) params.set('tenant_id', paTid);
 
         try {
             const json = await apiFetch(`${apiUrl}?${params}`);
@@ -1178,6 +1188,7 @@
         show('filterRecipientTypeGroup', tabDef.showRecipientType);
         show('filterTenantGroup', tabDef.showTenant && perm().isSuperAdmin);
         show('filterDeviceTypeGroup', tabDef.showDeviceType);
+        show('filterOwnerScopeGroup', tab === 'types' && perm().isPlatformAdmin);
 
         // Reset filter inputs
         const si = getEl('searchInput');
@@ -1291,6 +1302,8 @@
                 if (tf?.value) state.filters.tenant_id = tf.value;
                 const dtf = getEl('deviceTypeFilter');
                 if (dtf?.value) state.filters.device_type = dtf.value;
+                const osf = getEl('ownerScopeFilter');
+                if (osf?.value) state.filters.owner_scope = osf.value;
                 loadData();
             });
         }
@@ -1298,7 +1311,7 @@
             resetBtn.addEventListener('click', () => {
                 state.filters = {};
                 state.currentPage = 1;
-                ['searchInput', 'statusFilter', 'priorityFilter', 'deliveryStatusFilter', 'recipientTypeFilter', 'deviceTypeFilter'].forEach(id => {
+                ['searchInput', 'statusFilter', 'priorityFilter', 'deliveryStatusFilter', 'recipientTypeFilter', 'deviceTypeFilter', 'ownerScopeFilter'].forEach(id => {
                     const el = getEl(id);
                     if (el) el.value = '';
                 });
@@ -1509,7 +1522,7 @@
         try {
             const payload = {
                 user_ids: userIds,
-                tenant_id: parseInt(getEl('bsTenantId')?.value, 10) || 1,
+                tenant_id: platformAdmin.getActiveTenantId() || parseInt(getEl('bsTenantId')?.value, 10) || 1,
                 type_code: getEl('bsTypeCode')?.value || 'general',
                 title: title,
                 message: message,
@@ -1590,6 +1603,185 @@
     }
 
     /* ──────────────────────────────────────────
+       PLATFORM ADMIN MODULE
+    ────────────────────────────────────────── */
+    const platformAdmin = (function () {
+        let _activeTenantId   = null;
+        let _activeTenantName = '';
+
+        function isActive() {
+            return cfg().isPlatformAdmin === true;
+        }
+
+        /** Returns query-string fragment `&tenant_id=X` when a tenant is active, otherwise `''`. */
+        function tenantParam() {
+            return _activeTenantId ? `&tenant_id=${_activeTenantId}` : '';
+        }
+
+        function getActiveTenantId() {
+            return _activeTenantId;
+        }
+
+        function applyTenant(id, name) {
+            _activeTenantId   = id;
+            _activeTenantName = name || `Tenant #${id}`;
+
+            const banner = getEl('notifPaActiveTenantBanner');
+            const label  = getEl('notifPaActiveTenantLabel');
+            if (banner) banner.style.display = '';
+            if (label)  label.textContent    = `⚠️ Acting on behalf of: ${_activeTenantName} (ID: ${_activeTenantId})`;
+
+            // Sync tenant_id fields inside forms
+            ['fTenantId', 'fCtrTenantId', 'bsTenantId'].forEach(id => {
+                const el = getEl(id);
+                if (el) el.value = _activeTenantId;
+            });
+
+            // Reload data with the new tenant scope
+            state.currentPage = 1;
+            state.filters = {};
+            if (state.currentTab !== 'bulk_send') loadData();
+        }
+
+        function clearTenant() {
+            _activeTenantId   = null;
+            _activeTenantName = '';
+
+            const banner = getEl('notifPaActiveTenantBanner');
+            if (banner) banner.style.display = 'none';
+
+            // Restore tenant_id fields to original config
+            const originalTid = cfg().tenantId || window.APP_CONFIG?.TENANT_ID || '';
+            ['fTenantId', 'fCtrTenantId', 'bsTenantId'].forEach(id => {
+                const el = getEl(id);
+                if (el) el.value = originalTid;
+            });
+
+            state.currentPage = 1;
+            state.filters = {};
+            if (state.currentTab !== 'bulk_send') loadData();
+        }
+
+        async function loadTenants() {
+            const select = getEl('notifPaTenantSelect');
+            if (!select) return;
+            try {
+                const apiBase = cfg().api.types.replace('/notification_types', '');
+                const json = await apiFetch(`${apiBase}/tenants?limit=500&is_active=1`);
+                const items = json.data?.items || json.items || [];
+                select.innerHTML = `<option value="">-- Select tenant --</option>`;
+                items.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = `${t.name} (#${t.id})`;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('[Notifications PA] Could not load tenants:', e.message);
+            }
+        }
+
+        async function searchUsers(query) {
+            const resultsEl = getEl('notifPaUserSearchResults');
+            if (!resultsEl) return;
+
+            if (!query || query.trim() === '') {
+                resultsEl.style.display = 'none';
+                return;
+            }
+
+            resultsEl.innerHTML = '<div style="padding:6px;color:var(--text-secondary,#94a3b8)"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+            resultsEl.style.display = '';
+
+            try {
+                const apiBase = cfg().api.types.replace('/notification_types', '');
+                const params = new URLSearchParams({ limit: 10 });
+                if (/^\d+$/.test(query.trim())) {
+                    params.set('id', query.trim());
+                } else {
+                    params.set('search', query.trim());
+                }
+                const json = await apiFetch(`${apiBase}/users?${params}`);
+                const items = json.data?.items || json.items || [];
+
+                if (!items.length) {
+                    resultsEl.innerHTML = '<div style="padding:6px;color:var(--text-secondary,#94a3b8)">No users found</div>';
+                    return;
+                }
+
+                resultsEl.innerHTML = items.map(u => `
+                    <div class="pa-search-result-item" data-user-id="${esc(u.id)}" style="padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--border,#e2e8f0)">
+                        <strong>${esc(u.username || u.email || u.id)}</strong>
+                        <small style="color:var(--text-secondary,#94a3b8)"> #${esc(u.id)} — ${esc(u.email || '')}</small>
+                    </div>`).join('');
+
+                resultsEl.querySelectorAll('.pa-search-result-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const userId = parseInt(item.dataset.userId, 10);
+                        resultsEl.style.display = 'none';
+                        showToast(`User #${userId} selected`, 'success');
+                    });
+                });
+            } catch (e) {
+                resultsEl.innerHTML = `<div style="padding:6px;color:var(--danger,#ef4444)">${esc(e.message)}</div>`;
+            }
+        }
+
+        function bindEvents() {
+            if (!isActive()) return;
+
+            // Load tenants on init
+            loadTenants();
+
+            // Enable Apply button when a tenant is selected
+            const tenantSelect = getEl('notifPaTenantSelect');
+            const applyBtn     = getEl('notifPaApplyTenantBtn');
+            if (tenantSelect && applyBtn) {
+                tenantSelect.addEventListener('change', () => {
+                    applyBtn.disabled = !tenantSelect.value;
+                });
+            }
+
+            // Apply button
+            if (applyBtn) {
+                applyBtn.addEventListener('click', () => {
+                    const sel    = getEl('notifPaTenantSelect');
+                    const tid    = sel ? parseInt(sel.value, 10) : 0;
+                    const tname  = sel?.selectedOptions?.[0]?.textContent || '';
+                    if (!tid) return;
+                    applyTenant(tid, tname);
+                });
+            }
+
+            // Clear button
+            const clearBtn = getEl('notifPaClearTenantBtn');
+            if (clearBtn) clearBtn.addEventListener('click', clearTenant);
+
+            // User search
+            const searchInput = getEl('notifPaUserSearch');
+            const searchBtn   = getEl('notifPaUserSearchBtn');
+            if (searchInput) {
+                let searchTimer;
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => searchUsers(searchInput.value), 500);
+                });
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') { clearTimeout(searchTimer); searchUsers(searchInput.value); }
+                });
+            }
+            if (searchBtn) {
+                searchBtn.addEventListener('click', () => {
+                    const q = getEl('notifPaUserSearch')?.value || '';
+                    searchUsers(q);
+                });
+            }
+        }
+
+        return { isActive, tenantParam, getActiveTenantId, applyTenant, clearTenant, bindEvents };
+    })();
+
+    /* ──────────────────────────────────────────
        PUBLIC API
     ────────────────────────────────────────── */
     const Notifications = {
@@ -1598,6 +1790,7 @@
             bindEvents();
             bindBulkSendEvents();
             initLookupHints();
+            platformAdmin.bindEvents();
             switchTab('types');
         },
         add() {

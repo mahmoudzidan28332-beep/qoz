@@ -223,6 +223,19 @@ try {
             }
 
             $input  = parseNotificationInput($data, $pdo, $tenantId);
+
+            // 🔒 SECURITY: Enforce owner_scope — platform-only types require platform admin
+            $typeCode = $input['typeCode'];
+            if ($typeCode !== '' && $typeCode !== 'general') {
+                $typeRow = $pdo->prepare("SELECT owner_scope FROM notification_types WHERE code = :code AND is_active = 1");
+                $typeRow->execute([':code' => $typeCode]);
+                $typeData = $typeRow->fetch(PDO::FETCH_ASSOC);
+                if ($typeData && $typeData['owner_scope'] === 'platform' && !is_platform_admin()) {
+                    ResponseFormatter::error('هذا النوع من الإشعارات خاص بالمنصة فقط', 403);
+                    exit;
+                }
+            }
+
             $result = \Notification::send(
                 $recipientId,
                 $input['recipientType'],
