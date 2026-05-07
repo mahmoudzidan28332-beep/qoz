@@ -193,14 +193,19 @@ final class PdoAddressesRepository extends BaseRepository
         }
 
         $sets = [];
-        $params = [':id' => $id];
+        $params = [
+            ':id'         => $id,
+            ':owner_type' => $existing['owner_type'],
+            ':owner_id'   => (int)$existing['owner_id'],
+        ];
         foreach ($data as $key => $val) {
             $sets[] = "$key = :$key";
             $params[":$key"] = $val;
         }
 
         return $this->pdo->prepare(
-            "UPDATE addresses SET " . implode(', ', $sets) . " WHERE id = :id"
+            "UPDATE addresses SET " . implode(', ', $sets) .
+            " WHERE id = :id AND owner_type = :owner_type AND owner_id = :owner_id"
         )->execute($params);
     }
 
@@ -225,8 +230,8 @@ final class PdoAddressesRepository extends BaseRepository
         }
 
         return $this->pdo
-            ->prepare("DELETE FROM addresses WHERE id = :id")
-            ->execute(['id' => $id]);
+            ->prepare("DELETE FROM addresses WHERE id = :id AND owner_type = :owner_type AND owner_id = :owner_id")
+            ->execute(['id' => $id, 'owner_type' => $existing['owner_type'], 'owner_id' => (int)$existing['owner_id']]);
     }
 
     public function getByOwner(int $ownerId, string $ownerType = 'user'): array

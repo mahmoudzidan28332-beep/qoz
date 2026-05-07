@@ -696,7 +696,7 @@ final class PdoStockMovementsRepository
                           AND (:has_date_to = 0 OR sm.created_at <= :date_to)
                           AND (:has_search = 0 OR (
                                EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
-                               OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                               OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode) AND (:has_tenant = 0 OR p2.tenant_id = :tenant_id))
                           ))";
 
         $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm " . $whereClause;
