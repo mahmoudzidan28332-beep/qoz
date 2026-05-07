@@ -168,11 +168,13 @@ if (!function_exists('resolve_product_scope_tenant_id')) {
         }
 
         if ($productId !== null && $productId > 0) {
-            $stmt = $pdo->prepare('SELECT tenant_id FROM products WHERE id = :id LIMIT 1');
-            $stmt->execute([':id' => $productId]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row && isset($row['tenant_id'])) {
-                return (int)$row['tenant_id'];
+            if (!class_exists('PdoProductsRepository')) {
+                require_once dirname(__DIR__, 2) . '/v1/models/products/repositories/PdoProductsRepository.php';
+            }
+            $repo = new PdoProductsRepository($pdo);
+            $found = $repo->findTenantIdByProductId($productId);
+            if ($found !== null) {
+                return $found;
             }
         }
 
@@ -184,17 +186,13 @@ if (!function_exists('resolve_product_scope_tenant_id')) {
         }
 
         if ($variantId !== null && $variantId > 0) {
-            $stmt = $pdo->prepare(
-                'SELECT p.tenant_id
-                   FROM product_variants pv
-                   JOIN products p ON p.id = pv.product_id
-                  WHERE pv.id = :id
-                  LIMIT 1'
-            );
-            $stmt->execute([':id' => $variantId]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row && isset($row['tenant_id'])) {
-                return (int)$row['tenant_id'];
+            if (!class_exists('PdoProductsRepository')) {
+                require_once dirname(__DIR__, 2) . '/v1/models/products/repositories/PdoProductsRepository.php';
+            }
+            $repo = new PdoProductsRepository($pdo);
+            $found = $repo->findTenantIdByVariantId($variantId);
+            if ($found !== null) {
+                return $found;
             }
         }
 

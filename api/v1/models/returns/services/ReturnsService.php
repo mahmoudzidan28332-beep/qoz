@@ -76,7 +76,13 @@ final class ReturnsService
                     'notes'      => $whitelisted['admin_notes'] ?? null,
                 ]);
             } catch (\Throwable $e) {
-                // Silent — history logging must never break the main operation
+                // History logging must never break the main operation; log for diagnostics
+                if (function_exists('safe_log')) {
+                    safe_log('warning', 'return_status_history_failed', [
+                        'return_id' => $data['id'] ?? null,
+                        'error'     => $e->getMessage(),
+                    ]);
+                }
             }
         }
 

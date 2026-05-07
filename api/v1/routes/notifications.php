@@ -9,6 +9,7 @@ require_once $baseDir . '/shared/config/db.php';
 
 $modelsPath = API_VERSION_PATH . '/models/notification';
 require_once $modelsPath . '/repositories/PdoNotificationsRepository.php';
+require_once $modelsPath . '/repositories/PdoNotificationTypesRepository.php';
 require_once $modelsPath . '/validators/NotificationsValidator.php';
 require_once $modelsPath . '/services/NotificationsService.php';
 require_once $modelsPath . '/controllers/NotificationsController.php';
@@ -22,8 +23,9 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-$repo       = new PdoNotificationsRepository($pdo);
-$validator  = new NotificationsValidator();
+$repo           = new PdoNotificationsRepository($pdo);
+$typesRepo      = new PdoNotificationTypesRepository($pdo);
+$validator      = new NotificationsValidator();
 $service    = new NotificationsService($repo, $validator);
 $controller = new NotificationsController($service);
 
@@ -227,10 +229,8 @@ try {
             // 🔒 SECURITY: Enforce owner_scope — platform-only types require platform admin
             $typeCode = $input['typeCode'];
             if ($typeCode !== '' && $typeCode !== 'general') {
-                $typeRow = $pdo->prepare("SELECT owner_scope FROM notification_types WHERE code = :code AND is_active = 1");
-                $typeRow->execute([':code' => $typeCode]);
-                $typeData = $typeRow->fetch(PDO::FETCH_ASSOC);
-                if ($typeData && $typeData['owner_scope'] === 'platform' && !is_platform_admin()) {
+                $typeData = $typesRepo->findByCode($typeCode);
+                if ($typeData && (int)$typeData['is_active'] === 1 && $typeData['owner_scope'] === 'platform' && !is_platform_admin()) {
                     ResponseFormatter::error('هذا النوع من الإشعارات خاص بالمنصة فقط', 403);
                     exit;
                 }

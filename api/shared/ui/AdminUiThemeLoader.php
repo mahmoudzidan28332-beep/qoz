@@ -94,92 +94,83 @@ final class AdminUiThemeLoader
                 return $this->getTheme($tenantId, $themeId);
             }
 
-            // 1. Check for tenant-specific override FIRST
-            //    Try the exact target key first, then fallback to tenant_store
-            $key = $target . '_active_theme_id';
-            $stmt = $this->pdo->prepare("
-                SELECT t.id, t.name, t.slug, t.description, t.thumbnail_url, t.preview_url,
-                       t.version, t.author, t.is_active, t.is_default, t.created_at, t.updated_at,
-                       t.tenant_id, t.theme_scope, t.theme_target
-                FROM tenant_theme_overrides o
-                INNER JOIN themes t ON t.id = o.theme_id
-                WHERE o.tenant_id = ?
-                  AND o.setting_type = 'theme_selection'
-                  AND o.setting_key = ?
-                ORDER BY o.id DESC
-                LIMIT 1
-            ");
-            $stmt->execute([$tenantId, $key]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row) {
-                return $row;
-            }
-            
-            // Fallback: if no override for current target, try tenant_store override
+            $row = $this->findTenantOverride($tenantId, $target . '_active_theme_id');
+            if ($row) return $row;
+
             if ($target !== PdoThemesRepository::TARGET_TENANT_STORE) {
-                $fallbackKey = PdoThemesRepository::TARGET_TENANT_STORE . '_active_theme_id';
-                $stmt = $this->pdo->prepare("
-                    SELECT t.id, t.name, t.slug, t.description, t.thumbnail_url, t.preview_url,
-                           t.version, t.author, t.is_active, t.is_default, t.created_at, t.updated_at,
-                           t.tenant_id, t.theme_scope, t.theme_target
-                    FROM tenant_theme_overrides o
-                    INNER JOIN themes t ON t.id = o.theme_id
-                    WHERE o.tenant_id = ?
-                      AND o.setting_type = 'theme_selection'
-                      AND o.setting_key = ?
-                    ORDER BY o.id DESC
-                    LIMIT 1
-                ");
-                $stmt->execute([$tenantId, $fallbackKey]);
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($row) {
-                    return $row;
-                }
+                $row = $this->findTenantOverride($tenantId, PdoThemesRepository::TARGET_TENANT_STORE . '_active_theme_id');
+                if ($row) return $row;
             }
 
-            // 2. Fallback for platform targets — handle tenant_id = NULL or PLATFORM_TENANT_ID
             if ($target === PdoThemesRepository::TARGET_PLATFORM_ADMIN || $target === PdoThemesRepository::TARGET_PLATFORM_HOME) {
-                $stmt = $this->pdo->prepare("
-                    SELECT id, name, slug, description, thumbnail_url, preview_url,
-                           version, author, is_active, is_default, created_at, updated_at,
-                           tenant_id, theme_scope, theme_target
-                    FROM themes
-                    WHERE (tenant_id = ? OR tenant_id IS NULL)
-                      AND theme_scope = 'platform'
-                      AND theme_target = ?
-                      AND is_active = 1
-                    ORDER BY is_default DESC, id ASC
-                    LIMIT 1
-                ");
-                $stmt->execute([PdoThemesRepository::PLATFORM_TENANT_ID, $target]);
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($row) {
-                    return $row;
-                }
+                $row = $this->findPlatformTheme($target);
+                if ($row) return $row;
             }
 
-            // 3. Tenant-specific or global fallback
-            $stmt = $this->pdo->prepare("
-                SELECT id, name, slug, description, thumbnail_url, preview_url,
-                       version, author, is_active, is_default, created_at, updated_at,
-                       tenant_id, theme_scope, theme_target
-                FROM themes
-                WHERE theme_target = ?
-                  AND (
-                        (theme_scope = 'tenant' AND tenant_id = ? AND is_active = 1)
-                        OR
-                        (theme_scope = 'global' AND (tenant_id = ? OR tenant_id IS NULL) AND is_default = 1)
-                      )
-                ORDER BY theme_scope = 'tenant' DESC, id ASC
-                LIMIT 1
-            ");
-            $stmt->execute([$target, $tenantId, PdoThemesRepository::PLATFORM_TENANT_ID]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $row ?: null;
+            return $this->findTenantOrGlobalTheme($tenantId, $target);
         } catch (\PDOException $e) {
             error_log('AdminUiThemeLoader: Error resolving theme: ' . $e->getMessage());
             return null;
         }
+    }
+
+    private function findTenantOverride(int $tenantId, string $settingKey): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT t.id, t.name, t.slug, t.description, t.thumbnail_url, t.preview_url,
+                   t.version, t.author, t.is_active, t.is_default, t.created_at, t.updated_at,
+                   t.tenant_id, t.theme_scope, t.theme_target
+            FROM tenant_theme_overrides o
+            INNER JOIN themes t ON t.id = o.theme_id
+            WHERE o.tenant_id = ?
+              AND o.setting_type = 'theme_selection'
+              AND o.setting_key = ?
+            ORDER BY o.id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$tenantId, $settingKey]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function findPlatformTheme(string $target): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT id, name, slug, description, thumbnail_url, preview_url,
+                   version, author, is_active, is_default, created_at, updated_at,
+                   tenant_id, theme_scope, theme_target
+            FROM themes
+            WHERE (tenant_id = ? OR tenant_id IS NULL)
+              AND theme_scope = 'platform'
+              AND theme_target = ?
+              AND is_active = 1
+            ORDER BY is_default DESC, id ASC
+            LIMIT 1
+        ");
+        $stmt->execute([PdoThemesRepository::PLATFORM_TENANT_ID, $target]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function findTenantOrGlobalTheme(int $tenantId, string $target): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT id, name, slug, description, thumbnail_url, preview_url,
+                   version, author, is_active, is_default, created_at, updated_at,
+                   tenant_id, theme_scope, theme_target
+            FROM themes
+            WHERE theme_target = ?
+              AND (
+                    (theme_scope = 'tenant' AND tenant_id = ? AND is_active = 1)
+                    OR
+                    (theme_scope = 'global' AND (tenant_id = ? OR tenant_id IS NULL) AND is_default = 1)
+                  )
+            ORDER BY theme_scope = 'tenant' DESC, id ASC
+            LIMIT 1
+        ");
+        $stmt->execute([$target, $tenantId, PdoThemesRepository::PLATFORM_TENANT_ID]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 
     private static function resolvePlatformTarget(): string

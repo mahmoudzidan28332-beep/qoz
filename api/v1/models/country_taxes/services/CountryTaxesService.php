@@ -16,6 +16,11 @@ final class CountryTaxesService
     private PdoCountryTaxesRepository $repo;
     private CountryTaxesValidator $validator;
 
+    private const WHITELISTED_COLUMNS = [
+        'id', 'country_id', 'tax_class_id', 'tax_name', 'tax_name_ar',
+        'tax_type', 'tax_rate', 'is_inclusive', 'is_active', 'effective_date'
+    ];
+
     public function __construct(
         PdoCountryTaxesRepository $repo,
         CountryTaxesValidator $validator
@@ -41,6 +46,7 @@ final class CountryTaxesService
 
     public function save(array $data, ?int $userId = null): array
     {
+        $data = array_intersect_key($data, array_flip(self::WHITELISTED_COLUMNS));
         $errors = $this->validator->validate($data);
         if (!empty($errors)) {
             throw new InvalidArgumentException(

@@ -14,6 +14,11 @@ final class PdoAddressesRepository extends BaseRepository
         parent::__construct($pdo);
     }
 
+    private const ALLOWED_UPDATE_COLUMNS = [
+        'address_line1', 'address_line2', 'city_id', 'country_id',
+        'postal_code', 'latitude', 'longitude', 'is_primary'
+    ];
+
     /**
      * Build the standard SELECT clause for addresses with resolved tenant_id.
      */
@@ -180,6 +185,7 @@ final class PdoAddressesRepository extends BaseRepository
         }
 
         unset($data['id'], $data['csrf_token'], $data['tenant_id']);
+        $data = array_intersect_key($data, array_flip(self::ALLOWED_UPDATE_COLUMNS));
         if (!$data) return false;
 
         if (isset($data['is_primary']) && (int)$data['is_primary'] === 1) {

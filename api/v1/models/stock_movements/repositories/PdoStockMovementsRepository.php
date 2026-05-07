@@ -145,12 +145,14 @@ final class PdoStockMovementsRepository
                 SELECT 1 FROM product_translations pt2
                 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search
             ) OR EXISTS (
-                SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */
+                SELECT 1 FROM products p2
                 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
+                  AND (:sm_tenant_id = 0 OR p2.tenant_id = :sm_tenant_id)
             ))";
             $params[':search']         = '%' . trim($filters['search']) . '%';
             $params[':search_sku']     = '%' . trim($filters['search']) . '%';
             $params[':search_barcode'] = '%' . trim($filters['search']) . '%';
+            $params[':sm_tenant_id']   = isset($filters['tenant_id']) ? (int)$filters['tenant_id'] : 0;
         }
     }
 

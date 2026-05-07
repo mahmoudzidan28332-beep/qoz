@@ -16,6 +16,10 @@ final class AttributeTypesService
     private PdoAttributeTypesRepository $repo;
     private AttributeTypesValidator $validator;
 
+    private const WHITELISTED_COLUMNS = [
+        'id', 'code', 'name', 'has_values', 'is_multi', 'is_visual', 'is_active'
+    ];
+
     public function __construct(
         PdoAttributeTypesRepository $repo,
         AttributeTypesValidator $validator
@@ -41,6 +45,7 @@ final class AttributeTypesService
 
     public function save(array $data, ?int $userId = null): array
     {
+        $data = array_intersect_key($data, array_flip(self::WHITELISTED_COLUMNS));
         $errors = $this->validator->validate($data);
         if (!empty($errors)) {
             throw new InvalidArgumentException(

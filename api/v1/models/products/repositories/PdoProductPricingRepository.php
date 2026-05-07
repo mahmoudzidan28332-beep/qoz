@@ -138,8 +138,21 @@ final class PdoProductPricingRepository
         $tenantId = TenantContext::require();
         $isUpdate = !empty($data['id']);
 
-        // Extract only valid pricing columns to prevent SQLSTATE[HY093]
-        $params = [
+        $params = $this->buildPricingParams($data);
+
+        // Security check: Verify product belongs to tenant (skip if platform admin)
+        if ($tenantId > 0) {
+            $this->assertProductBelongsToTenant((int)$params[':product_id'], $tenantId);
+        }
+
+        return $isUpdate
+            ? $this->updatePricing((int)$data['id'], $params, $tenantId)
+            : $this->insertPricing($params);
+    }
+
+    private function buildPricingParams(array $data): array
+    {
+        return [
             ':product_id'       => $data['product_id'] ?? null,
             ':variant_id'       => $data['variant_id'] ?? null,
             ':entity_id'        => $data['entity_id'] ?? null,
@@ -155,88 +168,72 @@ final class PdoProductPricingRepository
             ':city_id'          => $data['city_id'] ?? null,
             ':is_active'        => $data['is_active'] ?? 1,
         ];
+    }
 
-        // Security check: Verify product belongs to tenant (skip if platform admin)
+    private function assertProductBelongsToTenant(int $productId, int $tenantId): void
+    {
+        $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
+        $checkStmt->execute([$productId, $tenantId]);
+        if (!$checkStmt->fetch()) {
+            throw new \InvalidArgumentException('Product not found or access denied.');
+        }
+    }
+
+    private function updatePricing(int $id, array $params, int $tenantId): int
+    {
+        $sql = "UPDATE product_pricing SET
+                product_id = :product_id,
+                variant_id = :variant_id,
+                entity_id = :entity_id,
+                price = :price,
+                tax_rate = :tax_rate,
+                cost_price = :cost_price,
+                compare_at_price = :compare_at_price,
+                currency_code = :currency_code,
+                pricing_type = :pricing_type,
+                start_at = :start_at,
+                end_at = :end_at,
+                country_id = :country_id,
+                city_id = :city_id,
+                is_active = :is_active,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id";
+
+        $updateParams = [];
+        foreach ($params as $key => $val) {
+            $updateParams[ltrim($key, ':')] = $val;
+        }
+        $updateParams['id'] = $id;
+
         if ($tenantId > 0) {
-            $productId = (int)$params[':product_id'];
-            $checkStmt = $this->pdo->prepare("SELECT id FROM products WHERE id = ? AND tenant_id = ?");
-            $checkStmt->execute([$productId, $tenantId]);
-            if (!$checkStmt->fetch()) {
-                throw new \InvalidArgumentException('Product not found or access denied.');
+            $sql .= " AND EXISTS (SELECT 1 FROM products WHERE id = :check_prod_id AND tenant_id = :tenant_id)";
+            $updateParams['check_prod_id'] = $updateParams['product_id'];
+            $updateParams['tenant_id'] = $tenantId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+
+        try {
+            $stmt->execute($updateParams);
+        } catch (\PDOException $e) {
+            if (function_exists('safe_log')) {
+                safe_log('error', 'pricing_save_error', ['err' => $e->getMessage()]);
+            }
+            throw $e;
+        }
+
+        if ($stmt->rowCount() === 0) {
+            $check = $this->find($id);
+            if (!$check) {
+                throw new ApplicationException('Pricing record not found or access denied.');
             }
         }
 
-        if ($isUpdate) {
-            $params[':id'] = (int)$data['id'];
+        return $id;
+    }
 
-            $sql = "UPDATE product_pricing SET
-                    product_id = :product_id,
-                    variant_id = :variant_id,
-                    entity_id = :entity_id,
-                    price = :price,
-                    tax_rate = :tax_rate,
-                    cost_price = :cost_price,
-                    compare_at_price = :compare_at_price,
-                    currency_code = :currency_code,
-                    pricing_type = :pricing_type,
-                    start_at = :start_at,
-                    end_at = :end_at,
-                    country_id = :country_id,
-                    city_id = :city_id,
-                    is_active = :is_active,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id";
-            
-            $updateParams = [
-                'product_id'       => $data['product_id'] ?? null,
-                'variant_id'       => $data['variant_id'] ?? null,
-                'entity_id'        => $data['entity_id'] ?? null,
-                'price'            => $data['price'] ?? 0,
-                'tax_rate'         => $data['tax_rate'] ?? null,
-                'cost_price'       => $data['cost_price'] ?? null,
-                'compare_at_price' => $data['compare_at_price'] ?? null,
-                'currency_code'    => $data['currency_code'] ?? 'SAR',
-                'pricing_type'     => $data['pricing_type'] ?? 'fixed',
-                'start_at'         => $data['start_at'] ?? null,
-                'end_at'           => $data['end_at'] ?? null,
-                'country_id'       => $data['country_id'] ?? null,
-                'city_id'          => $data['city_id'] ?? null,
-                'is_active'        => $data['is_active'] ?? 1,
-                'id'               => (int)$data['id']
-            ];
-
-            if ($tenantId > 0) {
-                // If not platform admin, enforce tenant check on the product
-                $sql .= " AND EXISTS (SELECT 1 FROM products WHERE id = :check_prod_id AND tenant_id = :tenant_id)";
-                $updateParams['check_prod_id'] = $updateParams['product_id'];
-                $updateParams['tenant_id'] = $tenantId;
-            }
-
-            $stmt = $this->pdo->prepare($sql);
-
-            try {
-                $stmt->execute($updateParams);
-            } catch (\PDOException $e) {
-                if (function_exists('safe_log')) {
-                    safe_log('error', 'pricing_save_error', [
-                        'err' => $e->getMessage(),
-                        'sql' => $sql,
-                        'params_count' => count($updateParams)
-                    ]);
-                }
-                throw $e;
-            }
-
-            if ($stmt->rowCount() === 0) {
-                // Either ID doesn't exist or tenant ownership check failed
-                $check = $this->find((int)$data['id']);
-                if (!$check) {
-                    throw new ApplicationException('Pricing record not found or access denied.');
-                }
-            }
-            return (int)$data['id'];
-        }
-
+    private function insertPricing(array $params): int
+    {
         $stmt = $this->pdo->prepare("
             INSERT INTO product_pricing (
                 product_id, variant_id, entity_id, price, tax_rate,
