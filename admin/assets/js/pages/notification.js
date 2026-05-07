@@ -171,6 +171,21 @@
             showTenant: false,
             showDeviceType: true,
         },
+        recipients: {
+            apiKey: 'recipients',
+            titleKey: 'recipients.title',
+            addKey: null,
+            emptyKey: 'recipients.empty_title',
+            emptyMsgKey: 'recipients.empty_message',
+            addFirstKey: 'recipients.empty_title',
+            showStatus: false,
+            showPriority: false,
+            showDeliveryStatus: false,
+            showRecipientType: true,
+            showTenant: true,
+            showDeviceType: false,
+            readOnly: true,
+        },
     };
 
     /* ──────────────────────────────────────────
@@ -236,6 +251,18 @@
                     t('table.headers.device_name'), t('table.headers.fcm_token'),
                     t('table.headers.ip'), t('table.headers.last_seen'),
                     t('table.headers.status'), act
+                ];
+            case 'recipients':
+                return [
+                    t('table.headers.id'),
+                    t('table.headers.notification') || 'Notification',
+                    t('table.headers.tenant') || 'Tenant',
+                    t('table.headers.recipient_type') || 'Type',
+                    t('table.headers.recipient_id') || 'Recipient',
+                    t('table.headers.is_read') || 'Read',
+                    t('table.headers.read_at') || 'Read At',
+                    t('table.headers.created_at') || 'Created',
+                    act
                 ];
         }
         return [];
@@ -364,6 +391,34 @@
                     <td style="font-size:0.8rem;color:var(--text-secondary,#94a3b8);">${dateFmt(item.last_seen_at)}</td>
                     <td>${status}</td>
                     <td>${actions}</td>
+                </tr>`;
+            }
+            case 'recipients': {
+                const readBadge = (item.is_read == 1)
+                    ? `<span class="badge badge-success">${t('table.status.read') || 'Read'}</span>`
+                    : `<span class="badge badge-warning">${t('table.status.unread') || 'Unread'}</span>`;
+                const tName = item.tenant_name
+                    ? `${esc(item.tenant_name)} <small>(${esc(item.tenant_id)})</small>`
+                    : (item.tenant_id ? esc(item.tenant_id) : '—');
+                const rtLabel = t('recipient_type_labels.' + (item.recipient_type || '')) || item.recipient_type || '—';
+                const rName = item.recipient_name
+                    ? `${esc(item.recipient_name)} <small>(${esc(item.recipient_id)})</small>`
+                    : esc(item.recipient_id);
+                const notifTitle = item.notification_title ? truncate(item.notification_title, 40) : `#${esc(item.notification_id)}`;
+                const markReadBtn = (item.is_read != 1)
+                    ? `<button class="btn btn-sm btn-success notif-mark-read-btn" data-id="${item.id}" title="${t('table.actions.mark_read') || 'Mark Read'}"><i class="fas fa-check"></i></button>`
+                    : '';
+                const deleteBtn2 = `<button class="btn btn-sm btn-danger notif-delete-btn" data-id="${item.id}" title="${t('table.actions.delete')}"><i class="fas fa-trash"></i></button>`;
+                return `<tr data-id="${item.id}">
+                    <td>${esc(item.id)}</td>
+                    <td><span class="text-truncate" title="${esc(item.notification_title)}">${esc(notifTitle)}</span></td>
+                    <td>${tName}</td>
+                    <td><span class="badge badge-info">${esc(rtLabel)}</span></td>
+                    <td>${rName}</td>
+                    <td>${readBadge}</td>
+                    <td style="font-size:0.8rem;color:var(--text-secondary,#94a3b8);">${item.read_at ? dateFmt(item.read_at) : '—'}</td>
+                    <td style="font-size:0.8rem;color:var(--text-secondary,#94a3b8);">${dateFmt(item.created_at)}</td>
+                    <td><div class="action-btns">${markReadBtn}${deleteBtn2}</div></td>
                 </tr>`;
             }
         }
@@ -827,6 +882,19 @@
         }
     }
 
+    async function markRecipientRead(id) {
+        try {
+            await apiFetch(cfg().api.recipients + '/mark-read', {
+                method: 'POST',
+                body: JSON.stringify({ id }),
+            });
+            showToast(t('recipients.marked_read') || 'Marked as read', 'success');
+            await loadData();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    }
+
     /* ──────────────────────────────────────────
        SEND NOTIFICATION (multi-channel via helper)
     ────────────────────────────────────────── */
@@ -896,6 +964,10 @@
 
         getEls('.notif-delete-btn').forEach(btn => {
             btn.addEventListener('click', () => deleteRecord(parseInt(btn.dataset.id, 10)));
+        });
+
+        getEls('.notif-mark-read-btn').forEach(btn => {
+            btn.addEventListener('click', () => markRecipientRead(parseInt(btn.dataset.id, 10)));
         });
 
         getEls('.notif-increment-btn').forEach(btn => {
@@ -1151,7 +1223,7 @@
         // Update Add button label
         const addLabel = getEl('btnAddLabel');
         const addBtn = getEl('btnAddRecord');
-        if (tab === 'bulk_send') {
+        if (tab === 'bulk_send' || TABS[tab]?.readOnly) {
             if (addBtn) addBtn.style.display = 'none';
         } else {
             if (addBtn) addBtn.style.display = '';

@@ -162,6 +162,10 @@ $apiBase = '/api';
             <i class="fas fa-mobile-alt"></i>
             <span data-i18n="notifications.tabs.devices"><?= __t('notifications.tabs.devices', 'Devices') ?></span>
         </button>
+        <button class="notif-tab-btn" data-tab="recipients">
+            <i class="fas fa-inbox"></i>
+            <span data-i18n="notifications.tabs.recipients"><?= __t('notifications.tabs.recipients', 'Recipients') ?></span>
+        </button>
         <?php if ($canCreate): ?>
         <button class="notif-tab-btn" data-tab="bulk_send">
             <i class="fas fa-paper-plane"></i>
@@ -802,6 +806,7 @@ window.NOTIFICATIONS_CONFIG = {
         counters:  '<?= $apiBase ?>/notification_counters',
         deliveries:'<?= $apiBase ?>/notification_deliveries',
         devices:   '<?= $apiBase ?>/user_devices',
+        recipients:'<?= $apiBase ?>/notification_recipients',
         send:      '<?= $apiBase ?>/notifications/send',
         sendBulk:  '<?= $apiBase ?>/notifications/send-bulk'
     },

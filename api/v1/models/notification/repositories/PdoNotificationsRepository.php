@@ -217,7 +217,7 @@ final class PdoNotificationsRepository
               WHERE nr.recipient_type = 'user'
                 AND nr.recipient_id   = ?
                 AND nr.is_read        = 0
-                AND n.tenant_id       = ?
+                AND nr.tenant_id      = ?
                 AND (n.expires_at IS NULL OR n.expires_at > NOW())"
         );
         $stmt->execute([$userId, $tenantId]);
@@ -240,7 +240,7 @@ final class PdoNotificationsRepository
         $where  = [
             "nr.recipient_type = 'user'",
             'nr.recipient_id   = ?',
-            'n.tenant_id       = ?',
+            'nr.tenant_id      = ?',
             '(n.expires_at IS NULL OR n.expires_at > NOW())',
         ];
         $params = [$userId, $tenantId];
@@ -326,7 +326,7 @@ final class PdoNotificationsRepository
               WHERE nr.recipient_type = 'user'
                 AND nr.recipient_id   = ?
                 AND nr.is_read        = 0
-                AND n.tenant_id       = ?
+                AND nr.tenant_id      = ?
                 AND (n.expires_at IS NULL OR n.expires_at > NOW())"
         );
         $stmt->execute([$userId, $tenantId]);

@@ -37,6 +37,25 @@ class NotificationRepository
         return (int)$this->pdo->lastInsertId() ?: null;
     }
 
+    /**
+     * Insert a row into notification_recipients so the user sees it in their inbox.
+     * tenant_id is stored directly for fast per-tenant filtering.
+     */
+    public function insertRecipient(
+        int    $notificationId,
+        int    $recipientId,
+        string $recipientType,
+        ?int   $tenantId
+    ): void {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO notification_recipients
+                (notification_id, recipient_id, recipient_type, tenant_id, is_read, created_at)
+            VALUES
+                (?, ?, ?, ?, 0, NOW())
+        ");
+        $stmt->execute([$notificationId, $recipientId, $recipientType, $tenantId]);
+    }
+
     public function upsertNotificationCounter(int $tenantId, string $recipientType, int $recipientId): void
     {
         $stmt = $this->pdo->prepare("

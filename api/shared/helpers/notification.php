@@ -141,7 +141,7 @@ class Notification
 
                 $channelResult = match ($channel) {
                     'database' => self::handleDatabaseChannel(
-                        $recipientId, $recipientType, $tenantId
+                        $notificationId, $recipientId, $recipientType, $tenantId
                     ),
                     'email' => self::handleEmailChannel(
                         $user, $title, $message, $typeCode
@@ -206,13 +206,16 @@ class Notification
     // -------------------------------------------------------
 
     private static function handleDatabaseChannel(
+        int    $notificationId,
         int    $recipientId,
         string $recipientType,
         int    $tenantId
     ): array {
         try {
-            // upsert في notification_counters
             $repo = new NotificationRepository(self::$pdo);
+            // Insert inbox row so recipient can read this notification
+            $repo->insertRecipient($notificationId, $recipientId, $recipientType, $tenantId);
+            // Increment unread counter cache
             $repo->upsertNotificationCounter($tenantId, $recipientType, $recipientId);
 
             self::logNotification('database', $recipientId, 'counter_updated');
