@@ -20,7 +20,8 @@ final class PdoAddressesRepository extends BaseRepository
     ];
 
     /**
-     * Build the standard SELECT clause for addresses with resolved tenant_id.
+     * Build the standard SELECT clause for addresses.
+     * tenant_id is a direct column on the addresses table.
      */
     private function getBaseSelect(): string
     {
@@ -28,15 +29,12 @@ final class PdoAddressesRepository extends BaseRepository
             SELECT 
                 a.*,
                 COALESCE(ct.name, c.name) AS country_name,
-                COALESCE(cit.name, ci.name) AS city_name,
-                COALESCE(e.tenant_id, tu.tenant_id) AS tenant_id
+                COALESCE(cit.name, ci.name) AS city_name
             FROM addresses a
             LEFT JOIN countries c ON a.country_id = c.id
             LEFT JOIN country_translations ct ON c.id = ct.country_id AND ct.language_code = :lang_country
             LEFT JOIN cities ci ON a.city_id = ci.id
             LEFT JOIN city_translations cit ON ci.id = cit.city_id AND cit.language_code = :lang_city
-            LEFT JOIN entities e ON a.owner_type = 'entity' AND a.owner_id = e.id
-            LEFT JOIN tenant_users tu ON a.owner_type = 'user' AND a.owner_id = tu.user_id
         ";
     }
 
@@ -45,9 +43,8 @@ final class PdoAddressesRepository extends BaseRepository
         $tid = $this->getTenantId();
         if ($tid === 0) return;
 
-        $where[] = "(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)";
+        $where[] = "a.tenant_id = :tid";
         $params[':tid'] = $tid;
-        $params[':tid_usr'] = $tid;
     }
 
     public function list(int $limit, int $offset, array $filters = [], string $orderBy = 'a.id', string $orderDir = 'DESC'): array
@@ -89,15 +86,9 @@ final class PdoAddressesRepository extends BaseRepository
         $params = [];
 
         $tid = $this->getTenantId();
-        $join = "";
         if ($tid > 0) {
-            $join = "
-                LEFT JOIN entities e ON a.owner_type = 'entity' AND a.owner_id = e.id
-                LEFT JOIN tenant_users tu ON a.owner_type = 'user' AND a.owner_id = tu.user_id
-            ";
-            $where[] = "(e.tenant_id = :tid OR tu.tenant_id = :tid_usr)";
+            $where[] = "a.tenant_id = :tid";
             $params[':tid'] = $tid;
-            $params[':tid_usr'] = $tid;
         }
 
         if (!empty($filters['owner_type'])) {
@@ -109,7 +100,7 @@ final class PdoAddressesRepository extends BaseRepository
             $params[':owner_id'] = (int)$filters['owner_id'];
         }
 
-        $sql = "SELECT COUNT(*) FROM addresses a $join WHERE " . implode(' AND ', $where);
+        $sql = "SELECT COUNT(*) FROM addresses a WHERE " . implode(' AND ', $where);
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return (int)$stmt->fetchColumn();
@@ -150,11 +141,11 @@ final class PdoAddressesRepository extends BaseRepository
 
         $sql = "
             INSERT INTO addresses (
-                owner_type, owner_id, address_line1, address_line2,
+                tenant_id, owner_type, owner_id, address_line1, address_line2,
                 city_id, country_id, postal_code,
                 latitude, longitude, is_primary
             ) VALUES (
-                :owner_type, :owner_id, :address_line1, :address_line2,
+                :tenant_id, :owner_type, :owner_id, :address_line1, :address_line2,
                 :city_id, :country_id, :postal_code,
                 :latitude, :longitude, :is_primary
             )
@@ -162,6 +153,7 @@ final class PdoAddressesRepository extends BaseRepository
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
+            'tenant_id'     => $this->getTenantId(),
             'owner_type'    => $data['owner_type'],
             'owner_id'      => $data['owner_id'],
             'address_line1' => $data['address_line1'],
@@ -211,8 +203,8 @@ final class PdoAddressesRepository extends BaseRepository
 
     private function unsetPrimaryAddresses(string $ownerType, int $ownerId, ?int $excludeId = null): void
     {
-        $sql    = "UPDATE addresses SET is_primary = 0 WHERE owner_type = :owner_type AND owner_id = :owner_id";
-        $params = ['owner_type' => $ownerType, 'owner_id' => $ownerId];
+        $sql    = "UPDATE addresses SET is_primary = 0 WHERE owner_type = :owner_type AND owner_id = :owner_id AND tenant_id = :tenant_id";
+        $params = ['owner_type' => $ownerType, 'owner_id' => $ownerId, 'tenant_id' => $this->getTenantId()];
 
         if ($excludeId !== null) {
             $sql .= " AND id != :exclude_id";
