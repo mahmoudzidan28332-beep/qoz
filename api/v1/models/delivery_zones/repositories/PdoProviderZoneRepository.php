@@ -70,9 +70,13 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             $params[':offset'] = $offset;
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -94,9 +98,13 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             $params[':zone_id'] = $filters['zone_id'];
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $providerId, int $zoneId, string $lang = 'ar'): ?array
@@ -111,13 +119,17 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             LIMIT 1
         ";
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            ':tenant_id'   => $tenantId,
-            ':provider_id' => $providerId,
-            ':zone_id'     => $zoneId
-        ]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':tenant_id'   => $tenantId,
+                ':provider_id' => $providerId,
+                ':zone_id'     => $zoneId
+            ]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): bool
@@ -130,12 +142,16 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             VALUES (:provider_id, :zone_id, :is_active)
         ";
 
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
-            ':provider_id' => $data['provider_id'],
-            ':zone_id'     => $data['zone_id'],
-            ':is_active'   => $data['is_active'] ?? 1
-        ]);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([
+                ':provider_id' => $data['provider_id'],
+                ':zone_id'     => $data['zone_id'],
+                ':is_active'   => $data['is_active'] ?? 1
+            ]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function update(int $tenantId, array $data): bool
@@ -165,11 +181,15 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             return true;
         }
 
-        $sql = 'UPDATE provider_zones SET ' . implode(', ', $fields) . ' 
-                 WHERE provider_id = :provider_id AND zone_id = :zone_id';
-        
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        try {
+            $sql = 'UPDATE provider_zones SET ' . implode(', ', $fields) . ' 
+                     WHERE provider_id = :provider_id AND zone_id = :zone_id';
+            
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute($params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $providerId, int $zoneId): bool
@@ -180,13 +200,17 @@ final class PdoProviderZoneRepository implements ProviderZoneRepositoryInterface
             return false;
         }
 
-        $sql = "DELETE FROM provider_zones 
-                 WHERE provider_id = :provider_id AND zone_id = :zone_id";
-        
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
-            ':provider_id' => $providerId,
-            ':zone_id'     => $zoneId
-        ]);
+        try {
+            $sql = "DELETE FROM provider_zones 
+                     WHERE provider_id = :provider_id AND zone_id = :zone_id";
+            
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([
+                ':provider_id' => $providerId,
+                ':zone_id'     => $zoneId
+            ]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 }

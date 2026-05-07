@@ -50,9 +50,13 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
             $params[':offset'] = $offset;
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -70,9 +74,13 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
             $params[':provider_id'] = $filters['provider_id'];
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
@@ -85,9 +93,13 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
             LIMIT 1
         ";
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function findByProviderId(int $tenantId, int $providerId): ?array
@@ -100,9 +112,13 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
             LIMIT 1
         ";
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':tenant_id' => $tenantId, ':provider_id' => $providerId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':tenant_id' => $tenantId, ':provider_id' => $providerId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): int
@@ -115,15 +131,19 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
 
         $wkt = "POINT({$data['longitude']} {$data['latitude']})";
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            ':provider_id' => $data['provider_id'],
-            ':latitude'    => $data['latitude'],
-            ':longitude'   => $data['longitude'],
-            ':point_wkt'   => $wkt
-        ]);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':provider_id' => $data['provider_id'],
+                ':latitude'    => $data['latitude'],
+                ':longitude'   => $data['longitude'],
+                ':point_wkt'   => $wkt
+            ]);
 
-        return (int) $this->pdo->lastInsertId();
+            return (int) $this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function update(int $tenantId, array $data): bool
@@ -148,13 +168,17 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
 
         $wkt = "POINT({$data['longitude']} {$data['latitude']})";
 
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
-            ':id'        => $data['id'],
-            ':latitude'  => $data['latitude'],
-            ':longitude' => $data['longitude'],
-            ':point_wkt' => $wkt
-        ]);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([
+                ':id'        => $data['id'],
+                ':latitude'  => $data['latitude'],
+                ':longitude' => $data['longitude'],
+                ':point_wkt' => $wkt
+            ]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
@@ -163,7 +187,11 @@ final class PdoDriverLocationRepository implements DriverLocationRepositoryInter
         $existing = $this->find($tenantId, $id);
         if (!$existing) return false;
 
-        $stmt = $this->pdo->prepare("DELETE FROM driver_locations WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM driver_locations WHERE id = :id");
+            return $stmt->execute([':id' => $id]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 }

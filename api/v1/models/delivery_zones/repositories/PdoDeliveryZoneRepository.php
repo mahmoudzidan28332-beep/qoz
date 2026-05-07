@@ -62,7 +62,11 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
             $params[':offset'] = $offset;
         }
 
-        return $this->fetchAll($sql, $params);
+        try {
+            return $this->fetchAll($sql, $params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -72,9 +76,13 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
 
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
@@ -97,46 +105,54 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
             ':id'        => $id,
         ];
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): int
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO delivery_zones (
-                tenant_id, provider_id, zone_name, zone_type, city_id, 
-                center_lat, center_lng, radius_km, zone_value, delivery_fee, 
-                free_delivery_over, min_order_value, estimated_minutes, is_active
-            ) VALUES (
-                :tenant_id, :provider_id, :zone_name, :zone_type, :city_id, 
-                :center_lat, :center_lng, :radius_km, :zone_value, :delivery_fee, 
-                :free_delivery_over, :min_order_value, :estimated_minutes, :is_active
-            )
-        ");
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO delivery_zones (
+                    tenant_id, provider_id, zone_name, zone_type, city_id, 
+                    center_lat, center_lng, radius_km, zone_value, delivery_fee, 
+                    free_delivery_over, min_order_value, estimated_minutes, is_active
+                ) VALUES (
+                    :tenant_id, :provider_id, :zone_name, :zone_type, :city_id, 
+                    :center_lat, :center_lng, :radius_km, :zone_value, :delivery_fee, 
+                    :free_delivery_over, :min_order_value, :estimated_minutes, :is_active
+                )
+            ");
 
-        $stmt->execute([
-            ':tenant_id'          => $tenantId,
-            ':provider_id'        => $data['provider_id'],
-            ':zone_name'          => $data['zone_name'],
-            ':zone_type'          => $data['zone_type'],
-            ':city_id'            => $data['city_id'] ?? null,
-            ':center_lat'         => $data['center_lat'] ?? null,
-            ':center_lng'         => $data['center_lng'] ?? null,
-            ':radius_km'          => $data['radius_km'] ?? null,
-            ':zone_value'         => isset($data['zone_value'])
-                                        ? (is_array($data['zone_value']) ? json_encode($data['zone_value'], JSON_UNESCAPED_UNICODE) : $data['zone_value'])
-                                        : null,
-            ':delivery_fee'       => $data['delivery_fee'],
-            ':free_delivery_over' => $data['free_delivery_over'] ?? null,
-            ':min_order_value'    => $data['min_order_value'] ?? null,
-            ':estimated_minutes'  => $data['estimated_minutes'] ?? 45,
-            ':is_active'          => $data['is_active'] ?? 1,
-        ]);
+            $stmt->execute([
+                ':tenant_id'          => $tenantId,
+                ':provider_id'        => $data['provider_id'],
+                ':zone_name'          => $data['zone_name'],
+                ':zone_type'          => $data['zone_type'],
+                ':city_id'            => $data['city_id'] ?? null,
+                ':center_lat'         => $data['center_lat'] ?? null,
+                ':center_lng'         => $data['center_lng'] ?? null,
+                ':radius_km'          => $data['radius_km'] ?? null,
+                ':zone_value'         => isset($data['zone_value'])
+                                            ? (is_array($data['zone_value']) ? json_encode($data['zone_value'], JSON_UNESCAPED_UNICODE) : $data['zone_value'])
+                                            : null,
+                ':delivery_fee'       => $data['delivery_fee'],
+                ':free_delivery_over' => $data['free_delivery_over'] ?? null,
+                ':min_order_value'    => $data['min_order_value'] ?? null,
+                ':estimated_minutes'  => $data['estimated_minutes'] ?? 45,
+                ':is_active'          => $data['is_active'] ?? 1,
+            ]);
 
-        return (int) $this->pdo->lastInsertId();
+            return (int) $this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function update(int $tenantId, array $data): bool
@@ -169,15 +185,23 @@ final class PdoDeliveryZoneRepository implements DeliveryZoneRepositoryInterface
             return true;
         }
 
-        $sql = 'UPDATE delivery_zones SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        try {
+            $sql = 'UPDATE delivery_zones SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute($params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM delivery_zones WHERE id = :id AND tenant_id = :tenant_id");
-        return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM delivery_zones WHERE id = :id AND tenant_id = :tenant_id");
+            return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     // =========================================================================

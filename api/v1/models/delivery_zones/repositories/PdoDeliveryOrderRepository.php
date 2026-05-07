@@ -57,7 +57,11 @@ final class PdoDeliveryOrderRepository implements DeliveryOrderRepositoryInterfa
             $params[':offset'] = $offset;
         }
 
-        return $this->fetchAll($sql, $params);
+        try {
+            return $this->fetchAll($sql, $params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -67,9 +71,13 @@ final class PdoDeliveryOrderRepository implements DeliveryOrderRepositoryInterfa
 
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
@@ -87,38 +95,46 @@ final class PdoDeliveryOrderRepository implements DeliveryOrderRepositoryInterfa
             ':id'        => $id,
         ];
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): int
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO delivery_orders (
-                tenant_id, order_id, provider_id, pickup_address_id, dropoff_address_id,
-                delivery_zone_id, delivery_status, delivery_fee, calculated_fee, provider_payout
-            ) VALUES (
-                :tenant_id, :order_id, :provider_id, :pickup_address_id, :dropoff_address_id,
-                :delivery_zone_id, :delivery_status, :delivery_fee, :calculated_fee, :provider_payout
-            )
-        ");
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO delivery_orders (
+                    tenant_id, order_id, provider_id, pickup_address_id, dropoff_address_id,
+                    delivery_zone_id, delivery_status, delivery_fee, calculated_fee, provider_payout
+                ) VALUES (
+                    :tenant_id, :order_id, :provider_id, :pickup_address_id, :dropoff_address_id,
+                    :delivery_zone_id, :delivery_status, :delivery_fee, :calculated_fee, :provider_payout
+                )
+            ");
 
-        $stmt->execute([
-            ':tenant_id'          => $tenantId,
-            ':order_id'           => isset($data['order_id']) && $data['order_id'] !== '' ? (int)$data['order_id'] : null,
-            ':provider_id'        => isset($data['provider_id']) && $data['provider_id'] !== '' ? (int)$data['provider_id'] : null,
-            ':pickup_address_id'  => isset($data['pickup_address_id']) && $data['pickup_address_id'] !== '' ? (int)$data['pickup_address_id'] : null,
-            ':dropoff_address_id' => isset($data['dropoff_address_id']) && $data['dropoff_address_id'] !== '' ? (int)$data['dropoff_address_id'] : null,
-            ':delivery_zone_id'   => isset($data['delivery_zone_id']) && $data['delivery_zone_id'] !== '' ? (int)$data['delivery_zone_id'] : null,
-            ':delivery_status'    => $data['delivery_status'] ?? 'pending',
-            ':delivery_fee'       => $data['delivery_fee'] ?? 0.00,
-            ':calculated_fee'     => $data['calculated_fee'] ?? 0.00,
-            ':provider_payout'    => $data['provider_payout'] ?? 0.00,
-        ]);
+            $stmt->execute([
+                ':tenant_id'          => $tenantId,
+                ':order_id'           => isset($data['order_id']) && $data['order_id'] !== '' ? (int)$data['order_id'] : null,
+                ':provider_id'        => isset($data['provider_id']) && $data['provider_id'] !== '' ? (int)$data['provider_id'] : null,
+                ':pickup_address_id'  => isset($data['pickup_address_id']) && $data['pickup_address_id'] !== '' ? (int)$data['pickup_address_id'] : null,
+                ':dropoff_address_id' => isset($data['dropoff_address_id']) && $data['dropoff_address_id'] !== '' ? (int)$data['dropoff_address_id'] : null,
+                ':delivery_zone_id'   => isset($data['delivery_zone_id']) && $data['delivery_zone_id'] !== '' ? (int)$data['delivery_zone_id'] : null,
+                ':delivery_status'    => $data['delivery_status'] ?? 'pending',
+                ':delivery_fee'       => $data['delivery_fee'] ?? 0.00,
+                ':calculated_fee'     => $data['calculated_fee'] ?? 0.00,
+                ':provider_payout'    => $data['provider_payout'] ?? 0.00,
+            ]);
 
-        return (int) $this->pdo->lastInsertId();
+            return (int) $this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function update(int $tenantId, array $data): bool
@@ -160,15 +176,23 @@ final class PdoDeliveryOrderRepository implements DeliveryOrderRepositoryInterfa
             return true;
         }
 
-        $sql = 'UPDATE delivery_orders SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        try {
+            $sql = 'UPDATE delivery_orders SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute($params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM delivery_orders WHERE id = :id AND tenant_id = :tenant_id");
-        return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM delivery_orders WHERE id = :id AND tenant_id = :tenant_id");
+            return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     // =========================================================================
