@@ -625,8 +625,9 @@
 
         // Populate edit data
         if (editData) {
+            const editSection = form.querySelector(`.notif-form-section[data-form-tab="${tab}"]`);
             Object.keys(editData).forEach(key => {
-                const el = form.querySelector(`[name="${key}"]`);
+                const el = (editSection || form).querySelector(`[name="${key}"]`);
                 if (el && editData[key] !== null && editData[key] !== undefined) {
                     if (key === 'expires_at' || key === 'sent_at') {
                         // datetime-local format
@@ -806,6 +807,15 @@
         const apiUrl = cfg().api[TABS[tab].apiKey];
         const isEdit = !!data.id;
         const method = isEdit ? 'PUT' : 'POST';
+
+        // Validate tenant_id for counters: a valid (> 0) tenant must be selected
+        if (tab === 'counters' && !isEdit) {
+            const tid = parseInt(data.tenant_id, 10);
+            if (!tid || tid <= 0) {
+                showToast(t('messages.error.select_tenant') || 'Please select a tenant context first (Platform Admin panel).', 'error');
+                return;
+            }
+        }
 
         const submitBtn = getEl('btnSubmitForm');
         if (submitBtn) {
@@ -1087,7 +1097,7 @@
                 const rType = rtSelect?.value || 'user';
 
                 if (rType === 'user') {
-                    const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/user?id=${id}`, {
+                    const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/users?id=${id}`, {
                         credentials: 'same-origin',
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     }).then(r => r.json()).catch(() => null);
@@ -1116,7 +1126,7 @@
                 const rType = rtSelect?.value || 'user';
 
                 if (rType === 'user') {
-                    const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/user?id=${id}`, {
+                    const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/users?id=${id}`, {
                         credentials: 'same-origin',
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     }).then(r => r.json()).catch(() => null);
@@ -1140,7 +1150,7 @@
             }
 
             else if (lookupType === 'device_user') {
-                const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/user?id=${id}`, {
+                const json = await fetch(`${apiBase.types.replace('/notification_types', '')}/users?id=${id}`, {
                     credentials: 'same-origin',
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 }).then(r => r.json()).catch(() => null);

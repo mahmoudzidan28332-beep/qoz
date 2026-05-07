@@ -183,9 +183,20 @@ final class PdoNotificationCountersRepository
         }
 
         $sql  = "INSERT INTO notification_counters (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $placeholders) . ")";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int)$this->pdo->lastInsertId();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int)$this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            if ($e->getCode() === '23000') {
+                throw new \DatabaseException(
+                    'Invalid tenant_id or recipient_id: the referenced record does not exist.',
+                    [],
+                    $e
+                );
+            }
+            throw new \DatabaseException('Failed to create notification counter: ' . $e->getMessage(), [], $e);
+        }
     }
 
     public function increment(int $id, int $amount = 1): void
