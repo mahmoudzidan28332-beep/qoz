@@ -490,6 +490,8 @@
 
         if (CFG.canEditAllFields) {
             toggleOwnerFields('user');
+        } else if (CFG.isTenantAdmin) {
+            loadEntities();
         }
 
         // Load countries with current language
@@ -539,6 +541,8 @@
                     if ((addr.owner_type || 'user') === 'user' && el.ownerIdInput) {
                         el.ownerIdInput.value = addr.owner_id || '';
                     }
+                } else if (CFG.isTenantAdmin) {
+                    await loadEntities(addr.owner_id);
                 }
             }
 

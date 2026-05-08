@@ -65,7 +65,7 @@ abstract class BaseService
      */
     protected function auditCreate(int $entityId, array $newValues): void
     {
-        audit_log([
+        $this->callAuditLog([
             'action'      => 'create',
             'entity_type' => $this->entityType,
             'entity_id'   => $entityId,
@@ -84,7 +84,7 @@ abstract class BaseService
      */
     protected function auditUpdate(int $entityId, array $oldValues, array $newValues): void
     {
-        audit_log([
+        $this->callAuditLog([
             'action'      => 'update',
             'entity_type' => $this->entityType,
             'entity_id'   => $entityId,
@@ -104,12 +104,25 @@ abstract class BaseService
      */
     protected function auditDelete(int $entityId, ?array $oldValues = null): void
     {
-        audit_log([
+        $this->callAuditLog([
             'action'      => 'delete',
             'entity_type' => $this->entityType,
             'entity_id'   => $entityId,
             'old_values'  => $oldValues,
         ]);
+    }
+
+    /**
+     * Safe wrapper around the global audit_log() helper.
+     *
+     * Guards against the case where authorize.php has not been loaded yet,
+     * preventing a fatal "Call to undefined function audit_log()" error.
+     */
+    private function callAuditLog(array $data): void
+    {
+        if (function_exists('audit_log')) {
+            audit_log($data);
+        }
     }
 
     // =========================================================================
@@ -132,7 +145,7 @@ abstract class BaseService
     {
         if (!$allowed) {
             // Log the denied action before throwing.
-            audit_log([
+            $this->callAuditLog([
                 'action'      => 'policy_denied',
                 'entity_type' => $this->entityType,
                 'description' => "Policy check failed for action: {$action}",
