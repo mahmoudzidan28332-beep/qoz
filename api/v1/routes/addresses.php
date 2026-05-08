@@ -90,6 +90,21 @@ try {
     $raw    = file_get_contents('php://input');
     $data   = $raw ? (json_decode($raw, true) ?? []) : [];
 
+    // Platform admins may provide tenant_id in the request body (POST/PUT).
+    // resolve_tenant_id() only reads $_GET, so update TenantContext here when needed.
+    if ($isPlatformAdmin && $effectiveTenantId === 0
+        && isset($data['tenant_id']) && is_numeric($data['tenant_id'])
+        && (int)$data['tenant_id'] > 0
+    ) {
+        $effectiveTenantId = (int)$data['tenant_id'];
+        TenantContext::set($effectiveTenantId);
+        safe_log('info', 'addresses.platform_admin_tenant_scope', [
+            'tenant_id' => $effectiveTenantId,
+            'user_id'   => get_user_id(),
+            'method'    => $method,
+        ]);
+    }
+
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])            : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset   = ($page - 1) * $limit;

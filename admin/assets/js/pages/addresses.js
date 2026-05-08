@@ -515,7 +515,10 @@
             const result = await apiFetch(`${API}/${id}?language=${state.language}&tenant_id=${tenantId}`);
             const addr = result.data || result;
 
-            if (el.formCard) el.formCard.style.display = 'block';
+            if (el.formCard) {
+                el.formCard.style.display = 'block';
+                el.formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             if (el.formTitle) el.formTitle.textContent = t('edit_address', 'Edit Address');
             if (el.btnDelete) el.btnDelete.style.display = 'block';
 

@@ -67,9 +67,11 @@ $canCreate = $canView;
 $canEdit   = $canView;
 $canDelete = $canView;
 
-// Elevated fields (ownership etc)
-$canEditAllFields = $isPlatformAdmin || $isSuperAdmin;
-$isTenantAdmin    = !$isPlatformAdmin && !$isSuperAdmin && $canCreate;
+// Only platform admins may choose owner_type (user vs entity).
+// Tenant-level admins (including those with super_admin role within a tenant)
+// are restricted to entity addresses only.
+$canEditAllFields = $isPlatformAdmin;
+$isTenantAdmin    = !$isPlatformAdmin && $canCreate;
 
 // ════════════════════════════════════════════════════════════
 // FILTERS (Platform Admin only)
