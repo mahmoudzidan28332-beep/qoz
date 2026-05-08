@@ -5,6 +5,8 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/AuditLogger.php';
+require_once $baseDir . '/shared/helpers/authorize.php';
 require_once $baseDir . '/shared/config/db.php';
 
 // ================================
