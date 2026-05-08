@@ -164,6 +164,11 @@ try {
             $data['owner_type'] = $data['owner_type'] ?? 'user';
             $data['owner_id']   = $data['owner_id']   ?? ($user['id'] ?? null);
 
+            // Tenant admins may only create addresses for entities that belong to their tenant.
+            if (($data['owner_type'] ?? '') === 'entity' && !$isPlatformAdmin && $effectiveTenantId > 0) {
+                verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
+            }
+
             $newId = $controller->create($data);
 
             AuditLogsService::log(
@@ -195,6 +200,11 @@ try {
                 $oldState = $controller->get($updateId, $language);
             } catch (ApplicationException|\RuntimeException $e) {
                 safe_log('warning', 'addresses.fetch_old_state', ['error' => $e->getMessage()]);
+            }
+
+            // Tenant admins may only update addresses for entities that belong to their tenant.
+            if ($oldState && ($oldState['owner_type'] ?? '') === 'entity' && !$isPlatformAdmin && $effectiveTenantId > 0) {
+                verify_entity_ownership($pdo, $oldState['owner_id'] ?? null, $effectiveTenantId);
             }
 
             $controller->update($updateId, $data);
@@ -256,14 +266,16 @@ try {
     safe_log('warning', 'addresses.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (ApplicationException|\RuntimeException $e) {
-    $code = $e->getCode();
-    $httpCode = in_array($code, [400, 403, 404, 422]) ? $code : 400;
+    $httpCode = ($e instanceof AppException) ? $e->getStatusCode() : (int)$e->getCode();
+    if (!in_array($httpCode, [400, 401, 403, 404, 422], true)) {
+        $httpCode = 400;
+    }
     safe_log('error', 'addresses.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (ApplicationException|\RuntimeException $e) {
+} catch (\Throwable $e) {
     safe_log('critical', 'addresses.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error($e->getMessage(), 500);
+    ResponseFormatter::error('Internal Server Error', 500);
 }
