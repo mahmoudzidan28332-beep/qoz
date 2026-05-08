@@ -126,7 +126,7 @@
             const currentLang = state.language;
             console.log(`🌍 Loading countries in language: ${currentLang}`);
             
-            const url = `${COUNTRIES_API}?lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
+            const url = `${COUNTRIES_API}?lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}&tenant_id=${CFG.tenantId || 0}`;
             console.log('📡 Loading countries from:', url);
             
             const result = await apiFetch(url);
@@ -213,7 +213,7 @@
 
         try {
             const currentLang = state.language;
-            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
+            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}&tenant_id=${CFG.tenantId || 0}`;
             console.log(`📡 Loading cities for country ${countryId} in language: ${currentLang}`);
             
             const result = await apiFetch(url);
