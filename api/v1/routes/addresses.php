@@ -72,6 +72,9 @@ $effectiveTenantId = resolve_tenant_id();
 // Platform Admin defaults to 0 (Global View) if no specific tenant is requested
 if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId === 0)) {
     $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
 }
 
 // 🔒 SECURITY: Enforce TenantContext

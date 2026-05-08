@@ -507,7 +507,10 @@
     
     async function editAddress(id) {
         try {
-            const result = await apiFetch(`${API}/${id}?language=${state.language}`);
+            const tenantId = CFG.isPlatformAdmin
+                ? (document.getElementById('globalTenantFilter')?.value || 0)
+                : CFG.tenantId;
+            const result = await apiFetch(`${API}/${id}?language=${state.language}&tenant_id=${tenantId}`);
             const addr = result.data || result;
 
             if (el.formCard) el.formCard.style.display = 'block';
