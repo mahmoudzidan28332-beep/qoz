@@ -58,6 +58,21 @@ try {
     $raw    = file_get_contents('php://input');
     $data   = $raw ? json_decode($raw, true) : [];
 
+    // Platform admin may pass tenant_id in the request body (POST/PUT) to create/edit
+    // entities for a specific tenant on behalf of that tenant.
+    if ($isPlatformAdmin && $tenantId === 0
+        && in_array($method, ['POST', 'PUT'], true)
+        && isset($data['tenant_id']) && is_numeric($data['tenant_id'])
+        && (int)$data['tenant_id'] > 0
+    ) {
+        $tenantId = (int)$data['tenant_id'];
+        TenantContext::set($tenantId);
+        safe_log('info', 'entities.platform_admin_tenant_scope', [
+            'tenant_id' => $tenantId,
+            'user_id'   => $user['id'] ?? null,
+        ]);
+    }
+
     $lang      = $_GET['lang'] ?? 'en';
     $page      = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit     = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;

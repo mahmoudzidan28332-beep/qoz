@@ -14,6 +14,77 @@
     const AF = window.AdminFramework || {};
     const PERMS = window.PAGE_PERMISSIONS || {};
 
+    // ════════════════════════════════════════════════════════════
+    // PLATFORM ADMIN MODULE
+    // ════════════════════════════════════════════════════════════
+    const platformAdmin = {
+        activeTenantId: 0,
+
+        /** Returns the effective tenant_id for all API calls. */
+        getTenantId: function () {
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CONFIG.tenantId || 0);
+        },
+
+        /** Returns 'tenant_id=N' query string parameter (always included). */
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+
+        init: function () {
+            if (!CONFIG.isPlatformAdmin) return;
+
+            const self = this;
+            const paTenantSelect = document.getElementById('paTenantSelect');
+            const paApplyBtn    = document.getElementById('paApplyTenantBtn');
+            const paClearBtn    = document.getElementById('paClearTenantBtn');
+            const paBanner      = document.getElementById('paActiveTenantBanner');
+            const paLabel       = document.getElementById('paActiveTenantLabel');
+
+            // Load tenants into the select
+            fetch(API.tenants + '?limit=500&order_by=id&order_dir=ASC')
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    const items = (res.data && res.data.items) ? res.data.items : (Array.isArray(res.data) ? res.data : []);
+                    items.forEach(function (t) {
+                        const opt = document.createElement('option');
+                        opt.value       = t.tenant_id || t.id;
+                        opt.textContent = (t.tenant_name || t.name || '') + ' (#' + (t.tenant_id || t.id) + ')';
+                        if (paTenantSelect) paTenantSelect.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+
+            if (paApplyBtn) {
+                paApplyBtn.onclick = function () {
+                    const tid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
+                    self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
+                    if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
+                    if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
+                    if (paLabel && self.activeTenantId) {
+                        const opt = paTenantSelect && paTenantSelect.options[paTenantSelect.selectedIndex];
+                        paLabel.textContent = 'Active tenant: ' + (opt ? opt.textContent : '#' + self.activeTenantId);
+                    }
+                    // Sync tenant_id form field
+                    const formTenantEl = document.getElementById('entityTenantId');
+                    if (formTenantEl && self.activeTenantId) formTenantEl.value = self.activeTenantId;
+                    loadEntities(1);
+                };
+            }
+
+            if (paClearBtn) {
+                paClearBtn.onclick = function () {
+                    self.activeTenantId = 0;
+                    if (paTenantSelect) paTenantSelect.value = '';
+                    paClearBtn.style.display = 'none';
+                    if (paBanner) paBanner.style.display = 'none';
+                    const formTenantEl = document.getElementById('entityTenantId');
+                    if (formTenantEl) formTenantEl.value = '';
+                    loadEntities(1);
+                };
+            }
+        }
+    };
+
     const API = {
         entities: CONFIG.apiUrl || '/api/entities',
         attributes: CONFIG.attributesApi || '/api/entities_attributes',
@@ -424,7 +495,7 @@
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
-                tenant_id: state.tenantId,
+                tenant_id: platformAdmin.getTenantId(),
                 lang: state.language,
                 format: 'json'
             });
@@ -490,7 +561,7 @@
 
             // Load parent entities for the searchable dropdown
             try {
-                const entitiesResult = await apiCall(`${API.entities}?limit=500&lang=${state.language}&tenant_id=${state.tenantId}`);
+                const entitiesResult = await apiCall(`${API.entities}?limit=500&lang=${state.language}&${platformAdmin.tenantParam()}`);
                 if (entitiesResult.success) {
                     const entData = entitiesResult.data?.items || entitiesResult.data || [];
                     state.allEntities = Array.isArray(entData) ? entData : [];
@@ -739,6 +810,8 @@
         if (entity) {
             if (el.formTitle) el.formTitle.textContent = t('form.edit_title', 'Edit Entity');
             if (el.formId) el.formId.value = entity.id || '';
+            // For platform admin, set the tenant_id to the entity's actual tenant
+            if (el.entityTenantId) el.entityTenantId.value = entity.tenant_id || platformAdmin.getTenantId() || state.tenantId;
 
             if (el.enEntityName && !el.enEntityName.value) el.enEntityName.value = entity.original_store_name || entity.store_name || '';
             if (el.entitySlug) el.entitySlug.value = entity.slug || '';
@@ -794,7 +867,7 @@
             if (el.formTitle) el.formTitle.textContent = t('form.add_title', 'Add Entity');
             if (el.formId) el.formId.value = '';
             if (el.btnDeleteEntity) el.btnDeleteEntity.style.display = 'none';
-            if (el.entityTenantId) el.entityTenantId.value = state.tenantId;
+            if (el.entityTenantId) el.entityTenantId.value = platformAdmin.getTenantId() || state.tenantId;
             if (el.entityUserId && state.userId) el.entityUserId.value = state.userId;
 
             if (el.entityAttributesList) el.entityAttributesList.innerHTML = '';
@@ -897,7 +970,7 @@
             resultEl.className = 'parent-validation-result validation-loading';
             resultEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('messages.validating', 'Validating...');
 
-            const result = await apiCall(`${API.entities}?validate_parent=${encodeURIComponent(parentId)}&tenant_id=${state.tenantId}&lang=${state.language}`);
+            const result = await apiCall(`${API.entities}?validate_parent=${encodeURIComponent(parentId)}&${platformAdmin.tenantParam()}&lang=${state.language}`);
 
             if (result.success && result.data && result.data.valid) {
                 const parent = result.data.parent;
@@ -1010,7 +1083,7 @@
                 store_type: formData.get('store_type') || 'individual',
                 registration_number: formData.get('registration_number') || null,
                 tax_number: formData.get('tax_number') || null,
-                tenant_id: formData.get('tenant_id') || state.tenantId,
+                tenant_id: parseInt(formData.get('tenant_id'), 10) || platformAdmin.getTenantId() || state.tenantId,
                 user_id: formData.get('user_id') || state.userId,
                 status: formData.get('status') || 'pending',
                 is_verified: formData.get('is_verified') || '0',
@@ -2525,6 +2598,9 @@
         // Initialize tabs
         initTabs();
 
+        // Initialize platform admin module
+        platformAdmin.init();
+
         // Initialize working hours with default values
         if (!state.currentEntity) {
             resetWorkingHours();
@@ -2548,7 +2624,7 @@
         add: () => showForm(),
         edit: async (id) => {
             try {
-                const result = await apiCall(`${API.entities}?id=${id}&format=json&lang=${state.language}&tenant_id=${state.tenantId}`);
+                const result = await apiCall(`${API.entities}?id=${id}&format=json&lang=${state.language}&${platformAdmin.tenantParam()}`);
                 if (result.success && result.data) {
                     showForm(result.data);
                 } else {

@@ -71,6 +71,7 @@ $canDeleteOwn = can_delete_own('entities');
 $canView = $canViewAll || $canViewOwn || $canViewTenant || $canManageEntities;
 $canEdit = $canEditAll || $canEditOwn || $canManageEntities;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManageEntities;
+$isTenantAdmin = !$isPlatformAdmin && $canCreate;
 
 if (!$canView && !is_super_admin() && !$isPlatformAdmin) {
     if ($isFragment) {
@@ -120,6 +121,39 @@ $apiBase = '/api';
 <!-- Page Container -->
 <div class="page-container" id="entitiesPageContainer" dir="<?= htmlspecialchars($dir) ?>">
 
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', '— Select tenant (global view) —') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-shield"></i>
+                    <?= __t('platform_admin.act_on_behalf', 'Filter by Tenant') ?>
+                </button>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-secondary" style="margin-left:8px;display:none">
+                    <i class="fas fa-times"></i> <?= __t('platform_admin.clear_context', 'Clear') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" style="display:none;padding:8px 12px;background:rgba(255,152,0,0.15);border:1px solid #ff9800;border-radius:6px;margin-top:8px;color:#ff9800;font-size:0.9rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="page-header-content">
@@ -149,7 +183,13 @@ $apiBase = '/api';
                 <!-- Hidden Fields -->
                 <input type="hidden" id="formId" name="id">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                <?php if ($isPlatformAdmin): ?>
+                <input type="number" id="entityTenantId" name="tenant_id" class="form-control"
+                       min="1" placeholder="<?= __t('form.fields.tenant_id.placeholder', 'Enter tenant ID') ?>"
+                       style="margin-bottom:10px;max-width:200px;">
+                <?php else: ?>
                 <input type="hidden" id="entityTenantId" name="tenant_id" value="<?= $tenantId ?>">
+                <?php endif; ?>
                 <input type="hidden" id="entityUserId" name="user_id" value="<?= $userId ?>">
                 <input type="hidden" id="entityTranslationsData" name="translations_data">
                 <input type="hidden" id="entityAttributesData" name="attributes_data">
@@ -874,7 +914,9 @@ window.PAGE_PERMISSIONS = <?= json_encode([
     'canEditOwn' => $canEditOwn,
     'canDeleteAll' => $canDeleteAll,
     'canDeleteOwn' => $canDeleteOwn,
-    'isSuperAdmin' => is_super_admin()
+    'isSuperAdmin' => is_super_admin(),
+    'isPlatformAdmin' => $isPlatformAdmin,
+    'isTenantAdmin' => $isTenantAdmin,
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
@@ -894,7 +936,10 @@ window.ENTITIES_CONFIG = {
     lang: '<?= addslashes($lang) ?>',
     itemsPerPage: 25,
     mediaStudioBase: '/admin/fragments/media_studio.php',
-    addressesFragment: '/admin/fragments/addresses.php'
+    addressesFragment: '/admin/fragments/addresses.php',
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
+    tenantId: <?= (int)$tenantId ?>,
 };
 </script>
 

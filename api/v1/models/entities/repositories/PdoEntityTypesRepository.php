@@ -6,7 +6,7 @@ final class PdoEntityTypesRepository
     private PDO $pdo;
 
     private const ALLOWED_ORDER_BY = [
-        'id','code','name','created_at','updated_at'
+        'id','code','name'
     ];
 
     private const FILTERABLE_COLUMNS = [
@@ -28,7 +28,7 @@ final class PdoEntityTypesRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT id, code, name, description, created_at, updated_at FROM entity_types WHERE 1=1";
+        $sql = "SELECT id, code, name, description FROM entity_types WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -89,7 +89,7 @@ final class PdoEntityTypesRepository
     public function find(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT id, code, name, description, created_at, updated_at FROM entity_types WHERE id = :id LIMIT 1"
+            "SELECT id, code, name, description FROM entity_types WHERE id = :id LIMIT 1"
         );
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -106,8 +106,7 @@ final class PdoEntityTypesRepository
                 UPDATE entity_types SET
                     code = :code,
                     name = :name,
-                    description = :description,
-                    updated_at = CURRENT_TIMESTAMP
+                    description = :description
                 WHERE id = :id
             ");
             $stmt->execute([
