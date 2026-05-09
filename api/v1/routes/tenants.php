@@ -82,9 +82,18 @@ try {
     }
 
     // ════════════════════════════════════════════════════════════
+    // GET /tenants?id=123 - عرض واحد عبر query param
+    // ════════════════════════════════════════════════════════════
+    if ($method === 'GET' && !$id && isset($queryParams['id']) && is_numeric($queryParams['id'])) {
+        ResponseFormatter::success(
+            $controller->get((int)$queryParams['id'])
+        );
+    }
+
+    // ════════════════════════════════════════════════════════════
     // GET /tenants - قائمة مع فلاتر و pagination
     // ════════════════════════════════════════════════════════════
-    if ($method === 'GET' && !$id && !isset($queryParams['action'])) {
+    elseif ($method === 'GET' && !$id && !isset($queryParams['action'])) {
         $page = isset($queryParams['page']) ? max(1, (int)$queryParams['page']) : 1;
         $perPage = isset($queryParams['per_page']) ? min(100, max(1, (int)$queryParams['per_page'])) : 10;
         $offset = ($page - 1) * $perPage;

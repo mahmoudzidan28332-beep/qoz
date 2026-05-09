@@ -34,6 +34,29 @@ if (!$pdo instanceof PDO) {
 $isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
 $resolvedTenantId = resolve_tenant_id();
 
+function platform_report_positive_int_or_null(mixed $value): ?int
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_int($value) && $value > 0) {
+        return $value;
+    }
+    if (is_string($value) && preg_match('/^[1-9][0-9]*$/', $value)) {
+        return (int)$value;
+    }
+    return null;
+}
+
+function platform_report_effective_tenant_id(bool $isPlatformAdmin, ?int $resolvedTenantId, mixed $requestedTenantId): ?int
+{
+    $requested = platform_report_positive_int_or_null($requestedTenantId);
+    if ($isPlatformAdmin) {
+        return $requested ?? $resolvedTenantId;
+    }
+    return $resolvedTenantId;
+}
+
 // Block if not platform admin and no tenant context
 if (!$isPlatformAdmin && ($resolvedTenantId === null || $resolvedTenantId === 0)) {
     ResponseFormatter::error('Unauthorized', 401);
@@ -71,7 +94,7 @@ try {
 
             // GET /api/platform_report?action=dashboard
             if ($action === 'dashboard') {
-                $tenantId = $resolvedTenantId;
+                $tenantId = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $_GET['tenant_id'] ?? null);
                 $summary  = $controller->getDashboardSummary($tenantId);
                 ResponseFormatter::success($summary);
                 exit;
@@ -79,8 +102,7 @@ try {
 
             // GET /api/platform_report?action=report&report_type=X&start_date=Y&end_date=Z
             if ($action === 'report') {
-                // Always derive tenant from the resolved (session-enforced) value
-                $tenantId = $resolvedTenantId;
+                $tenantId = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $_GET['tenant_id'] ?? null);
 
                 // Entity filter: only allowed when a tenant scope is established
                 $entityIdRaw = $_GET['entity_id'] ?? '';
@@ -106,7 +128,7 @@ try {
 
             // GET /api/platform_report?action=exports
             if ($action === 'exports') {
-                $tenantId = $resolvedTenantId;
+                $tenantId = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $_GET['tenant_id'] ?? null);
                 $exports  = $controller->listExports($tenantId);
                 ResponseFormatter::success($exports);
                 exit;
@@ -114,7 +136,7 @@ try {
 
             // GET /api/platform_report?action=schedules
             if ($action === 'schedules') {
-                $tenantId  = $resolvedTenantId;
+                $tenantId  = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $_GET['tenant_id'] ?? null);
                 $schedules = $controller->listSchedules($tenantId);
                 ResponseFormatter::success($schedules);
                 exit;
@@ -128,7 +150,7 @@ try {
             if ($action === 'export') {
                 $allowedExportKeys = ['report_type', 'start_date', 'end_date', 'tenant_id', 'export_format'];
                 $params = array_intersect_key($data, array_flip($allowedExportKeys));
-                $params['tenant_id']    = $resolvedTenantId;
+                $params['tenant_id']    = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $data['tenant_id'] ?? null);
                 $params['requested_by'] = $_SESSION['user_id'] ?? null;
 
                 $result = $controller->requestExport($params);
@@ -144,7 +166,7 @@ try {
             if ($action === 'schedule') {
                 $allowedScheduleKeys = ['report_type', 'frequency', 'start_date', 'end_date', 'format'];
                 $params = array_intersect_key($data, array_flip($allowedScheduleKeys));
-                $params['tenant_id']  = $resolvedTenantId;
+                $params['tenant_id']  = platform_report_effective_tenant_id($isPlatformAdmin, $resolvedTenantId, $data['tenant_id'] ?? null);
                 $params['created_by'] = $_SESSION['user_id'] ?? null;
 
                 $result = $controller->createSchedule($params);
