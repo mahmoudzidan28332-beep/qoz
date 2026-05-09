@@ -132,8 +132,16 @@ $apiBase = '/api';
         <div class="form-row">
             <div class="form-group col-5">
                 <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="paTenantIdInput" class="form-control" min="1"
+                           placeholder="<?= __t('platform_admin.tenant_id_placeholder', 'Enter tenant ID') ?>">
+                    <button type="button" id="paLookupTenantBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-search"></i>
+                        <?= __t('platform_admin.lookup_tenant', 'Lookup') ?>
+                    </button>
+                </div>
                 <select id="paTenantSelect" class="form-control">
-                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', '— Select tenant (global view) —') ?></option>
+                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', 'Select tenant') ?></option>
                 </select>
             </div>
             <div class="form-group col-3" style="display:flex;align-items:flex-end">
@@ -239,6 +247,7 @@ $apiBase = '/api';
 
                 <!-- Tab: Basic Info -->
                 <div class="tab-content active" id="tab-basic">
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entitySlug" data-i18n="form.fields.slug.label">
@@ -249,7 +258,9 @@ $apiBase = '/api';
                                    placeholder="<?= __t('form.fields.slug.placeholder', 'store-slug') ?>">
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entityBranchCode" data-i18n="form.fields.branch_code.label">
@@ -260,6 +271,7 @@ $apiBase = '/api';
                                    placeholder="<?= __t('form.fields.branch_code.placeholder', 'BR001') ?>">
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Entity Type (Main / Branch) -->
                     <div class="form-row">
@@ -352,6 +364,7 @@ $apiBase = '/api';
                         </div>
                     </div>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entityStatus" data-i18n="form.fields.status.label">
@@ -375,6 +388,7 @@ $apiBase = '/api';
                             </select>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Timezone -->
                     <div class="form-row">
@@ -474,6 +488,7 @@ $apiBase = '/api';
                         </div>
                     </div>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group full-width">
                             <label for="entitySuspensionReason" data-i18n="form.fields.suspension_reason.label">
@@ -484,6 +499,7 @@ $apiBase = '/api';
                                       placeholder="<?= __t('form.fields.suspension_reason.placeholder', 'Reason for suspension...') ?>"></textarea>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Tab: Settings -->
@@ -747,7 +763,7 @@ $apiBase = '/api';
                            placeholder="<?= __t('filters.search_placeholder', 'Search entities...') ?>">
                 </div>
 
-                <?php if (is_super_admin()): ?>
+                <?php if ($isPlatformAdmin): ?>
                 <div class="filter-group">
                     <label for="tenantFilter" data-i18n="filters.tenant_id">
                         <?= __t('filters.tenant_id', 'Tenant ID') ?>
@@ -756,7 +772,6 @@ $apiBase = '/api';
                            data-i18n-placeholder="filters.tenant_placeholder"
                            placeholder="<?= __t('filters.tenant_placeholder', 'Filter by tenant') ?>">
                 </div>
-                <?php endif; ?>
 
                 <div class="filter-group">
                     <label for="statusFilter" data-i18n="filters.status">
@@ -770,6 +785,7 @@ $apiBase = '/api';
                         <option value="rejected" data-i18n="filters.status_options.rejected">Rejected</option>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="filter-group">
                     <label for="vendorTypeFilter" data-i18n="filters.vendor_type">Vendor Type</label>
@@ -789,6 +805,7 @@ $apiBase = '/api';
                     </select>
                 </div>
 
+                <?php if ($isPlatformAdmin): ?>
                 <div class="filter-group">
                     <label for="verifiedFilter" data-i18n="filters.verified">Verified</label>
                     <select id="verifiedFilter" class="form-control">
@@ -797,6 +814,7 @@ $apiBase = '/api';
                         <option value="0">Not Verified</option>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="filter-actions">
                     <button id="btnApplyFilters" class="btn btn-primary" data-i18n="filters.apply">
@@ -832,7 +850,7 @@ $apiBase = '/api';
                         <thead>
                             <tr>
                                 <th data-i18n="table.headers.id">ID</th>
-                                <?php if (is_super_admin()): ?>
+                                <?php if ($isPlatformAdmin): ?>
                                 <th data-i18n="table.headers.tenant">Tenant</th>
                                 <?php endif; ?>
                                 <th data-i18n="table.headers.logo">Logo</th>
@@ -841,8 +859,10 @@ $apiBase = '/api';
                                 <th data-i18n="table.headers.vendor_type">Vendor Type</th>
                                 <th data-i18n="table.headers.phone">Phone</th>
                                 <th data-i18n="table.headers.email">Email</th>
+                                <?php if ($isPlatformAdmin): ?>
                                 <th data-i18n="table.headers.status">Status</th>
                                 <th data-i18n="table.headers.verified">Verified</th>
+                                <?php endif; ?>
                                 <th data-i18n="table.headers.actions">Actions</th>
                             </tr>
                         </thead>
