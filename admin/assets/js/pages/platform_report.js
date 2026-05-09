@@ -164,8 +164,8 @@
             });
         });
 
-        // Load tenants if super admin
-        if (CFG.isSuperAdmin) {
+        // Load tenants if platform admin
+        if (CFG.isPlatformAdmin) {
             loadTenants();
         }
 
@@ -203,8 +203,8 @@
             const params = {};
             const hiddenTenant = $('#prTenantId');
             let tid = (hiddenTenant && hiddenTenant.value) || '';
-            // Non-super-admin falls back to their own tenant; super admin uses explicit selection only
-            if (!tid && !CFG.isSuperAdmin && CFG.tenantId) tid = CFG.tenantId;
+            // Non-platform-admin falls back to their own tenant; platform admin uses explicit selection only
+            if (!tid && !CFG.isPlatformAdmin && CFG.tenantId) tid = CFG.tenantId;
             if (tid) params.tenant_id = tid;
             const resp = await apiGet('dashboard', params);
             if (resp.success && resp.data) {
@@ -349,9 +349,9 @@
                 const hiddenTenant = $('#prTenantId');
                 tid = hiddenTenant ? hiddenTenant.value : '';
             }
-            // Only non-super-admin uses CFG.tenantId as fallback;
-            // super admin must explicitly select a tenant
-            if (!tid && !CFG.isSuperAdmin && CFG.tenantId) tid = CFG.tenantId;
+            // Only non-platform-admin uses CFG.tenantId as fallback;
+            // platform admin must explicitly select a tenant
+            if (!tid && !CFG.isPlatformAdmin && CFG.tenantId) tid = CFG.tenantId;
 
             // Clear existing options
             sel.innerHTML = '<option value="">' + t('all_entities', 'All Entities') + '</option>';
@@ -389,9 +389,9 @@
         const endDate = $('#prEndDate')?.value;
         const groupBy = $('#prGroupBy')?.value || 'day';
         const tenantIdEl = $('#prTenantId');
-        // Use hidden input value; non-super-admin falls back to CFG.tenantId
+        // Use hidden input value; non-platform-admin falls back to CFG.tenantId
         let tenantId = tenantIdEl ? tenantIdEl.value : '';
-        if (!tenantId && !CFG.isSuperAdmin && CFG.tenantId) tenantId = CFG.tenantId;
+        if (!tenantId && !CFG.isPlatformAdmin && CFG.tenantId) tenantId = CFG.tenantId;
         const entityIdEl = $('#prEntityId');
         const entityId = entityIdEl ? entityIdEl.value : '';
 
