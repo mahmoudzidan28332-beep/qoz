@@ -151,13 +151,17 @@
                 })
                 .catch(function () {
                     if (cfgTenantId > 0) {
-                        lookupTenantById(cfgTenantId, true);
+                        upsertTenantOption(cfgTenantId, '');
+                        if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                        applyTenantContext(cfgTenantId);
                     }
                 });
 
             if (cfgTenantId > 0) {
                 if (paTenantInput) paTenantInput.value = cfgTenantId;
-                lookupTenantById(cfgTenantId, true);
+                upsertTenantOption(cfgTenantId, '');
+                if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                applyTenantContext(cfgTenantId);
             }
 
             if (paApplyBtn) {
@@ -173,7 +177,12 @@
                 paLookupBtn.onclick = function () {
                     var tid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
                     if (!tid || tid <= 0) return;
-                    lookupTenantById(tid, true);
+                    if (paTenantSelect) {
+                        upsertTenantOption(tid, '');
+                        paTenantSelect.value = String(tid);
+                    }
+                    if (paApplyBtn) paApplyBtn.click();
+                    else applyTenantContext(tid);
                 };
             }
 
