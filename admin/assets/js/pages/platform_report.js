@@ -110,12 +110,18 @@
                                 tenant = res.data;
                             }
                         }
+                        var resolvedTid = 0;
+                        if (tenant) {
+                            var rawTid = tenant.tenant_id || tenant.id || 0;
+                            resolvedTid = parseInt(rawTid, 10) || 0;
+                        }
+                        if (!resolvedTid) resolvedTid = tid;
                         var tenantName = tenant ? (tenant.tenant_name || tenant.name || '') : '';
-                        var opt = upsertTenantOption(tid, tenantName);
-                        if (paTenantSelect) paTenantSelect.value = String(tid);
+                        var opt = upsertTenantOption(resolvedTid, tenantName);
+                        if (paTenantSelect) paTenantSelect.value = String(resolvedTid);
                         if (autoApply) {
-                            var label = (opt && opt.textContent) ? opt.textContent : ('#' + tid);
-                            applyTenantContext(tid, label);
+                            var label = (opt && opt.textContent) ? opt.textContent : ('#' + resolvedTid);
+                            applyTenantContext(resolvedTid, label);
                         }
                     })
                     .catch(function () {
