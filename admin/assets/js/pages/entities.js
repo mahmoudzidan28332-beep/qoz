@@ -22,11 +22,15 @@
 
         /** Returns the effective tenant_id for all API calls. */
         getTenantId: function () {
+            if (CONFIG.isPlatformAdmin) {
+                return this.activeTenantId || 0;
+            }
             return this.activeTenantId !== 0 ? this.activeTenantId : (CONFIG.tenantId || 0);
         },
 
         /** Returns 'tenant_id=N' query string parameter (always included). */
         tenantParam: function () {
+            if (!CONFIG.isPlatformAdmin) return '';
             return 'tenant_id=' + this.getTenantId();
         },
 
@@ -35,6 +39,8 @@
 
             const self = this;
             const paTenantSelect = document.getElementById('paTenantSelect');
+            const paTenantInput  = document.getElementById('paTenantIdInput');
+            const paLookupBtn    = document.getElementById('paLookupTenantBtn');
             const paApplyBtn    = document.getElementById('paApplyTenantBtn');
             const paClearBtn    = document.getElementById('paClearTenantBtn');
             const paBanner      = document.getElementById('paActiveTenantBanner');
@@ -56,8 +62,11 @@
 
             if (paApplyBtn) {
                 paApplyBtn.onclick = function () {
-                    const tid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
+                    const inputTid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
+                    const selectTid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
+                    const tid = (!isNaN(inputTid) && inputTid > 0) ? inputTid : selectTid;
                     self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
+                    if (paTenantInput && self.activeTenantId) paTenantInput.value = self.activeTenantId;
                     if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
                     if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
                     if (paLabel && self.activeTenantId) {
@@ -71,10 +80,32 @@
                 };
             }
 
+            if (paLookupBtn) {
+                paLookupBtn.onclick = function () {
+                    const tid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
+                    if (!tid || tid <= 0) return;
+                    if (paTenantSelect) {
+                        let found = false;
+                        Array.prototype.forEach.call(paTenantSelect.options, function (opt) {
+                            if (parseInt(opt.value, 10) === tid) found = true;
+                        });
+                        if (!found) {
+                            const opt = document.createElement('option');
+                            opt.value = tid;
+                            opt.textContent = 'Tenant #' + tid;
+                            paTenantSelect.appendChild(opt);
+                        }
+                        paTenantSelect.value = String(tid);
+                    }
+                    if (paApplyBtn) paApplyBtn.click();
+                };
+            }
+
             if (paClearBtn) {
                 paClearBtn.onclick = function () {
                     self.activeTenantId = 0;
                     if (paTenantSelect) paTenantSelect.value = '';
+                    if (paTenantInput) paTenantInput.value = '';
                     paClearBtn.style.display = 'none';
                     if (paBanner) paBanner.style.display = 'none';
                     const formTenantEl = document.getElementById('entityTenantId');
@@ -98,6 +129,13 @@
         addresses: CONFIG.addressesApi || '/api/addresses',
         images: '/api/images'
     };
+
+    function withPlatformTenant(url) {
+        if (!CONFIG.isPlatformAdmin) return url;
+        const tenantParam = platformAdmin.tenantParam();
+        if (!tenantParam) return url;
+        return url + (url.includes('?') ? '&' : '?') + tenantParam;
+    }
 
     const state = {
         page: 1,
@@ -492,13 +530,24 @@
             showLoading();
 
             state.page = page;
+            if (CONFIG.isPlatformAdmin && (!platformAdmin.getTenantId() || platformAdmin.getTenantId() <= 0)) {
+                state.entities = [];
+                state.total = 0;
+                updatePagination({ page: 1, per_page: state.perPage, total: 0 });
+                updateResultsCount(0);
+                showEmpty();
+                return;
+            }
+
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
-                tenant_id: platformAdmin.getTenantId(),
                 lang: state.language,
                 format: 'json'
             });
+            if (CONFIG.isPlatformAdmin) {
+                params.set('tenant_id', platformAdmin.getTenantId());
+            }
 
             Object.entries(state.filters).forEach(([key, val]) => {
                 if (val !== undefined && val !== null && val !== '') {
@@ -561,11 +610,16 @@
 
             // Load parent entities for the searchable dropdown
             try {
-                const entitiesResult = await apiCall(`${API.entities}?limit=500&lang=${state.language}&${platformAdmin.tenantParam()}`);
+                if (CONFIG.isPlatformAdmin && (!platformAdmin.getTenantId() || platformAdmin.getTenantId() <= 0)) {
+                    state.allEntities = [];
+                    populateParentEntitySelect(state.allEntities);
+                } else {
+                const entitiesResult = await apiCall(withPlatformTenant(`${API.entities}?limit=500&lang=${state.language}`));
                 if (entitiesResult.success) {
                     const entData = entitiesResult.data?.items || entitiesResult.data || [];
                     state.allEntities = Array.isArray(entData) ? entData : [];
                     populateParentEntitySelect(state.allEntities);
+                }
                 }
             } catch (entErr) {
                 console.warn('[Entities] Failed to load parent entities list:', entErr);
@@ -709,7 +763,7 @@
             return;
         }
 
-        const isSuperAdmin = state.permissions.isSuperAdmin;
+        const isPlatformAdmin = !!state.permissions.isPlatformAdmin || !!CONFIG.isPlatformAdmin;
 
         el.tbody.innerHTML = items.map(entity => {
             const logo = entity.entity_logo || null;
@@ -751,7 +805,7 @@
             return `
                 <tr data-id="${entity.id}">
                     <td>${esc(entity.id)}</td>
-                    ${isSuperAdmin ? `<td>${esc(entity.tenant_id || '')}</td>` : ''}
+                    ${isPlatformAdmin ? `<td>${esc(entity.tenant_id || '')}</td>` : ''}
                     <td>
                         ${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '🏢'}
                     </td>
@@ -761,8 +815,8 @@
                     <td>${esc(entity.vendor_type || '-')}</td>
                     <td>${esc(phone)}</td>
                     <td>${esc(email)}</td>
-                    <td>${statusBadge}</td>
-                    <td>${verifiedBadge}</td>
+                    ${isPlatformAdmin ? `<td>${statusBadge}</td>` : ''}
+                    ${isPlatformAdmin ? `<td>${verifiedBadge}</td>` : ''}
                     <td>
                         <div class="table-actions">
                             ${canEdit ? `<button class="btn btn-sm btn-secondary" onclick="Entities.edit(${entity.id})" title="${t('table.actions.edit', 'Edit')}">
@@ -970,7 +1024,7 @@
             resultEl.className = 'parent-validation-result validation-loading';
             resultEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('messages.validating', 'Validating...');
 
-            const result = await apiCall(`${API.entities}?validate_parent=${encodeURIComponent(parentId)}&${platformAdmin.tenantParam()}&lang=${state.language}`);
+            const result = await apiCall(withPlatformTenant(`${API.entities}?validate_parent=${encodeURIComponent(parentId)}&lang=${state.language}`));
 
             if (result.success && result.data && result.data.valid) {
                 const parent = result.data.parent;
@@ -1044,6 +1098,10 @@
             const formData = new FormData(el.form);
             const entityId = el.formId.value;
             const isEdit = !!entityId;
+            if (CONFIG.isPlatformAdmin && (!platformAdmin.getTenantId() || platformAdmin.getTenantId() <= 0)) {
+                showNotification('Select a tenant before saving this entity', 'error');
+                return;
+            }
 
             // التحقق من parent_id عند اختيار فرع
             if (formData.get('entity_type') === 'branch') {
@@ -1083,17 +1141,14 @@
                 store_type: formData.get('store_type') || 'individual',
                 registration_number: formData.get('registration_number') || null,
                 tax_number: formData.get('tax_number') || null,
-                tenant_id: parseInt(formData.get('tenant_id'), 10) || platformAdmin.getTenantId() || state.tenantId,
                 user_id: formData.get('user_id') || state.userId,
-                status: formData.get('status') || 'pending',
-                is_verified: formData.get('is_verified') || '0',
                 timezone_id: formData.get('timezone_id') ? parseInt(formData.get('timezone_id'), 10) : null,
 
                 phone: formData.get('phone'),
                 mobile: formData.get('mobile') || null,
                 email: formData.get('email'),
                 website_url: formData.get('website_url') || null,
-                suspension_reason: formData.get('suspension_reason') || null,
+                suspension_reason: CONFIG.isPlatformAdmin ? (formData.get('suspension_reason') || null) : null,
 
                 entity_logo: mediaUrls.logo,
                 entity_cover: mediaUrls.cover,
@@ -1109,8 +1164,12 @@
             if (isEdit) {
                 entityData.id = entityId;
             }
+            if (CONFIG.isPlatformAdmin) {
+                entityData.status = formData.get('status') || 'pending';
+                entityData.is_verified = formData.get('is_verified') || '0';
+            }
 
-            const url = API.entities;
+            const url = withPlatformTenant(API.entities);
             const method = isEdit ? 'PUT' : 'POST';
 
             const result = await apiCall(url, {
@@ -1174,7 +1233,7 @@
                 featured_in_app: document.getElementById('settingFeaturedInApp')?.value === '1' ? 1 : 0
             };
 
-            await apiCall(API.settings, {
+            await apiCall(withPlatformTenant(API.settings), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings)
@@ -1190,7 +1249,7 @@
 
             if (isEdit) {
                 try {
-                    await apiCall(`${API.workingHours}?entity_id=${entityId}`, {
+                    await apiCall(withPlatformTenant(`${API.workingHours}?entity_id=${entityId}`), {
                         method: 'DELETE'
                     });
                 } catch (err) {
@@ -1207,7 +1266,7 @@
                     close_time: wh.close_time || null
                 };
 
-                await apiCall(API.workingHours, {
+                await apiCall(withPlatformTenant(API.workingHours), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(whData)
@@ -1224,7 +1283,7 @@
 
             if (isEdit) {
                 try {
-                    await apiCall(`${API.attributeValues}?entity_id=${entityId}`, {
+                    await apiCall(withPlatformTenant(`${API.attributeValues}?entity_id=${entityId}`), {
                         method: 'DELETE'
                     });
                 } catch (err) {
@@ -1241,7 +1300,7 @@
                     value: attr.value || ''
                 };
 
-                await apiCall(API.attributeValues, {
+                await apiCall(withPlatformTenant(API.attributeValues), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(attrData)
@@ -1257,7 +1316,7 @@
             // Delete removed translations
             for (const deletedId of state.deletedTranslationIds) {
                 try {
-                    await apiCall(`/api/entity_translations`, {
+                    await apiCall(withPlatformTenant(`/api/entity_translations`), {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: deletedId })
@@ -1271,7 +1330,7 @@
             // Check existing translations
             let existingTranslations = [];
             try {
-                const existing = await apiCall(`${API.entities}/../entity_translations?entity_id=${entityId}`);
+                const existing = await apiCall(withPlatformTenant(`${API.entities}/../entity_translations?entity_id=${entityId}`));
                 if (existing.success) {
                     existingTranslations = Array.isArray(existing.data) ? existing.data : [];
                 }
@@ -1295,7 +1354,7 @@
                     transData.id = parseInt(existingTrans.id);
                 }
 
-                await apiCall(`${API.entities}/../entity_translations`, {
+                await apiCall(withPlatformTenant(`${API.entities}/../entity_translations`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(transData)
@@ -1315,13 +1374,13 @@
                 ...state.addressData,
                 owner_type: 'entity',
                 owner_id: parseInt(entityId),
-                tenant_id: state.tenantId
+                tenant_id: platformAdmin.getTenantId() || state.tenantId
             };
 
             // Check if address already exists for this entity
             if (!addressData.id) {
                 try {
-                    const existing = await apiCall(`${API.addresses}?owner_type=entity&owner_id=${entityId}&format=json`);
+                    const existing = await apiCall(withPlatformTenant(`${API.addresses}?owner_type=entity&owner_id=${entityId}&format=json`));
                     if (existing.success && existing.data) {
                         // API might return array or single object depending on pagination
                         const existingItems = Array.isArray(existing.data) ? existing.data : (existing.data.items || []);
@@ -1352,7 +1411,7 @@
             const method = addressData.id ? 'PUT' : 'POST';
             console.log(`[Entities] Saving address (${method})`, addressData);
 
-            await apiCall(API.addresses, {
+            await apiCall(withPlatformTenant(API.addresses), {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(addressData)
@@ -2120,7 +2179,7 @@
 
     async function loadEntityTranslations(entityId) {
         try {
-            const result = await apiCall(`/api/entity_translations?entity_id=${entityId}&format=json`);
+            const result = await apiCall(withPlatformTenant(`/api/entity_translations?entity_id=${entityId}&format=json`));
             if (result.success) {
                 const items = Array.isArray(result.data) ? result.data : (result.data?.items || []);
                 if (el.entityTranslations) el.entityTranslations.innerHTML = '';
@@ -2151,7 +2210,7 @@
 
     async function loadEntityAttributes(entityId) {
         try {
-            const result = await apiCall(`${API.attributeValues}?entity_id=${entityId}&format=json`);
+            const result = await apiCall(withPlatformTenant(`${API.attributeValues}?entity_id=${entityId}&format=json`));
             if (result.success) {
                 let items = [];
                 if (Array.isArray(result.data)) {
@@ -2184,7 +2243,7 @@
 
     async function loadEntitySettings(entityId) {
         try {
-            const result = await apiCall(`${API.settings}?entity_id=${entityId}&format=json`);
+            const result = await apiCall(withPlatformTenant(`${API.settings}?entity_id=${entityId}&format=json`));
             if (result.success && result.data) {
                 const settings = result.data;
                 state.entitySettings = settings;
@@ -2206,7 +2265,7 @@
 
     async function loadEntityWorkingHours(entityId) {
         try {
-            const result = await apiCall(`${API.workingHours}?entity_id=${entityId}&format=json`);
+            const result = await apiCall(withPlatformTenant(`${API.workingHours}?entity_id=${entityId}&format=json`));
             if (result.success) {
                 const items = Array.isArray(result.data) ? result.data : [];
 
@@ -2242,7 +2301,7 @@
         }
 
         try {
-            const result = await apiCall(API.entities, {
+            const result = await apiCall(withPlatformTenant(API.entities), {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: id })
@@ -2624,7 +2683,7 @@
         add: () => showForm(),
         edit: async (id) => {
             try {
-                const result = await apiCall(`${API.entities}?id=${id}&format=json&lang=${state.language}&${platformAdmin.tenantParam()}`);
+                const result = await apiCall(withPlatformTenant(`${API.entities}?id=${id}&format=json&lang=${state.language}`));
                 if (result.success && result.data) {
                     showForm(result.data);
                 } else {
