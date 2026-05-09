@@ -24,6 +24,8 @@ if (!$pdo instanceof PDO) {
  $service = new EntitySettingsService($repo);
  $controller = new EntitySettingsController($service);
 
+
+
 // ================================
 // Handle request
 // ================================
@@ -34,6 +36,21 @@ try {
 
     // 🔒 SECURITY: Resolve tenant ID
     $tenantId = resolve_tenant_id();
+    if (($tenantId === null || $tenantId <= 0) && is_platform_admin()) {
+        $entityIdForScope = null;
+        if (isset($_GET['entity_id']) && is_numeric($_GET['entity_id'])) {
+            $entityIdForScope = (int)$_GET['entity_id'];
+        } elseif (isset($data['entity_id']) && is_numeric($data['entity_id'])) {
+            $entityIdForScope = (int)$data['entity_id'];
+        }
+        if ($entityIdForScope !== null && $entityIdForScope > 0) {
+            $tenantId = $controller->getTenantIdByEntityId($entityIdForScope);
+        }
+    }
+    if ($tenantId === null || $tenantId <= 0) {
+        ResponseFormatter::error('A valid tenant context is required', 400);
+        exit;
+    }
 
     $page    = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit   = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
@@ -101,7 +118,7 @@ try {
                 // 🔒 SECURITY: Verify entity ownership
                 verify_entity_ownership($pdo, $entityId, $tenantId);
                 
-                $item = $controller->get($entityId);
+                $item = $controller->get($entityId, $tenantId);
                 if ($item) {
                     ResponseFormatter::success($item);
                 } else {
@@ -121,7 +138,7 @@ try {
                 }
             } else {
                 // 🔒 SECURITY: In list view, ensure tenant filtering is enforced in the service/repo
-                $result = $controller->list($limit, $offset, $filters, $orderBy, $orderDir);
+                $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir);
                 $total = $result['meta']['total'];
                 ResponseFormatter::success([
                     'items' => $result['items'],
@@ -149,7 +166,7 @@ try {
             verify_entity_ownership($pdo, $entityId, $tenantId);
             
             unset($data['entity_id']);
-            $created = $controller->create($entityId, $data);
+            $created = $controller->create($entityId, $tenantId, $data);
             ResponseFormatter::success(['id' => $entityId], 'Created successfully', 201);
             break;
 
@@ -164,7 +181,7 @@ try {
             verify_entity_ownership($pdo, $entityId, $tenantId);
             
             unset($data['entity_id']);
-            $updated = $controller->update($entityId, $data);
+            $updated = $controller->update($entityId, $tenantId, $data);
             ResponseFormatter::success(['id' => $entityId], 'Updated successfully');
             break;
 
@@ -178,7 +195,7 @@ try {
             // 🔒 SECURITY: Verify entity ownership
             verify_entity_ownership($pdo, $entityId, $tenantId);
             
-            $deleted = $controller->delete($entityId);
+            $deleted = $controller->delete($entityId, $tenantId);
             ResponseFormatter::success(['deleted' => $deleted], 'Deleted successfully');
             break;
 
@@ -190,8 +207,8 @@ try {
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','entity_settings.runtime', ['error'=>$e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (ApplicationException|\RuntimeException $e) {
+    ResponseFormatter::error('Request could not be completed', 400);
+} catch (\Throwable $e) {
     safe_log('critical','entity_settings.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error', 500);
 }
