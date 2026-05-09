@@ -49,15 +49,18 @@ $isSuperAdmin    = is_super_admin();
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
 $userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
-// Platform reports are restricted to platform admin/staff only
-if (!$isPlatformAdmin) {
+// Allow platform admins and tenant admins with a valid tenant context.
+// Block users who are neither.
+$isTenantAdmin = !$isPlatformAdmin && $tenantId > 0;
+
+if (!$isPlatformAdmin && !$isTenantAdmin) {
     if ($isFragment) {
         http_response_code(403);
-        echo json_encode(['error' => 'Access restricted to platform administrators']);
+        echo json_encode(['error' => 'Access restricted to platform or tenant administrators']);
         exit;
     }
     http_response_code(403);
-    die('Access restricted to platform administrators');
+    die('Access restricted to platform or tenant administrators');
 }
 
 $apiBase = '/api';
@@ -163,7 +166,7 @@ if (file_exists($langFile)) {
                     <option value="entities_performance"><?= __t('entities_performance', 'Entities Performance') ?></option>
                     <option value="customer_behavior"><?= __t('customer_behavior', 'Customer Behavior') ?></option>
                     <option value="delivery_performance"><?= __t('delivery_performance', 'Delivery Performance') ?></option>
-                    <?php if ($isSuperAdmin): ?>
+                    <?php if ($isPlatformAdmin): ?>
                     <option value="platform_health"><?= __t('platform_health', 'Platform Health') ?></option>
                     <?php endif; ?>
                 </select>
@@ -188,7 +191,7 @@ if (file_exists($langFile)) {
                 </select>
             </div>
 
-            <?php if ($isSuperAdmin): ?>
+            <?php if ($isPlatformAdmin): ?>
             <div class="pr-filter-group pr-tenant-search">
                 <label for="prTenantSearch"><?= __t('tenant', 'Tenant') ?></label>
                 <input type="text" id="prTenantSearch" class="pr-input" placeholder="<?= __t('search_tenant', 'Search tenant by name or ID...') ?>" autocomplete="off">
@@ -278,8 +281,9 @@ if (file_exists($langFile)) {
     // Pass PHP variables to JS
     window.__PR_CONFIG = {
         apiBase: <?= json_encode($apiBase) ?>,
-        tenantId: <?= json_encode($isSuperAdmin ? '' : ($tenantId ?: '')) ?>,
-        isSuperAdmin: <?= json_encode($isSuperAdmin) ?>,
+        tenantId: <?= json_encode($isPlatformAdmin ? '' : (int)$tenantId) ?>,
+        isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+        isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
         lang: <?= json_encode($lang) ?>,
         dir: <?= json_encode($dir) ?>,
         strings: <?= json_encode($_PR_LANG) ?>

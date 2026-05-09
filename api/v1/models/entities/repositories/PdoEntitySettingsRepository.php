@@ -8,7 +8,7 @@ final class PdoEntitySettingsRepository
     // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
         'entity_id', 'min_order_amount', 'delivery_radius_km', 
-        'created_at', 'updated_at', 'auto_accept_orders', 
+        'auto_accept_orders', 
         'allow_cod', 'is_visible', 'maintenance_mode'
     ];
 
@@ -29,8 +29,15 @@ final class PdoEntitySettingsRepository
         string $orderDir = 'DESC'
     ): array {
         $sql = "
-            SELECT es.*,
+            SELECT es.entity_id,
                    es.entity_id AS id,
+                   es.auto_accept_orders, es.allow_cod, es.min_order_amount,
+                   es.preparation_time_minutes, es.allow_online_booking, es.booking_window_days,
+                   es.max_bookings_per_slot, es.booking_cancellation_allowed, es.allow_preorders,
+                   es.max_daily_orders, es.is_visible, es.maintenance_mode, es.show_reviews,
+                   es.show_contact_info, es.featured_in_app, es.default_payment_method,
+                   es.allow_multiple_payment_methods, es.delivery_radius_km, es.free_delivery_min_order,
+                   es.notification_preferences, es.additional_settings, es.card_style_id,
                    e.store_name,
                    e.status,
                    e.email
@@ -246,7 +253,14 @@ final class PdoEntitySettingsRepository
     public function find(int $entityId, int $tenantId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT es.*,
+            SELECT es.entity_id,
+                   es.auto_accept_orders, es.allow_cod, es.min_order_amount,
+                   es.preparation_time_minutes, es.allow_online_booking, es.booking_window_days,
+                   es.max_bookings_per_slot, es.booking_cancellation_allowed, es.allow_preorders,
+                   es.max_daily_orders, es.is_visible, es.maintenance_mode, es.show_reviews,
+                   es.show_contact_info, es.featured_in_app, es.default_payment_method,
+                   es.allow_multiple_payment_methods, es.delivery_radius_km, es.free_delivery_min_order,
+                   es.notification_preferences, es.additional_settings, es.card_style_id,
                    e.store_name,
                    e.status,
                    e.email
@@ -310,8 +324,7 @@ final class PdoEntitySettingsRepository
         if ($isUpdate) {
             $sql = "
                 UPDATE entity_settings SET 
-                    " . implode(', ', $setClauses) . ",
-                    updated_at = CURRENT_TIMESTAMP
+                    " . implode(', ', $setClauses) . "
                 WHERE entity_id = :entity_id
                   AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
             ";

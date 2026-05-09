@@ -248,6 +248,9 @@ if (!function_exists('verify_entity_ownership')) {
 
         try {
             // 💡 Architecture: Move DB calls to Repositories
+            if (!class_exists('BaseRepository')) {
+                require_once dirname(__DIR__, 2) . '/shared/core/BaseRepository.php';
+            }
             if (!class_exists('PdoEntitiesRepository')) {
                 require_once dirname(__DIR__, 2) . '/v1/models/entities/repositories/PdoEntitiesRepository.php';
             }

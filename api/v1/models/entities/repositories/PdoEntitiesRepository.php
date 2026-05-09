@@ -5,7 +5,7 @@ final class PdoEntitiesRepository extends BaseRepository
 {
 
     private const ALLOWED_ORDER_BY = [
-        'id','store_name','status','is_verified','joined_at','created_at'
+        'id','store_name','status','is_verified','joined_at'
     ];
 
     private const FILTERABLE_COLUMNS = [
@@ -56,8 +56,6 @@ final class PdoEntitiesRepository extends BaseRepository
                    e.is_verified,
                    e.joined_at,
                    e.approved_at,
-                   e.created_at,
-                   e.updated_at,
                    et.description,
                    et.meta_title,
                    et.meta_description,
@@ -173,8 +171,6 @@ final class PdoEntitiesRepository extends BaseRepository
                    e.is_verified,
                    e.joined_at,
                    e.approved_at,
-                   e.created_at,
-                   e.updated_at,
                    et.description,
                    et.meta_title,
                    et.meta_description,
@@ -216,8 +212,7 @@ final class PdoEntitiesRepository extends BaseRepository
                     branch_code = :branch_code, status = :status, vendor_type = :vendor_type,
                     store_type = :store_type, registration_number = :registration_number, tax_number = :tax_number,
                     phone = :phone, mobile = :mobile, email = :email, website_url = :website_url,
-                    suspension_reason = :suspension_reason, is_verified = :is_verified, timezone_id = :timezone_id,
-                    updated_at = CURRENT_TIMESTAMP
+                    suspension_reason = :suspension_reason, is_verified = :is_verified, timezone_id = :timezone_id
                 WHERE id = :id";
 
             $sql .= " AND tenant_id = :tenant_id";
@@ -305,8 +300,8 @@ final class PdoEntitiesRepository extends BaseRepository
         $st = $this->pdo->prepare(
             'INSERT INTO entities
                 (parent_id, tenant_id, user_id, store_name, slug, vendor_type, store_type,
-                 phone, email, website_url, status, is_verified, joined_at, created_at, updated_at)
-             VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", 0, NOW(), NOW(), NOW())'
+                 phone, email, website_url, status, is_verified, joined_at)
+             VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", 0, NOW())'
         );
         $st->execute([
             $tenantId, $userId, $storeName, $slug,

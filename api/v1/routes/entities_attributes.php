@@ -165,10 +165,13 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning','entities_attributes.validation', ['error'=>$e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
+} catch (DatabaseException|\PDOException $e) {
+    safe_log('error','entities_attributes.db_error', ['error'=>$e->getMessage()]);
+    ResponseFormatter::error('Database error', 500);
 } catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','entities_attributes.runtime', ['error'=>$e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (ApplicationException|\RuntimeException $e) {
+    ResponseFormatter::error('Request could not be completed', 400);
+} catch (\Throwable $e) {
     safe_log('critical','entities_attributes.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error', 500);
 }

@@ -78,8 +78,14 @@ try {
         default:
             ResponseFormatter::error('Method not allowed',405);
     }
+} catch (DatabaseException|\PDOException $e) {
+    safe_log('error','entity_types.db_error', ['error'=>$e->getMessage()]);
+    ResponseFormatter::error('Database error',500);
 } catch (ApplicationException|\RuntimeException $e) {
     safe_log('error','entity_types', ['error'=>$e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(),500);
+    ResponseFormatter::error('Request could not be completed',400);
+} catch (\Throwable $e) {
+    safe_log('critical','entity_types.fatal', ['error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);
+    ResponseFormatter::error('Internal Server Error',500);
 }
 
