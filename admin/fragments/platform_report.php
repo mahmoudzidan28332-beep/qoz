@@ -97,6 +97,47 @@ if (file_exists($langFile)) {
 
 <div id="platformReportApp" class="pr-container" dir="<?= htmlspecialchars($dir) ?>" data-dir="<?= htmlspecialchars($dir) ?>">
 
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="paTenantIdInput" class="form-control" min="1"
+                           placeholder="<?= __t('platform_admin.tenant_id_placeholder', 'Enter tenant ID') ?>">
+                    <button type="button" id="paLookupTenantBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-search"></i>
+                        <?= __t('platform_admin.lookup_tenant', 'Lookup') ?>
+                    </button>
+                </div>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', 'Select tenant') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-shield"></i>
+                    <?= __t('platform_admin.act_on_behalf', 'Filter by Tenant') ?>
+                </button>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-secondary" style="margin-left:8px;display:none">
+                    <i class="fas fa-times"></i> <?= __t('platform_admin.clear_context', 'Clear') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" style="display:none;padding:8px 12px;background:rgba(255,152,0,0.15);border:1px solid #ff9800;border-radius:6px;margin-top:8px;color:#ff9800;font-size:0.9rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
     <!-- Page Header -->
     <div class="pr-page-header">
         <h2 class="pr-page-title"><?= __t('page_title', 'Platform Reports & Analytics') ?></h2>
@@ -192,12 +233,7 @@ if (file_exists($langFile)) {
             </div>
 
             <?php if ($isPlatformAdmin): ?>
-            <div class="pr-filter-group pr-tenant-search">
-                <label for="prTenantSearch"><?= __t('tenant', 'Tenant') ?></label>
-                <input type="text" id="prTenantSearch" class="pr-input" placeholder="<?= __t('search_tenant', 'Search tenant by name or ID...') ?>" autocomplete="off">
-                <input type="hidden" id="prTenantId" value="">
-                <div id="prTenantDropdown" class="pr-autocomplete-dropdown" style="display:none;"></div>
-            </div>
+            <input type="hidden" id="prTenantId" value="">
             <?php else: ?>
             <div class="pr-filter-group">
                 <label for="prTenantDisplay"><?= __t('tenant', 'Tenant') ?></label>

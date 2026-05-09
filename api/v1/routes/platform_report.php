@@ -5,7 +5,12 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/SeoAutoManager.php';
 require_once $baseDir . '/shared/config/db.php';
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
 
 $modelsPath = API_VERSION_PATH . '/models/platform_report';
 require_once $modelsPath . '/repositories/PdoPlatformReportRepository (1).php';
