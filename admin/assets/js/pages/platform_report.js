@@ -57,6 +57,73 @@
             var paBanner       = document.getElementById('paActiveTenantBanner');
             var paLabel        = document.getElementById('paActiveTenantLabel');
             var hiddenTenant   = document.getElementById('prTenantId');
+            var cfgTenantId    = CFG.tenantId ? parseInt(CFG.tenantId, 10) : 0;
+
+            function applyTenantContext(tid, labelText) {
+                self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
+                if (paTenantInput && self.activeTenantId) paTenantInput.value = self.activeTenantId;
+                if (hiddenTenant) hiddenTenant.value = self.activeTenantId || '';
+                if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
+                if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
+                if (paLabel && self.activeTenantId) {
+                    if (labelText) {
+                        paLabel.textContent = 'Active tenant: ' + labelText;
+                    } else {
+                        var opt = paTenantSelect && paTenantSelect.options[paTenantSelect.selectedIndex];
+                        paLabel.textContent = 'Active tenant: ' + (opt && opt.value ? opt.textContent : '#' + self.activeTenantId);
+                    }
+                }
+                loadEntities(self.activeTenantId || undefined);
+            }
+
+            function upsertTenantOption(tid, tenantName) {
+                if (!paTenantSelect || !tid) return null;
+                var existing = null;
+                Array.prototype.forEach.call(paTenantSelect.options, function (opt) {
+                    if (parseInt(opt.value, 10) === tid) existing = opt;
+                });
+                if (existing) {
+                    if (tenantName) existing.textContent = tenantName + ' (#' + tid + ')';
+                    return existing;
+                }
+                var opt = document.createElement('option');
+                opt.value = tid;
+                opt.textContent = tenantName ? (tenantName + ' (#' + tid + ')') : ('Tenant #' + tid);
+                paTenantSelect.appendChild(opt);
+                return opt;
+            }
+
+            function lookupTenantById(tid, autoApply) {
+                if (!tid || tid <= 0) return Promise.resolve();
+                return fetch(API_BASE + '/tenants?id=' + encodeURIComponent(tid), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        var tenant = null;
+                        if (res && res.data) {
+                            if (Array.isArray(res.data)) {
+                                tenant = res.data[0] || null;
+                            } else if (Array.isArray(res.data.items)) {
+                                tenant = res.data.items[0] || null;
+                            } else if (typeof res.data === 'object') {
+                                tenant = res.data;
+                            }
+                        }
+                        var tenantName = tenant ? (tenant.tenant_name || tenant.name || '') : '';
+                        var opt = upsertTenantOption(tid, tenantName);
+                        if (paTenantSelect) paTenantSelect.value = String(tid);
+                        if (autoApply) {
+                            var label = (opt && opt.textContent) ? opt.textContent : ('#' + tid);
+                            applyTenantContext(tid, label);
+                        }
+                    })
+                    .catch(function () {
+                        upsertTenantOption(tid, '');
+                        if (paTenantSelect) paTenantSelect.value = String(tid);
+                        if (autoApply) applyTenantContext(tid);
+                    });
+            }
 
             // Load tenants into select
             fetch(API_BASE + '/tenants?limit=500&order_by=id&order_dir=ASC', {
@@ -71,24 +138,28 @@
                         opt.textContent = (tn.tenant_name || tn.name || '') + ' (#' + (tn.tenant_id || tn.id) + ')';
                         if (paTenantSelect) paTenantSelect.appendChild(opt);
                     });
+                    if (cfgTenantId > 0 && !self.activeTenantId) {
+                        if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                        applyTenantContext(cfgTenantId);
+                    }
                 })
-                .catch(function () {});
+                .catch(function () {
+                    if (cfgTenantId > 0) {
+                        lookupTenantById(cfgTenantId, true);
+                    }
+                });
+
+            if (cfgTenantId > 0) {
+                if (paTenantInput) paTenantInput.value = cfgTenantId;
+                lookupTenantById(cfgTenantId, true);
+            }
 
             if (paApplyBtn) {
                 paApplyBtn.onclick = function () {
                     var inputTid  = paTenantInput  ? parseInt(paTenantInput.value,  10) : 0;
                     var selectTid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
                     var tid = (!isNaN(inputTid) && inputTid > 0) ? inputTid : selectTid;
-                    self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
-                    if (paTenantInput && self.activeTenantId) paTenantInput.value = self.activeTenantId;
-                    if (hiddenTenant) hiddenTenant.value = self.activeTenantId || '';
-                    if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
-                    if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
-                    if (paLabel && self.activeTenantId) {
-                        var opt = paTenantSelect && paTenantSelect.options[paTenantSelect.selectedIndex];
-                        paLabel.textContent = 'Active tenant: ' + (opt && opt.value ? opt.textContent : '#' + self.activeTenantId);
-                    }
-                    loadEntities(self.activeTenantId || undefined);
+                    applyTenantContext(tid);
                 };
             }
 
@@ -96,20 +167,7 @@
                 paLookupBtn.onclick = function () {
                     var tid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
                     if (!tid || tid <= 0) return;
-                    if (paTenantSelect) {
-                        var found = false;
-                        Array.prototype.forEach.call(paTenantSelect.options, function (opt) {
-                            if (parseInt(opt.value, 10) === tid) found = true;
-                        });
-                        if (!found) {
-                            var opt = document.createElement('option');
-                            opt.value = tid;
-                            opt.textContent = 'Tenant #' + tid;
-                            paTenantSelect.appendChild(opt);
-                        }
-                        paTenantSelect.value = String(tid);
-                    }
-                    if (paApplyBtn) paApplyBtn.click();
+                    lookupTenantById(tid, true);
                 };
             }
 

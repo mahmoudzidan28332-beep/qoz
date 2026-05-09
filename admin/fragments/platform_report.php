@@ -317,7 +317,7 @@ if (file_exists($langFile)) {
     // Pass PHP variables to JS
     window.__PR_CONFIG = {
         apiBase: <?= json_encode($apiBase) ?>,
-        tenantId: <?= json_encode($isPlatformAdmin ? '' : (int)$tenantId) ?>,
+        tenantId: <?= json_encode((int)$tenantId) ?>,
         isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
         isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
         lang: <?= json_encode($lang) ?>,
