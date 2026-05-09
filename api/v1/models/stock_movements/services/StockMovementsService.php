@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 final class StockMovementsService
 {
-    private PdoStockMovementsRepository $movements;
+    private $movements;
 
     public function __construct(PDO $pdo)
     {
@@ -28,9 +28,9 @@ final class StockMovementsService
         return $this->movements->list($limit, $offset, $filters, $orderBy, $orderDir);
     }
 
-    public function getMovement(int $id, int $tenantId = 0): ?array
+    public function getMovement(int $id): ?array
     {
-        return $this->movements->find($id, $tenantId);
+        return $this->movements->find($id);
     }
 
     public function createMovement(array $data): int
@@ -38,18 +38,18 @@ final class StockMovementsService
         return $this->movements->create($data);
     }
 
-    public function deleteMovement(int $id, int $tenantId = 0): bool
+    public function deleteMovement(int $id): bool
     {
-        $existing = $this->movements->find($id, $tenantId);
+        $existing = $this->movements->find($id);
         if (!$existing) {
             throw new ApplicationException("Stock movement not found with ID: $id");
         }
         return $this->movements->delete($id);
     }
 
-    public function getByProduct(int $productId, int $tenantId = 0): array
+    public function getByProduct(int $productId): array
     {
-        return $this->movements->getByProduct($productId, $tenantId);
+        return $this->movements->getByProduct($productId);
     }
 
     public function movementStats(array $filters = []): array
@@ -67,9 +67,9 @@ final class StockMovementsService
         return $this->movements->lookupBySku($sku, $lang, $entityId);
     }
 
-    public function findWithProductName(int $id, int $tenantId = 0): ?array
+    public function findWithProductName(int $id): ?array
     {
-        return $this->movements->findWithProductName($id, $tenantId);
+        return $this->movements->findWithProductName($id);
     }
 
     public function listPaginated(array $filters, int $limit, int $offset): array

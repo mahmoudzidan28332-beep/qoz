@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EntityProductVariantsService
 {
-    private PdoEntityProductVariantsRepository $repo;
+    private $repo;
 
     public function __construct(PdoEntityProductVariantsRepository $repo)
     {

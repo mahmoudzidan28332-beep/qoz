@@ -60,11 +60,12 @@ final class PdoEntityTranslationsRepository
             ) 
             SELECT :entity_id, :language_code, :store_name, :description, :meta_title, :meta_description
             FROM (SELECT 1) AS dummy
-            WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
+            WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
         ");
 
         $stmt->execute([
             ':entity_id' => $data['entity_id'],
+            ':entity_id2' => $data['entity_id'],
             ':language_code' => $data['language_code'],
             ':store_name' => $data['store_name'] ?? '',
             ':description' => $data['description'] ?? null,
@@ -110,5 +111,13 @@ final class PdoEntityTranslationsRepository
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
         return $stmt->execute();
+    }
+
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT tenant_id FROM entities WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $entityId]);
+        $tenantId = $stmt->fetchColumn();
+        return $tenantId !== false ? (int)$tenantId : null;
     }
 }

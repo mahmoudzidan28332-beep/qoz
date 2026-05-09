@@ -21,13 +21,14 @@ final class EntitySettingsController
      * @return array
      */
     public function list(
+        int $tenantId,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'entity_id',
         string $orderDir = 'DESC'
     ): array {
-        return $this->service->list($limit, $offset, $filters, $orderBy, $orderDir);
+        return $this->service->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir);
     }
 
     /**
@@ -36,9 +37,20 @@ final class EntitySettingsController
      * @param int $entityId
      * @return array|null
      */
-    public function get(int $entityId): ?array
+    public function get(int $entityId, int $tenantId): ?array
     {
-        return $this->service->get($entityId);
+        return $this->service->get($entityId, $tenantId);
+    }
+
+    /**
+     * Get tenant ID by entity ID
+     *
+     * @param int $entityId
+     * @return int|null
+     */
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        return $this->service->getTenantIdByEntityId($entityId);
     }
 
     /**
@@ -48,9 +60,9 @@ final class EntitySettingsController
      * @param array $data
      * @return bool
      */
-    public function create(int $entityId, array $data): bool
+    public function create(int $entityId, int $tenantId, array $data): bool
     {
-        return $this->service->create($entityId, $data);
+        return $this->service->create($entityId, $tenantId, $data);
     }
 
     /**
@@ -60,9 +72,9 @@ final class EntitySettingsController
      * @param array $data
      * @return bool
      */
-    public function update(int $entityId, array $data): bool
+    public function update(int $entityId, int $tenantId, array $data): bool
     {
-        return $this->service->update($entityId, $data);
+        return $this->service->update($entityId, $tenantId, $data);
     }
 
     /**
@@ -71,9 +83,9 @@ final class EntitySettingsController
      * @param int $entityId
      * @return bool
      */
-    public function delete(int $entityId): bool
+    public function delete(int $entityId, int $tenantId): bool
     {
-        return $this->service->delete($entityId);
+        return $this->service->delete($entityId, $tenantId);
     }
 
     /**
@@ -83,8 +95,8 @@ final class EntitySettingsController
      * @param string $field
      * @return bool
      */
-    public function toggle(int $entityId, string $field): bool
+    public function toggle(int $entityId, int $tenantId, string $field): bool
     {
-        return $this->service->toggle($entityId, $field);
+        return $this->service->toggle($entityId, $tenantId, $field);
     }
 }

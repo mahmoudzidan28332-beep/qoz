@@ -43,10 +43,6 @@ final class EntityProductQueryRepository
             if (!isset($filters[$col]) || $filters[$col] === '') {
                 continue;
             }
-            // tenant_id = 0 means platform-admin global view — skip the filter
-            if ($col === 'tenant_id' && (int) $filters[$col] === 0) {
-                continue;
-            }
             if (is_numeric($filters[$col])) {
                 $sql .= " AND ep.{$col} = :{$col}";
                 $params[":{$col}"] = (int) $filters[$col];
@@ -91,7 +87,7 @@ final class EntityProductQueryRepository
         string $orderBy  = 'id',
         string $orderDir = 'DESC',
     ): array {
-        if (!array_key_exists('tenant_id', $filters)) {
+        if (empty($filters['tenant_id'])) {
             return [];
         }
 
@@ -131,7 +127,7 @@ final class EntityProductQueryRepository
      */
     public function count(array $filters = []): int
     {
-        if (!array_key_exists('tenant_id', $filters)) {
+        if (empty($filters['tenant_id'])) {
             return 0;
         }
 

@@ -10,18 +10,23 @@ final class EntityTranslationsController
         $this->service = $service;
     }
 
-    public function getByEntity(int $entityId): array
+    public function getByEntity(int $entityId, int $tenantId): array
     {
-        return $this->service->getByEntity($entityId);
+        return $this->service->getByEntity($entityId, $tenantId);
     }
 
-    public function save(array $data): int
+    public function save(array $data, int $tenantId): int
     {
-        return $this->service->save($data);
+        return $this->service->save($data, $tenantId);
     }
 
-    public function delete(int $id): bool
+    public function delete(int $id, int $tenantId): bool
     {
-        return $this->service->delete($id);
+        return $this->service->delete($id, $tenantId);
+    }
+
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        return $this->service->getTenantIdByEntityId($entityId);
     }
 }

@@ -6,12 +6,11 @@ declare(strict_types=1);
  */
 final class PdoStockMovementsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_ORDER_BY = ['id', 'product_id', 'variant_id', 'type', 'change_quantity', 'created_at'];
     private const ALLOWED_COLUMNS = [
-        'tenant_id', 'entity_id', 'entity_product_id', 'entity_product_variant_id',
-        'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
+        'tenant_id', 'entity_id', 'entity_product_id', 'entity_product_variant_id', 'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
     ];
 
     public function __construct(PDO $pdo)
@@ -23,7 +22,7 @@ final class PdoStockMovementsRepository
     // List with filters, ordering, pagination
     // ================================
     /**
-     * @param array{product_id?: int, variant_id?: int, type?: string, date_from?: string, date_to?: string, search?: string} $filters
+     * @param array{product_id?: int, variant_id?: int, type?: string, date_from?: string, date_to?: string, search?: string, tenant_id?: int, entity_id?: int} $filters
      */
     public function list(
         ?int $limit = null,
@@ -56,7 +55,7 @@ final class PdoStockMovementsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT sm.*, pt.name AS product_name
+        $sql = "SELECT sm.*, COALESCE(pt.name, '—') AS product_name
                 FROM product_stock_movements sm
                 LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
                 WHERE 1=1";
@@ -104,13 +103,12 @@ final class PdoStockMovementsRepository
     // ================================
     private function applyFilters(string &$sql, array &$params, array $filters): void
     {
-        // Multi-tenant isolation: always scope by tenant_id when provided
-        if (isset($filters['tenant_id']) && (int)$filters['tenant_id'] > 0) {
+        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== '') {
             $sql .= " AND sm.tenant_id = :tenant_id";
             $params[':tenant_id'] = (int)$filters['tenant_id'];
         }
 
-        if (isset($filters['entity_id']) && (int)$filters['entity_id'] > 0) {
+        if (isset($filters['entity_id']) && $filters['entity_id'] !== '') {
             $sql .= " AND sm.entity_id = :entity_id";
             $params[':entity_id'] = (int)$filters['entity_id'];
         }
@@ -147,34 +145,25 @@ final class PdoStockMovementsRepository
             ) OR EXISTS (
                 SELECT 1 FROM products p2
                 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
-                  AND (:sm_tenant_id = 0 OR p2.tenant_id = :sm_tenant_id)
             ))";
             $params[':search']         = '%' . trim($filters['search']) . '%';
             $params[':search_sku']     = '%' . trim($filters['search']) . '%';
             $params[':search_barcode'] = '%' . trim($filters['search']) . '%';
-            $params[':sm_tenant_id']   = isset($filters['tenant_id']) ? (int)$filters['tenant_id'] : 0;
         }
     }
 
     // ================================
     // Find by ID
     // ================================
-    public function find(int $id, int $tenantId = 0): ?array
+    public function find(int $id): ?array
     {
-        $sql = "
+        $stmt = $this->pdo->prepare("
             SELECT sm.*, pt.name AS product_name
             FROM product_stock_movements sm
             LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
-            WHERE sm.id = :id
-        ";
-        $params = [':id' => $id];
-        if ($tenantId > 0) {
-            $sql .= " AND sm.tenant_id = :tenant_id";
-            $params[':tenant_id'] = $tenantId;
-        }
-        $sql .= " LIMIT 1";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+            WHERE sm.id = :id LIMIT 1
+        ");
+        $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
@@ -186,215 +175,66 @@ final class PdoStockMovementsRepository
     public function create(array $data): int
     {
         $data = array_intersect_key($data, array_flip(self::ALLOWED_COLUMNS));
-        $tenantId        = (int)($data['tenant_id'] ?? 0);
-        $entityId        = isset($data['entity_id']) ? (int)$data['entity_id'] : null;
-        $entityProductId = isset($data['entity_product_id']) && (int)$data['entity_product_id'] > 0
-                           ? (int)$data['entity_product_id'] : null;
-        $entityVariantId = isset($data['entity_product_variant_id']) && (int)$data['entity_product_variant_id'] > 0
-                           ? (int)$data['entity_product_variant_id'] : null;
-        $changeQty       = (int)$data['change_quantity'];
-
         $this->pdo->beginTransaction();
         try {
-            if ($entityProductId !== null) {
-                // ── ENTITY MODE ──────────────────────────────────────────────────
-                // Resolve product_id from entity_products and validate entity ownership
-                $epStmt = $this->pdo->prepare("
-                    SELECT product_id, entity_id FROM entity_products
-                    WHERE id = :epid AND tenant_id = :tid
-                    LIMIT 1
-                ");
-                $epStmt->execute([':epid' => $entityProductId, ':tid' => $tenantId]);
-                $ep = $epStmt->fetch(PDO::FETCH_ASSOC);
-                if (!$ep) {
-                    throw new \RuntimeException('Entity product not found or access denied');
-                }
-                $productId  = (int)$ep['product_id'];
-                $epEntityId = (int)$ep['entity_id'];
+            $stmt = $this->pdo->prepare("
+                INSERT INTO product_stock_movements
+                    (tenant_id, entity_id, entity_product_id, entity_product_variant_id, product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
+                VALUES
+                    (:tenant_id, :entity_id, :entity_product_id, :entity_product_variant_id, :product_id, :variant_id, :change_quantity, :type, :reference_id, :notes, NOW())
+            ");
 
-                if ($entityId !== null && $entityId !== $epEntityId) {
-                    throw new \RuntimeException(
-                        "Entity mismatch: entity_product belongs to entity {$epEntityId}, but entity {$entityId} was specified"
-                    );
-                }
-                if ($entityId === null) {
-                    $entityId = $epEntityId;
-                }
+            $stmt->execute([
+                ':tenant_id'                 => isset($data['tenant_id']) ? (int)$data['tenant_id'] : 0,
+                ':entity_id'                 => isset($data['entity_id']) ? (int)$data['entity_id'] : null,
+                ':entity_product_id'         => isset($data['entity_product_id']) ? (int)$data['entity_product_id'] : null,
+                ':entity_product_variant_id' => isset($data['entity_product_variant_id']) ? (int)$data['entity_product_variant_id'] : null,
+                ':product_id'                => (int)($data['product_id'] ?? 0),
+                ':variant_id'                => isset($data['variant_id']) ? (int)$data['variant_id'] : null,
+                ':change_quantity'           => (int)$data['change_quantity'],
+                ':type'                      => $data['type'],
+                ':reference_id'              => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
+                ':notes'                     => $data['notes'] ?? null,
+            ]);
 
-                // Resolve variant_id from entity_product_variants (if provided)
-                $variantId = null;
-                if ($entityVariantId !== null) {
-                    $epvStmt = $this->pdo->prepare("
-                        SELECT variant_id FROM entity_product_variants
-                        WHERE id = :epvid AND tenant_id = :tid AND product_id = :pid
-                        LIMIT 1
-                    ");
-                    $epvStmt->execute([':epvid' => $entityVariantId, ':tid' => $tenantId, ':pid' => $productId]);
-                    $epv = $epvStmt->fetch(PDO::FETCH_ASSOC);
-                    if (!$epv) {
-                        throw new \RuntimeException('Entity product variant not found or does not belong to this product');
-                    }
-                    $variantId = (int)$epv['variant_id'];
-                }
+            $movementId = (int)$this->pdo->lastInsertId();
+            $qty = (int)$data['change_quantity'];
 
-                // Prevent negative stock
-                if ($entityVariantId !== null) {
-                    $stockStmt = $this->pdo->prepare("
-                        SELECT stock_quantity FROM entity_product_variants
-                        WHERE id = :epvid AND tenant_id = :tid
-                    ");
-                    $stockStmt->execute([':epvid' => $entityVariantId, ':tid' => $tenantId]);
-                } else {
-                    $stockStmt = $this->pdo->prepare("
-                        SELECT stock_quantity FROM entity_products
-                        WHERE id = :epid AND tenant_id = :tid
-                    ");
-                    $stockStmt->execute([':epid' => $entityProductId, ':tid' => $tenantId]);
-                }
-                $currentStock = (int)$stockStmt->fetchColumn();
-                if ($currentStock + $changeQty < 0) {
-                    throw new \RuntimeException(
-                        'Insufficient stock: current stock is ' . $currentStock .
-                        ', cannot reduce by ' . abs($changeQty)
-                    );
-                }
-
-                // Insert movement record
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO product_stock_movements
-                        (tenant_id, entity_id, entity_product_id, entity_product_variant_id,
-                         product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
-                    VALUES
-                        (:tenant_id, :entity_id, :entity_product_id, :entity_product_variant_id,
-                         :product_id, :variant_id, :change_quantity, :type, :reference_id, :notes, NOW())
-                ");
-                $stmt->execute([
-                    ':tenant_id'                 => $tenantId,
-                    ':entity_id'                 => $entityId,
-                    ':entity_product_id'         => $entityProductId,
-                    ':entity_product_variant_id' => $entityVariantId,
-                    ':product_id'                => $productId,
-                    ':variant_id'                => $variantId,
-                    ':change_quantity'            => $changeQty,
-                    ':type'                      => $data['type'],
-                    ':reference_id'              => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
-                    ':notes'                     => $data['notes'] ?? null,
-                ]);
-
-                $movementId = (int)$this->pdo->lastInsertId();
-
-                // Update entity stock
-                if ($entityVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE entity_product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epvid AND tenant_id = :tid
-                    ")->execute([':qty' => $changeQty, ':epvid' => $entityVariantId, ':tid' => $tenantId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE entity_products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epid AND tenant_id = :tid
-                    ")->execute([':qty' => $changeQty, ':epid' => $entityProductId, ':tid' => $tenantId]);
-                }
-
+            // Rule: UPDATE ONLY ONE selected table depending on tab (IDs provided)
+            if (!empty($data['entity_product_variant_id'])) {
+                // Tab 4: Entity Variants
+                $upd = $this->pdo->prepare("UPDATE entity_product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['entity_product_variant_id']]);
+            } elseif (!empty($data['entity_product_id'])) {
+                // Tab 3: Entity Products
+                $upd = $this->pdo->prepare("UPDATE entity_products SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['entity_product_id']]);
+            } elseif (!empty($data['variant_id'])) {
+                // Tab 2: Global Variants
+                $upd = $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['variant_id']]);
             } else {
-                // ── GLOBAL MODE ──────────────────────────────────────────────────
-                // product_id is required; variant_id is optional
-                $productId = isset($data['product_id']) ? (int)$data['product_id'] : 0;
-                $variantId = isset($data['variant_id']) && (int)$data['variant_id'] > 0
-                             ? (int)$data['variant_id'] : null;
+                // Tab 1: Global Products
+                $upd = $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['product_id']]);
+            }
 
-                if ($productId <= 0) {
-                    throw new \RuntimeException("Field 'product_id' is required for global stock updates");
-                }
-
-                // Validate product belongs to tenant
-                $pStmt = $this->pdo->prepare("
-                    SELECT id FROM products WHERE id = :pid AND tenant_id = :tid LIMIT 1
-                ");
-                $pStmt->execute([':pid' => $productId, ':tid' => $tenantId]);
-                if (!$pStmt->fetchColumn()) {
-                    throw new \RuntimeException('Product not found or access denied');
-                }
-
-                // Validate variant belongs to product (if provided)
-                if ($variantId !== null) {
-                    $pvStmt = $this->pdo->prepare("
-                        SELECT id FROM product_variants WHERE id = :vid AND product_id = :pid LIMIT 1
-                    ");
-                    $pvStmt->execute([':vid' => $variantId, ':pid' => $productId]);
-                    if (!$pvStmt->fetchColumn()) {
-                        throw new \RuntimeException('Product variant not found or does not belong to this product');
-                    }
-                }
-
-                // Prevent negative stock
-                if ($variantId !== null) {
-                    $stockStmt = $this->pdo->prepare("
-                        SELECT stock_quantity FROM product_variants WHERE id = :vid AND product_id = :pid
-                    ");
-                    $stockStmt->execute([':vid' => $variantId, ':pid' => $productId]);
-                } else {
-                    $stockStmt = $this->pdo->prepare("
-                        SELECT stock_quantity FROM products WHERE id = :pid AND tenant_id = :tid
-                    ");
-                    $stockStmt->execute([':pid' => $productId, ':tid' => $tenantId]);
-                }
-                $currentStock = (int)$stockStmt->fetchColumn();
-                if ($currentStock + $changeQty < 0) {
-                    throw new \RuntimeException(
-                        'Insufficient stock: current stock is ' . $currentStock .
-                        ', cannot reduce by ' . abs($changeQty)
-                    );
-                }
-
-                // Insert movement record (entity_product_id and entity_product_variant_id are NULL)
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO product_stock_movements
-                        (tenant_id, entity_id, entity_product_id, entity_product_variant_id,
-                         product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
-                    VALUES
-                        (:tenant_id, :entity_id, NULL, NULL,
-                         :product_id, :variant_id, :change_quantity, :type, :reference_id, :notes, NOW())
-                ");
-                $stmt->execute([
-                    ':tenant_id'       => $tenantId,
-                    ':entity_id'       => $entityId,
-                    ':product_id'      => $productId,
-                    ':variant_id'      => $variantId,
-                    ':change_quantity' => $changeQty,
-                    ':type'            => $data['type'],
-                    ':reference_id'    => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
-                    ':notes'           => $data['notes'] ?? null,
-                ]);
-
-                $movementId = (int)$this->pdo->lastInsertId();
-
-                // Update global stock (product_variants OR products)
-                if ($variantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :vid AND product_id = :pid
-                    ")->execute([':qty' => $changeQty, ':vid' => $variantId, ':pid' => $productId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :pid AND tenant_id = :tid
-                    ")->execute([':qty' => $changeQty, ':pid' => $productId, ':tid' => $tenantId]);
-                }
+            // Sync stock_status for products if updated
+            if (empty($data['entity_product_id']) && empty($data['entity_product_variant_id'])) {
+                $productId = (int)$data['product_id'];
+                $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :pid");
+                $stmtQty->execute([':pid' => $productId]);
+                $newQty = (int)$stmtQty->fetchColumn();
+                $status = $newQty > 0 ? 'in_stock' : 'out_of_stock';
+                $this->pdo->prepare("UPDATE products SET stock_status = :status WHERE id = :pid")
+                          ->execute([':status' => $status, ':pid' => $productId]);
             }
 
             $this->pdo->commit();
             return $movementId;
         } catch (\PDOException $e) {
-            $this->pdo->rollBack();
-            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
-        } catch (\RuntimeException $e) {
-            $this->pdo->rollBack();
-            throw $e;
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw new Exception($e->getMessage());
         }
     }
 
@@ -403,110 +243,39 @@ final class PdoStockMovementsRepository
     // ================================
     public function updateMovement(int $id, array $data, array $oldMovement): void
     {
-        $tenantId           = (int)($oldMovement['tenant_id'] ?? 0);
-        $oldEntityProductId = isset($oldMovement['entity_product_id']) && (int)$oldMovement['entity_product_id'] > 0
-                              ? (int)$oldMovement['entity_product_id'] : null;
-        $oldEntityVariantId = isset($oldMovement['entity_product_variant_id']) && (int)$oldMovement['entity_product_variant_id'] > 0
-                              ? (int)$oldMovement['entity_product_variant_id'] : null;
-        $oldProductId       = isset($oldMovement['product_id']) && (int)$oldMovement['product_id'] > 0
-                              ? (int)$oldMovement['product_id'] : null;
-        $oldVariantId       = isset($oldMovement['variant_id']) && (int)$oldMovement['variant_id'] > 0
-                              ? (int)$oldMovement['variant_id'] : null;
-        $oldQty             = (int)$oldMovement['change_quantity'];
-
-        $this->pdo->beginTransaction();
-        try {
-            // Reverse old stock change
-            if ($oldEntityProductId !== null) {
-                // Entity mode reversal
-                $reverseQty = -1 * $oldQty;
-                if ($oldEntityVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE entity_product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epvid AND tenant_id = :tid
-                    ")->execute([':qty' => $reverseQty, ':epvid' => $oldEntityVariantId, ':tid' => $tenantId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE entity_products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epid AND tenant_id = :tid
-                    ")->execute([':qty' => $reverseQty, ':epid' => $oldEntityProductId, ':tid' => $tenantId]);
-                }
-            } elseif ($oldProductId !== null) {
-                // Global mode reversal
-                $reverseQty = -1 * $oldQty;
-                if ($oldVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :vid AND product_id = :pid
-                    ")->execute([':qty' => $reverseQty, ':vid' => $oldVariantId, ':pid' => $oldProductId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :pid AND tenant_id = :tid
-                    ")->execute([':qty' => $reverseQty, ':pid' => $oldProductId, ':tid' => $tenantId]);
-                }
-            }
-
-            // Update movement record (keep entity/product ids from original record)
-            $newQty = isset($data['change_quantity']) ? (int)$data['change_quantity'] : $oldQty;
-            $this->pdo->prepare("
-                UPDATE product_stock_movements
-                SET change_quantity = :qty,
-                    type = :type,
-                    reference_id = :ref_id,
-                    notes = :notes
-                WHERE id = :id AND tenant_id = :tenant_id
-            ")->execute([
-                ':qty'       => $newQty,
-                ':type'      => $data['type'] ?? $oldMovement['type'],
-                ':ref_id'    => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
-                ':notes'     => $data['notes'] ?? null,
-                ':id'        => $id,
-                ':tenant_id' => $tenantId,
-            ]);
-
-            // Apply new stock change (same entity/product ids as original)
-            if ($oldEntityProductId !== null) {
-                // Entity mode apply
-                if ($oldEntityVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE entity_product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epvid AND tenant_id = :tid
-                    ")->execute([':qty' => $newQty, ':epvid' => $oldEntityVariantId, ':tid' => $tenantId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE entity_products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :epid AND tenant_id = :tid
-                    ")->execute([':qty' => $newQty, ':epid' => $oldEntityProductId, ':tid' => $tenantId]);
-                }
-            } elseif ($oldProductId !== null) {
-                // Global mode apply
-                if ($oldVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE product_variants
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :vid AND product_id = :pid
-                    ")->execute([':qty' => $newQty, ':vid' => $oldVariantId, ':pid' => $oldProductId]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE products
-                        SET stock_quantity = stock_quantity + :qty
-                        WHERE id = :pid AND tenant_id = :tid
-                    ")->execute([':qty' => $newQty, ':pid' => $oldProductId, ':tid' => $tenantId]);
-                }
-            }
-
-            $this->pdo->commit();
-        } catch (\PDOException $e) {
-            $this->pdo->rollBack();
-            throw new DatabaseException('Failed to update stock movement: ' . $e->getMessage(), (int)$e->getCode(), $e);
+        // Reverse old stock change
+        $reverseQty = -1 * (int)$oldMovement['change_quantity'];
+        if ($oldMovement['variant_id']) {
+            $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :vid")
+                ->execute([':qty' => $reverseQty, ':vid' => $oldMovement['variant_id']]);
         }
+        $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :pid")
+            ->execute([':qty' => $reverseQty, ':pid' => $oldMovement['product_id']]);
+
+        // Update movement record
+        $this->pdo->prepare("
+            UPDATE product_stock_movements
+            SET product_id = :product_id, variant_id = :variant_id, change_quantity = :qty,
+                type = :type, reference_id = :ref_id, notes = :notes
+            WHERE id = :id
+        ")->execute([
+            ':product_id' => (int)$data['product_id'],
+            ':variant_id' => isset($data['variant_id']) ? (int)$data['variant_id'] : null,
+            ':qty' => (int)$data['change_quantity'],
+            ':type' => $data['type'],
+            ':ref_id' => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
+            ':notes' => $data['notes'] ?? null,
+            ':id' => $id
+        ]);
+
+        // Apply new stock change
+        $newQty = (int)$data['change_quantity'];
+        if (isset($data['variant_id']) && $data['variant_id']) {
+            $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :vid")
+                ->execute([':qty' => $newQty, ':vid' => (int)$data['variant_id']]);
+        }
+        $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :pid")
+            ->execute([':qty' => $newQty, ':pid' => (int)$data['product_id']]);
     }
 
     // ================================
@@ -514,80 +283,53 @@ final class PdoStockMovementsRepository
     // ================================
     public function delete(int $id): bool
     {
+        // Find movement to reverse stock changes
         $movement = $this->find($id);
         if (!$movement) {
             return false;
         }
 
-        $tenantId        = (int)($movement['tenant_id'] ?? 0);
-        $entityProductId = isset($movement['entity_product_id']) && (int)$movement['entity_product_id'] > 0
-                           ? (int)$movement['entity_product_id'] : null;
-        $entityVariantId = isset($movement['entity_product_variant_id']) && (int)$movement['entity_product_variant_id'] > 0
-                           ? (int)$movement['entity_product_variant_id'] : null;
-        $globalProductId = isset($movement['product_id']) && (int)$movement['product_id'] > 0
-                           ? (int)$movement['product_id'] : null;
-        $globalVariantId = isset($movement['variant_id']) && (int)$movement['variant_id'] > 0
-                           ? (int)$movement['variant_id'] : null;
-
         $this->pdo->beginTransaction();
         try {
-            // Reverse entity stock quantity
-            if ($entityProductId !== null) {
-                if ($entityVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE entity_product_variants
-                        SET stock_quantity = stock_quantity - :qty
-                        WHERE id = :epvid AND tenant_id = :tid
-                    ")->execute([
-                        ':qty'   => (int)$movement['change_quantity'],
-                        ':epvid' => $entityVariantId,
-                        ':tid'   => $tenantId,
-                    ]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE entity_products
-                        SET stock_quantity = stock_quantity - :qty
-                        WHERE id = :epid AND tenant_id = :tid
-                    ")->execute([
-                        ':qty'  => (int)$movement['change_quantity'],
-                        ':epid' => $entityProductId,
-                        ':tid'  => $tenantId,
-                    ]);
-                }
-            } elseif ($globalProductId !== null) {
-                // Reverse global stock quantity
-                if ($globalVariantId !== null) {
-                    $this->pdo->prepare("
-                        UPDATE product_variants
-                        SET stock_quantity = stock_quantity - :qty
-                        WHERE id = :vid AND product_id = :pid
-                    ")->execute([
-                        ':qty' => (int)$movement['change_quantity'],
-                        ':vid' => $globalVariantId,
-                        ':pid' => $globalProductId,
-                    ]);
-                } else {
-                    $this->pdo->prepare("
-                        UPDATE products
-                        SET stock_quantity = stock_quantity - :qty
-                        WHERE id = :pid AND tenant_id = :tid
-                    ")->execute([
-                        ':qty' => (int)$movement['change_quantity'],
-                        ':pid' => $globalProductId,
-                        ':tid' => $tenantId,
-                    ]);
-                }
+            // Reverse stock quantity on product
+            $updateProduct = $this->pdo->prepare("
+                UPDATE products
+                SET stock_quantity = stock_quantity - :qty
+                WHERE id = :product_id
+            ");
+            $updateProduct->execute([
+                ':qty'        => (int)$movement['change_quantity'],
+                ':product_id' => (int)$movement['product_id'],
+            ]);
+
+            // Reverse stock quantity on variant if applicable
+            if (!empty($movement['variant_id'])) {
+                $updateVariant = $this->pdo->prepare("
+                    UPDATE product_variants
+                    SET stock_quantity = stock_quantity - :qty
+                    WHERE id = :variant_id AND product_id = :product_id
+                ");
+                $updateVariant->execute([
+                    ':qty'        => (int)$movement['change_quantity'],
+                    ':variant_id' => (int)$movement['variant_id'],
+                    ':product_id' => (int)$movement['product_id'],
+                ]);
             }
 
-            // Delete the movement record (scoped by tenant for safety)
-            $stmt = $this->pdo->prepare("
-                DELETE FROM product_stock_movements
-                WHERE id = :id AND tenant_id = :tenant_id
-            ");
-            $result = $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+            // Update stock_status based on new quantity
+            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
+            $stmtQty->execute([':product_id' => (int)$movement['product_id']]);
+            $newQty = (int)$stmtQty->fetchColumn();
+            $stockStatus = $newQty > 0 ? 'in_stock' : 'out_of_stock';
+            $updateStatus = $this->pdo->prepare("UPDATE products SET stock_status = :status WHERE id = :product_id");
+            $updateStatus->execute([':status' => $stockStatus, ':product_id' => (int)$movement['product_id']]);
+
+            // Delete the movement record
+            $stmt = $this->pdo->prepare("DELETE FROM product_stock_movements WHERE id = :id");
+            $result = $stmt->execute([':id' => $id]);
 
             $this->pdo->commit();
-            return $result && $stmt->rowCount() > 0;
+            return $result;
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
             throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
@@ -645,21 +387,15 @@ final class PdoStockMovementsRepository
     // ================================
     // Find by ID (with product name)
     // ================================
-    public function findWithProductName(int $id, int $tenantId = 0): ?array
+    public function findWithProductName(int $id): ?array
     {
-        $sql = "
+        $stmt = $this->pdo->prepare("
             SELECT sm.*, pt.name AS product_name
             FROM product_stock_movements sm
             LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
             WHERE sm.id = :id
-        ";
-        $params = [':id' => $id];
-        if ($tenantId > 0) {
-            $sql .= " AND sm.tenant_id = :tenant_id";
-            $params[':tenant_id'] = $tenantId;
-        }
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        ");
+        $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -669,37 +405,28 @@ final class PdoStockMovementsRepository
     // ================================
     public function listPaginated(array $filters, int $limit, int $offset): array
     {
-        $tenantId = (int)($filters['tenant_id'] ?? 0);
-        $entityId = isset($filters['entity_id']) ? (int)$filters['entity_id'] : 0;
-
         $params = [
-            ':has_tenant'    => $tenantId > 0 ? 1 : 0,
-            ':tenant_id'     => $tenantId > 0 ? $tenantId : 0,
-            ':has_entity'    => $entityId > 0 ? 1 : 0,
-            ':entity_id'     => $entityId > 0 ? $entityId : 0,
-            ':type'          => $filters['type'] ?? '',
-            ':has_type'      => (isset($filters['type']) && $filters['type'] !== '') ? 1 : 0,
-            ':date_from'     => $filters['date_from'] ?? '',
+            ':type' => $filters['type'] ?? '',
+            ':has_type' => (isset($filters['type']) && $filters['type'] !== '') ? 1 : 0,
+            ':date_from' => $filters['date_from'] ?? '',
             ':has_date_from' => (isset($filters['date_from']) && $filters['date_from'] !== '') ? 1 : 0,
-            ':date_to'       => (isset($filters['date_to']) && $filters['date_to'] !== '') ? $filters['date_to'] . ' 23:59:59' : '',
-            ':has_date_to'   => (isset($filters['date_to']) && $filters['date_to'] !== '') ? 1 : 0,
-            ':search'        => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
-            ':search_sku'    => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
-            ':search_barcode'=> isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
-            ':has_search'    => (isset($filters['search']) && $filters['search'] !== '') ? 1 : 0,
+            ':date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? $filters['date_to'] . ' 23:59:59' : '',
+            ':has_date_to' => (isset($filters['date_to']) && $filters['date_to'] !== '') ? 1 : 0,
+            ':search' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_sku' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':search_barcode' => isset($filters['search']) ? '%' . $filters['search'] . '%' : '',
+            ':has_search' => (isset($filters['search']) && $filters['search'] !== '') ? 1 : 0,
         ];
 
-        $whereClause = "WHERE (:has_tenant = 0 OR sm.tenant_id = :tenant_id)
-                          AND (:has_entity = 0 OR sm.entity_id = :entity_id)
-                          AND (:has_type = 0 OR sm.type = :type)
-                          AND (:has_date_from = 0 OR sm.created_at >= :date_from)
-                          AND (:has_date_to = 0 OR sm.created_at <= :date_to)
-                          AND (:has_search = 0 OR (
-                               EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
-                               OR EXISTS (SELECT 1 FROM products p2 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode) AND (:has_tenant = 0 OR p2.tenant_id = :tenant_id))
-                          ))";
+        $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm
+                      WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))";
 
-        $countSql  = "SELECT COUNT(*) FROM product_stock_movements sm " . $whereClause;
         $countStmt = $this->pdo->prepare($countSql);
         foreach ($params as $k => $v) {
             $countStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -707,12 +434,16 @@ final class PdoStockMovementsRepository
         $countStmt->execute();
         $total = (int)$countStmt->fetchColumn();
 
-        $sql = "SELECT sm.id, sm.tenant_id, sm.entity_id, sm.product_id, sm.variant_id,
-                       sm.change_quantity, sm.type, sm.reference_id, sm.notes, sm.created_at,
-                       pt.name AS product_name
+        $sql = "SELECT sm.*, pt.name AS product_name
                 FROM product_stock_movements sm
                 LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
-                " . $whereClause . "
+                WHERE (:has_type = 0 OR sm.type = :type)
+                        AND (:has_date_from = 0 OR sm.created_at >= :date_from)
+                        AND (:has_date_to = 0 OR sm.created_at <= :date_to)
+                        AND (:has_search = 0 OR (
+                             EXISTS (SELECT 1 FROM product_translations pt2 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search)
+                             OR EXISTS (SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */ WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode))
+                        ))
                 ORDER BY sm.created_at DESC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
@@ -730,22 +461,16 @@ final class PdoStockMovementsRepository
     // ================================
     // Get by Product (with product name)
     // ================================
-    public function getByProduct(int $productId, int $tenantId = 0): array
+    public function getByProduct(int $productId): array
     {
-        $sql = "
+        $stmt = $this->pdo->prepare("
             SELECT sm.*, pt.name AS product_name
             FROM product_stock_movements sm
             LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
             WHERE sm.product_id = :product_id
-        ";
-        $params = [':product_id' => $productId];
-        if ($tenantId > 0) {
-            $sql .= " AND sm.tenant_id = :tenant_id";
-            $params[':tenant_id'] = $tenantId;
-        }
-        $sql .= " ORDER BY sm.created_at DESC";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+            ORDER BY sm.created_at DESC
+        ");
+        $stmt->execute([':product_id' => $productId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 

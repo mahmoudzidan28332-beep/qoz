@@ -30,6 +30,7 @@ final class PdoEntitySettingsRepository
     ): array {
         $sql = "
             SELECT es.*,
+                   es.entity_id AS id,
                    e.store_name,
                    e.status,
                    e.email
@@ -259,6 +260,14 @@ final class PdoEntitySettingsRepository
         return $row ?: null;
     }
 
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT tenant_id FROM entities WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $entityId]);
+        $tenantId = $stmt->fetchColumn();
+        return $tenantId !== false ? (int)$tenantId : null;
+    }
+
     // ================================
     // Create / Update
     // ================================
@@ -304,9 +313,10 @@ final class PdoEntitySettingsRepository
                     " . implode(', ', $setClauses) . ",
                     updated_at = CURRENT_TIMESTAMP
                 WHERE entity_id = :entity_id
-                  AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
+                  AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
             ";
             $params[':tenant_id'] = $tenantId;
+            $params[':entity_id2'] = $entityId;
         } else {
             $sql = "
                 INSERT INTO entity_settings (
@@ -314,9 +324,10 @@ final class PdoEntitySettingsRepository
                 ) 
                 SELECT :entity_id, :" . implode(', :', $filteredCols) . "
                 FROM (SELECT 1) AS dummy
-                WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
+                WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
             ";
             $params[':tenant_id'] = $tenantId;
+            $params[':entity_id2'] = $entityId;
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -331,8 +342,8 @@ final class PdoEntitySettingsRepository
         $stmt = $this->pdo->prepare(
             "DELETE FROM entity_settings 
              WHERE entity_id = :entity_id
-               AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)"
+               AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)"
         );
-        return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
+        return $stmt->execute([':entity_id' => $entityId, ':entity_id2' => $entityId, ':tenant_id' => $tenantId]);
     }
 }
