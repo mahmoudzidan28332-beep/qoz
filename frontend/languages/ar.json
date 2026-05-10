@@ -30,7 +30,10 @@
         "actions": "الإجراءات",
         "view_all": "عرض الكل",
         "notifications": "الإشعارات",
-        "profile": "حسابي"
+        "profile": "حسابي",
+        "categories_label": "التصنيفات",
+        "install_app": "تثبيت التطبيق",
+        "install": "تثبيت"
     },
     "mega": {
         "subcategories": "التصنيفات الفرعية",
@@ -58,7 +61,11 @@
         "type_entities": "🏢 متاجر",
         "type_jobs": "💼 وظائف",
         "view_all": "عرض كل النتائج",
-        "clear": "مسح"
+        "clear": "مسح",
+        "all_categories": "جميع التصنيفات",
+        "category": "التصنيف",
+        "featured": "مميز",
+        "featured_only": "المميزة فقط"
     },
     "stats": {
         "products": "منتج",
@@ -198,7 +205,11 @@
         "min_order": "أقل طلب",
         "type_product": "بائع منتجات",
         "type_service": "مزود خدمات",
-        "type_both": "منتجات وخدمات"
+        "type_both": "منتجات وخدمات",
+        "vtype_service_provider": "مزود خدمة",
+        "vtype_product_seller": "بائع منتجات",
+        "vtype_bike_shop": "متجر دراجات",
+        "vtype_car_dealership": "معرض سيارات"
     },
     "tenants": {
         "page_title": "المستأجرون",
@@ -239,7 +250,7 @@
         "delete": "حذف",
         "yes": "نعم",
         "no": "لا",
-        "login": "تسجيل الدخول"
+        "verified": "موثق"
     },
     "cart": {
         "title": "سلة التسوق",
@@ -366,8 +377,8 @@
         "no_policies": "لا توجد سياسات متاحة"
     },
     "deals": {
-        "title": "عروض ساخنة",
-        "expires": "ينتهي في"
+        "expires": "ينتهي في",
+        "sponsored": "إعلان"
     },
     "slider": {
         "title": "العروض والتخفيضات",

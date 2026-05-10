@@ -1,18 +1,26 @@
 <?php
 require_once __DIR__ . '/store_sections/icons.php';
+
+// -- Footer variables (safe fallbacks) ----------------------------------------
+$_ctx      = $GLOBALS['PUB_CONTEXT']      ?? [];
+$_appName  = $GLOBALS['PUB_APP_NAME']     ?? 'QOOQZ';
+$_basePath = $GLOBALS['PUB_BASE_PATH']    ?? '/frontend/public';
+$_year     = date('Y');
+$_user     = $_ctx['user']                ?? [];
 ?>
 
     </main><!-- .pub-main-content -->
 </div><!-- .pub-layout -->
 
-<!-- =============================================
+
+<!-- ============================================================
      FOOTER
-============================================= -->
+============================================================ -->
 <footer class="pub-footer" role="contentinfo">
     <div class="pub-container">
         <div class="pub-footer-grid">
 
-            <!-- Brand column with SVG icon -->
+            <!-- Brand column -->
             <div class="pub-footer-col">
                 <p class="pub-footer-brand-name">
                     <span class="pub-footer-brand-icon"><?= icon('globe', 18) ?></span>
@@ -53,7 +61,7 @@ require_once __DIR__ . '/store_sections/icons.php';
     </div>
 
     <div class="pub-footer-bottom">
-        © <?= $_year ?> <?= e($_appName) ?> — <?= e(t('footer.rights')) ?>
+        &copy; <?= $_year ?> <?= e($_appName) ?> &mdash; <?= e(t('footer.rights')) ?>
     </div>
 </footer>
 
@@ -63,46 +71,68 @@ $_isLoggedIn = !empty(($GLOBALS['PUB_CONTEXT']['user'] ?? [])['id']);
 $_authPath   = '/frontend';
 ?>
 <nav class="pub-bottom-nav" aria-label="<?= e(t('nav.actions', 'Navigation')) ?>">
+
     <!-- Home -->
     <a href="<?= e($_basePath . '/index.php') ?>" class="pub-bottom-nav__item">
         <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('house', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.home', 'Home')) ?></span>
     </a>
+
     <!-- Categories -->
     <a href="<?= e($_basePath . '/categories.php') ?>" class="pub-bottom-nav__item">
         <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('grid', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.categories', 'Categories')) ?></span>
     </a>
+
     <!-- Cart -->
-    <a href="<?= e($_basePath . '/cart.php') ?>" class="pub-bottom-nav__item" style="position:relative;">
-        <span class="pub-bottom-nav__icon" aria-hidden="true" style="position:relative;">
+    <a href="<?= e($_basePath . '/cart.php') ?>" class="pub-bottom-nav__item pub-bottom-nav__item--cart">
+        <span class="pub-bottom-nav__icon pub-bottom-nav__icon--cart" aria-hidden="true">
             <?= icon('cart', 22) ?>
-            <span id="pubCartCountFooter" style="position:absolute; top:-4px; right:-8px; background:var(--pub-danger, #ef4444); color:white; font-size:10px; font-weight:bold; padding:2px 5px; border-radius:10px; display:none; line-height:1;"></span>
+            <span id="pubCartCountFooter" class="pub-bottom-nav__badge"></span>
         </span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.cart', 'Cart')) ?></span>
     </a>
+
     <!-- Profile -->
-    <a href="<?= e($_isLoggedIn ? $_authPath . '/profile.php' : $_authPath . '/login.php') ?>" class="pub-bottom-nav__item">
+    <a href="<?= e($_isLoggedIn ? $_authPath . '/profile.php' : $_authPath . '/login.php') ?>"
+       class="pub-bottom-nav__item">
         <span class="pub-bottom-nav__icon" aria-hidden="true"><?= icon('user', 22) ?></span>
         <span class="pub-bottom-nav__label"><?= e(t('nav.profile', 'Profile')) ?></span>
     </a>
+
 </nav>
 
-<!-- Branch Conflict Modal -->
-<div id="pubCartConflictModal" class="pub-modal" hidden style="z-index:11000;">
+<!-- Cart Branch Conflict Modal -->
+<div id="pubCartConflictModal"
+     class="pub-modal pub-modal--top"
+     hidden
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="pubCartConflictTitle">
     <div class="pub-modal-backdrop" id="pubCartConflictCloseBackdrop"></div>
-    <div class="pub-modal-content" style="max-width:420px; text-align:center; padding:32px 24px; border-radius: 20px; box-shadow: var(--shadow-2xl);">
-        <button type="button" class="pub-modal-close" id="pubCartConflictCloseBtn" aria-label="<?= e(t('common.close')) ?>"><?= icon('x', 24) ?></button>
-        <div style="font-size:3.5rem; margin-bottom:16px; color: var(--pub-primary); opacity: 0.9;"><?= icon('cart-x', 56) ?></div>
-        <h3 style="font-size:1.3rem; font-weight: 700; margin:0 0 12px; color:var(--pub-text);"><?= e(t('cart.conflict_title')) ?></h3>
-        <p style="color:var(--pub-muted); font-size:0.92rem; line-height:1.6; margin:0 0 24px;">
+    <div class="pub-modal-content pub-cart-conflict">
+        <button type="button"
+                class="pub-modal-close"
+                id="pubCartConflictCloseBtn"
+                aria-label="<?= e(t('common.close')) ?>">
+            <?= icon('x', 24) ?>
+        </button>
+        <div class="pub-cart-conflict__icon"><?= icon('cart-x', 56) ?></div>
+        <h3 id="pubCartConflictTitle" class="pub-cart-conflict__title">
+            <?= e(t('cart.conflict_title')) ?>
+        </h3>
+        <p class="pub-cart-conflict__text">
             <?= e(t('cart.conflict_msg')) ?>
         </p>
-        <div style="display:grid; gap:10px;">
-            <button type="button" id="pubCartConflictSwitch" class="pub-btn pub-btn--primary" style="width:100%; padding:14px; border-radius: 12px;">
+        <div class="pub-cart-conflict__actions">
+            <button type="button"
+                    id="pubCartConflictSwitch"
+                    class="pub-btn pub-btn--primary pub-cart-conflict__button">
                 <?= e(t('cart.switch_and_clear')) ?>
             </button>
-            <button type="button" id="pubCartConflictCancel" class="pub-btn" style="width:100%; padding:14px; background: rgba(0,0,0,0.05); color: var(--pub-text); border-radius: 12px;">
+            <button type="button"
+                    id="pubCartConflictCancel"
+                    class="pub-btn pub-cart-conflict__button pub-cart-conflict__button--secondary">
                 <?= e(t('common.cancel')) ?>
             </button>
         </div>
@@ -111,21 +141,18 @@ $_authPath   = '/frontend';
 
 <!-- Back-to-top button -->
 <?php $_btt_side = ($_ctx['dir'] ?? 'ltr') === 'rtl' ? 'left' : 'right'; ?>
-<button id="pubBackToTop" title="<?= e(t('footer.back_to_top')) ?>"
-        style="display:none;position:fixed;bottom:20px;<?= e($_btt_side) ?>:20px;
-               z-index:200;width:40px;height:40px;background:var(--pub-primary);color:var(--pub-btn-primary-text,#fff);
-               border:none;border-radius:50%;font-size:1.2rem;cursor:pointer;align-items:center;
-               justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.2);">↑</button>
+<button id="pubBackToTop"
+        class="pub-back-to-top pub-back-to-top--<?= e($_btt_side) ?>"
+        title="<?= e(t('footer.back_to_top')) ?>"
+        aria-label="<?= e(t('footer.back_to_top')) ?>">&#8593;</button>
 
-
-<!-- Public JS moved to header.php for consistent loading -->
 
 <?php
-// ════════════════════════════════════════════════════════════
+// ============================================================
 // Device Registration Fallback
-// ════════════════════════════════════════════════════════════
+// ============================================================
 $_devRegUserId = 0;
-if (isset($_user) && !empty($_user['id'])) {
+if (!empty($_user['id'])) {
     $_devRegUserId = (int)$_user['id'];
 } elseif (!empty($_SESSION['user_id'])) {
     $_devRegUserId = (int)$_SESSION['user_id'];
@@ -134,39 +161,18 @@ if (isset($_user) && !empty($_user['id'])) {
 }
 
 if ($_devRegUserId > 0):
+    $_devRegJsV = @filemtime(FRONTEND_BASE . '/assets/js/device-registration.js') ?: '1';
 ?>
-<script>
-(function(){
-    var STORAGE_KEY='qz_dev_reg', ANON_KEY='qz_anon_token', DAY_MS=86400000;
-    var lastReg=localStorage.getItem(STORAGE_KEY);
-    if(lastReg && (Date.now()-parseInt(lastReg,10))<DAY_MS) return;
+<script src="/frontend/assets/js/device-registration.js?v=<?= $_devRegJsV ?>" defer></script>
+<?php endif; ?>
 
-    var anon = localStorage.getItem(ANON_KEY);
-    if (!anon) {
-        try {
-            anon = (typeof crypto!=='undefined' && crypto.randomUUID) ? crypto.randomUUID() : 
-                   (Math.random().toString(36).substring(2,15) + Math.random().toString(36).substring(2,15));
-            localStorage.setItem(ANON_KEY, anon);
-        } catch(e) { anon = 'fallback-' + Date.now(); }
-    }
-
-    fetch('/api/public/user_devices',{
-        method:'POST',
-        credentials:'same-origin',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ anonymous_token: anon })
-    }).then(function(r){
-        if(r.ok) localStorage.setItem(STORAGE_KEY,''+Date.now());
-    }).catch(function(){});
-})();
-</script>
-<?php endif; // $_devRegUserId check ?>
 
 <?php
-// ════════════════════════════════════════════════════════════
-// Firebase Push Notifications — Device Registration
-// ════════════════════════════════════════════════════════════
+// ============================================================
+// Firebase Push Notifications - Device Registration
+// ============================================================
 $_fcmEnabled = defined('FCM_ENABLED') ? FCM_ENABLED : false;
+
 if (!$_fcmEnabled) {
     $_envPath = dirname(__DIR__, 2) . '/api/.env';
     if (!file_exists($_envPath)) {
@@ -175,7 +181,9 @@ if (!$_fcmEnabled) {
     if (file_exists($_envPath) && is_readable($_envPath)) {
         foreach (file($_envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_eLine) {
             $_eLine = trim($_eLine);
-            if ($_eLine === '' || str_starts_with($_eLine, '#') || !str_contains($_eLine, '=')) continue;
+            if ($_eLine === '' || str_starts_with($_eLine, '#') || !str_contains($_eLine, '=')) {
+                continue;
+            }
             [$_eK, $_eV] = array_map('trim', explode('=', $_eLine, 2));
             if ($_eK !== '' && getenv($_eK) === false) {
                 putenv("{$_eK}={$_eV}");
@@ -200,7 +208,7 @@ if (!$_fcmEnabled) {
 }
 
 $_fcmUserId = 0;
-if (isset($_user) && !empty($_user['id'])) {
+if (!empty($_user['id'])) {
     $_fcmUserId = (int)$_user['id'];
 } elseif (!empty($_SESSION['user_id'])) {
     $_fcmUserId = (int)$_SESSION['user_id'];
@@ -219,26 +227,80 @@ if ($_fcmEnabled && $_fcmUserId > 0):
     ];
     if (!empty($_fcmCfg['projectId'])):
 ?>
-<script>
-(function() {
-    window.APP_CONFIG = window.APP_CONFIG || {};
-    Object.assign(window.APP_CONFIG, {
-        FCM_API_KEY:             <?= json_encode($_fcmCfg['apiKey']) ?>,
-        FCM_AUTH_DOMAIN:         <?= json_encode($_fcmCfg['authDomain']) ?>,
-        FCM_PROJECT_ID:          <?= json_encode($_fcmCfg['projectId']) ?>,
-        FCM_MESSAGING_SENDER_ID: <?= json_encode($_fcmCfg['messagingSenderId']) ?>,
-        FCM_APP_ID:              <?= json_encode($_fcmCfg['appId']) ?>,
-        FCM_VAPID_KEY:           <?= json_encode($_fcmCfg['vapidKey']) ?>,
-        API_BASE:                '/api',
-        USER_ID:                 <?= $_fcmUserId ?>
-    });
-})();
-</script>
+<div id="pubFcmConfig"
+     hidden
+     data-fcm-api-key="<?= e($_fcmCfg['apiKey']) ?>"
+     data-fcm-auth-domain="<?= e($_fcmCfg['authDomain']) ?>"
+     data-fcm-project-id="<?= e($_fcmCfg['projectId']) ?>"
+     data-fcm-messaging-sender-id="<?= e($_fcmCfg['messagingSenderId']) ?>"
+     data-fcm-app-id="<?= e($_fcmCfg['appId']) ?>"
+     data-fcm-vapid-key="<?= e($_fcmCfg['vapidKey']) ?>"
+     data-api-base="/api"
+     data-user-id="<?= $_fcmUserId ?>"></div>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js" defer></script>
 <?php $_fcmJsV = @filemtime(FRONTEND_BASE . '/assets/js/firebase.js') ?: '1'; ?>
 <script src="/frontend/assets/js/firebase.js?v=<?= $_fcmJsV ?>" defer></script>
-<?php endif; // projectId check ?>
-<?php endif; // fcmEnabled + userId check ?>
+<?php endif; ?>
+<?php endif; ?>
+
+<!-- ============================================================
+     STICKY HEADER - SINGLE PRODUCTION SCRIPT
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    const inner = document.querySelector('.pub-header-inner');
+    if (!inner) return;
+
+    inner.style.transition = 'transform 0.25s ease-out';
+    inner.style.willChange = 'transform';
+
+    let lastY = window.scrollY;
+    let state = 'visible';
+    let timeout = null;
+
+    const HIDE_AFTER = 100;
+    const DELTA = 8;
+
+    function show() {
+        if (state === 'visible') return;
+        state = 'visible';
+        inner.style.transform = '';
+    }
+
+    function hide() {
+        if (state === 'hidden') return;
+        state = 'hidden';
+        inner.style.transform = 'translateY(-100%)';
+    }
+
+    window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        const diff = y - lastY;
+
+        if (timeout) clearTimeout(timeout);
+
+        if (y <= HIDE_AFTER) {
+            show();
+        }
+        else if (diff > DELTA) {
+            hide();
+        }
+        else if (diff < -DELTA) {
+            show();
+        }
+
+        timeout = setTimeout(() => {
+            show();
+        }, 150);
+
+        lastY = y;
+    }, { passive: true });
+
+})();
+</script>
+
 </body>
 </html>

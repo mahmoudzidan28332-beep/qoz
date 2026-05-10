@@ -30,7 +30,10 @@
         "actions": "Actions",
         "view_all": "View all",
         "notifications": "Notifications",
-        "profile": "Profile"
+        "profile": "Profile",
+        "categories_label": "Categories",
+        "install_app": "Install App",
+        "install": "Install"
     },
     "mega": {
         "subcategories": "Subcategories",
@@ -58,7 +61,11 @@
         "type_entities": "🏢 Stores",
         "type_jobs": "💼 Jobs",
         "view_all": "View all results",
-        "clear": "Clear"
+        "clear": "Clear",
+        "all_categories": "All Categories",
+        "category": "Category",
+        "featured": "Featured",
+        "featured_only": "Featured Only"
     },
     "stats": {
         "products": "Products",
@@ -198,7 +205,11 @@
         "min_order": "Min. Order",
         "type_product": "Product Seller",
         "type_service": "Service Provider",
-        "type_both": "Products & Services"
+        "type_both": "Products & Services",
+        "vtype_service_provider": "Service Provider",
+        "vtype_product_seller": "Product Seller",
+        "vtype_bike_shop": "Bike Shop",
+        "vtype_car_dealership": "Car Dealership"
     },
     "tenants": {
         "page_title": "Tenants",
@@ -238,7 +249,8 @@
         "cancel": "Cancel",
         "delete": "Delete",
         "yes": "Yes",
-        "no": "No"
+        "no": "No",
+        "verified": "Verified"
     },
     "cart": {
         "title": "Shopping Cart",

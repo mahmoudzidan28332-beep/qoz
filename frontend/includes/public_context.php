@@ -239,7 +239,8 @@ if (!function_exists('pub_fetch')) {
                 CURLOPT_TIMEOUT        => $timeout,
                 CURLOPT_HTTPHEADER     => ['Accept: application/json'],
                 CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
             ]);
             $body = curl_exec($ch);
             curl_close($ch);
@@ -1412,10 +1413,10 @@ if (!function_exists('pub_img_tag')) {
                  . ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"'
                  . ' loading="lazy"'
                  . ($cssClass ? ' class="' . htmlspecialchars($cssClass, ENT_QUOTES, 'UTF-8') . '"' : '')
-                 . ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
-                 . '<span class="pub-img-placeholder" style="display:none;" aria-hidden="true">' . $placeholderIcon . '</span>';
+                 . ' data-fallback-image>'
+                 . '<span class="pub-img-placeholder" hidden aria-hidden="true">' . htmlspecialchars($placeholderIcon, ENT_QUOTES, 'UTF-8') . '</span>';
         }
-        return '<span class="pub-img-placeholder" aria-hidden="true">' . $placeholderIcon . '</span>';
+        return '<span class="pub-img-placeholder" aria-hidden="true">' . htmlspecialchars($placeholderIcon, ENT_QUOTES, 'UTF-8') . '</span>';
     }
 }
 
@@ -2035,6 +2036,122 @@ if (!function_exists('pub_resolve_active_entity_context')) {
         }
 
         return ['id' => 0, 'name' => '', 'source' => 'none'];
+    }
+}
+
+/* -------------------------------------------------------
+ * 11b. CSP-safe public theme stylesheet helpers
+ * ----------------------------------------------------- */
+if (!function_exists('pub_safe_theme_css_value')) {
+    function pub_safe_theme_css_value(string $value): string {
+        $value = trim($value);
+        if ($value === '') return '';
+        $value = str_replace(['<', '>', '`', '\\'], '', $value);
+        if (preg_match('/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/', $value)) return $value;
+        if (preg_match('/^(?:rgb|rgba|hsl|hsla)\(\s*[\d\s%,.\/-]+\)$/i', $value)) return $value;
+        if (preg_match('/^var\(--[a-zA-Z0-9_-]{1,80}\)$/', $value)) return $value;
+        if (preg_match('/^(?:\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|ch|ex)?)(?:\s+\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|ch|ex)?){0,3}$/', $value)) return $value;
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9\s,"\'-]{0,120}$/', $value)) return $value;
+        if (preg_match('/^\d+(?:px)?\s+\d+(?:px)?\s+\d+(?:px)?(?:\s+\d+(?:px)?)?\s+(?:rgba?\([\d\s%,.\/-]+\)|#[0-9a-fA-F]{3,8})$/', $value)) return $value;
+        return '';
+    }
+}
+
+if (!function_exists('pub_theme_stylesheet_css')) {
+    function pub_theme_stylesheet_css(array $theme): string {
+        $vars = [];
+        $set = static function (string $name, $value) use (&$vars): void {
+            $name = preg_replace('/[^a-zA-Z0-9_-]/', '-', $name);
+            if ($name === '') return;
+            $safe = pub_safe_theme_css_value((string)$value);
+            if ($safe !== '') $vars['--' . $name] = $safe;
+        };
+
+        $resolved = [
+            'pub-primary' => $theme['primary'] ?? '',
+            'pub-primary-hover' => $theme['primary_hover'] ?? '',
+            'pub-secondary' => $theme['secondary'] ?? '',
+            'pub-accent' => $theme['accent'] ?? '',
+            'pub-bg' => $theme['background'] ?? '',
+            'pub-surface' => $theme['surface'] ?? '',
+            'pub-text' => $theme['text'] ?? '',
+            'pub-muted' => $theme['text_muted'] ?? '',
+            'pub-border' => $theme['border'] ?? '',
+            'pub-header-bg' => $theme['header_bg'] ?? '',
+            'pub-header-text' => $theme['header_text_color'] ?? '',
+            'pub-sidebar-bg' => $theme['sidebar_bg'] ?? '',
+            'pub-sidebar-text' => $theme['sidebar_text'] ?? '',
+            'pub-sidebar-hover' => $theme['sidebar_toggle_hover'] ?? '',
+            'pub-sidebar-active' => $theme['primary'] ?? '',
+            'pub-footer-bg' => $theme['footer_bg'] ?? '',
+            'pub-footer-text' => $theme['footer_text_color'] ?? '',
+            'pub-success' => $theme['success'] ?? '',
+            'pub-warning' => $theme['warning'] ?? '',
+            'pub-danger' => $theme['danger'] ?? '',
+            'pub-error' => $theme['error'] ?? '',
+            'pub-info' => $theme['info'] ?? '',
+        ];
+        foreach ($resolved as $name => $value) $set($name, $value);
+
+        foreach ($theme['color_settings'] ?? [] as $row) {
+            $key = trim((string)($row['setting_key'] ?? ''));
+            $value = $row['color_value'] ?? ($row['setting_value'] ?? '');
+            if ($key === '') continue;
+            $set(str_replace('_', '-', $key), $value);
+            $set(str_replace('-', '_', $key), $value);
+        }
+
+        foreach ($theme['font_settings'] ?? [] as $row) {
+            $key = trim((string)($row['setting_key'] ?? ''));
+            if ($key === '') continue;
+            if (!empty($row['font_family'])) $set($key . '-family', $row['font_family']);
+            if (!empty($row['font_size'])) $set($key . '-size', is_numeric($row['font_size']) ? $row['font_size'] . 'px' : $row['font_size']);
+            if (!empty($row['font_weight'])) $set($key . '-weight', $row['font_weight']);
+        }
+
+        foreach ($theme['design_settings'] ?? [] as $row) {
+            $key = trim((string)($row['setting_key'] ?? ''));
+            if ($key === '' || $key === 'logo_url') continue;
+            $value = (string)($row['setting_value'] ?? '');
+            if (($row['setting_type'] ?? '') === 'number' && !preg_match('/[a-z%]$/i', $value)) {
+                $value .= 'px';
+            }
+            $set($key, $value);
+        }
+
+        $css = ":root {\n";
+        foreach ($vars as $name => $value) {
+            $css .= "  {$name}: {$value};\n";
+        }
+        $css .= "  --pub-card-bg: var(--pub-surface);\n";
+        $css .= "}\n";
+
+        foreach ($theme['buttons'] ?? [] as $button) {
+            $slug = preg_replace('/[^a-z0-9_-]/', '-', strtolower((string)($button['slug'] ?? '')));
+            if ($slug === '') continue;
+            $decl = [];
+            if (!empty($button['background_color']) && ($v = pub_safe_theme_css_value((string)$button['background_color']))) $decl[] = "background-color: {$v}";
+            if (!empty($button['text_color']) && ($v = pub_safe_theme_css_value((string)$button['text_color']))) $decl[] = "color: {$v}";
+            if (!empty($button['border_color']) && ($v = pub_safe_theme_css_value((string)$button['border_color']))) $decl[] = 'border: ' . max(0, (int)($button['border_width'] ?? 1)) . "px solid {$v}";
+            if (isset($button['border_radius'])) $decl[] = 'border-radius: ' . max(0, (int)$button['border_radius']) . 'px';
+            if (!empty($button['padding']) && ($v = pub_safe_theme_css_value((string)$button['padding']))) $decl[] = "padding: {$v}";
+            if (!empty($decl)) $css .= ".btn-{$slug}, .pub-btn--{$slug} {" . implode(';', $decl) . ";}\n";
+        }
+
+        foreach ($theme['cards'] ?? [] as $card) {
+            $slug = preg_replace('/[^a-z0-9_-]/', '-', strtolower((string)($card['slug'] ?? '')));
+            if ($slug === '') continue;
+            $decl = [];
+            if (!empty($card['background_color']) && ($v = pub_safe_theme_css_value((string)$card['background_color']))) $decl[] = "background-color: {$v}";
+            if (!empty($card['text_color']) && ($v = pub_safe_theme_css_value((string)$card['text_color']))) $decl[] = "color: {$v}";
+            if (!empty($card['border_color']) && ($v = pub_safe_theme_css_value((string)$card['border_color']))) $decl[] = 'border: ' . max(0, (int)($card['border_width'] ?? 1)) . "px solid {$v}";
+            if (isset($card['border_radius'])) $decl[] = 'border-radius: ' . max(0, (int)$card['border_radius']) . 'px';
+            if (!empty($card['shadow_style']) && ($v = pub_safe_theme_css_value((string)$card['shadow_style']))) $decl[] = "box-shadow: {$v}";
+            if (!empty($card['padding']) && ($v = pub_safe_theme_css_value((string)$card['padding']))) $decl[] = "padding: {$v}";
+            if (!empty($decl)) $css .= ".card-{$slug} {" . implode(';', $decl) . ";}\n";
+        }
+
+        return $css;
     }
 }
 
