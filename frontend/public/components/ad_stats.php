@@ -17,7 +17,7 @@ $stats = $rStats['data']['items'] ?? [];
 <div class="pub-stats-row">
 
     <?php foreach ($stats as $row): ?>
-        <div class="pub-stat-item" style="min-width:220px">
+        <div class="pub-stat-item">
             
             <div><strong>Ad ID:</strong> <?= (int)$row['ad_id'] ?></div>
             

@@ -14,7 +14,7 @@ if (empty($sectionData)) {
 ?>
 <div class="pub-banner-slider">
     <?php foreach ($sectionData as $_bi => $_b): ?>
-    <div class="pub-banner-slide<?= $_bi === 0 ? ' active' : '' ?>"<?php if (!empty($_b['background_color'])): ?> style="background:<?= e(_pub_safe_color($_b['background_color'])) ?>"<?php endif; ?>>
+    <div class="pub-banner-slide<?= $_bi === 0 ? ' active' : '' ?>"<?php if (!empty($_b['background_color'])): ?> data-banner-bg="<?= e(_pub_safe_color($_b['background_color'])) ?>"<?php endif; ?>>
         <?php if (!empty($_b['image_url'])): ?>
         <a href="<?= e($_b['link_url'] ?? '#') ?>">
             <img src="<?= e(pub_img($_b['image_url'])) ?>"

@@ -9,7 +9,6 @@ if (empty($sectionData)) {
     return;
 }
 
-$_cardJob = $_cardStyles['feature']['inline'] ?? '';
 $_clsJob = $_cardStyles['feature']['class'] ?? '';
 ?>
 <div class="pub-grid-lg">
@@ -17,8 +16,7 @@ $_clsJob = $_cardStyles['feature']['class'] ?? '';
     <a href="/frontend/public/jobs.php?id=<?= (int)($j['id'] ?? 0) ?>"
        class="pub-job-card<?= $_clsJob ? ' ' . $_clsJob : '' ?>"
        data-track-type="job"
-       data-track-id="<?= (int)($j['id'] ?? 0) ?>"
-       style="text-decoration:none;<?= e($_cardJob) ?>">
+       data-track-id="<?= (int)($j['id'] ?? 0) ?>">
         <h3 class="pub-job-title"><?= e($j['title'] ?? '') ?></h3>
         <div class="pub-job-meta">
             <?php if (!empty($j['employment_type'])): ?>

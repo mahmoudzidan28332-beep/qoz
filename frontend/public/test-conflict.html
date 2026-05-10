@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إصلاح مشكلة الهيدر الثابت</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:14px;background:#f5f5f5}
+        .wrap{max-width:1200px;margin:0 auto;padding:1rem}
+        .tabs{display:flex;gap:6px;margin-bottom:1rem;border-bottom:1px solid #ddd;padding-bottom:8px;flex-wrap:wrap}
+        .tab{padding:8px 16px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff;font-size:14px;font-weight:500}
+        .tab.active{background:#2196f3;color:#fff;border-color:#2196f3}
+        .panel{display:none}.panel.active{display:block}
+        .code-block{background:#1e1e1e;color:#d4d4d4;border-radius:8px;padding:14px;font-family:'Courier New',monospace;font-size:12px;line-height:1.6;overflow-x:auto;margin-bottom:1rem;direction:ltr;text-align:left}
+        .bug{color:#f48771}.fix{color:#6a9955}.comment{color:#858585}
+        .label{font-size:13px;font-weight:600;margin-bottom:8px}
+        .sim-box{border:1px solid #ddd;border-radius:8px;padding:15px;margin-bottom:10px;background:#fff}
+        .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+        .val{font-family:monospace;font-size:13px;background:#f0f0f0;border:1px solid #ddd;border-radius:4px;padding:4px 10px;min-width:70px;text-align:center}
+        .state{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+        .hidden-state{background:#ffebee;color:#c62828}.shown-state{background:#e8f5e9;color:#2e7d32}
+        .log-area{height:150px;overflow-y:auto;font-family:monospace;font-size:11px;padding:10px;background:#f9f9f9;border:1px solid #ddd;border-radius:8px}
+        .log-down{color:#c62828}.log-up{color:#2e7d32}.log-neutral{color:#666}
+        .btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+        .sim-btn{padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px}
+        .sim-btn:hover{background:#f0f0f0}
+        .diff{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+        .bad-head{background:#ffebee;color:#c62828;padding:10px;border-radius:8px;margin-bottom:10px;font-weight:bold}
+        .good-head{background:#e8f5e9;color:#2e7d32;padding:10px;border-radius:8px;margin-bottom:10px;font-weight:bold}
+        .copy-btn{padding:6px 12px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;float:left;margin-bottom:10px}
+        .copy-btn:hover{background:#f0f0f0}
+        .note{font-size:13px;padding:12px;background:#e3f2fd;border-radius:8px;border-right:3px solid #2196f3;margin-bottom:15px}
+    </style>
+</head>
+<body>
+<div class="wrap">
+<div class="tabs">
+  <button class="tab active" onclick="showTab('bug')">📍 المشكلة</button>
+  <button class="tab" onclick="showTab('sim')">🔄 محاكاة</button>
+  <button class="tab" onclick="showTab('fix')">✅ الحل النهائي</button>
+</div>
+
+<div id="bug" class="panel active">
+  <div class="note">
+    <strong>🔍 السبب الجذري:</strong> عند التمرير للأعلى، lastY يتم تحديثه في كل إطار حتى لو كان الفرق صغيراً جداً (1-2 بكسل)، 
+    مما يمنع الوصول إلى العتبة المطلوبة (5-10 بكسل) لإظهار الهيدر.
+  </div>
+  <div class="diff">
+    <div class="diff-col">
+      <div class="bad-head">❌ الكود الخاطئ</div>
+      <div class="code-block"><span class="comment">// مشكلة: lastY يتحدث في كل مرة</span>
+window.onscroll = function() {
+  var y = window.scrollY;
+  if (y <= 60) {
+    show();
+  } else if (y > lastY + 10) {
+    hide();
+  } else if (y < lastY - 5) {
+    show();
+  }
+  <span class="bug">lastY = y; // يتم التحديث دائماً</span>
+};
+// الفرق بين القيم المتتالية يكون 1-2 بكسل فقط
+// العتبة 5-10 بكسل لا تتحقق أبداً!</div>
+    </div>
+    <div class="diff-col">
+      <div class="good-head">✅ الكود الصحيح</div>
+      <div class="code-block"><span class="comment">// حل: تتبع الذروة (peakY)</span>
+var peakY = 0;      // أعلى نقطة للتمرير للأسفل
+var lastShownY = 0; // آخر نقطة تم إظهار الهيدر فيها
+
+window.addEventListener('scroll', function() {
+  var y = window.scrollY;
+  
+  if (y <= 80) {
+    peakY = 0;
+    lastShownY = 0;
+    show();
+  } 
+  else if (y > peakY) {
+    peakY = y;  // تحديث الذروة
+    if (y - lastShownY > 60) hide();
+  } 
+  else {
+    // تمرير لأعلى: قارن بالذروة
+    if (peakY - y > 30) {
+      lastShownY = y;
+      peakY = y;
+      show();
+    }
+  }
+});</div>
+    </div>
+  </div>
+</div>
+
+<div id="sim" class="panel">
+  <div class="sim-box">
+    <div class="label">🖱️ محاكاة تفاعلية لفهم المشكلة</div>
+    <div class="row">
+      <span style="min-width:70px">موضع التمرير:</span>
+      <input type="range" min="0" max="1000" value="0" id="scrollSim" style="flex:1" oninput="updateSim()">
+      <span class="val" id="scrollVal">0</span>
+    </div>
+    <div class="row">
+      <span style="min-width:70px">❌ lastY (خاطئ):</span>
+      <span class="val" id="lastYBug">0</span>
+      <span>الفرق:</span>
+      <span class="val" id="diffBug">0</span>
+    </div>
+    <div class="row">
+      <span style="min-width:70px">✅ peakY (صحيح):</span>
+      <span class="val" id="peakYFix">0</span>
+      <span>الفرق عن الذروة:</span>
+      <span class="val" id="diffFix">0</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span style="min-width:70px;font-weight:bold">❌ النظام القديم:</span>
+      <span class="state" id="stateBug">ظاهر</span>
+    </div>
+    <div class="row">
+      <span style="min-width:70px;font-weight:bold">✅ النظام الجديد:</span>
+      <span class="state" id="stateFix">ظاهر</span>
+    </div>
+    <div class="log-area" id="logArea"></div>
+    <div class="btns">
+      <button class="sim-btn" onclick="simScrollDown()">⬇️ تمرير للأسفل</button>
+      <button class="sim-btn" onclick="simScrollUp()">⬆️ تمرير للأعلى</button>
+      <button class="sim-btn" onclick="resetSim()">🔄 إعادة تعيين</button>
+    </div>
+  </div>
+</div>
+
+<div id="fix" class="panel">
+  <div class="note">
+    <strong>📋 التعليمات:</strong> انسخ الكود أدناه والصقه في نهاية ملف <code>footer.php</code> (قبل وسم <code>&lt;/body&gt;</code>).
+  </div>
+  <button class="copy-btn" onclick="copyCode()">📋 نسخ الكود</button>
+  <div class="code-block" id="finalCode" style="clear:both">
+&lt;script&gt;
+(function() {
+  'use strict';
+  
+  var header = document.querySelector('.pub-header');
+  var catBar = document.querySelector('.pub-cat-bar');
+  
+  if (!header) return;
+
+  // إزالة أي حالات سابقة
+  document.body.classList.remove('pub-smart-hidden');
+  document.body.classList.remove('pub-header-hidden');
+
+  // إعداد الهيدر
+  header.style.position = 'sticky';
+  header.style.top = '0';
+  header.style.zIndex = '99999';
+  header.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
+
+  if (catBar) {
+    catBar.style.position = 'sticky';
+    catBar.style.zIndex = '99998';
+    catBar.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
+    catBar.style.top = (header.offsetHeight || 60) + 'px';
+  }
+
+  var isHidden   = false;
+  var peakY      = 0;
+  var lastShownY = 0;
+  var ticking    = false;
+
+  var SHOW_AT    = 80;
+  var HIDE_AFTER = 60;
+  var SHOW_AFTER = 30;
+
+  function showHeader() {
+    if (isHidden) {
+      isHidden = false;
+      header.style.transform = 'translateY(0)';
+      if (catBar) catBar.style.transform = 'translateY(0)';
+    }
+  }
+  
+  function hideHeader() {
+    if (!isHidden) {
+      isHidden = true;
+      header.style.transform = 'translateY(-100%)';
+      if (catBar) catBar.style.transform = 'translateY(-100%)';
+    }
+  }
+
+  window.addEventListener('scroll', function() {
+    if (ticking) return;
+    ticking = true;
+    
+    requestAnimationFrame(function() {
+      var y = window.scrollY;
+
+      if (y <= SHOW_AT) {
+        peakY = 0;
+        lastShownY = 0;
+        showHeader();
+      } 
+      else if (y > peakY) {
+        peakY = y;
+        if (y - lastShownY > HIDE_AFTER) hideHeader();
+      } 
+      else {
+        if (peakY - y > SHOW_AFTER) {
+          lastShownY = y;
+          peakY = y;
+          showHeader();
+        }
+      }
+      ticking = false;
+    });
+  }, {passive: true});
+
+  // إظهار الهيدر عند الضغط على Tab
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') showHeader();
+  });
+  
+  console.log('✅ Sticky header active with peak tracking');
+})();
+&lt;/script&gt;
+  </div>
+</div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(function(t) {
+    t.classList.remove('active');
+  });
+  document.querySelectorAll('.panel').forEach(function(p) {
+    p.classList.remove('active');
+  });
+  document.getElementById(id).classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
+}
+
+// متغيرات المحاكاة
+var simY = 0, bugLastY = 0, bugHidden = false;
+var fixPeakY = 0, fixLastShownY = 0, fixHidden = false;
+var logArea = document.getElementById('logArea');
+
+function addLog(msg, type) {
+  var d = document.createElement('div');
+  d.className = 'log-' + type;
+  var prefix = type === 'down' ? '⬇️ ' : (type === 'up' ? '⬆️ ' : '⚪ ');
+  d.textContent = prefix + msg;
+  logArea.appendChild(d);
+  logArea.scrollTop = logArea.scrollHeight;
+  if (logArea.children.length > 25) {
+    logArea.removeChild(logArea.children[0]);
+  }
+}
+
+function updateSim() {
+  var newY = parseInt(document.getElementById('scrollSim').value);
+  var prev = simY;
+  simY = newY;
+  document.getElementById('scrollVal').textContent = newY;
+
+  var dBug = newY - bugLastY;
+  document.getElementById('lastYBug').textContent = bugLastY;
+  document.getElementById('diffBug').textContent = (dBug >= 0 ? '+' : '') + dBug;
+
+  document.getElementById('peakYFix').textContent = fixPeakY;
+  var dFix = newY > fixPeakY ? newY - fixPeakY : fixPeakY - newY;
+  document.getElementById('diffFix').textContent = (newY > fixPeakY ? '+' : '-') + dFix;
+
+  // المنطق العلوي
+  if (newY <= 80) {
+    if (bugHidden || fixHidden) {
+      bugHidden = false;
+      fixHidden = false;
+      fixPeakY = 0;
+      fixLastShownY = 0;
+      addLog('فوق 80px - إظهار الهيدر', 'up');
+    }
+  } 
+  else if (newY > prev) {
+    // تمرير للأسفل
+    if (dBug > 10 && !bugHidden) {
+      bugHidden = true;
+      addLog('❌ النظام الخاطئ: اختفى (فرق ' + dBug + 'px)', 'down');
+    }
+    if (newY > fixPeakY) {
+      fixPeakY = newY;
+    }
+    if (newY - fixLastShownY > 60 && !fixHidden) {
+      fixHidden = true;
+      addLog('✅ النظام الصحيح: اختفى (ذروة ' + fixPeakY + 'px)', 'down');
+    }
+  } 
+  else if (newY < prev) {
+    // تمرير للأعلى
+    if (newY < bugLastY - 5 && bugHidden) {
+      bugHidden = false;
+      addLog('❌ النظام الخاطئ: ظهر (فرق ' + (bugLastY - newY) + 'px)', 'up');
+    }
+    if (fixPeakY - newY > 30 && fixHidden) {
+      fixHidden = false;
+      fixLastShownY = newY;
+      fixPeakY = newY;
+      addLog('✅ النظام الصحيح: ظهر (فرق عن الذروة ' + (fixPeakY - newY) + 'px)', 'up');
+    }
+  }
+
+  bugLastY = newY;
+
+  // تحديث العرض
+  var bs = document.getElementById('stateBug');
+  bs.textContent = bugHidden ? 'مخفي' : 'ظاهر';
+  bs.className = 'state ' + (bugHidden ? 'hidden-state' : 'shown-state');
+  
+  var fs = document.getElementById('stateFix');
+  fs.textContent = fixHidden ? 'مخفي' : 'ظاهر';
+  fs.className = 'state ' + (fixHidden ? 'hidden-state' : 'shown-state');
+}
+
+var simInterval = null;
+
+function simScrollDown() {
+  if (simInterval) clearInterval(simInterval);
+  simInterval = setInterval(function() {
+    var el = document.getElementById('scrollSim');
+    var v = Math.min(1000, parseInt(el.value) + 18);
+    el.value = v;
+    updateSim();
+    if (v >= 900) {
+      clearInterval(simInterval);
+      simInterval = null;
+    }
+  }, 60);
+}
+
+function simScrollUp() {
+  if (simInterval) clearInterval(simInterval);
+  simInterval = setInterval(function() {
+    var el = document.getElementById('scrollSim');
+    var v = Math.max(0, parseInt(el.value) - 12);
+    el.value = v;
+    updateSim();
+    if (v <= 0) {
+      clearInterval(simInterval);
+      simInterval = null;
+    }
+  }, 60);
+}
+
+function resetSim() {
+  if (simInterval) {
+    clearInterval(simInterval);
+    simInterval = null;
+  }
+  simY = 0;
+  bugLastY = 0;
+  bugHidden = false;
+  fixPeakY = 0;
+  fixLastShownY = 0;
+  fixHidden = false;
+  document.getElementById('scrollSim').value = 0;
+  logArea.innerHTML = '';
+  updateSim();
+}
+
+function copyCode() {
+  var code = document.getElementById('finalCode').innerText;
+  navigator.clipboard.writeText(code).then(function() {
+    var btn = event.target;
+    var originalText = btn.textContent;
+    btn.textContent = '✅ تم النسخ!';
+    setTimeout(function() {
+      btn.textContent = originalText;
+    }, 2000);
+  });
+}
+
+// تهيئة
+updateSim();
+</script>
+</body>
+</html>

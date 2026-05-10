@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار الهيدر الثابت</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        /* تنسيق الهيدر */
+        .pub-header {
+            position: sticky;
+            top: 0;
+            background: #1a1a2e;
+            color: white;
+            padding: 15px 20px;
+            z-index: 99999;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .pub-header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .pub-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .pub-header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .pub-header-action-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        /* شريط الفئات */
+        .pub-cat-bar {
+            position: sticky;
+            top: 60px;
+            background: #16213e;
+            color: white;
+            padding: 10px 20px;
+            z-index: 99998;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .pub-cat-bar__inner {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .pub-cat-item {
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        
+        /* محتوى الصفحة الطويل */
+        .content {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .content p {
+            margin-bottom: 20px;
+            line-height: 1.6;
+            font-size: 18px;
+        }
+        
+        .spacer {
+            height: 2000px;
+            background: linear-gradient(to bottom, #ddd, #f5f5f5);
+        }
+        
+        /* حالة الإخفاء */
+        body.pub-smart-hidden .pub-header {
+            transform: translateY(-100%);
+        }
+        
+        body.pub-smart-hidden .pub-cat-bar {
+            transform: translateY(-100%);
+        }
+        
+        .info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 100000;
+        }
+    </style>
+</head>
+<body>
+
+<header class="pub-header" role="banner">
+    <div class="pub-header-inner">
+        <a href="#" class="pub-logo">QOOQZ</a>
+        <nav class="pub-header-actions">
+            <button class="pub-header-action-btn">🔍</button>
+            <button class="pub-header-action-btn">👤</button>
+            <button class="pub-header-action-btn">🌐</button>
+        </nav>
+    </div>
+</header>
+
+<nav class="pub-cat-bar">
+    <div class="pub-cat-bar__inner">
+        <a href="#" class="pub-cat-item">الكل</a>
+        <a href="#" class="pub-cat-item">إلكترونيات</a>
+        <a href="#" class="pub-cat-item">ملابس</a>
+        <a href="#" class="pub-cat-item">أحذية</a>
+        <a href="#" class="pub-cat-item">مستحضرات تجميل</a>
+        <a href="#" class="pub-cat-item">أثاث</a>
+        <a href="#" class="pub-cat-item">كتب</a>
+        <a href="#" class="pub-cat-item">ألعاب</a>
+        <a href="#" class="pub-cat-item">رياضة</a>
+        <a href="#" class="pub-cat-item">سيارات</a>
+    </div>
+</nav>
+
+<div class="content">
+    <h1>اختبار الهيدر الثابت (Sticky Header)</h1>
+    <p>قم بالتمرير لأعلى ولأسفل لمشاهدة تأثير الهيدر:</p>
+    <ul>
+        <li>✅ عند التمرير لأسفل: يختفي الهيدر</li>
+        <li>✅ عند التمرير لأعلى: يظهر الهيدر فوراً</li>
+        <li>✅ عند التوقف عن التمرير: يظهر الهيدر بعد 0.3 ثانية</li>
+    </ul>
+    <p>هذا مجرد اختبار بسيط. إذا كان يعمل، فإن المشكلة في ملفاتك الأصلية وليس في الكود.</p>
+</div>
+
+<div class="spacer"></div>
+
+<div class="info" id="scrollInfo">التمرير: 0px</div>
+
+<!-- ============================================================
+     STICKY HEADER - PRODUCTION SAFE (NO DUPLICATES)
+============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    // 🛑 يمنع أي تكرار (أهم خط دفاع)
+    if (window.__PUB_STICKY_INIT__) return;
+    window.__PUB_STICKY_INIT__ = true;
+
+    const inner = document.querySelector('.pub-header-inner');
+    if (!inner) return;
+
+    inner.style.transition = 'transform 0.25s ease-out';
+    inner.style.willChange = 'transform';
+
+    let lastY = window.scrollY;
+    let state = 'visible';
+    let timer = null;
+
+    const HIDE_AFTER = 100;
+    const DELTA = 8;
+
+    function show() {
+        if (state === 'visible') return;
+        state = 'visible';
+        inner.style.transform = '';
+        // console.log('[Sticky] SHOW');
+    }
+
+    function hide() {
+        if (state === 'hidden') return;
+        state = 'hidden';
+        inner.style.transform = 'translateY(-100%)';
+        // console.log('[Sticky] HIDE');
+    }
+
+    window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        const diff = y - lastY;
+
+        if (timer) clearTimeout(timer);
+
+        if (y <= HIDE_AFTER) {
+            show();
+        }
+        else if (diff > DELTA) {
+            hide();
+        }
+        else if (diff < -DELTA) {
+            show();
+        }
+
+        timer = setTimeout(show, 150);
+        lastY = y;
+
+    }, { passive: true });
+
+})();
+</script>
+</body>
+</html>

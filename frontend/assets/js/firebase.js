@@ -8,16 +8,20 @@
     // ==============================
     // CONFIG
     // ==============================
+    const cfgEl = document.getElementById('pubFcmConfig');
+    const dataCfg = cfgEl ? cfgEl.dataset : {};
+    const appCfg = window.APP_CONFIG || {};
+
     const FIREBASE_CONFIG = {
-        apiKey:            window.APP_CONFIG?.FCM_API_KEY || '',
-        authDomain:        window.APP_CONFIG?.FCM_AUTH_DOMAIN || '',
-        projectId:         window.APP_CONFIG?.FCM_PROJECT_ID || '',
-        messagingSenderId: window.APP_CONFIG?.FCM_MESSAGING_SENDER_ID || '',
-        appId:             window.APP_CONFIG?.FCM_APP_ID || '',
+        apiKey:            appCfg.FCM_API_KEY || dataCfg.fcmApiKey || '',
+        authDomain:        appCfg.FCM_AUTH_DOMAIN || dataCfg.fcmAuthDomain || '',
+        projectId:         appCfg.FCM_PROJECT_ID || dataCfg.fcmProjectId || '',
+        messagingSenderId: appCfg.FCM_MESSAGING_SENDER_ID || dataCfg.fcmMessagingSenderId || '',
+        appId:             appCfg.FCM_APP_ID || dataCfg.fcmAppId || '',
     };
 
-    const VAPID_KEY   = window.APP_CONFIG?.FCM_VAPID_KEY || '';
-    const API_DEVICES = (window.APP_CONFIG?.API_BASE || '/api') + '/user_devices';
+    const VAPID_KEY   = appCfg.FCM_VAPID_KEY || dataCfg.fcmVapidKey || '';
+    const API_DEVICES = (appCfg.API_BASE || dataCfg.apiBase || '/api') + '/user_devices';
 
     const STORAGE = {
         FCM_TOKEN: 'qz_fcm_token',

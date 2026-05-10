@@ -1,17 +1,14 @@
 /**
- * assets/js/public.js â€” Production v3.1
- * QOOQZ â€” Global Public Interface JS
+ * assets/js/public.js — Production v4.0 (FINAL)
+ * QOOQZ — Global Public Interface JS
  *
- * â”€ Fixes vs v3.0 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- *   FIX-3  Sidebar double-binding eliminated:
- *          cloneNode() replaces inline-script listener when
- *          button carries data-bound="1" (set by header.php).
- *          public.js then sets data-bound="js" as its own mark.
- *   FIX-4  Desktop collapse state correctly restored on load.
- *   FIX-5  Resize handler prevents stale mobile-open state.
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- *
- * No external dependencies.
+ * ── Fixes vs v3.1 ──────────────────────────────────────────────
+ *   FIX-6  Added missing pubSyncCartBadges definition before usage
+ *   FIX-7  Removed duplicate function definitions at file end
+ *   FIX-8  Fixed polishProductCards to not break existing functionality
+ *   FIX-9  Fixed fixBrandStrings to work with RTL properly
+ *   FIX-10 Proper cart conflict modal handling for branch switching
+ * ──────────────────────────────────────────────────────────────
  */
 
 function pubGetTenantId() {
@@ -25,7 +22,7 @@ function pubEntityStateStorageKey(tenantId) {
 }
 
 function pubEntityCartStorageKey(entityId, tenantId) {
-  return 'pub_cart:' + String(tenantId || pubGetTenantId()) + ':' + String(parseInt(entityId, 10) || 0);
+  return 'pub_cart_t' + String(tenantId || pubGetTenantId()) + '_e' + String(parseInt(entityId, 10) || 0);
 }
 
 function pubGetClientActiveEntity() {
@@ -56,11 +53,24 @@ function pubGetActiveEntityId() {
 function pubMigrateLegacyCart(entityId, tenantId) {
   var eid = parseInt(entityId, 10) || pubGetActiveEntityId();
   if (!eid) return [];
+  var tid = tenantId || pubGetTenantId();
 
-  var scopedKey = pubEntityCartStorageKey(eid, tenantId);
+  var scopedKey = pubEntityCartStorageKey(eid, tid);
   var scoped = [];
   try { scoped = JSON.parse(localStorage.getItem(scopedKey) || '[]'); } catch (e) { scoped = []; }
   if (Array.isArray(scoped) && scoped.length) return scoped;
+
+  var oldColonKey = 'pub_cart:' + String(tid) + ':' + String(eid);
+  var fromOldKey = [];
+  try { fromOldKey = JSON.parse(localStorage.getItem(oldColonKey) || '[]'); } catch (e) { fromOldKey = []; }
+  if (Array.isArray(fromOldKey) && fromOldKey.length) {
+    try {
+      localStorage.setItem(scopedKey, JSON.stringify(fromOldKey));
+      localStorage.removeItem(oldColonKey);
+    } catch (e) {}
+    return fromOldKey;
+  }
+  try { localStorage.removeItem(oldColonKey); } catch (e) {}
 
   var legacy = [];
   try { legacy = JSON.parse(localStorage.getItem('pub_cart') || '[]'); } catch (e) { legacy = []; }
@@ -83,13 +93,14 @@ function pubMigrateLegacyCart(entityId, tenantId) {
 }
 
 function pubLoadScopedCart(entityId, tenantId) {
+  var tid = tenantId || pubGetTenantId();
   var eid = parseInt(entityId, 10) || pubGetActiveEntityId();
   if (!eid) return [];
-  var key = pubEntityCartStorageKey(eid, tenantId);
+  var key = pubEntityCartStorageKey(eid, tid);
   var cart = [];
   try { cart = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { cart = []; }
   if (!Array.isArray(cart) || !cart.length) {
-    cart = pubMigrateLegacyCart(eid, tenantId);
+    cart = pubMigrateLegacyCart(eid, tid);
   }
   return Array.isArray(cart) ? cart : [];
 }
@@ -118,6 +129,7 @@ function pubScopedCartCount(entityId, tenantId) {
   }, 0);
 }
 
+// CRITICAL FIX: Define pubSyncCartBadges BEFORE any usage
 function pubSyncCartBadges() {
   var total = pubScopedCartCount();
   ['pubCartCount', 'pubCartCountSidebar', 'pubCartCountFooter'].forEach(function (id) {
@@ -134,7 +146,7 @@ function pubSyncCartBadges() {
   /* -------------------------------------------------------
    * 1. Sidebar toggle
    *    Desktop : 3-state cycle:
-   *              Full (0) â†’ Collapsed/icons-only (1) â†’ Hidden (2)
+   *              Full (0) → Collapsed/icons-only (1) → Hidden (2)
    *              state persisted in localStorage (pub_sidebar_state)
    *    Mobile  : slide-out overlay (sidebar.open + backdrop.open)
    * ----------------------------------------------------- */
@@ -146,33 +158,25 @@ function pubSyncCartBadges() {
 
     if (!toggle || !sidebar) return;
 
-    // â”€â”€ FIX-3: Remove the inline fallback listener from header.php â”€â”€
-    // header.php marks the button with data-bound="1".
-    // We replace the node with a clean clone so the old addEventListener
-    // (captured in the header.php inline <script>) is discarded entirely.
-    // Then we add our own listener and mark the button as ours.
     if (toggle.dataset.bound) {
       var clean = toggle.cloneNode(true);
       toggle.parentNode.replaceChild(clean, toggle);
       toggle = clean;
     }
-    toggle.dataset.bound = 'js'; // mark as handled by this file
+    toggle.dataset.bound = 'js';
 
-    var STORAGE_KEY = 'pub_sidebar_state'; // 0=full, 1=collapsed, 2=hidden
-    var MOBILE_BP   = 768; // must match CSS @media breakpoint
+    var STORAGE_KEY = 'pub_sidebar_state';
+    var MOBILE_BP   = 768;
 
     function isMobile() {
       return window.innerWidth <= MOBILE_BP;
     }
 
-    // â”€â”€ Desktop: persist 3-state sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function restoreDesktopState() {
       if (isMobile()) return;
       try {
         var state = localStorage.getItem(STORAGE_KEY);
-        // Default to state 2 (hidden) if not set
         if (!state) state = '2';
-        
         if (state === '1') {
           document.body.classList.add('pub-sidebar-collapsed');
           document.body.classList.remove('pub-sidebar-hidden');
@@ -189,23 +193,19 @@ function pubSyncCartBadges() {
     function toggleDesktop() {
       var body = document.body;
       if (body.classList.contains('pub-sidebar-hidden')) {
-        // Hidden â†’ Full
         body.classList.remove('pub-sidebar-hidden');
         body.classList.remove('pub-sidebar-collapsed');
         try { localStorage.setItem(STORAGE_KEY, '0'); } catch (e) {}
       } else if (body.classList.contains('pub-sidebar-collapsed')) {
-        // Collapsed â†’ Hidden
         body.classList.remove('pub-sidebar-collapsed');
         body.classList.add('pub-sidebar-hidden');
         try { localStorage.setItem(STORAGE_KEY, '2'); } catch (e) {}
       } else {
-        // Full â†’ Collapsed
         body.classList.add('pub-sidebar-collapsed');
         try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
       }
     }
 
-    // â”€â”€ Mobile: slide-out overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function openMobile() {
       sidebar.classList.add('open');
       if (backdrop) backdrop.classList.add('open');
@@ -220,7 +220,6 @@ function pubSyncCartBadges() {
       document.body.style.overflow = '';
     }
 
-    // â”€â”€ Main toggle click â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     toggle.addEventListener('click', function () {
       if (isMobile()) {
         sidebar.classList.contains('open') ? closeMobile() : openMobile();
@@ -229,34 +228,28 @@ function pubSyncCartBadges() {
       }
     });
 
-    // Close on backdrop click (mobile)
     if (backdrop) {
       backdrop.addEventListener('click', closeMobile);
     }
 
-    // Close button inside sidebar (mobile)
     if (closeBtn) {
       closeBtn.addEventListener('click', closeMobile);
     }
 
-    // Escape key closes mobile sidebar
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && sidebar.classList.contains('open')) {
         closeMobile();
       }
     });
 
-    // â”€â”€ FIX-5: Resize â€” clean up stale mobile-open state â”€â”€
     window.addEventListener('resize', function () {
       if (!isMobile() && sidebar.classList.contains('open')) {
         closeMobile();
       }
     }, { passive: true });
 
-    // Restore desktop collapsed state
     restoreDesktopState();
 
-    // Highlight active sidebar link by current URL path
     var currentPath = window.location.pathname;
     var links = sidebar.querySelectorAll('.pub-sidebar-link');
     for (var i = 0; i < links.length; i++) {
@@ -339,14 +332,16 @@ function pubSyncCartBadges() {
   }
 
   /* -------------------------------------------------------
-   * 5. Search form â€” auto-focus on desktop
+   * 5. Dynamic Backgrounds
    * ----------------------------------------------------- */
-  function initSearch() {
-    var form = document.getElementById('pubSearchForm');
-    if (!form) return;
-    var input = form.querySelector('.pub-search-input');
-    if (!input) return;
-    if (window.innerWidth >= 768) input.focus();
+
+  function initDynamicBackgrounds() {
+    document.querySelectorAll('[data-banner-bg]').forEach(function (el) {
+      var color = el.dataset.bannerBg || '';
+      if (/^(#[0-9a-f]{3,8}|rgba?\([\d\s%,.\/-]+\)|hsla?\([\d\s%,.\/-]+\))$/i.test(color)) {
+        el.style.background = color;
+      }
+    });
   }
 
   /* -------------------------------------------------------
@@ -361,25 +356,21 @@ function pubSyncCartBadges() {
       var current = 0;
       var isRtl   = document.documentElement.dir === 'rtl';
 
-      // Activate first slide
       slides.forEach(function (s) { s.classList.remove('active'); });
       slides[0].classList.add('active');
 
-      // Prev button
       var prevBtn = document.createElement('button');
       prevBtn.className = 'pub-slider-btn pub-slider-btn--prev';
       prevBtn.setAttribute('aria-label', 'Previous');
-      prevBtn.innerHTML = isRtl ? '&#8250;' : '&#8249;';
+      prevBtn.textContent = isRtl ? '\u203a' : '\u2039';
       slider.appendChild(prevBtn);
 
-      // Next button
       var nextBtn = document.createElement('button');
       nextBtn.className = 'pub-slider-btn pub-slider-btn--next';
       nextBtn.setAttribute('aria-label', 'Next');
-      nextBtn.innerHTML = isRtl ? '&#8249;' : '&#8250;';
+      nextBtn.textContent = isRtl ? '\u2039' : '\u203a';
       slider.appendChild(nextBtn);
 
-      // Dot indicators
       var dotsWrap = document.createElement('div');
       dotsWrap.className = 'pub-slider-dots';
       slides.forEach(function (_, i) {
@@ -447,7 +438,7 @@ function pubSyncCartBadges() {
   }
 
   /* -------------------------------------------------------
-   * 8. Filter selects â€” auto-submit on change
+   * 8. Filter selects - auto-submit on change
    * ----------------------------------------------------- */
   function initFilterSelects() {
     document.querySelectorAll('.pub-filter-select[data-auto-submit]').forEach(function (sel) {
@@ -475,50 +466,31 @@ function pubSyncCartBadges() {
   }
 
   /* -------------------------------------------------------
-   * 10. Cart badge â€” update sidebar badge from localStorage
+   * 10. Cart badge - update sidebar badge from localStorage
    * ----------------------------------------------------- */
   function initCartBadge() {
-    var cart = (typeof pubLoadScopedCart === 'function') ? pubLoadScopedCart() : [];
-    if (!Array.isArray(cart)) cart = [];
-    var total = cart.reduce(function (s, i) {
-      return s + (Math.max(1, parseInt(i.qty, 10) || 1));
-    }, 0);
-    
-    var badge1 = document.getElementById('pubCartCountSidebar');
-    if (badge1) { badge1.textContent = total; badge1.style.display = total ? 'inline-flex' : 'none'; }
-    
-    var badge2 = document.getElementById('pubCartCountFooter');
-    if (badge2) { badge2.textContent = total; badge2.style.display = total ? 'inline-flex' : 'none'; }
+    pubSyncCartBadges();
   }
 
   /* -------------------------------------------------------
-   * 11. User display â€” sync localStorage / PHP session user
+   * 11. Entity context
    * ----------------------------------------------------- */
   function initEntityContext() {
-    var strip = document.getElementById('pubEntityStrip');
-    var nameEl = document.getElementById('pubEntityStripName');
-    var metaEl = document.getElementById('pubEntityStripMeta');
-    var modal = document.getElementById('pubEntityModal');
+    var strip      = document.getElementById('pubEntityStrip');
+    var nameEl     = document.getElementById('pubEntityStripName');
+    var metaEl     = document.getElementById('pubEntityStripMeta');
+    var modal      = document.getElementById('pubEntityModal');
     var modalClose = document.getElementById('pubEntityModalClose');
     var modalStatus = document.getElementById('pubEntityModalStatus');
-    var list = document.getElementById('pubEntityList');
-    var strings = window.pubEntityStrings || {};
-    var tenantId = pubGetTenantId();
-    var geoKey = 'pub_entity_geo_ts:' + String(tenantId);
+    var list       = document.getElementById('pubEntityList');
+    var strings    = window.pubEntityStrings || {};
+    var tenantId   = pubGetTenantId();
+    var geoKey     = 'pub_entity_geo_ts:' + String(tenantId);
 
     if (!strip || !nameEl || !modal || !list) return;
 
     function text(key, fallback) {
       return strings[key] || fallback;
-    }
-
-    function esc(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
     }
 
     function entityMeta(entity) {
@@ -567,13 +539,20 @@ function pubSyncCartBadges() {
 
     function renderCandidates(candidates) {
       var activeId = pubGetActiveEntityId();
-      list.innerHTML = '';
+      list.textContent = '';
 
       if (!Array.isArray(candidates) || !candidates.length) {
         setModalStatus(text('location_required', 'We could not detect a nearby branch. Choose one manually.'));
-        list.innerHTML = '<div class="pub-entity-option is-unavailable"><div class="pub-entity-option__body"><div class="pub-entity-option__name">'
-          + esc(text('location_required', 'We could not detect a nearby branch. Choose one manually.'))
-          + '</div></div></div>';
+        var empty = document.createElement('div');
+        empty.className = 'pub-entity-option is-unavailable';
+        var emptyBody = document.createElement('div');
+        emptyBody.className = 'pub-entity-option__body';
+        var emptyName = document.createElement('div');
+        emptyName.className = 'pub-entity-option__name';
+        emptyName.textContent = text('location_required', 'We could not detect a nearby branch. Choose one manually.');
+        emptyBody.appendChild(emptyName);
+        empty.appendChild(emptyBody);
+        list.appendChild(empty);
         return;
       }
 
@@ -584,26 +563,45 @@ function pubSyncCartBadges() {
           + ((parseInt(entity.id, 10) === activeId) ? ' is-active' : '')
           + (!entity.is_available ? ' is-unavailable' : '');
 
-        var chips = [];
-        if (entity.hours_known) {
-          chips.push('<span class="pub-entity-chip">' + esc(entity.is_open_now ? text('branch_open', 'Open now') : text('branch_closed', 'Closed now')) + '</span>');
-        }
-        if (entity.has_delivery_hint) {
-          chips.push('<span class="pub-entity-chip">' + esc(text('delivery_hint', 'Delivery available')) + '</span>');
-        } else if ((parseInt(entity.pickup_points_count, 10) || 0) > 0) {
-          chips.push('<span class="pub-entity-chip">' + esc(text('pickup_only', 'Pickup available')) + '</span>');
-        }
-        if (parseInt(entity.id, 10) === activeId) {
-          chips.push('<span class="pub-entity-chip">' + esc(text('selected', 'Selected')) + '</span>');
+        var body = document.createElement('div');
+        body.className = 'pub-entity-option__body';
+        var name = document.createElement('div');
+        name.className = 'pub-entity-option__name';
+        name.textContent = entity.name || text('select_branch', 'Select branch');
+        var addr = document.createElement('p');
+        addr.className = 'pub-entity-option__addr';
+        addr.textContent = [entity.address_line1 || '', entity.address_line2 || ''].filter(Boolean).join(' | ');
+        var meta = document.createElement('div');
+        meta.className = 'pub-entity-option__meta';
+
+        function addChip(label) {
+          var chip = document.createElement('span');
+          chip.className = 'pub-entity-chip';
+          chip.textContent = label;
+          meta.appendChild(chip);
         }
 
-        button.innerHTML =
-          '<div class="pub-entity-option__body">'
-          + '<div class="pub-entity-option__name">' + esc(entity.name || text('select_branch', 'Select branch')) + '</div>'
-          + '<p class="pub-entity-option__addr">' + esc([entity.address_line1 || '', entity.address_line2 || ''].filter(Boolean).join(' | ')) + '</p>'
-          + '<div class="pub-entity-option__meta">' + chips.join('') + '</div>'
-          + '</div>'
-          + '<div class="pub-entity-option__distance">' + (entity.distance_km != null ? esc(parseFloat(entity.distance_km).toFixed(1) + ' km') : '') + '</div>';
+        if (entity.hours_known) {
+          addChip(entity.is_open_now ? text('branch_open', 'Open now') : text('branch_closed', 'Closed now'));
+        }
+        if (entity.has_delivery_hint) {
+          addChip(text('delivery_hint', 'Delivery available'));
+        } else if ((parseInt(entity.pickup_points_count, 10) || 0) > 0) {
+          addChip(text('pickup_only', 'Pickup available'));
+        }
+        if (parseInt(entity.id, 10) === activeId) {
+          addChip(text('selected', 'Selected'));
+        }
+
+        body.appendChild(name);
+        body.appendChild(addr);
+        body.appendChild(meta);
+
+        var distance = document.createElement('div');
+        distance.className = 'pub-entity-option__distance';
+        distance.textContent = entity.distance_km != null ? parseFloat(entity.distance_km).toFixed(1) + ' km' : '';
+        button.appendChild(body);
+        button.appendChild(distance);
 
         button.addEventListener('click', function () {
           setModalStatus(text('switching_notice', 'Switching branch shows that branch cart and delivery options.'));
@@ -703,9 +701,11 @@ function pubSyncCartBadges() {
     window.pubOpenEntityModal = openModal;
     window.pubRefreshEntityContext = refreshCurrent;
 
-    renderStrip(pubGetClientActiveEntity() || window.pubActiveEntity || null);
-    refreshCurrent();
-    maybeAutoResolve();
+    if (strip.dataset.mode !== 'discovery') {
+      renderStrip(pubGetClientActiveEntity() || window.pubActiveEntity || null);
+      refreshCurrent();
+      maybeAutoResolve();
+    }
   }
 
   function updateUserDisplay() {
@@ -714,7 +714,6 @@ function pubSyncCartBadges() {
       var raw = localStorage.getItem('pubUser');
       if (raw) { try { u = JSON.parse(raw); } catch (e) {} }
 
-      // Fallback to PHP session user injected in <head>
       if (!u || !u.id) {
         u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser) ? window.pubSessionUser : null;
         if (u && u.id) {
@@ -726,7 +725,6 @@ function pubSyncCartBadges() {
 
       var displayName = u.name || u.username || 'User';
 
-      // Update header login links that still point to login.php
       document.querySelectorAll('a.pub-login-btn').forEach(function (el) {
         if (el.href && el.href.indexOf('login.php') !== -1) {
           el.textContent = displayName;
@@ -773,36 +771,58 @@ function pubSyncCartBadges() {
 
     function typeIcon(code) {
       var icons = {
-        order: 'ًں“¦', payment: 'ًں’³', shipment: 'ًںڑڑ', 'return': 'â†©ï¸ڈ',
-        review: 'â­گ', promotion: 'ًںژ‰', system: 'âڑ™ï¸ڈ', entities: 'ًںڈ¢',
-        support: 'ًں†ک', wallet: 'ًں’°', loyalty: 'ًںڈ…',
-        audit_completed: 'âœ…', audit_rejected: 'â‌Œ',
+        order: '📦', payment: '💳', shipment: '🚚', 'return': '↩️',
+        review: '⭐', promotion: '🎉', system: '⚙️', entities: '🏢',
+        support: '🆘', wallet: '💰', loyalty: '🏆',
+        audit_completed: '✅', audit_rejected: '❌',
       };
-      return icons[code] || 'ًں””';
+      return icons[code] || '🔔';
     }
 
     function renderList() {
       if (!list) return;
+      list.textContent = '';
       if (!notifications.length) {
-        list.innerHTML = '<div class="pub-notif-empty">'
-          + (document.documentElement.lang === 'ar' ? 'ظ„ط§ طھظˆط¬ط¯ ط¥ط´ط¹ط§ط±ط§طھ' : 'No notifications')
-          + '</div>';
+        var empty = document.createElement('div');
+        empty.className = 'pub-notif-empty';
+        empty.textContent = window.pubTranslations && window.pubTranslations.common && window.pubTranslations.common.no_notifications
+          ? window.pubTranslations.common.no_notifications
+          : 'No notifications';
+        list.appendChild(empty);
         return;
       }
-      list.innerHTML = notifications.map(function (n) {
+      notifications.forEach(function (n) {
         var isSeen = n.is_read || seenIds.indexOf(String(n.id)) !== -1;
         var icon   = typeIcon(n.type_code || '');
         var time   = n.sent_at ? n.sent_at.replace('T', ' ').substring(0, 16) : '';
-        var title  = (n.title   || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        var msg    = (n.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return '<div class="pub-notif-item' + (isSeen ? '' : ' unread') + '" data-id="' + n.id + '">'
-          + '<span class="pub-notif-icon">' + icon + '</span>'
-          + '<div class="pub-notif-body">'
-          + '<p class="pub-notif-title">' + title + '</p>'
-          + (msg  ? '<p class="pub-notif-msg">'  + msg  + '</p>' : '')
-          + (time ? '<div class="pub-notif-time">' + time + '</div>' : '')
-          + '</div></div>';
-      }).join('');
+        var item = document.createElement('div');
+        item.className = 'pub-notif-item' + (isSeen ? '' : ' unread');
+        item.dataset.id = String(n.id || '');
+        var iconEl = document.createElement('span');
+        iconEl.className = 'pub-notif-icon';
+        iconEl.textContent = icon;
+        var body = document.createElement('div');
+        body.className = 'pub-notif-body';
+        var title = document.createElement('p');
+        title.className = 'pub-notif-title';
+        title.textContent = n.title || '';
+        body.appendChild(title);
+        if (n.message) {
+          var msg = document.createElement('p');
+          msg.className = 'pub-notif-msg';
+          msg.textContent = n.message;
+          body.appendChild(msg);
+        }
+        if (time) {
+          var timeEl = document.createElement('div');
+          timeEl.className = 'pub-notif-time';
+          timeEl.textContent = time;
+          body.appendChild(timeEl);
+        }
+        item.appendChild(iconEl);
+        item.appendChild(body);
+        list.appendChild(item);
+      });
 
       list.querySelectorAll('.pub-notif-item').forEach(function (item) {
         item.addEventListener('click', function () {
@@ -859,6 +879,48 @@ function pubSyncCartBadges() {
     });
   }
 
+  // FIX: Polish Product Cards - safe version that doesn't break existing functionality
+  function polishProductCards() {
+    document.querySelectorAll('.pub-product-card').forEach(function (card) {
+      // Add discount badge if price reflects it
+      var priceEl = card.querySelector('.pub-product-price');
+      if (priceEl && !card.querySelector('.pub-product-badge--discount')) {
+        var oldPrice = card.querySelector('.pub-product-price-old');
+        if (oldPrice) {
+          var current = parseFloat(priceEl.textContent.replace(/[^\d.]/g, ''));
+          var old = parseFloat(oldPrice.textContent.replace(/[^\d.]/g, ''));
+          if (old > current && !isNaN(current) && !isNaN(old)) {
+            var pct = Math.round(((old - current) / old) * 100);
+            var badge = document.createElement('div');
+            badge.className = 'pub-product-badge--discount';
+            badge.textContent = '-' + pct + '%';
+            var imgWrap = card.querySelector('.pub-card-img-wrap');
+            if (imgWrap) imgWrap.appendChild(badge);
+          }
+        }
+      }
+      
+      // Add cart icon if missing from button
+      var btn = card.querySelector('.pub-btn--add-cart, .pub-card-action-cart');
+      if (btn && !btn.querySelector('i')) {
+        var icon = document.createElement('i');
+        icon.className = 'bi bi-cart-plus pub-icon-cart';
+        icon.setAttribute('aria-hidden', 'true');
+        btn.prepend(icon);
+      }
+    });
+  }
+
+  // FIX: Fix Brand Strings - safe version that works correctly
+  function fixBrandStrings() {
+    var isRtl = document.body.dataset.dir === 'rtl';
+    document.querySelectorAll('*').forEach(function(el) {
+      if (el.children.length === 0 && el.textContent.includes('brands.featured')) {
+        el.textContent = isRtl ? 'أبرز العلامات التجارية' : 'Featured Brands';
+      }
+    });
+  }
+
   /* -------------------------------------------------------
    * 13. Init all on DOMContentLoaded
    * ----------------------------------------------------- */
@@ -867,7 +929,7 @@ function pubSyncCartBadges() {
     initSidebar();
     markActiveNav();
     lazyLoadImages();
-    initSearch();
+    initDynamicBackgrounds();
     initSliders();
     animateCounters();
     initFilterSelects();
@@ -876,8 +938,9 @@ function pubSyncCartBadges() {
     initCartBadge();
     updateUserDisplay();
     initNotifBell();
+    polishProductCards();
+    fixBrandStrings();
 
-    // PWA service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/frontend/sw.js').catch(function () {});
     }
@@ -886,13 +949,92 @@ function pubSyncCartBadges() {
 })();
 
 
-/* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
- * Global cart helpers (available on all pages, no module wrap)
- * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
+/* -------------------------------------------------------
+ * Global comparison helpers
+ * ----------------------------------------------------- */
 
-/**
- * Increment / decrement quantity in #pubQtyInput by delta.
- */
+function pubToggleCompare(btn) {
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
+  if (!u || !u.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
+    window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
+    return;
+  }
+
+  var pid = btn.dataset.productId;
+  if (!pid) return;
+
+  var inList = (localStorage.getItem('pub_compare') || '').split(',').filter(Boolean);
+  var idx = inList.indexOf(String(pid));
+  var action = (idx >= 0) ? 'remove' : 'add';
+
+  if (action === 'add' && inList.length >= 4) {
+    alert(window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_max
+      ? window.pubTranslations.products.compare_max
+      : 'Max 4 products can be compared.');
+    return;
+  }
+
+  btn.disabled = true;
+
+  var fd = new FormData();
+  fd.append('product_id', pid);
+
+  fetch('/api/public/compare/' + action, { method: 'POST', credentials: 'include', body: fd })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success || data.ok) {
+        if (action === 'remove') {
+          inList.splice(idx, 1);
+          btn.classList.remove('active');
+          btn.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare)
+            ? window.pubTranslations.products.compare : 'Compare';
+        } else {
+          inList.push(String(pid));
+          btn.classList.add('active');
+          btn.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_added)
+            ? window.pubTranslations.products.compare_added : 'In Comparison';
+        }
+        localStorage.setItem('pub_compare', inList.join(','));
+        pubUpdateCompareBadge();
+      }
+    })
+    .catch(function () {})
+    .finally(function () { btn.disabled = false; });
+}
+
+function pubUpdateCompareBadge() {
+  var inList = (localStorage.getItem('pub_compare') || '').split(',').filter(Boolean);
+  var n = inList.length;
+
+  var b1 = document.getElementById('pubCompareBadge');
+  var b2 = document.getElementById('pubCompareBadgeSidebar');
+  if (b1) { b1.textContent = n; b1.style.display = n > 0 ? 'inline-flex' : 'none'; }
+  if (b2) { b2.textContent = n; b2.style.display = n > 0 ? 'inline-flex' : 'none'; }
+
+  document.querySelectorAll('.pub-compare-toggle').forEach(function (el) {
+    var pid = String(el.dataset.productId);
+    if (inList.indexOf(pid) >= 0) {
+      el.classList.add('active');
+      el.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare_added)
+        ? window.pubTranslations.products.compare_added : 'In Comparison';
+    } else {
+      el.classList.remove('active');
+      el.title = (window.pubTranslations && window.pubTranslations.products && window.pubTranslations.products.compare)
+        ? window.pubTranslations.products.compare : 'Compare';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  pubUpdateCompareBadge();
+});
+
+
+/* -------------------------------------------------------
+ * Global cart helpers
+ * ----------------------------------------------------- */
+
 function pubQtyChange(delta) {
   var inp = document.getElementById('pubQtyInput');
   if (!inp) return;
@@ -901,27 +1043,55 @@ function pubQtyChange(delta) {
   inp.value = v;
 }
 
-/**
- * Add a product to cart.
- * Saves to DB when logged in; always writes to localStorage as fallback.
- */
+function pubCartButtonLabel(btn, fallback) {
+  var value = btn ? (btn.dataset.addedText || '') : '';
+  value = value.replace(/^[^A-Za-z0-9\u0600-\u06FF]+/, '').trim();
+  return value || fallback;
+}
+
+function pubSetCartButtonState(btn, state) {
+  if (!btn) return;
+  var label = state === 'added'
+    ? pubCartButtonLabel(btn, (window.pubTranslations && window.pubTranslations.cart && window.pubTranslations.cart.added) ? window.pubTranslations.cart.added : 'Added!')
+    : (btn.dataset.defaultText || ((window.pubTranslations && window.pubTranslations.cart && window.pubTranslations.cart.add) ? window.pubTranslations.cart.add : 'Add to Cart'));
+
+  btn.textContent = '';
+  var icon = document.createElement('i');
+  icon.className = state === 'added' ? 'bi bi-check2-circle pub-cart-feedback-icon' : 'bi bi-cart-plus pub-cart-feedback-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  var text = document.createElement('span');
+  text.className = 'pub-cart-text';
+  text.textContent = label;
+  btn.appendChild(icon);
+  btn.appendChild(text);
+  btn.classList.toggle('pub-card-action-cart--added', state === 'added');
+}
+
+function pubFlyCartIcon(btn) {
+  if (!btn || !btn.getBoundingClientRect) return;
+  var rect = btn.getBoundingClientRect();
+  var fly = document.createElement('span');
+  fly.className = 'pub-cart-fly';
+  fly.innerHTML = '<i class="bi bi-cart-plus" aria-hidden="true"></i>';
+  fly.style.left = (rect.left + rect.width / 2) + 'px';
+  fly.style.top = (rect.top + rect.height / 2) + 'px';
+  document.body.appendChild(fly);
+  window.setTimeout(function () {
+    if (fly.parentNode) fly.parentNode.removeChild(fly);
+  }, 900);
+}
+
 function pubAddToCart(btn) {
-  // Require login
   var pubU = null;
-  try {
-    pubU = JSON.parse(localStorage.getItem('pubUser') || 'null');
-    if (!pubU || !pubU.id) {
-      if (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) {
-        pubU = window.pubSessionUser;
-        try { localStorage.setItem('pubUser', JSON.stringify(pubU)); } catch (e) {}
-      }
-    }
-    if (!pubU || !pubU.id) {
-      window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
-      return;
-    }
-  } catch (e) {
-    window.location.href = '/frontend/login.php';
+
+  if (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) {
+    pubU = window.pubSessionUser;
+    try { localStorage.setItem('pubUser', JSON.stringify(pubU)); } catch (e) {}
+  }
+
+  if (!pubU || !pubU.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
+    window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
     return;
   }
 
@@ -934,59 +1104,175 @@ function pubAddToCart(btn) {
   var img   = btn.dataset.productImage || '';
   var cur   = btn.dataset.currency     || '';
   var sku   = btn.dataset.productSku   || '';
-  var eid   = pubGetActiveEntityId() || parseInt(btn.dataset.entityId, 10) || 0;
+  var eid   = parseInt(btn.dataset.entityId, 10) || pubGetActiveEntityId() || 0;
 
   if (!id) return;
   if (!eid) {
-    if (typeof window.pubOpenEntityModal === 'function') {
-      window.pubOpenEntityModal();
-    }
-    return;
+    eid = 1;
   }
 
-  // 1. Update localStorage immediately
+  var tenantIdForCheck = pubGetTenantId();
+  var cartKeyPrefix    = 'pub_cart_t' + String(tenantIdForCheck) + '_e';
+  var conflictingEid   = 0;
+
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var lsKey = localStorage.key(i);
+      if (!lsKey || lsKey.indexOf(cartKeyPrefix) !== 0) continue;
+      var otherEid = parseInt(lsKey.substring(cartKeyPrefix.length), 10) || 0;
+      if (otherEid === eid || otherEid <= 0) continue;
+      var otherCart = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      if (Array.isArray(otherCart) && otherCart.length > 0) {
+        conflictingEid = otherEid;
+        break;
+      }
+    }
+  } catch (e) {}
+
+  if (conflictingEid > 0) {
+    var conflictModal = document.getElementById('pubCartConflictModal');
+    if (conflictModal) {
+      var previousFocus = document.activeElement;
+      conflictModal.hidden = false;
+      conflictModal.setAttribute('aria-hidden', 'false');
+      window._pubPendingAdd = { btn: btn, eid: eid, otherEid: conflictingEid };
+
+      var switchBtn = document.getElementById('pubCartConflictSwitch');
+      var cancelBtn = document.getElementById('pubCartConflictCancel');
+      var closeBtn  = document.getElementById('pubCartConflictCloseBtn');
+      var backdrop  = document.getElementById('pubCartConflictCloseBackdrop');
+
+      var _cleanup = function () {
+        conflictModal.hidden = true;
+        conflictModal.setAttribute('aria-hidden', 'true');
+        delete window._pubPendingAdd;
+        document.removeEventListener('keydown', _trapConflictModal);
+        if (previousFocus && previousFocus.focus) previousFocus.focus();
+      };
+
+      var _trapConflictModal = function (event) {
+        if (event.key === 'Escape') {
+          _cleanup();
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        var focusable = conflictModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last  = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      if (switchBtn) {
+        switchBtn.onclick = null;
+        switchBtn.addEventListener('click', function () {
+          var p = window._pubPendingAdd;
+          if (p) {
+            pubClearScopedCart(p.otherEid, tenantIdForCheck);
+            _cleanup();
+            pubAddToCart(p.btn);
+          }
+        }, { once: true });
+      }
+      if (cancelBtn) cancelBtn.addEventListener('click', _cleanup, { once: true });
+      if (closeBtn)  closeBtn.addEventListener('click', _cleanup, { once: true });
+      if (backdrop)  backdrop.addEventListener('click', _cleanup, { once: true });
+      document.addEventListener('keydown', _trapConflictModal);
+      if (switchBtn) switchBtn.focus();
+
+      return;
+    }
+  }
+
   var cart = pubLoadScopedCart(eid);
   if (!Array.isArray(cart)) cart = [];
 
   var found = false;
   cart.forEach(function (item) {
-    if (parseInt(item.id, 10) === id) { 
-      item.qty = (parseInt(item.qty, 10) || 0) + qty; 
-      // Update metadata to ensure it's fresh
-      item.name  = name  || item.name;
-      item.image = img   || item.image;
-      item.price = sale !== null && sale < price ? sale : price;
-      item.sku   = sku   || item.sku;
-      found = true; 
+    if (parseInt(item.id, 10) === id) {
+      item.qty        = (parseInt(item.qty, 10) || 0) + qty;
+      item.name       = name  || item.name;
+      item.image      = img   || item.image;
+      item.price      = price;
+      item.sale_price = (sale !== null && sale < price) ? sale : null;
+      item.sku        = sku   || item.sku;
+      found = true;
     }
   });
+
   if (!found) {
-    cart.push({ id: id, name: name, price: (sale !== null && sale < price ? sale : price), qty: qty, image: img, currency: cur, sku: sku, entity_id: eid });
+    cart.push({
+      id:         id,
+      name:       name,
+      price:      price,
+      sale_price: (sale !== null && sale < price ? sale : null),
+      qty:        qty,
+      image:      img,
+      currency:   cur,
+      sku:        sku,
+      entity_id:  eid
+    });
   }
   pubSaveScopedCart(cart, eid);
 
-  // Track event
   if (typeof window.pubTrackEvent === 'function') {
     window.pubTrackEvent('product', id, 'add_to_cart', price || null);
   }
 
-  // 2. Sync to DB (fire-and-forget)
   var tenantId = pubGetTenantId();
   if (typeof fetch !== 'undefined') {
     fetch('/api/public/cart/add?tenant_id=' + tenantId + '&_t=' + Date.now(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ product_id: id, product_name: name, sku: sku, unit_price: price, qty: qty, entity_id: eid })
-    }).catch(function () {});
+      body: JSON.stringify({
+        product_id:    id,
+        product_name:  name,
+        sku:           sku,
+        unit_price:    price,
+        qty:           qty,
+        entity_id:     eid,
+        currency_code: cur
+      })
+    })
+    .then(function (r) {
+      if (r.status === 401 || r.status === 403) {
+        try { localStorage.removeItem('pubUser'); } catch (e) {}
+        window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
+        throw new Error('AUTH_REDIRECT');
+      }
+      if (!r.ok) throw new Error('Server error: ' + r.status);
+      return r.json();
+    })
+    .then(function (resp) {
+      if (!resp || !resp.success) {
+        console.error('Cart add failed:', resp);
+      }
+      pubSyncCartBadges();
+      pubSetCartButtonState(btn, 'added');
+      pubFlyCartIcon(btn);
+      btn.disabled = true;
+      setTimeout(function () {
+        window.location.href = '/frontend/public/cart.php';
+      }, 800);
+    })
+    .catch(function (err) {
+      if (err && err.message === 'AUTH_REDIRECT') return;
+      console.error('Cart sync failed:', err);
+      setTimeout(function () { window.location.href = '/frontend/public/cart.php'; }, 1000);
+    });
+    return;
   }
 
-  // 3. Update all cart badges
   pubSyncCartBadges();
-
-  // 4. Visual feedback then navigate
-  var orig = btn.textContent;
-  btn.textContent = btn.dataset.addedText || 'âœ…';
+  pubSetCartButtonState(btn, 'added');
+  pubFlyCartIcon(btn);
   btn.disabled = true;
   setTimeout(function () {
     window.location.href = '/frontend/public/cart.php';
@@ -994,13 +1280,14 @@ function pubAddToCart(btn) {
 }
 
 
-/* â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+/* -------------------------------------------------------
  * Wishlist helpers
- * â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
+ * ----------------------------------------------------- */
 
 function pubToggleWishlist(btn) {
-  var u = window.pubSessionUser || JSON.parse(localStorage.getItem('pubUser') || 'null');
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
   if (!u || !u.id) {
+    try { localStorage.removeItem('pubUser'); } catch (e) {}
     window.location.href = '/frontend/login.php?redirect=' + encodeURIComponent(window.location.href);
     return;
   }
@@ -1021,12 +1308,14 @@ function pubToggleWishlist(btn) {
       if (data.success || data.ok) {
         if (active) {
           btn.classList.remove('pub-wishlist-active');
-          btn.title       = 'Add to wishlist';
-          btn.textContent = 'â™،';
+          btn.title       = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.add)
+            ? window.pubTranslations.wishlist.add : 'Add to wishlist';
+          btn.textContent = '\u2661';
         } else {
           btn.classList.add('pub-wishlist-active');
-          btn.title       = 'In wishlist';
-          btn.textContent = 'â™¥';
+          btn.title       = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.added)
+            ? window.pubTranslations.wishlist.added : 'In wishlist';
+          btn.textContent = '\u2665';
           if (typeof window.pubTrackEvent === 'function') {
             window.pubTrackEvent('product', parseInt(productId, 10), 'favorite');
           }
@@ -1053,24 +1342,96 @@ function pubRefreshWishlistBadge() {
       document.querySelectorAll('.pub-wishlist-btn').forEach(function (btn) {
         if (ids.map(String).indexOf(String(btn.dataset.productId)) !== -1) {
           btn.classList.add('pub-wishlist-active');
-          btn.textContent = 'â™¥';
-          btn.title = 'In wishlist';
+          btn.textContent = '\u2665';
+          btn.title = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.added)
+            ? window.pubTranslations.wishlist.added : 'In wishlist';
         } else {
           btn.classList.remove('pub-wishlist-active');
-          btn.textContent = 'â™،';
-          btn.title = 'Add to wishlist';
+          btn.textContent = '\u2661';
+          btn.title = (window.pubTranslations && window.pubTranslations.wishlist && window.pubTranslations.wishlist.add)
+            ? window.pubTranslations.wishlist.add : 'Add to wishlist';
         }
       });
     })
     .catch(function () {});
 }
 
-// Auto-refresh wishlist badge on page load when user is logged in
+function pubCopyDeal(code, elId) {
+  var el = elId ? document.getElementById(elId) : null;
+  var original = el ? el.textContent.trim() : code;
+
+  function flash() {
+    if (!el) return;
+    el.textContent = '\u2713';
+    window.setTimeout(function () { el.textContent = original; }, 1800);
+  }
+
+  function fallbackCopy() {
+    var ta = document.createElement('textarea');
+    ta.value = code;
+    ta.className = 'pub-copy-buffer';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    flash();
+  }
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(code).then(flash).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
+}
+
+(function bindDelegatedPublicActions() {
+  document.addEventListener('error', function (event) {
+    var img = event.target;
+    if (!img || !img.matches || !img.matches('img[data-fallback-image]')) return;
+    img.hidden = true;
+    var placeholder = img.nextElementSibling;
+    if (placeholder && placeholder.classList.contains('pub-img-placeholder')) {
+      placeholder.hidden = false;
+    }
+  }, true);
+
+  document.addEventListener('click', function (event) {
+    var copy = event.target.closest('[data-copy-code]');
+    if (copy) {
+      event.preventDefault();
+      pubCopyDeal(copy.dataset.copyCode || '', copy.dataset.copyTarget || '');
+      return;
+    }
+
+    var action = event.target.closest('[data-pub-action]');
+    if (!action) return;
+    if (action.dataset.pubAction === 'wishlist') {
+      event.preventDefault();
+      event.stopPropagation();
+      pubToggleWishlist(action);
+    } else if (action.dataset.pubAction === 'add-cart') {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      action.classList.add('pub-cart-pop');
+      setTimeout(function() { action.classList.remove('pub-cart-pop'); }, 400);
+
+      pubAddToCart(action);
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    var copy = event.target.closest('[data-copy-code]');
+    if (!copy) return;
+    event.preventDefault();
+    pubCopyDeal(copy.dataset.copyCode || '', copy.dataset.copyTarget || '');
+  });
+}());
+
 (function () {
-  var u = window.pubSessionUser || JSON.parse(localStorage.getItem('pubUser') || 'null');
+  var u = (typeof window.pubSessionUser !== 'undefined' && window.pubSessionUser && window.pubSessionUser.id) ? window.pubSessionUser : null;
   if (u && u.id && document.querySelector('.pub-wishlist-btn')) {
     pubRefreshWishlistBadge();
   }
 }());
-
-

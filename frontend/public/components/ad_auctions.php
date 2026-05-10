@@ -9,9 +9,7 @@ if (empty($sectionData)) {
     return;
 }
 
-$_cardAuction = $_cardStyles['auction']['inline'] ?? '';
 $_clsAuction = $_cardStyles['auction']['class'] ?? '';
-$_imgAuction = $_cardStyles['auction']['img'] ?? '';
 ?>
 <div class="pub-grid">
     <?php foreach ($sectionData as $auction):
@@ -28,18 +26,17 @@ $_imgAuction = $_cardStyles['auction']['img'] ?? '';
     <a href="<?= e($aHref) ?>"
        class="pub-product-card<?= $_clsAuction ? ' ' . $_clsAuction : '' ?>"
        data-track-type="auction"
-       data-track-id="<?= $aId ?>"
-       style="text-decoration:none;<?= e($_cardAuction) ?>">
-        <div class="pub-cat-img-wrap" style="<?= e($_imgAuction) ?>">
+       data-track-id="<?= $aId ?>">
+        <div class="pub-cat-img-wrap">
             <?php if ($aImg): ?>
                 <img src="<?= e($aImg) ?>"
                      alt="<?= e($aTitle) ?>"
                      class="pub-cat-img"
                      loading="lazy"
-                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                <span class="pub-img-placeholder" style="display:none;" aria-hidden="true">🔨</span>
+                     data-fallback-image>
+                <span class="pub-img-placeholder" hidden aria-hidden="true">ًں”¨</span>
             <?php else: ?>
-                <span class="pub-img-placeholder" aria-hidden="true">🔨</span>
+                <span class="pub-img-placeholder" aria-hidden="true">ًں”¨</span>
             <?php endif; ?>
         </div>
         <div class="pub-product-card-body">
@@ -54,15 +51,15 @@ $_imgAuction = $_cardStyles['auction']['img'] ?? '';
                 </p>
             <?php endif; ?>
             <?php if ($aBids > 0): ?>
-                <p class="pub-entity-desc" style="font-size:.8rem;">
-                    🔨 <?= $aBids ?> <?= e(t('auctions.bids', [])) ?>
+                <p class="pub-entity-desc pub-entity-desc--sm">
+                    ًں”¨ <?= $aBids ?> <?= e(t('auctions.bids', [])) ?>
                 </p>
             <?php endif; ?>
             <?php if ($aEndDate !== ''):
                 $aEndTs = strtotime($aEndDate);
             ?>
-                <p class="pub-entity-desc" style="font-size:.8rem;" data-auction-end="<?= e($aEndDate) ?>">
-                    ⏳ <?= e(t('auctions.ends')) ?>: <?= e($aEndTs !== false ? date('Y-m-d H:i', $aEndTs) : '') ?>
+                <p class="pub-entity-desc pub-entity-desc--sm" data-auction-end="<?= e($aEndDate) ?>">
+                    âڈ³ <?= e(t('auctions.ends')) ?>: <?= e($aEndTs !== false ? date('Y-m-d H:i', $aEndTs) : '') ?>
                 </p>
             <?php endif; ?>
         </div>

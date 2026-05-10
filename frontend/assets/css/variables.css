@@ -161,10 +161,21 @@
   --radius-lg: 12px;
   --border-width: 1px;
 
-  /* ── Elevation / shadows ─────────────────────────────────────── */
-  --shadow-1: 0 1px 3px var(--color-shadow);
-  --shadow-2: 0 6px 18px rgba(0, 0, 0, 0.18);
-  --shadow-3: 0 12px 36px rgba(0, 0, 0, 0.25);
+  /* ── Elevation / shadows (Multi-layered for depth) ────────── */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  
+  --shadow-1: var(--shadow-sm);
+  --shadow-2: var(--shadow-md);
+  --shadow-3: var(--shadow-lg);
+
+  /* ── Glassmorphism (Dynamic based on surface color) ───────── */
+  --glass-bg: color-mix(in srgb, var(--color-surface), transparent 30%);
+  --glass-blur: blur(12px);
+  --glass-border: color-mix(in srgb, var(--color-border), transparent 50%);
 
   /* ── Button tokens (DB button_styles — primary slug) ─────────── */
   --btn-primary-bg:          var(--btn-primary-bg,          #457d65);
@@ -264,11 +275,14 @@
   --pub-border:     var(--color-border);
 
   /* Radii / shadows / transitions */
-  --pub-radius:     var(--radius-md);
-  --pub-radius-sm:  var(--radius-sm);
-  --pub-shadow:     var(--shadow-1);
-  --pub-shadow-hover: var(--shadow-2);
-  --pub-transition: 0.2s ease;
+  --pub-radius:     var(--radius-lg); /* Larger default for global feel */
+  --pub-radius-sm:  var(--radius-md);
+  --pub-shadow:     var(--shadow-md);
+  --pub-shadow-hover: var(--shadow-xl);
+  --pub-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --pub-glass-bg:    var(--glass-bg);
+  --pub-glass-blur:  var(--glass-blur);
+  --pub-glass-border: var(--glass-border);
 
   /* Header */
   --pub-header-h:   calc(var(--header-height, 80) * 1px);
