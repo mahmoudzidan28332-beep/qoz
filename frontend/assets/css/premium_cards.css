@@ -3,29 +3,7 @@
   --pub-header-h: 60px;
 }
 
-.pub-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  transition: transform 0.3s ease-in-out;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
 
-.pub-smart-hidden .pub-header {
-  transform: translateY(-100%);
-}
-
-.pub-smart-hidden .pub-cat-bar {
-  transform: translateY(-100%);
-}
-
-.pub-cat-bar {
-  position: sticky;
-  top: var(--pub-header-h, 60px);
-  z-index: 999;
-  transition: transform 0.3s ease-in-out;
-}
 
 /* ── Product Card (Premium Compact) ── */
 .pub-product-card {

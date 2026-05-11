@@ -456,9 +456,25 @@ function pubSyncCartBadges() {
     var btn = document.getElementById('pubBackToTop');
     if (!btn) return;
 
-    window.addEventListener('scroll', function () {
-      btn.style.display = window.scrollY > 400 ? 'flex' : 'none';
-    }, { passive: true });
+    // Use a 400px sentinel at the top to track scroll depth without scroll events
+    var sentinel = document.createElement('div');
+    sentinel.style.position = 'absolute';
+    sentinel.style.top = '0';
+    sentinel.style.width = '1px';
+    sentinel.style.height = '400px';
+    sentinel.style.pointerEvents = 'none';
+    sentinel.style.visibility = 'hidden';
+    document.body.prepend(sentinel);
+
+    var observer = new IntersectionObserver(function(entries) {
+      if (!entries[0].isIntersecting) {
+        btn.style.display = 'flex';
+      } else {
+        btn.style.display = 'none';
+      }
+    });
+    
+    observer.observe(sentinel);
 
     btn.addEventListener('click', function () {
       window.scrollTo({ top: 0, behavior: 'smooth' });

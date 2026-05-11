@@ -4600,8 +4600,6 @@ input[type="button"] {
   background: var(--pub-header-bg);
   border-bottom: 1px solid var(--pub-glass-border);
   padding: 8px 16px;
-  position: sticky;
-  top: var(--pub-header-h);
   z-index: 9998;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

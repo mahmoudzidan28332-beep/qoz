@@ -244,63 +244,7 @@ if ($_fcmEnabled && $_fcmUserId > 0):
 <?php endif; ?>
 <?php endif; ?>
 
-<!-- ============================================================
-     STICKY HEADER - SINGLE PRODUCTION SCRIPT
-     ============================================================ -->
-<script>
-(function () {
-    'use strict';
 
-    const inner = document.querySelector('.pub-header-inner');
-    if (!inner) return;
-
-    inner.style.transition = 'transform 0.25s ease-out';
-    inner.style.willChange = 'transform';
-
-    let lastY = window.scrollY;
-    let state = 'visible';
-    let timeout = null;
-
-    const HIDE_AFTER = 100;
-    const DELTA = 8;
-
-    function show() {
-        if (state === 'visible') return;
-        state = 'visible';
-        inner.style.transform = '';
-    }
-
-    function hide() {
-        if (state === 'hidden') return;
-        state = 'hidden';
-        inner.style.transform = 'translateY(-100%)';
-    }
-
-    window.addEventListener('scroll', () => {
-        const y = window.scrollY;
-        const diff = y - lastY;
-
-        if (timeout) clearTimeout(timeout);
-
-        if (y <= HIDE_AFTER) {
-            show();
-        }
-        else if (diff > DELTA) {
-            hide();
-        }
-        else if (diff < -DELTA) {
-            show();
-        }
-
-        timeout = setTimeout(() => {
-            show();
-        }, 150);
-
-        lastY = y;
-    }, { passive: true });
-
-})();
-</script>
 
 </body>
 </html>

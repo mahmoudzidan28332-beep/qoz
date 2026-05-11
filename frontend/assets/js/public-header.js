@@ -322,100 +322,102 @@
   }
 
   /* -------------------------------------------------------
-   * 8. STICKY HEADER — النظام الوحيد، بدون تعارض
-   *
-   *  المنطق:
-   *  - scrollY <= SHOW_THRESHOLD → أظهر دائماً
-   *  - تمرير للأسفل بدلتا > HIDE_DELTA → أخفِ
-   *  - تمرير للأعلى بدلتا > SHOW_DELTA → أظهر
-   *  - لا نستخدم setTimeout لأنه يسبب الاهتزاز
+   * 8. STICKY HEADER — top-based animation + hysteresis
+   *    Animates `top` instead of `transform` to avoid
+   *    sticky rendering conflicts. Measures header height
+   *    dynamically for precise hide offset.
    * ----------------------------------------------------- */
   function initStickyHeader() {
-    var header  = document.querySelector('.pub-header');
-    var catBar  = document.querySelector('.pub-cat-bar');
+    var header = document.querySelector('.pub-header');
+    var catBar = document.getElementById('pubCatBar');
     if (!header) return;
 
-    // إزالة أي كلاسات CSS قديمة قد تتعارض
-    document.body.classList.remove('pub-smart-hidden');
-    document.documentElement.classList.remove('pub-smart-hidden');
+    // — Measure header + cat-bar heights for precise offsets —
+    var spacer = document.getElementById('pubHeaderSpacer');
+    function measureHeight() {
+      var hH = header.offsetHeight;
+      var cH = catBar ? catBar.offsetHeight : 0;
+      var totalH = hH + cH;
 
-    // إعداد الهيدر
-    header.style.position   = 'sticky';
-    header.style.top        = '0';
-    header.style.zIndex     = '99999';
-    header.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1)';
-    header.style.willChange = 'transform';
+      // Header hide offset
+      header.style.setProperty('--_pub-header-hide', '-' + (hH + 10) + 'px');
+      document.documentElement.style.setProperty('--pub-header-h', hH + 'px');
 
-    if (catBar) {
-      var headerH = header.offsetHeight || 60;
-      catBar.style.position   = 'sticky';
-      catBar.style.top        = headerH + 'px';
-      catBar.style.zIndex     = '99998';
-      catBar.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1)';
-      catBar.style.willChange = 'transform';
+      // Cat-bar: position below header + its own hide offset
+      if (catBar) {
+        catBar.style.setProperty('--_pub-catbar-hide', '-' + (totalH + 10) + 'px');
+      }
+
+      // Spacer accounts for both header + cat-bar
+      document.documentElement.style.setProperty('--pub-total-header-h', totalH + 'px');
+      if (spacer) spacer.style.height = totalH + 'px';
+    }
+    measureHeight();
+    window.addEventListener('resize', measureHeight, { passive: true });
+
+    var lastY = window.scrollY;
+    var state = 'visible';
+    var ticking = false;
+    var accumDown = 0;
+    var accumUp = 0;
+
+    var TOP_ZONE = 80;
+    var HIDE_DISTANCE = 60;
+    var SHOW_DISTANCE = 30;
+
+    function update() {
+      var y = window.scrollY;
+      var diff = y - lastY;
+
+      // — Top zone: always visible —
+      if (y <= TOP_ZONE) {
+        accumDown = 0;
+        accumUp = 0;
+        if (state !== 'visible') {
+          header.classList.remove('is-hidden');
+          if (catBar) catBar.classList.remove('is-hidden');
+          state = 'visible';
+        }
+        lastY = y;
+        ticking = false;
+        return;
+      }
+
+      // — Accumulate scroll distance per direction —
+      if (diff > 0) {
+        accumDown += diff;
+        accumUp = 0;
+      } else if (diff < 0) {
+        accumUp += Math.abs(diff);
+        accumDown = 0;
+      }
+
+      // — Hide after 60px sustained downward scroll —
+      if (accumDown >= HIDE_DISTANCE && state !== 'hidden') {
+        header.classList.add('is-hidden');
+        if (catBar) catBar.classList.add('is-hidden');
+        state = 'hidden';
+        accumDown = 0;
+      }
+
+      // — Show after 30px sustained upward scroll —
+      if (accumUp >= SHOW_DISTANCE && state !== 'visible') {
+        header.classList.remove('is-hidden');
+        if (catBar) catBar.classList.remove('is-hidden');
+        state = 'visible';
+        accumUp = 0;
+      }
+
+      lastY = y;
+      ticking = false;
     }
 
-    var lastY        = window.scrollY;
-    var isHidden     = false;
-    var ticking      = false;
-
-    var SHOW_THRESHOLD = 80;   // أقل من هذا → أظهر دائماً
-    var HIDE_DELTA     = 6;    // تمرير للأسفل بهذا المقدار → أخفِ
-    var SHOW_DELTA     = 4;    // تمرير للأعلى بهذا المقدار → أظهر
-
-    function showHeader() {
-      if (!isHidden) return;
-      isHidden = false;
-      header.style.transform = 'translateY(0)';
-      if (catBar) catBar.style.transform = 'translateY(0)';
-    }
-
-    function hideHeader() {
-      if (isHidden) return;
-      isHidden = true;
-      header.style.transform = 'translateY(-100%)';
-      if (catBar) catBar.style.transform = 'translateY(-100%)';
-    }
-
-    function onScroll() {
+    window.addEventListener('scroll', function () {
       if (!ticking) {
-        requestAnimationFrame(function () {
-          var currentY = window.scrollY;
-          var delta    = currentY - lastY;
-
-          if (currentY <= SHOW_THRESHOLD) {
-            showHeader();
-          } else if (delta > HIDE_DELTA) {
-            // تمرير للأسفل
-            hideHeader();
-          } else if (delta < -SHOW_DELTA) {
-            // تمرير للأعلى
-            showHeader();
-          }
-
-          lastY   = currentY;
-          ticking = false;
-        });
+        requestAnimationFrame(update);
         ticking = true;
       }
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    // إظهار الهيدر عند الضغط على أي زر بالكيبورد (accessibility)
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Tab') showHeader();
-    });
-
-    // تحديث top للـ catBar إذا تغير حجم الهيدر
-    if (catBar) {
-      var ro = typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(function () {
-            catBar.style.top = header.offsetHeight + 'px';
-          })
-        : null;
-      if (ro) ro.observe(header);
-    }
+    }, { passive: true });
   }
 
   /* -------------------------------------------------------

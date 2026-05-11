@@ -416,6 +416,7 @@ if (!preg_match('/^#[0-9a-fA-F]{3,8}$/', $_themeColor) && !preg_match('/^[a-zA-Z
         
     </div>
 </header>
+<div class="pub-header-spacer" id="pubHeaderSpacer"></div>
 
 <nav class="pub-cat-bar" id="pubCatBar" aria-label="<?= e(t('nav.categories', 'Categories')) ?>">
     <button class="pub-hamburger" id="pubHamburger" aria-label="<?= e(t('nav.menu_open', 'Open menu')) ?>" aria-expanded="false" aria-controls="pubSidebar" data-bound="1">
