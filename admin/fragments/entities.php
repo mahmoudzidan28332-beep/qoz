@@ -71,6 +71,7 @@ $canDeleteOwn = can_delete_own('entities');
 $canView = $canViewAll || $canViewOwn || $canViewTenant || $canManageEntities;
 $canEdit = $canEditAll || $canEditOwn || $canManageEntities;
 $canDelete = $canDeleteAll || $canDeleteOwn || $canManageEntities;
+$isTenantAdmin = !$isPlatformAdmin && $canCreate;
 
 if (!$canView && !is_super_admin() && !$isPlatformAdmin) {
     if ($isFragment) {
@@ -120,6 +121,47 @@ $apiBase = '/api';
 <!-- Page Container -->
 <div class="page-container" id="entitiesPageContainer" dir="<?= htmlspecialchars($dir) ?>">
 
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="paTenantIdInput" class="form-control" min="1"
+                           placeholder="<?= __t('platform_admin.tenant_id_placeholder', 'Enter tenant ID') ?>">
+                    <button type="button" id="paLookupTenantBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-search"></i>
+                        <?= __t('platform_admin.lookup_tenant', 'Lookup') ?>
+                    </button>
+                </div>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', 'Select tenant') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-shield"></i>
+                    <?= __t('platform_admin.act_on_behalf', 'Filter by Tenant') ?>
+                </button>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-secondary" style="margin-left:8px;display:none">
+                    <i class="fas fa-times"></i> <?= __t('platform_admin.clear_context', 'Clear') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" style="display:none;padding:8px 12px;background:rgba(255,152,0,0.15);border:1px solid #ff9800;border-radius:6px;margin-top:8px;color:#ff9800;font-size:0.9rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="page-header-content">
@@ -149,7 +191,13 @@ $apiBase = '/api';
                 <!-- Hidden Fields -->
                 <input type="hidden" id="formId" name="id">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                <?php if ($isPlatformAdmin): ?>
+                <input type="number" id="entityTenantId" name="tenant_id" class="form-control"
+                       min="1" placeholder="<?= __t('form.fields.tenant_id.placeholder', 'Enter tenant ID') ?>"
+                       style="margin-bottom:10px;max-width:200px;">
+                <?php else: ?>
                 <input type="hidden" id="entityTenantId" name="tenant_id" value="<?= $tenantId ?>">
+                <?php endif; ?>
                 <input type="hidden" id="entityUserId" name="user_id" value="<?= $userId ?>">
                 <input type="hidden" id="entityTranslationsData" name="translations_data">
                 <input type="hidden" id="entityAttributesData" name="attributes_data">
@@ -199,6 +247,7 @@ $apiBase = '/api';
 
                 <!-- Tab: Basic Info -->
                 <div class="tab-content active" id="tab-basic">
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entitySlug" data-i18n="form.fields.slug.label">
@@ -209,7 +258,9 @@ $apiBase = '/api';
                                    placeholder="<?= __t('form.fields.slug.placeholder', 'store-slug') ?>">
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entityBranchCode" data-i18n="form.fields.branch_code.label">
@@ -220,6 +271,7 @@ $apiBase = '/api';
                                    placeholder="<?= __t('form.fields.branch_code.placeholder', 'BR001') ?>">
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Entity Type (Main / Branch) -->
                     <div class="form-row">
@@ -312,6 +364,7 @@ $apiBase = '/api';
                         </div>
                     </div>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="entityStatus" data-i18n="form.fields.status.label">
@@ -335,6 +388,7 @@ $apiBase = '/api';
                             </select>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <!-- Timezone -->
                     <div class="form-row">
@@ -434,6 +488,7 @@ $apiBase = '/api';
                         </div>
                     </div>
 
+                    <?php if ($isPlatformAdmin): ?>
                     <div class="form-row">
                         <div class="form-group full-width">
                             <label for="entitySuspensionReason" data-i18n="form.fields.suspension_reason.label">
@@ -444,6 +499,7 @@ $apiBase = '/api';
                                       placeholder="<?= __t('form.fields.suspension_reason.placeholder', 'Reason for suspension...') ?>"></textarea>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Tab: Settings -->
@@ -707,7 +763,7 @@ $apiBase = '/api';
                            placeholder="<?= __t('filters.search_placeholder', 'Search entities...') ?>">
                 </div>
 
-                <?php if (is_super_admin()): ?>
+                <?php if ($isPlatformAdmin): ?>
                 <div class="filter-group">
                     <label for="tenantFilter" data-i18n="filters.tenant_id">
                         <?= __t('filters.tenant_id', 'Tenant ID') ?>
@@ -716,7 +772,6 @@ $apiBase = '/api';
                            data-i18n-placeholder="filters.tenant_placeholder"
                            placeholder="<?= __t('filters.tenant_placeholder', 'Filter by tenant') ?>">
                 </div>
-                <?php endif; ?>
 
                 <div class="filter-group">
                     <label for="statusFilter" data-i18n="filters.status">
@@ -730,6 +785,7 @@ $apiBase = '/api';
                         <option value="rejected" data-i18n="filters.status_options.rejected">Rejected</option>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="filter-group">
                     <label for="vendorTypeFilter" data-i18n="filters.vendor_type">Vendor Type</label>
@@ -749,6 +805,7 @@ $apiBase = '/api';
                     </select>
                 </div>
 
+                <?php if ($isPlatformAdmin): ?>
                 <div class="filter-group">
                     <label for="verifiedFilter" data-i18n="filters.verified">Verified</label>
                     <select id="verifiedFilter" class="form-control">
@@ -757,6 +814,7 @@ $apiBase = '/api';
                         <option value="0">Not Verified</option>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="filter-actions">
                     <button id="btnApplyFilters" class="btn btn-primary" data-i18n="filters.apply">
@@ -792,7 +850,7 @@ $apiBase = '/api';
                         <thead>
                             <tr>
                                 <th data-i18n="table.headers.id">ID</th>
-                                <?php if (is_super_admin()): ?>
+                                <?php if ($isPlatformAdmin): ?>
                                 <th data-i18n="table.headers.tenant">Tenant</th>
                                 <?php endif; ?>
                                 <th data-i18n="table.headers.logo">Logo</th>
@@ -801,8 +859,10 @@ $apiBase = '/api';
                                 <th data-i18n="table.headers.vendor_type">Vendor Type</th>
                                 <th data-i18n="table.headers.phone">Phone</th>
                                 <th data-i18n="table.headers.email">Email</th>
+                                <?php if ($isPlatformAdmin): ?>
                                 <th data-i18n="table.headers.status">Status</th>
                                 <th data-i18n="table.headers.verified">Verified</th>
+                                <?php endif; ?>
                                 <th data-i18n="table.headers.actions">Actions</th>
                             </tr>
                         </thead>
@@ -874,7 +934,9 @@ window.PAGE_PERMISSIONS = <?= json_encode([
     'canEditOwn' => $canEditOwn,
     'canDeleteAll' => $canDeleteAll,
     'canDeleteOwn' => $canDeleteOwn,
-    'isSuperAdmin' => is_super_admin()
+    'isSuperAdmin' => is_super_admin(),
+    'isPlatformAdmin' => $isPlatformAdmin,
+    'isTenantAdmin' => $isTenantAdmin,
 ], JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
@@ -894,7 +956,10 @@ window.ENTITIES_CONFIG = {
     lang: '<?= addslashes($lang) ?>',
     itemsPerPage: 25,
     mediaStudioBase: '/admin/fragments/media_studio.php',
-    addressesFragment: '/admin/fragments/addresses.php'
+    addressesFragment: '/admin/fragments/addresses.php',
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
+    tenantId: <?= (int)$tenantId ?>,
 };
 </script>
 

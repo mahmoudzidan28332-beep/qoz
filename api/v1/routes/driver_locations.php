@@ -1,40 +1,93 @@
 <?php
 declare(strict_types=1);
 
+// ============================================================
+// Bootstrap — full standalone entry (mirrors countries.php)
+// ============================================================
+$baseDir = dirname(__DIR__, 2);
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
+// ============================================================
+// Dependencies
+// ============================================================
 require_once API_VERSION_PATH . '/models/delivery_zones/Contracts/DriverLocationRepositoryInterface.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/repositories/PdoDriverLocationRepository.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/validators/DriverLocationValidator.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/services/DriverLocationService.php';
 require_once API_VERSION_PATH . '/models/delivery_zones/controllers/DriverLocationController.php';
 
-if (!defined('API_VERSION_PATH')) {
-    http_response_code(403);
-    exit('Direct access not allowed.');
-}
+// ============================================================
+// Session & Database
+// ============================================================
+if (session_status() === PHP_SESSION_NONE) session_start();
 
- $pdo = $GLOBALS['ADMIN_DB'] ?? null;
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
 if (!$pdo instanceof PDO) {
-    ResponseFormatter::error('Service unavailable', 503);
+    ResponseFormatter::error('Database not initialized', 500);
     exit;
 }
 
- $controller = new DriverLocationController(
+// ============================================================
+// Tenant resolution (platform-admin-aware)
+// ============================================================
+$isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
+$tenantId        = resolve_tenant_id();
+
+if ($tenantId === null) {
+    if (!$isPlatformAdmin) {
+        ResponseFormatter::error('Unauthorized', 401);
+        exit;
+    }
+    $tenantId = 0;
+}
+$tenantId = (int)$tenantId;
+
+if (!$isPlatformAdmin && $tenantId === 0) {
+    ResponseFormatter::error('Unauthorized', 401);
+    exit;
+}
+
+// Platform Admin cross-tenant audit when acting on a specific tenant
+if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
+    PlatformContext::logCrossTenantAction(
+        sourceTenant: null,
+        targetTenant: $tenantId,
+        reason: 'Platform Admin — driver_locations management'
+    );
+}
+
+// ============================================================
+// Wiring
+// ============================================================
+$controller = new DriverLocationController(
     new DriverLocationService(
         new PdoDriverLocationRepository($pdo),
         new DriverLocationValidator()
     )
 );
 
- $tenantId = (int) ($_SESSION['tenant_id'] ?? 0);
-if ($tenantId === 0) {
-    ResponseFormatter::error('Unauthorized', 401);
-    exit;
+// ============================================================
+// Request parsing
+// ============================================================
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'POST' && !empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
 }
 
- $method = $_SERVER['REQUEST_METHOD'];
- $uriPath  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
- $segments = explode('/', trim($uriPath, '/'));
- $id       = null;
+$uriPath  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$segments = explode('/', trim($uriPath, '/'));
+$id       = null;
 foreach ($segments as $seg) {
     if (ctype_digit($seg) && (int)$seg > 0) {
         $id = (int)$seg;
@@ -42,8 +95,11 @@ foreach ($segments as $seg) {
     }
 }
 
- $lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
+$lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
 
+// ============================================================
+// Route dispatch
+// ============================================================
 try {
     switch ($method) {
         case 'GET':
@@ -113,11 +169,22 @@ try {
             ResponseFormatter::error('Method not allowed', 405);
     }
 } catch (InvalidArgumentException $e) {
+    safe_log('warning', '[DriverLocations] Validation failed', [
+        'tenant_id' => $tenantId,
+        'error'     => $e->getMessage(),
+    ]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (DatabaseException|\PDOException $e) {
-    safe_log('error', '[DriverLocations] DB Error', ['error' => $e->getMessage()]);
-    ResponseFormatter::error('Database error', 500);
+    safe_log('error', '[DriverLocations] Database error', [
+        'tenant_id' => $tenantId,
+        'code'      => $e->getCode(),
+        'error'     => $e->getMessage(),
+    ]);
+    ResponseFormatter::error('A database error occurred.', 500);
 } catch (ApplicationException|\RuntimeException $e) {
-    safe_log('error', '[DriverLocations] Error', ['error' => $e->getMessage()]);
-    ResponseFormatter::error('Unexpected error', 500);
+    safe_log('error', '[DriverLocations] Unexpected error', [
+        'tenant_id' => $tenantId,
+        'error'     => $e->getMessage(),
+    ]);
+    ResponseFormatter::error('An unexpected error occurred.', 500);
 }

@@ -48,6 +48,7 @@ $csrf     = admin_csrf();
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
 $userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 $tenantId = admin_tenant_id();
+$entityId = $GLOBALS['ADMIN_UI']['entity_id'] ?? ($_SESSION['entity_id'] ?? 0);
 
 $canCreate = can('returns.manage') || can('returns.create') || is_super_admin();
 $canEdit   = can('returns.manage') || can('returns.edit')   || is_super_admin();
@@ -175,6 +176,49 @@ $_strings = [
         <?php endif; ?>
     </div>
 
+    <?php if ($isPlatformAdmin): ?>
+    <!-- ═══ PLATFORM ADMIN — TENANT CONTEXT ═══ -->
+    <div class="card" id="ret-paPanel" style="border-left:4px solid var(--color-warning,#ff9800);margin-bottom:14px">
+        <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-shield-alt"></i>
+            <strong>Platform Admin — Tenant Context</strong>
+        </div>
+        <div class="card-body" style="padding:12px 16px">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+                <div class="form-group" style="margin:0;min-width:260px">
+                    <label class="filter-label">Search Tenant (ID or name)</label>
+                    <input type="text" id="ret-paTenantSearch" class="form-control"
+                           placeholder="Type tenant ID or name...">
+                </div>
+                <div class="form-group" style="margin:0;min-width:220px">
+                    <label class="filter-label">Select Tenant</label>
+                    <select id="ret-paTenantSelect" class="form-control">
+                        <option value="">— Select tenant —</option>
+                    </select>
+                </div>
+                <div class="form-group" id="ret-paEntityGroup" style="margin:0;min-width:220px;display:none">
+                    <label class="filter-label">Select Entity (optional)</label>
+                    <select id="ret-paEntitySelect" class="form-control">
+                        <option value="">— All entities —</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="button" id="ret-paApplyBtn" class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-user-shield"></i> Apply
+                    </button>
+                    <button type="button" id="ret-paClearBtn" class="btn btn-secondary btn-sm" style="display:none">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div id="ret-paActiveBanner" style="display:none;margin-top:10px;padding:7px 14px;background:rgba(255,152,0,.12);border-radius:6px;font-weight:600;color:#b45309">
+                <i class="fas fa-exclamation-triangle"></i>&nbsp;
+                <span id="ret-paActiveBannerLabel"></span>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Form Container -->
     <div id="ret-formContainer" class="card form-card" style="display:none">
         <div class="card-header">
@@ -187,7 +231,8 @@ $_strings = [
             <form id="ret-form" novalidate>
                 <input type="hidden" id="ret-formId"   name="id">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
-                <input type="hidden" name="tenant_id"  value="<?= $tenantId ?>">
+                <input type="hidden" id="ret-tenantId" name="tenant_id"  value="<?= (int)$tenantId ?>">
+                <input type="hidden" id="ret-entityId" name="entity_id"  value="<?= (int)$entityId ?>">
 
                 <!-- Tabs -->
                 <div class="form-tabs">
@@ -207,6 +252,21 @@ $_strings = [
 
                 <!-- Tab: Details -->
                 <div class="tab-content active" id="ret-tab-details" style="display:block">
+                    <!-- Order & User (required for new returns) -->
+                    <div class="form-row" id="ret-orderUserRow">
+                        <div class="form-group">
+                            <label class="filter-label" for="ret-orderId">Order ID <span class="ret-required-star" style="color:var(--color-danger,#e53935)">*</span></label>
+                            <input type="number" id="ret-orderId" name="order_id" class="form-control" min="1"
+                                   placeholder="Enter order ID">
+                            <small id="ret-orderInfo" style="color:var(--text-secondary);font-size:0.8em"></small>
+                        </div>
+                        <div class="form-group">
+                            <label class="filter-label" for="ret-userId">User ID <span class="ret-required-star" style="color:var(--color-danger,#e53935)">*</span></label>
+                            <input type="number" id="ret-userId" name="user_id" class="form-control" min="1"
+                                   placeholder="Enter user ID">
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="filter-label" for="ret-returnNumber" data-i18n="form.fields.return_number.label">Return Number</label>
@@ -381,21 +441,26 @@ $_strings = [
 
 <script type="text/javascript">
 window.RETURNS_CONFIG = {
-    apiBase:      <?= json_encode($apiBase,   JSON_UNESCAPED_SLASHES) ?>,
-    csrfToken:    <?= json_encode($csrf) ?>,
-    lang:         <?= json_encode($lang) ?>,
-    dir:          <?= json_encode($dir) ?>,
-    strings:      <?= json_encode($_strings, JSON_UNESCAPED_UNICODE) ?>,
-    canCreate:    <?= json_encode($canCreate) ?>,
-    canEdit:      <?= json_encode($canEdit) ?>,
-    canDelete:    <?= json_encode($canDelete) ?>,
-    apiUrl:       <?= json_encode($apiBase . '/returns',               JSON_UNESCAPED_SLASHES) ?>,
-    itemsApi:     <?= json_encode($apiBase . '/return_items',          JSON_UNESCAPED_SLASHES) ?>,
-    historyApi:   <?= json_encode($apiBase . '/return_status_history', JSON_UNESCAPED_SLASHES) ?>,
-    ordersApi:    <?= json_encode($apiBase . '/orders',                JSON_UNESCAPED_SLASHES) ?>,
-    usersApi:     <?= json_encode($apiBase . '/users',                 JSON_UNESCAPED_SLASHES) ?>,
-    itemsPerPage: 20,
-    tenantId:     <?= json_encode($tenantId) ?>
+    apiBase:         <?= json_encode($apiBase,   JSON_UNESCAPED_SLASHES) ?>,
+    csrfToken:       <?= json_encode($csrf) ?>,
+    lang:            <?= json_encode($lang) ?>,
+    dir:             <?= json_encode($dir) ?>,
+    strings:         <?= json_encode($_strings, JSON_UNESCAPED_UNICODE) ?>,
+    canCreate:       <?= json_encode($canCreate) ?>,
+    canEdit:         <?= json_encode($canEdit) ?>,
+    canDelete:       <?= json_encode($canDelete) ?>,
+    apiUrl:          <?= json_encode($apiBase . '/returns',               JSON_UNESCAPED_SLASHES) ?>,
+    itemsApi:        <?= json_encode($apiBase . '/return_items',          JSON_UNESCAPED_SLASHES) ?>,
+    historyApi:      <?= json_encode($apiBase . '/return_status_history', JSON_UNESCAPED_SLASHES) ?>,
+    ordersApi:       <?= json_encode($apiBase . '/orders',                JSON_UNESCAPED_SLASHES) ?>,
+    usersApi:        <?= json_encode($apiBase . '/users',                 JSON_UNESCAPED_SLASHES) ?>,
+    tenantsApi:      <?= json_encode($apiBase . '/tenants',               JSON_UNESCAPED_SLASHES) ?>,
+    entitiesApi:     <?= json_encode($apiBase . '/entities',              JSON_UNESCAPED_SLASHES) ?>,
+    itemsPerPage:    20,
+    tenantId:        <?= json_encode((int)$tenantId) ?>,
+    entityId:        <?= json_encode((int)$entityId) ?>,
+    currentUserId:   <?= json_encode((int)($user['id'] ?? 0)) ?>,
+    isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>
 };
 </script>
 

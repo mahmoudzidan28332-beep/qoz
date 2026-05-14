@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-use InvalidArgumentException;
-
 final class EntitiesValidator
 {
     /** @var string[] $validVendorTypeCodes empty = skip DB check */
@@ -34,6 +32,20 @@ final class EntitiesValidator
             }
         }
 
+        foreach (['id', 'user_id', 'timezone_id'] as $field) {
+            if (isset($data[$field]) && $data[$field] !== null && $data[$field] !== '') {
+                if (!is_int($data[$field]) && !preg_match('/^[1-9][0-9]*$/', (string)$data[$field])) {
+                    throw new InvalidArgumentException("Field '{$field}' must be a positive integer");
+                }
+            }
+        }
+
+        if (isset($data['slug'])) {
+            if (!is_string($data['slug']) || !preg_match('/^[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?$/i', $data['slug'])) {
+                throw new InvalidArgumentException("Field 'slug' has invalid format");
+            }
+        }
+
         // تحقق ديناميكي من vendor_type مقابل جدول entity_types
         if (isset($data['vendor_type'])) {
             if (empty($data['vendor_type'])) {
@@ -49,6 +61,14 @@ final class EntitiesValidator
             throw new InvalidArgumentException("Field 'store_type' has invalid value");
         }
 
+        if (isset($data['status']) && !in_array($data['status'], ['pending','approved','suspended','rejected'], true)) {
+            throw new InvalidArgumentException("Field 'status' has invalid value");
+        }
+
+        if (isset($data['is_verified']) && !in_array((int)$data['is_verified'], [0, 1], true)) {
+            throw new InvalidArgumentException("Field 'is_verified' has invalid value");
+        }
+
         if (isset($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException("Field 'email' is not a valid email");
         }
@@ -59,6 +79,12 @@ final class EntitiesValidator
 
         if (isset($data['mobile']) && !empty($data['mobile']) && !preg_match('/^[0-9+\-\s]{5,20}$/', $data['mobile'])) {
             throw new InvalidArgumentException("Field 'mobile' has invalid format");
+        }
+
+        if (isset($data['website_url']) && $data['website_url'] !== null && $data['website_url'] !== '') {
+            if (!filter_var($data['website_url'], FILTER_VALIDATE_URL)) {
+                throw new InvalidArgumentException("Field 'website_url' is not a valid URL");
+            }
         }
 
         // التحقق من parent_id

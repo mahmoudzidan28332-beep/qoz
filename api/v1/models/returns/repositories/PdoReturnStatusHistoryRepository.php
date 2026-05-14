@@ -28,8 +28,8 @@ final class PdoReturnStatusHistoryRepository implements ReturnStatusHistoryRepos
                    r.return_number,
                    u.email AS changed_by_email
             FROM " . self::TABLE . " rsh
-            INNER JOIN returns r  ON r.id  = rsh.return_id
-            LEFT JOIN users u     ON u.id  = rsh.changed_by
+            INNER JOIN `returns` r  ON r.id  = rsh.return_id
+            LEFT JOIN users u       ON u.id  = rsh.changed_by
             WHERE r.tenant_id = :tenant_id
         ";
         $params = [':tenant_id' => $tenantId];
@@ -49,24 +49,28 @@ final class PdoReturnStatusHistoryRepository implements ReturnStatusHistoryRepos
             $sql .= " LIMIT :limit OFFSET :offset";
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            if ($limit !== null) {
+                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+                $stmt->bindValue(':offset', $offset ?? 0, PDO::PARAM_INT);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
-        if ($limit !== null) {
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset ?? 0, PDO::PARAM_INT);
-        }
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function count(int $tenantId, array $filters = []): int
     {
         $sql = "
-            SELECT COUNT(*) 
+            SELECT COUNT(*)
             FROM " . self::TABLE . " rsh
-            INNER JOIN returns r ON r.id = rsh.return_id
+            INNER JOIN `returns` r ON r.id = rsh.return_id
             WHERE r.tenant_id = :tenant_id
         ";
         $params = [':tenant_id' => $tenantId];
@@ -78,26 +82,39 @@ final class PdoReturnStatusHistoryRepository implements ReturnStatusHistoryRepos
             }
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int)$stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stmt->execute();
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
-        $stmt = $this->pdo->prepare("
-            SELECT rsh.*,
-                   r.return_number,
-                   u.email AS changed_by_email
-            FROM " . self::TABLE . " rsh
-            INNER JOIN returns r  ON r.id  = rsh.return_id
-            LEFT JOIN users u     ON u.id  = rsh.changed_by
-            WHERE r.tenant_id = :tenant_id AND rsh.id = :id
-            LIMIT 1
-        ");
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT rsh.*,
+                       r.return_number,
+                       u.email AS changed_by_email
+                FROM " . self::TABLE . " rsh
+                INNER JOIN `returns` r  ON r.id  = rsh.return_id
+                LEFT JOIN users u       ON u.id  = rsh.changed_by
+                WHERE r.tenant_id = :tenant_id AND rsh.id = :id
+                LIMIT 1
+            ");
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function save(int $tenantId, array $data): int
@@ -109,45 +126,62 @@ final class PdoReturnStatusHistoryRepository implements ReturnStatusHistoryRepos
             throw new ApplicationException('Return request does not belong to tenant');
         }
 
-        if ($isUpdate) {
-            $stmt = $this->pdo->prepare("
-                UPDATE " . self::TABLE . " SET
-                    return_id   = :return_id,
-                    status      = :status,
-                    changed_by  = :changed_by,
-                    notes       = :notes
-                WHERE id = :id
-            ");
-            $stmt->execute($this->buildParams($data, true));
-            return (int)$data['id'];
-        }
+        try {
+            if ($isUpdate) {
+                $stmt = $this->pdo->prepare("
+                    UPDATE " . self::TABLE . " SET
+                        return_id   = :return_id,
+                        status      = :status,
+                        changed_by  = :changed_by,
+                        notes       = :notes
+                    WHERE id = :id
+                ");
+                $stmt->execute($this->buildParams($data, true));
+                return (int)$data['id'];
+            }
 
-        $stmt = $this->pdo->prepare("
-            INSERT INTO " . self::TABLE . " (
-                return_id, status, changed_by, notes
-            ) VALUES (
-                :return_id, :status, :changed_by, :notes
-            )
-        ");
-        $stmt->execute($this->buildParams($data, false));
-        return (int)$this->pdo->lastInsertId();
+            $stmt = $this->pdo->prepare("
+                INSERT INTO " . self::TABLE . " (
+                    return_id, status, changed_by, notes
+                ) VALUES (
+                    :return_id, :status, :changed_by, :notes
+                )
+            ");
+            $stmt->execute($this->buildParams($data, false));
+            return (int)$this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("
-            DELETE rsh FROM " . self::TABLE . " rsh
-            INNER JOIN returns r ON r.id = rsh.return_id
-            WHERE rsh.id = :id AND r.tenant_id = :tenant_id
-        ");
-        return $stmt->execute([':id' => $id, ':tenant_id' => $tenantId]);
+        try {
+            $stmt = $this->pdo->prepare("
+                DELETE rsh FROM " . self::TABLE . " rsh
+                INNER JOIN `returns` r ON r.id = rsh.return_id
+                WHERE rsh.id = :id AND r.tenant_id = :tenant_id
+            ");
+            $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $stmt->execute();
+            return true;
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     private function validateReturnOwnership(int $tenantId, int $returnId): bool
     {
-        $stmt = $this->pdo->prepare("SELECT 1 FROM returns WHERE id = :id AND tenant_id = :tenant_id");
-        $stmt->execute([':id' => $returnId, ':tenant_id' => $tenantId]);
-        return (bool)$stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare("SELECT 1 FROM `returns` WHERE id = :id AND tenant_id = :tenant_id");
+            $stmt->bindValue(':id', $returnId, PDO::PARAM_INT);
+            $stmt->bindValue(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $stmt->execute();
+            return (bool)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     private function buildParams(array $data, bool $isUpdate): array

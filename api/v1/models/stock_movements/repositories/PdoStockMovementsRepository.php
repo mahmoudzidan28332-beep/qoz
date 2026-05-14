@@ -6,11 +6,11 @@ declare(strict_types=1);
  */
 final class PdoStockMovementsRepository
 {
-    private PDO $pdo;
+    private $pdo;
 
     private const ALLOWED_ORDER_BY = ['id', 'product_id', 'variant_id', 'type', 'change_quantity', 'created_at'];
     private const ALLOWED_COLUMNS = [
-        'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
+        'tenant_id', 'entity_id', 'entity_product_id', 'entity_product_variant_id', 'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
     ];
 
     public function __construct(PDO $pdo)
@@ -22,7 +22,7 @@ final class PdoStockMovementsRepository
     // List with filters, ordering, pagination
     // ================================
     /**
-     * @param array{product_id?: int, variant_id?: int, type?: string, date_from?: string, date_to?: string, search?: string} $filters
+     * @param array{product_id?: int, variant_id?: int, type?: string, date_from?: string, date_to?: string, search?: string, tenant_id?: int, entity_id?: int} $filters
      */
     public function list(
         ?int $limit = null,
@@ -55,7 +55,7 @@ final class PdoStockMovementsRepository
         string $orderBy,
         string $orderDir
     ): array {
-        $sql = "SELECT sm.*, pt.name AS product_name
+        $sql = "SELECT sm.*, COALESCE(pt.name, '—') AS product_name
                 FROM product_stock_movements sm
                 LEFT JOIN product_translations pt ON pt.product_id = sm.product_id AND pt.language_code = 'en'
                 WHERE 1=1";
@@ -103,6 +103,16 @@ final class PdoStockMovementsRepository
     // ================================
     private function applyFilters(string &$sql, array &$params, array $filters): void
     {
+        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== '') {
+            $sql .= " AND sm.tenant_id = :tenant_id";
+            $params[':tenant_id'] = (int)$filters['tenant_id'];
+        }
+
+        if (isset($filters['entity_id']) && $filters['entity_id'] !== '') {
+            $sql .= " AND sm.entity_id = :entity_id";
+            $params[':entity_id'] = (int)$filters['entity_id'];
+        }
+
         if (isset($filters['product_id']) && $filters['product_id'] !== '') {
             $sql .= " AND sm.product_id = :product_id";
             $params[':product_id'] = (int)$filters['product_id'];
@@ -133,7 +143,7 @@ final class PdoStockMovementsRepository
                 SELECT 1 FROM product_translations pt2
                 WHERE pt2.product_id = sm.product_id AND pt2.name LIKE :search
             ) OR EXISTS (
-                SELECT 1 FROM products p2 /* tenant_id filtered via product_id JOIN */
+                SELECT 1 FROM products p2
                 WHERE p2.id = sm.product_id AND (p2.sku LIKE :search_sku OR p2.barcode LIKE :search_barcode)
             ))";
             $params[':search']         = '%' . trim($filters['search']) . '%';
@@ -169,66 +179,62 @@ final class PdoStockMovementsRepository
         try {
             $stmt = $this->pdo->prepare("
                 INSERT INTO product_stock_movements
-                    (product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
+                    (tenant_id, entity_id, entity_product_id, entity_product_variant_id, product_id, variant_id, change_quantity, type, reference_id, notes, created_at)
                 VALUES
-                    (:product_id, :variant_id, :change_quantity, :type, :reference_id, :notes, NOW())
+                    (:tenant_id, :entity_id, :entity_product_id, :entity_product_variant_id, :product_id, :variant_id, :change_quantity, :type, :reference_id, :notes, NOW())
             ");
 
             $stmt->execute([
-                ':product_id'      => (int)$data['product_id'],
-                ':variant_id'      => isset($data['variant_id']) ? (int)$data['variant_id'] : null,
-                ':change_quantity'  => (int)$data['change_quantity'],
-                ':type'            => $data['type'],
-                ':reference_id'    => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
-                ':notes'           => $data['notes'] ?? null,
+                ':tenant_id'                 => isset($data['tenant_id']) ? (int)$data['tenant_id'] : 0,
+                ':entity_id'                 => isset($data['entity_id']) ? (int)$data['entity_id'] : null,
+                ':entity_product_id'         => isset($data['entity_product_id']) ? (int)$data['entity_product_id'] : null,
+                ':entity_product_variant_id' => isset($data['entity_product_variant_id']) ? (int)$data['entity_product_variant_id'] : null,
+                ':product_id'                => (int)($data['product_id'] ?? 0),
+                ':variant_id'                => isset($data['variant_id']) ? (int)$data['variant_id'] : null,
+                ':change_quantity'           => (int)$data['change_quantity'],
+                ':type'                      => $data['type'],
+                ':reference_id'              => isset($data['reference_id']) ? (int)$data['reference_id'] : null,
+                ':notes'                     => $data['notes'] ?? null,
             ]);
 
             $movementId = (int)$this->pdo->lastInsertId();
+            $qty = (int)$data['change_quantity'];
 
-            // Update products.stock_quantity
-            $updateProduct = $this->pdo->prepare("
-                UPDATE products
-                SET stock_quantity = stock_quantity + :qty
-                WHERE id = :product_id
-            ");
-            $updateProduct->execute([
-                ':qty'        => (int)$data['change_quantity'],
-                ':product_id' => (int)$data['product_id'],
-            ]);
-
-            // Update product_variants.stock_quantity if variant_id provided
-            if (!empty($data['variant_id'])) {
-                $updateVariant = $this->pdo->prepare("
-                    UPDATE product_variants
-                    SET stock_quantity = stock_quantity + :qty
-                    WHERE id = :variant_id AND product_id = :product_id
-                ");
-                $updateVariant->execute([
-                    ':qty'        => (int)$data['change_quantity'],
-                    ':variant_id' => (int)$data['variant_id'],
-                    ':product_id' => (int)$data['product_id'],
-                ]);
+            // Rule: UPDATE ONLY ONE selected table depending on tab (IDs provided)
+            if (!empty($data['entity_product_variant_id'])) {
+                // Tab 4: Entity Variants
+                $upd = $this->pdo->prepare("UPDATE entity_product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['entity_product_variant_id']]);
+            } elseif (!empty($data['entity_product_id'])) {
+                // Tab 3: Entity Products
+                $upd = $this->pdo->prepare("UPDATE entity_products SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['entity_product_id']]);
+            } elseif (!empty($data['variant_id'])) {
+                // Tab 2: Global Variants
+                $upd = $this->pdo->prepare("UPDATE product_variants SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['variant_id']]);
+            } else {
+                // Tab 1: Global Products
+                $upd = $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :id");
+                $upd->execute([':qty' => $qty, ':id' => (int)$data['product_id']]);
             }
 
-            // Update products.stock_status based on new quantity
-            $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products /* tenant_id scoped via product_id */ WHERE id = :product_id");
-            $stmtQty->execute([':product_id' => (int)$data['product_id']]);
-            $newQty = (int)$stmtQty->fetchColumn();
-
-            $stockStatus = $newQty > 0 ? 'in_stock' : 'out_of_stock';
-            $updateStatus = $this->pdo->prepare("
-                UPDATE products SET stock_status = :status WHERE id = :product_id
-            ");
-            $updateStatus->execute([
-                ':status'     => $stockStatus,
-                ':product_id' => (int)$data['product_id'],
-            ]);
+            // Sync stock_status for products if updated
+            if (empty($data['entity_product_id']) && empty($data['entity_product_variant_id'])) {
+                $productId = (int)$data['product_id'];
+                $stmtQty = $this->pdo->prepare("SELECT stock_quantity FROM products WHERE id = :pid");
+                $stmtQty->execute([':pid' => $productId]);
+                $newQty = (int)$stmtQty->fetchColumn();
+                $status = $newQty > 0 ? 'in_stock' : 'out_of_stock';
+                $this->pdo->prepare("UPDATE products SET stock_status = :status WHERE id = :pid")
+                          ->execute([':status' => $status, ':pid' => $productId]);
+            }
 
             $this->pdo->commit();
             return $movementId;
         } catch (\PDOException $e) {
-            $this->pdo->rollBack();
-            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw new Exception($e->getMessage());
         }
     }
 

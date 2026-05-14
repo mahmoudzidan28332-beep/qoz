@@ -50,11 +50,12 @@ try {
         case 'GET':
             if (isset($_GET['stats'])) {
                 $filters = [];
+                if (isset($_GET['tenant_id']))  $filters['tenant_id'] = $_GET['tenant_id'];
+                if (isset($_GET['entity_id']))  $filters['entity_id'] = $_GET['entity_id'];
                 if (isset($_GET['product_id'])) $filters['product_id'] = $_GET['product_id'];
                 if (isset($_GET['type'])) $filters['type'] = $_GET['type'];
                 if (isset($_GET['date_from'])) $filters['date_from'] = $_GET['date_from'];
                 if (isset($_GET['date_to'])) $filters['date_to'] = $_GET['date_to'];
-                // 🔒 SECURITY: In a real app, movementStats should be scoped by tenant_id
                 $stats = $controller->movementStats($filters);
                 ResponseFormatter::success($stats);
                 break;
@@ -62,14 +63,10 @@ try {
 
             if (isset($_GET['barcode']) && $_GET['barcode'] !== '') {
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
-                // 🔒 SECURITY: Verify entity ownership
                 verify_entity_ownership($pdo, $entityId, $tenantId);
                 
                 $row = $controller->lookupByBarcode(trim($_GET['barcode']), $entityId);
-                if (!$row) {
-                    ResponseFormatter::error('Barcode not found', 404);
-                    break;
-                }
+                if (!$row) { ResponseFormatter::error('Barcode not found', 404); break; }
                 ResponseFormatter::success($row);
                 break;
             }
@@ -78,14 +75,10 @@ try {
                 $sku = trim($_GET['sku']);
                 $lang = $_GET['lang'] ?? ($_SESSION['user']['preferred_language'] ?? 'ar');
                 $entityId = isset($_GET['entity_id']) ? (int)$_GET['entity_id'] : (isset($_SESSION['entity_id']) ? (int)$_SESSION['entity_id'] : null);
-                // 🔒 SECURITY: Verify entity ownership
                 verify_entity_ownership($pdo, $entityId, $tenantId);
                 
                 $row = $controller->lookupBySku($sku, $lang, $entityId);
-                if (!$row) {
-                    ResponseFormatter::error('SKU not found', 404);
-                    break;
-                }
+                if (!$row) { ResponseFormatter::error('SKU not found', 404); break; }
                 ResponseFormatter::success($row);
                 break;
             }
@@ -99,10 +92,12 @@ try {
                 ResponseFormatter::success($items);
             } else {
                 $filters = [];
-                if (isset($_GET['type']) && $_GET['type'] !== '')        $filters['type'] = $_GET['type'];
-                if (isset($_GET['date_from']) && $_GET['date_from'] !== '') $filters['date_from'] = $_GET['date_from'];
-                if (isset($_GET['date_to']) && $_GET['date_to'] !== '')   $filters['date_to'] = $_GET['date_to'];
-                if (isset($_GET['search']) && $_GET['search'] !== '')     $filters['search'] = $_GET['search'];
+                if (isset($_GET['tenant_id']) && $_GET['tenant_id'] !== '')   $filters['tenant_id'] = $_GET['tenant_id'];
+                if (isset($_GET['entity_id']) && $_GET['entity_id'] !== '')   $filters['entity_id'] = $_GET['entity_id'];
+                if (isset($_GET['type']) && $_GET['type'] !== '')            $filters['type'] = $_GET['type'];
+                if (isset($_GET['date_from']) && $_GET['date_from'] !== '')   $filters['date_from'] = $_GET['date_from'];
+                if (isset($_GET['date_to']) && $_GET['date_to'] !== '')       $filters['date_to'] = $_GET['date_to'];
+                if (isset($_GET['search']) && $_GET['search'] !== '')         $filters['search'] = $_GET['search'];
 
                 $limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
@@ -114,7 +109,11 @@ try {
 
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-            $data = array_intersect_key($data, array_flip(['product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes']));
+            $allowedFields = [
+                'tenant_id', 'entity_id', 'entity_product_id', 'entity_product_variant_id',
+                'product_id', 'variant_id', 'change_quantity', 'type', 'reference_id', 'notes'
+            ];
+            $data = array_intersect_key($data, array_flip($allowedFields));
 
             $validation = StockMovementsValidator::validateCreate($data);
             if (!$validation['valid']) {
@@ -154,6 +153,7 @@ try {
         default:
             ResponseFormatter::error('Method not allowed', 405);
     }
-} catch (ApplicationException|\RuntimeException $e) {
-    ResponseFormatter::error($e->getMessage(), 422);
+} catch (\Exception $e) {
+    safe_log('critical', 'stock_movements.api_error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+    ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);
 }

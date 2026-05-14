@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 final class AdsService
 {
-    private PdoAdsRepository $repo;
+    private AdsRepositoryInterface $repo;
 
-    public function __construct(PdoAdsRepository $repo)
+    public function __construct(AdsRepositoryInterface $repo)
     {
         $this->repo = $repo;
     }

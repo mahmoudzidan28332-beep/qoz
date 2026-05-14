@@ -8,7 +8,7 @@ final class PdoEntitySettingsRepository
     // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
         'entity_id', 'min_order_amount', 'delivery_radius_km', 
-        'created_at', 'updated_at', 'auto_accept_orders', 
+        'auto_accept_orders', 
         'allow_cod', 'is_visible', 'maintenance_mode'
     ];
 
@@ -29,7 +29,15 @@ final class PdoEntitySettingsRepository
         string $orderDir = 'DESC'
     ): array {
         $sql = "
-            SELECT es.*,
+            SELECT es.entity_id,
+                   es.entity_id AS id,
+                   es.auto_accept_orders, es.allow_cod, es.min_order_amount,
+                   es.preparation_time_minutes, es.allow_online_booking, es.booking_window_days,
+                   es.max_bookings_per_slot, es.booking_cancellation_allowed, es.allow_preorders,
+                   es.max_daily_orders, es.is_visible, es.maintenance_mode, es.show_reviews,
+                   es.show_contact_info, es.featured_in_app, es.default_payment_method,
+                   es.allow_multiple_payment_methods, es.delivery_radius_km, es.free_delivery_min_order,
+                   es.notification_preferences, es.additional_settings, es.card_style_id,
                    e.store_name,
                    e.status,
                    e.email
@@ -245,7 +253,14 @@ final class PdoEntitySettingsRepository
     public function find(int $entityId, int $tenantId): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT es.*,
+            SELECT es.entity_id,
+                   es.auto_accept_orders, es.allow_cod, es.min_order_amount,
+                   es.preparation_time_minutes, es.allow_online_booking, es.booking_window_days,
+                   es.max_bookings_per_slot, es.booking_cancellation_allowed, es.allow_preorders,
+                   es.max_daily_orders, es.is_visible, es.maintenance_mode, es.show_reviews,
+                   es.show_contact_info, es.featured_in_app, es.default_payment_method,
+                   es.allow_multiple_payment_methods, es.delivery_radius_km, es.free_delivery_min_order,
+                   es.notification_preferences, es.additional_settings, es.card_style_id,
                    e.store_name,
                    e.status,
                    e.email
@@ -257,6 +272,14 @@ final class PdoEntitySettingsRepository
         $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT tenant_id FROM entities WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $entityId]);
+        $tenantId = $stmt->fetchColumn();
+        return $tenantId !== false ? (int)$tenantId : null;
     }
 
     // ================================
@@ -301,12 +324,12 @@ final class PdoEntitySettingsRepository
         if ($isUpdate) {
             $sql = "
                 UPDATE entity_settings SET 
-                    " . implode(', ', $setClauses) . ",
-                    updated_at = CURRENT_TIMESTAMP
+                    " . implode(', ', $setClauses) . "
                 WHERE entity_id = :entity_id
-                  AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
+                  AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
             ";
             $params[':tenant_id'] = $tenantId;
+            $params[':entity_id2'] = $entityId;
         } else {
             $sql = "
                 INSERT INTO entity_settings (
@@ -314,9 +337,10 @@ final class PdoEntitySettingsRepository
                 ) 
                 SELECT :entity_id, :" . implode(', :', $filteredCols) . "
                 FROM (SELECT 1) AS dummy
-                WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)
+                WHERE EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)
             ";
             $params[':tenant_id'] = $tenantId;
+            $params[':entity_id2'] = $entityId;
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -331,8 +355,8 @@ final class PdoEntitySettingsRepository
         $stmt = $this->pdo->prepare(
             "DELETE FROM entity_settings 
              WHERE entity_id = :entity_id
-               AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id AND tenant_id = :tenant_id)"
+               AND EXISTS (SELECT 1 FROM entities WHERE id = :entity_id2 AND tenant_id = :tenant_id)"
         );
-        return $stmt->execute([':entity_id' => $entityId, ':tenant_id' => $tenantId]);
+        return $stmt->execute([':entity_id' => $entityId, ':entity_id2' => $entityId, ':tenant_id' => $tenantId]);
     }
 }

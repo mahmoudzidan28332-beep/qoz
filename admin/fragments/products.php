@@ -121,6 +121,47 @@ if (!function_exists('assetVer')) {
 <!-- Page Container -->
 <div class="page-container" id="productsPageContainer" dir="<?= htmlspecialchars($dir) ?>">
 
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= htmlspecialchars(_prd('platform_admin.panel_title', 'Platform Admin — Tenant Context')) ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= htmlspecialchars(_prd('platform_admin.select_tenant', 'Select Tenant')) ?></label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="paTenantIdInput" class="form-control" min="1"
+                           placeholder="<?= htmlspecialchars(_prd('platform_admin.tenant_id_placeholder', 'Enter tenant ID')) ?>">
+                    <button type="button" id="paLookupTenantBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-search"></i>
+                        <?= htmlspecialchars(_prd('platform_admin.lookup_tenant', 'Lookup')) ?>
+                    </button>
+                </div>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= htmlspecialchars(_prd('platform_admin.select_tenant_placeholder', 'Select tenant')) ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-shield"></i>
+                    <?= htmlspecialchars(_prd('platform_admin.act_on_behalf', 'Filter by Tenant')) ?>
+                </button>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-secondary" style="margin-left:8px;display:none">
+                    <i class="fas fa-times"></i> <?= htmlspecialchars(_prd('platform_admin.clear_context', 'Clear')) ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" style="display:none;padding:8px 12px;background:rgba(255,152,0,0.15);border:1px solid #ff9800;border-radius:6px;margin-top:8px;color:#ff9800;font-size:0.9rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="page-header-content">
@@ -154,7 +195,13 @@ if (!function_exists('assetVer')) {
                 <!-- Hidden Fields -->
                 <input type="hidden" id="formId" name="id">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf) ?>">
+                <?php if ($isPlatformAdmin): ?>
+                <input type="number" id="prodTenantId" name="tenant_id" class="form-control" min="1"
+                       placeholder="<?= htmlspecialchars(_prd('form.fields.tenant_id.placeholder', 'Enter tenant ID')) ?>"
+                       style="margin-bottom:10px;max-width:200px;">
+                <?php else: ?>
                 <input type="hidden" id="prodTenantId" name="tenant_id" value="<?= (int)$tenantId ?>">
+                <?php endif; ?>
                 <input type="hidden" id="prodName" name="name" value=""><!-- synced from enProdName in products.js -->
                 <input type="hidden" id="prodTranslationsData" name="translations_data">
                 <input type="hidden" id="prodAttributesData" name="attributes_data">

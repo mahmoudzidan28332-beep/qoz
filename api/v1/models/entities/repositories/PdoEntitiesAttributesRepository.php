@@ -7,8 +7,7 @@ final class PdoEntitiesAttributesRepository
 
     // الأعمدة المسموح بها للفرز
     private const ALLOWED_ORDER_BY = [
-        'id', 'slug', 'attribute_type', 'is_required', 
-        'sort_order', 'created_at'
+        'id', 'slug', 'attribute_type', 'is_required', 'sort_order'
     ];
 
     // الأعمدة القابلة للفلاتر
@@ -34,7 +33,6 @@ final class PdoEntitiesAttributesRepository
     ): array {
         $sql = "
             SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
-                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,
@@ -160,7 +158,6 @@ final class PdoEntitiesAttributesRepository
     {
         $stmt = $this->pdo->prepare("
             SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
-                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,
@@ -184,7 +181,6 @@ final class PdoEntitiesAttributesRepository
     {
         $stmt = $this->pdo->prepare("
             SELECT ea.id, ea.slug, ea.attribute_type, ea.is_required, ea.sort_order,
-                   ea.created_at, ea.updated_at,
                    eat.name,
                    eat.description,
                    l.name as language_name,

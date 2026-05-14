@@ -185,10 +185,7 @@ try {
 } catch (\InvalidArgumentException $e) {
     safe_log('warning', 'entity_products.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
-} catch (ApplicationException|\RuntimeException $e) {
-    safe_log('error', 'entity_products.runtime', ['error' => $e->getMessage()]);
-    ResponseFormatter::error($e->getMessage(), 400);
-} catch (ApplicationException|\RuntimeException $e) {
+} catch (\Exception $e) {
     error_log("Error in entity_products: " . $e->getMessage() . "\n" . $e->getTraceAsString(), 3, __DIR__ . '/../../error_log.txt');
     safe_log('critical', 'entity_products.fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
     ResponseFormatter::error('Internal Server Error: ' . $e->getMessage(), 500);

@@ -67,8 +67,11 @@ $canCreate = $canView;
 $canEdit   = $canView;
 $canDelete = $canView;
 
-// Elevated fields (ownership etc)
-$canEditAllFields = $isPlatformAdmin || $isSuperAdmin;
+// Only platform admins may choose owner_type (user vs entity).
+// Tenant-level admins (including those with super_admin role within a tenant)
+// are restricted to entity addresses only.
+$canEditAllFields = $isPlatformAdmin;
+$isTenantAdmin    = !$isPlatformAdmin && $canCreate;
 
 // ════════════════════════════════════════════════════════════
 // FILTERS (Platform Admin only)
@@ -172,10 +175,15 @@ $apiBase = '/api';
                 <input type="hidden" name="tenant_id" value="<?= $tenantId ?>">
                 <?php endif; ?>
 
-                <?php if (!$canEditAllFields): ?>
-                <input type="hidden" name="owner_type" id="ownerTypeHidden" value="user">
-                <input type="hidden" name="owner_id" id="ownerIdHidden" value="<?= (int)($user['id'] ?? 0) ?>">
-                <?php else: ?>
+                <?php if ($isTenantAdmin): ?>
+                <input type="hidden" name="owner_type" value="entity">
+                <div class="form-group" id="ownerIdGroup">
+                    <label><?= __t('entity', 'Entity') ?> <span class="required-star">*</span></label>
+                    <select name="owner_id" id="ownerEntitySelect" class="form-control" required>
+                        <option value=""><?= __t('select_entity', 'Select entity...') ?></option>
+                    </select>
+                </div>
+                <?php elseif ($canEditAllFields): ?>
                 <div class="form-row">
                     <div class="form-group">
                         <label><?= __t('owner_type', 'Owner Type') ?> <span class="required-star">*</span></label>
@@ -194,6 +202,9 @@ $apiBase = '/api';
                         </select>
                     </div>
                 </div>
+                <?php else: ?>
+                <input type="hidden" name="owner_type" id="ownerTypeHidden" value="user">
+                <input type="hidden" name="owner_id" id="ownerIdHidden" value="<?= (int)($user['id'] ?? 0) ?>">
                 <?php endif; ?>
 
                 <div class="form-row">
@@ -295,6 +306,7 @@ window.ADDRESSES_CONFIG = {
     lang: '<?= addslashes($lang) ?>',
     csrf: '<?= addslashes($csrf) ?>',
     isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+    isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
     canEditAllFields: <?= json_encode($canEditAllFields) ?>,
     permissions: {
         canCreate: <?= json_encode($canCreate) ?>,

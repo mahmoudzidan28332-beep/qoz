@@ -62,6 +62,7 @@ final class AuctionsService
 
         // 🔒 SECURITY: Mass Assignment Protection - Define WHITELIST
         $whitelisted = array_intersect_key($data, array_flip(self::WHITELISTED_COLUMNS));
+        $whitelisted['id'] = (int)$data['id']; // preserve id for validator and repository save
 
         $this->validate($whitelisted, true);
         return $this->repo->save($tenantId, $whitelisted);

@@ -49,15 +49,18 @@ $isSuperAdmin    = is_super_admin();
 $isPlatformAdmin = function_exists('is_platform_admin') ? is_platform_admin() : false;
 $userType        = function_exists('get_user_type')     ? get_user_type()     : 'guest';
 
-// Platform reports are restricted to platform admin/staff only
-if (!$isPlatformAdmin) {
+// Allow platform admins and tenant admins with a valid tenant context.
+// Block users who are neither.
+$isTenantAdmin = !$isPlatformAdmin && $tenantId > 0;
+
+if (!$isPlatformAdmin && !$isTenantAdmin) {
     if ($isFragment) {
         http_response_code(403);
-        echo json_encode(['error' => 'Access restricted to platform administrators']);
+        echo json_encode(['error' => 'Access restricted to platform or tenant administrators']);
         exit;
     }
     http_response_code(403);
-    die('Access restricted to platform administrators');
+    die('Access restricted to platform or tenant administrators');
 }
 
 $apiBase = '/api';
@@ -93,6 +96,47 @@ if (file_exists($langFile)) {
 <link rel="stylesheet" href="/admin/assets/css/pages/platform_report.css">
 
 <div id="platformReportApp" class="pr-container" dir="<?= htmlspecialchars($dir) ?>" data-dir="<?= htmlspecialchars($dir) ?>">
+
+<?php if ($isPlatformAdmin): ?>
+<!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+<div class="card platform-admin-panel" id="platformAdminPanel">
+    <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff">
+        <i class="fas fa-shield-alt"></i>
+        <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-5">
+                <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="paTenantIdInput" class="form-control" min="1"
+                           placeholder="<?= __t('platform_admin.tenant_id_placeholder', 'Enter tenant ID') ?>">
+                    <button type="button" id="paLookupTenantBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-search"></i>
+                        <?= __t('platform_admin.lookup_tenant', 'Lookup') ?>
+                    </button>
+                </div>
+                <select id="paTenantSelect" class="form-control">
+                    <option value=""><?= __t('platform_admin.select_tenant_placeholder', 'Select tenant') ?></option>
+                </select>
+            </div>
+            <div class="form-group col-3" style="display:flex;align-items:flex-end">
+                <button type="button" id="paApplyTenantBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-shield"></i>
+                    <?= __t('platform_admin.act_on_behalf', 'Filter by Tenant') ?>
+                </button>
+                <button type="button" id="paClearTenantBtn" class="btn btn-sm btn-secondary" style="margin-left:8px;display:none">
+                    <i class="fas fa-times"></i> <?= __t('platform_admin.clear_context', 'Clear') ?>
+                </button>
+            </div>
+        </div>
+        <div id="paActiveTenantBanner" style="display:none;padding:8px 12px;background:rgba(255,152,0,0.15);border:1px solid #ff9800;border-radius:6px;margin-top:8px;color:#ff9800;font-size:0.9rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="paActiveTenantLabel"></span>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
     <!-- Page Header -->
     <div class="pr-page-header">
@@ -163,7 +207,7 @@ if (file_exists($langFile)) {
                     <option value="entities_performance"><?= __t('entities_performance', 'Entities Performance') ?></option>
                     <option value="customer_behavior"><?= __t('customer_behavior', 'Customer Behavior') ?></option>
                     <option value="delivery_performance"><?= __t('delivery_performance', 'Delivery Performance') ?></option>
-                    <?php if ($isSuperAdmin): ?>
+                    <?php if ($isPlatformAdmin): ?>
                     <option value="platform_health"><?= __t('platform_health', 'Platform Health') ?></option>
                     <?php endif; ?>
                 </select>
@@ -188,13 +232,8 @@ if (file_exists($langFile)) {
                 </select>
             </div>
 
-            <?php if ($isSuperAdmin): ?>
-            <div class="pr-filter-group pr-tenant-search">
-                <label for="prTenantSearch"><?= __t('tenant', 'Tenant') ?></label>
-                <input type="text" id="prTenantSearch" class="pr-input" placeholder="<?= __t('search_tenant', 'Search tenant by name or ID...') ?>" autocomplete="off">
-                <input type="hidden" id="prTenantId" value="">
-                <div id="prTenantDropdown" class="pr-autocomplete-dropdown" style="display:none;"></div>
-            </div>
+            <?php if ($isPlatformAdmin): ?>
+            <input type="hidden" id="prTenantId" value="">
             <?php else: ?>
             <div class="pr-filter-group">
                 <label for="prTenantDisplay"><?= __t('tenant', 'Tenant') ?></label>
@@ -278,8 +317,9 @@ if (file_exists($langFile)) {
     // Pass PHP variables to JS
     window.__PR_CONFIG = {
         apiBase: <?= json_encode($apiBase) ?>,
-        tenantId: <?= json_encode($isSuperAdmin ? '' : ($tenantId ?: '')) ?>,
-        isSuperAdmin: <?= json_encode($isSuperAdmin) ?>,
+        tenantId: <?= json_encode((int)$tenantId) ?>,
+        isPlatformAdmin: <?= json_encode($isPlatformAdmin) ?>,
+        isTenantAdmin: <?= json_encode($isTenantAdmin) ?>,
         lang: <?= json_encode($lang) ?>,
         dir: <?= json_encode($dir) ?>,
         strings: <?= json_encode($_PR_LANG) ?>

@@ -35,6 +35,148 @@
         };
     }
 
+    // ════════════════════════════════════════════════════════
+    // PLATFORM ADMIN — Tenant Context
+    // ════════════════════════════════════════════════════════
+    const platformAdmin = {
+        activeTenantId: 0,
+
+        /** Returns the effective tenant_id for all API calls. */
+        getTenantId: function () {
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CFG.tenantId || 0);
+        },
+
+        /** Returns 'tenant_id=N' query string parameter. */
+        tenantParam: function () {
+            return 'tenant_id=' + this.getTenantId();
+        },
+
+        /** Wires up the Platform Admin panel controls. */
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+            const self          = this;
+            const searchInput   = document.getElementById('paUserSearch');
+            const searchBtn     = document.getElementById('paUserSearchBtn');
+            const searchResults = document.getElementById('paUserSearchResults');
+            const tenantSelect  = document.getElementById('paTenantSelect');
+            const applyBtn      = document.getElementById('paApplyTenantBtn');
+            const banner        = document.getElementById('paActiveTenantBanner');
+            const bannerLabel   = document.getElementById('paActiveTenantLabel');
+            const clearBtn      = document.getElementById('paClearTenantBtn');
+
+            if (!searchBtn) return;
+
+            // Search users by ID or name
+            searchBtn.addEventListener('click', function () {
+                const q    = searchInput ? searchInput.value.trim() : '';
+                if (!q) return;
+                const isId = /^\d+$/.test(q);
+                const url  = isId
+                    ? (CFG.usersApi || '/api/users') + '/' + encodeURIComponent(q)
+                    : (CFG.usersApi || '/api/users') + '?search=' + encodeURIComponent(q) + '&limit=20';
+                fetch(url, { credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(json => {
+                        const users = isId
+                            ? (json.data ? [json.data] : (json.id ? [json] : []))
+                            : (json.data && Array.isArray(json.data) ? json.data : (Array.isArray(json.items) ? json.items : []));
+                        if (!searchResults) return;
+                        searchResults.innerHTML = '';
+                        searchResults.style.display = users.length ? 'block' : 'none';
+                        users.forEach(u => {
+                            const item = document.createElement('div');
+                            item.className   = 'pa-user-item';
+                            item.textContent = (u.name || u.username || '') + ' (#' + u.id + ')';
+                            item.addEventListener('click', () => {
+                                if (searchResults) searchResults.style.display = 'none';
+                                if (searchInput) searchInput.value = item.textContent;
+                                self.loadTenantsForUser(u.id, tenantSelect, applyBtn);
+                            });
+                            searchResults.appendChild(item);
+                        });
+                    })
+                    .catch(() => {});
+            });
+
+            // Load all tenants for the dropdown on load
+            self.loadAllTenants(tenantSelect, applyBtn);
+
+            // Apply selected tenant
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    const tid = parseInt(tenantSelect ? tenantSelect.value : '', 10) || 0;
+                    if (!tid) return;
+                    self.activeTenantId = tid;
+                    if (banner) banner.style.display = 'flex';
+                    if (bannerLabel) {
+                        const opt = tenantSelect ? tenantSelect.options[tenantSelect.selectedIndex] : null;
+                        bannerLabel.textContent = t('platform_admin.acting_on_behalf', 'Acting on behalf of') + ': ' + (opt ? opt.text : 'Tenant #' + tid);
+                    }
+                    if (el.auctionTenantId) el.auctionTenantId.value = tid;
+                    loadAuctions(1);
+                });
+            }
+
+            // Clear selected tenant
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    if (banner) banner.style.display = 'none';
+                    if (tenantSelect) tenantSelect.value = '';
+                    if (applyBtn) applyBtn.disabled = true;
+                    if (el.auctionTenantId) el.auctionTenantId.value = CFG.tenantId || 0;
+                    loadAuctions(1);
+                });
+            }
+
+            // Enable apply button when a tenant is selected
+            if (tenantSelect) {
+                tenantSelect.addEventListener('change', function () {
+                    if (applyBtn) applyBtn.disabled = !tenantSelect.value;
+                });
+            }
+        },
+
+        /** Populate tenant dropdown with all tenants. */
+        loadAllTenants: function (selectEl, applyBtn) {
+            if (!selectEl) return;
+            const url = (CFG.tenantsApi || '/api/tenants') + '?limit=500';
+            fetch(url, { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(json => {
+                    const list = (json.data && json.data.items) ? json.data.items : (Array.isArray(json.data) ? json.data : []);
+                    list.forEach(tn => {
+                        const opt       = document.createElement('option');
+                        opt.value       = tn.id;
+                        opt.textContent = (tn.name || tn.tenant_name || '') + ' (#' + tn.id + ')';
+                        selectEl.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !selectEl.value;
+                })
+                .catch(() => {});
+        },
+
+        /** Populate tenant dropdown filtered by user. */
+        loadTenantsForUser: function (userId, selectEl, applyBtn) {
+            if (!selectEl) return;
+            const url = (CFG.usersApi || '/api/users') + '/' + encodeURIComponent(userId) + '/tenants';
+            fetch(url, { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(json => {
+                    const list = json.data || json.items || [];
+                    while (selectEl.options.length > 1) selectEl.remove(1);
+                    list.forEach(tn => {
+                        const opt       = document.createElement('option');
+                        opt.value       = tn.tenant_id || tn.id;
+                        opt.textContent = (tn.tenant_name || tn.name || '') + ' (#' + (tn.tenant_id || tn.id) + ')';
+                        selectEl.appendChild(opt);
+                    });
+                    if (applyBtn) applyBtn.disabled = !selectEl.value;
+                })
+                .catch(() => {});
+        },
+    };
+
     const state = {
         page:           1,
         perPage:        25,
@@ -211,7 +353,7 @@
 
         // Products
         try {
-            const res = await apiFetch(`${API.products}?format=json&tenant_id=${CFG.tenantId}&lang=${CFG.lang}&limit=500`);
+            const res = await apiFetch(`${API.products}?format=json&${platformAdmin.tenantParam()}&lang=${CFG.lang}&limit=500`);
             if (res.success && el.auctionProduct) {
                 const data = res.data?.items || (Array.isArray(res.data) ? res.data : []);
                 populateSelect(el.auctionProduct, data, 'id', 'name',
@@ -221,7 +363,7 @@
 
         // Entities
         try {
-            const res = await apiFetch(`${API.entities}?format=json&tenant_id=${CFG.tenantId}&lang=${CFG.lang}&limit=500`);
+            const res = await apiFetch(`${API.entities}?format=json&${platformAdmin.tenantParam()}&lang=${CFG.lang}&limit=500`);
             if (res.success && el.auctionEntity) {
                 const data = res.data?.items || (Array.isArray(res.data) ? res.data : []);
                 populateSelect(el.auctionEntity, data, 'id', 'store_name',
@@ -270,7 +412,7 @@
         const params = new URLSearchParams({
             page:      page,
             limit:     state.perPage,
-            tenant_id: CFG.tenantId || 1,
+            tenant_id: platformAdmin.getTenantId() || 0,
             lang:      CFG.lang || 'en',
             format:    'json',
             ...state.filters,
@@ -317,7 +459,7 @@
         tbody.innerHTML = items.map(a => {
             const featured = a.is_featured == 1
                 ? '<i class="fas fa-star auc-featured-star" aria-hidden="true"></i>' : '';
-            const tenantCol = CFG.isSuperAdmin
+            const tenantCol = (CFG.isSuperAdmin || CFG.isPlatformAdmin)
                 ? `<td>${esc(a.tenant_name || `#${a.tenant_id}`)}</td>` : '';
             const price = a.current_price
                 ? `<span class="auc-price-current">${formatPrice(a.current_price, a.currency_code)}</span>`
@@ -481,7 +623,7 @@
         } else {
             if (titleEl) titleEl.textContent = t('form.add_title','Add Auction');
             if (el.auctionFormId) el.auctionFormId.value = '';
-            if (el.auctionTenantId) el.auctionTenantId.value = CFG.tenantId || 1;
+            if (el.auctionTenantId) el.auctionTenantId.value = platformAdmin.getTenantId() || CFG.tenantId || 0;
             if (el.btnDeleteAuction) el.btnDeleteAuction.style.display = 'none';
         }
 
@@ -530,7 +672,7 @@
         const fd        = new FormData(el.form);
 
         const body = {
-            tenant_id:              CFG.tenantId || 1,
+            tenant_id:              platformAdmin.getTenantId() || CFG.tenantId || 0,
             entity_id:              parseInt(fd.get('entity_id') || 0) || null,
             title,
             slug:                   fd.get('slug')  || generateSlug(title),
@@ -565,7 +707,10 @@
         }
 
         try {
-            const result = await apiFetch(API.auctions, {
+            const tenantParam = (isEdit && state.currentAuction?.tenant_id)
+                ? 'tenant_id=' + state.currentAuction.tenant_id
+                : platformAdmin.tenantParam();
+            const result = await apiFetch(`${API.auctions}?${tenantParam}`, {
                 method: isEdit ? 'PUT' : 'POST',
                 body:   JSON.stringify(body),
             });
@@ -603,7 +748,7 @@
     // ════════════════════════════════════════════════════════
     async function editAuction(id) {
         try {
-            const result = await apiFetch(`${API.auctions}?id=${encodeURIComponent(id)}&lang=${CFG.lang}&tenant_id=${CFG.tenantId}&format=json`);
+            const result = await apiFetch(`${API.auctions}?id=${encodeURIComponent(id)}&lang=${CFG.lang}&${platformAdmin.tenantParam()}&format=json`);
             if (result.success && result.data) {
                 showForm(Array.isArray(result.data) ? result.data[0] : result.data);
             } else {
@@ -621,7 +766,11 @@
     async function deleteAuction(id) {
         if (!confirm(t('messages.confirm_delete','Delete this auction?'))) return;
         try {
-            const result = await apiFetch(API.auctions, {
+            const auction    = state.auctions.find(a => String(a.id) === String(id));
+            const tenantParam = auction?.tenant_id
+                ? 'tenant_id=' + auction.tenant_id
+                : platformAdmin.tenantParam();
+            const result = await apiFetch(`${API.auctions}?${tenantParam}`, {
                 method: 'DELETE',
                 body:   JSON.stringify({ id }),
             });
@@ -811,7 +960,7 @@
     function resetFilters() {
         state.filters = {};
         if (el.auctionSearch)        el.auctionSearch.value        = '';
-        if (el.auctionTenantFilter)  el.auctionTenantFilter.value  = CFG.tenantId || 1;
+        if (el.auctionTenantFilter)  el.auctionTenantFilter.value  = platformAdmin.getTenantId() || CFG.tenantId || 0;
         if (el.auctionStatusFilter)  el.auctionStatusFilter.value  = '';
         if (el.auctionTypeFilter)    el.auctionTypeFilter.value    = '';
         if (el.auctionFeaturedFilter)el.auctionFeaturedFilter.value = '';
@@ -897,6 +1046,7 @@
         }
 
         initTabs();
+        platformAdmin.bind();
         await loadDropdownData();
         await loadAuctions(1);
         console.log('[Auctions] ✓ Initialized');

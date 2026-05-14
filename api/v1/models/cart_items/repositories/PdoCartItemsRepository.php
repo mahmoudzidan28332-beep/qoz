@@ -189,9 +189,17 @@ final class PdoCartItemsRepository
 
     private function updateCartItem(int $tenantId, array $data, array $params): int
     {
-        $checkStmt = $this->pdo->prepare("SELECT ci.id FROM cart_items ci INNER JOIN carts c ON ci.cart_id = c.id INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id WHERE ci.id = :id");
+        $checkStmt = $this->pdo->prepare("SELECT ci.id, ci.cart_id, ci.entity_id FROM cart_items ci INNER JOIN carts c ON ci.cart_id = c.id INNER JOIN entities ent3 ON c.entity_id = ent3.id AND ent3.tenant_id = :tenant_id WHERE ci.id = :id");
         $checkStmt->execute([':id' => $data['id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart item not found or access denied'); }
+        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) { throw new ApplicationException('Cart item not found or access denied'); }
+        // Preserve entity_id and cart_id if not supplied — setting them to NULL would violate FKs
+        if (empty($params[':entity_id'])) {
+            $params[':entity_id'] = (int)$existing['entity_id'];
+        }
+        if (empty($params[':cart_id'])) {
+            $params[':cart_id'] = (int)$existing['cart_id'];
+        }
         $params[':id'] = (int)$data['id'];
         $setParts = array_map(fn($c) => "$c = :$c", self::CART_ITEM_COLUMNS);
         $stmt = $this->pdo->prepare("UPDATE cart_items SET " . implode(', ', $setParts) . ", updated_at = CURRENT_TIMESTAMP WHERE id = :id");
@@ -202,9 +210,13 @@ final class PdoCartItemsRepository
 
     private function insertCartItem(int $tenantId, array $params): int
     {
-        $checkStmt = $this->pdo->prepare("SELECT c.id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
+        $checkStmt = $this->pdo->prepare("SELECT c.id, c.entity_id FROM carts c WHERE c.id = :cart_id AND c.entity_id IN (SELECT ent2.id FROM entities ent2 WHERE ent2.tenant_id = :tenant_id)");
         $checkStmt->execute([':cart_id' => $params[':cart_id'], ':tenant_id' => $tenantId]);
-        if (!$checkStmt->fetch()) { throw new ApplicationException('Cart not found or access denied'); }
+        $cartRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cartRow) { throw new ApplicationException('Cart not found or access denied'); }
+        if (empty($params[':entity_id'])) {
+            $params[':entity_id'] = (int)$cartRow['entity_id'];
+        }
         $colStr = implode(', ', self::CART_ITEM_COLUMNS);
         $phStr = implode(', ', array_map(fn($c) => ":$c", self::CART_ITEM_COLUMNS));
         $stmt = $this->pdo->prepare("INSERT INTO cart_items ($colStr) VALUES ($phStr)");

@@ -10,7 +10,7 @@ final class PdoNotificationTypesRepository
     ];
 
     private const FILTERABLE_COLUMNS = [
-        'code', 'name', 'is_active'
+        'code', 'name', 'is_active', 'owner_scope'
     ];
 
     public function __construct(PDO $pdo)
@@ -25,7 +25,7 @@ final class PdoNotificationTypesRepository
         string $orderBy = 'id',
         string $orderDir = 'DESC'
     ): array {
-        $sql = "SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE 1=1";
+        $sql = "SELECT id, code, name, description, is_active, owner_scope, default_template, created_at, updated_at FROM notification_types WHERE 1=1";
         $params = [];
 
         foreach (self::FILTERABLE_COLUMNS as $col) {
@@ -36,11 +36,24 @@ final class PdoNotificationTypesRepository
                 } elseif ($col === 'is_active') {
                     $sql .= " AND is_active = :is_active";
                     $params[':is_active'] = (int)$filters['is_active'];
+                } elseif ($col === 'owner_scope') {
+                    $allowedScopes = ['platform', 'tenant', 'shared'];
+                    if (in_array($filters['owner_scope'], $allowedScopes, true)) {
+                        $sql .= " AND owner_scope = :owner_scope";
+                        $params[':owner_scope'] = $filters['owner_scope'];
+                    }
                 } else {
                     $sql .= " AND $col = :$col";
                     $params[":$col"] = $filters[$col];
                 }
             }
+        }
+
+        // Search across code and name
+        if (!empty($filters['search'])) {
+            $sql .= " AND (code LIKE :search OR name LIKE :search2)";
+            $params[':search']  = '%' . $filters['search'] . '%';
+            $params[':search2'] = '%' . $filters['search'] . '%';
         }
 
         $orderBy = in_array($orderBy, self::ALLOWED_ORDER_BY, true) ? $orderBy : 'id';
@@ -82,11 +95,23 @@ final class PdoNotificationTypesRepository
                 } elseif ($col === 'is_active') {
                     $sql .= " AND is_active = :is_active";
                     $params[':is_active'] = (int)$filters['is_active'];
+                } elseif ($col === 'owner_scope') {
+                    $allowedScopes = ['platform', 'tenant', 'shared'];
+                    if (in_array($filters['owner_scope'], $allowedScopes, true)) {
+                        $sql .= " AND owner_scope = :owner_scope";
+                        $params[':owner_scope'] = $filters['owner_scope'];
+                    }
                 } else {
                     $sql .= " AND $col = :$col";
                     $params[":$col"] = $filters[$col];
                 }
             }
+        }
+
+        if (!empty($filters['search'])) {
+            $sql .= " AND (code LIKE :search OR name LIKE :search2)";
+            $params[':search']  = '%' . $filters['search'] . '%';
+            $params[':search2'] = '%' . $filters['search'] . '%';
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -96,7 +121,7 @@ final class PdoNotificationTypesRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE id = :id");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, owner_scope, default_template, created_at, updated_at FROM notification_types WHERE id = :id");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -104,7 +129,7 @@ final class PdoNotificationTypesRepository
 
     public function findByCode(string $code): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, default_template, created_at, updated_at FROM notification_types WHERE code = :code");
+        $stmt = $this->pdo->prepare("SELECT id, code, name, description, is_active, owner_scope, default_template, created_at, updated_at FROM notification_types WHERE code = :code");
         $stmt->execute([':code' => $code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -120,7 +145,7 @@ final class PdoNotificationTypesRepository
 
             $sets = [];
             $params = [':id' => $id];
-            $allowed = ['code', 'name', 'description', 'is_active', 'default_template'];
+            $allowed = ['code', 'name', 'description', 'is_active', 'owner_scope', 'default_template'];
             foreach ($allowed as $col) {
                 if (array_key_exists($col, $data)) {
                     $sets[] = "$col = :$col";
@@ -142,7 +167,7 @@ final class PdoNotificationTypesRepository
         $cols = [];
         $placeholders = [];
         $params = [];
-        $allowed = ['code', 'name', 'description', 'is_active', 'default_template'];
+        $allowed = ['code', 'name', 'description', 'is_active', 'owner_scope', 'default_template'];
         foreach ($allowed as $col) {
             if (array_key_exists($col, $data) && $data[$col] !== null && $data[$col] !== '') {
                 $cols[] = $col;

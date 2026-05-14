@@ -36,12 +36,30 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-$user     = $_SESSION['user'] ?? [];
-$tenantId = resolve_tenant_id();
+$user            = $_SESSION['user'] ?? [];
+$isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
+$tenantId        = resolve_tenant_id();
 
 if ($tenantId === null) {
+    if (!$isPlatformAdmin) {
+        ResponseFormatter::error('Unauthorized: tenant not found', 401);
+        exit;
+    }
+    $tenantId = 0;
+}
+$tenantId = (int)$tenantId;
+
+if (!$isPlatformAdmin && $tenantId === 0) {
     ResponseFormatter::error('Unauthorized: tenant not found', 401);
     exit;
+}
+
+if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
+    PlatformContext::logCrossTenantAction(
+        sourceTenant: null,
+        targetTenant: $tenantId,
+        reason: 'Platform Admin — auctions management'
+    );
 }
 
 $repo       = new PdoAuctionsRepository($pdo);
@@ -101,7 +119,7 @@ try {
             } else {
                 $result = $controller->list($tenantId, $limit, $offset, $filters, $orderBy, $orderDir, $language);
                 ResponseFormatter::success([
-                    'data' => $result['items'],
+                    'items' => $result['items'],
                     'meta' => [
                         'total'       => $result['total'],
                         'page'        => $page,

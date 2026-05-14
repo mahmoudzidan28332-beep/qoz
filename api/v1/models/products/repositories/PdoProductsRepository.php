@@ -217,58 +217,52 @@ final class PdoProductsRepository extends BaseRepository
         $tenantId = $contextTenantId > 0 ? $contextTenantId : (int)($data['tenant_id'] ?? 0);
         $isUpdate = !empty($data['id']);
 
-        // استخراج الأعمدة المسموح بها فقط من البيانات الواردة
+        $params = $this->buildProductParams($data);
+
+        return $isUpdate
+            ? $this->updateProduct((int)$data['id'], $params, $tenantId, $contextTenantId)
+            : $this->insertProduct($params, $tenantId);
+    }
+
+    private function buildProductParams(array $data): array
+    {
         $params = [];
         foreach (self::PRODUCT_COLUMNS as $col) {
-            if (array_key_exists($col, $data)) {
-                $val = $data[$col];
-                // تحويل القيم الفارغة إلى null للأعمدة الاختيارية
-                $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
-            } else {
-                $params[':' . $col] = null;
-            }
+            $val = array_key_exists($col, $data) ? $data[$col] : null;
+            $params[':' . $col] = ($val === '' || $val === null) ? null : $val;
         }
 
-        // توليد SKU تلقائياً إذا كان فارغاً
-        if (empty($params[':sku']) || $params[':sku'] === null) {
+        if (empty($params[':sku'])) {
             $params[':sku'] = 'PRD-' . strtoupper(bin2hex(random_bytes(4))) . '-' . time();
         }
 
-        // توليد slug تلقائياً إذا كان فارغاً
-        if (empty($params[':slug']) || $params[':slug'] === null) {
+        if (empty($params[':slug'])) {
             $name = $data['name'] ?? $params[':sku'];
-            $params[':slug'] = preg_replace('/[^a-z0-9\p{Arabic}\-]+/u', '-', mb_strtolower(trim($name)));
-            $params[':slug'] = trim($params[':slug'], '-');
-            if (empty($params[':slug'])) {
-                $params[':slug'] = 'product-' . time();
-            }
-            // إضافة رقم عشوائي لتجنب التكرار
-            $params[':slug'] .= '-' . mt_rand(1000, 9999);
+            $slug = preg_replace('/[^a-z0-9\p{Arabic}\-]+/u', '-', mb_strtolower(trim($name)));
+            $slug = trim($slug, '-');
+            $params[':slug'] = (empty($slug) ? 'product-' . time() : $slug) . '-' . mt_rand(1000, 9999);
         }
 
-        // product_type_id مطلوب (NOT NULL) - تعيين قيمة افتراضية 1 إذا لم يتم تحديده
         if (empty($params[':product_type_id'])) {
             $params[':product_type_id'] = 1;
         }
 
-        if ($isUpdate) {
-            if ($tenantId <= 0) {
-                // If context is platform admin (0), we need to find which tenant this product belongs to
-                $existing = $this->find((int)$data['id']);
-                if ($existing && array_key_exists('tenant_id', $existing)) {
-                    $tenantId = $existing['tenant_id'] !== null ? (int)$existing['tenant_id'] : 0;
-                } else {
-                    $tenantId = 0; // Remains global
-                }
-            }
-            $params[':tenant_id'] = $tenantId > 0 ? $tenantId : null;
-            $params[':id'] = (int)$data['id'];
+        return $params;
+    }
 
-            $whereClause = $contextTenantId > 0 ? "tenant_id = :context_tenant_id AND id = :id" : "id = :id";
-            if ($contextTenantId > 0) {
-                $params[':context_tenant_id'] = $contextTenantId;
+    private function updateProduct(int $id, array $params, int $tenantId, int $contextTenantId): int
+    {
+        if ($tenantId <= 0) {
+            $existing = $this->find($id);
+            if ($existing && array_key_exists('tenant_id', $existing)) {
+                $tenantId = $existing['tenant_id'] !== null ? (int)$existing['tenant_id'] : 0;
             }
+        }
+        $params[':tenant_id'] = $tenantId > 0 ? $tenantId : null;
+        $params[':id'] = $id;
 
+        if ($contextTenantId > 0) {
+            $params[':context_tenant_id'] = $contextTenantId;
             $stmt = $this->pdo->prepare("
                 UPDATE products SET
                     tenant_id = :tenant_id,
@@ -292,16 +286,44 @@ final class PdoProductsRepository extends BaseRepository
                     views_count = :views_count,
                     published_at = :published_at,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE {$whereClause}
+                WHERE tenant_id = :context_tenant_id AND id = :id
             ");
-            $stmt->execute($params);
-            return (int)$data['id'];
+        } else {
+            $stmt = $this->pdo->prepare("
+                UPDATE products SET
+                    tenant_id = :tenant_id,
+                    product_type_id = :product_type_id,
+                    sku = :sku,
+                    slug = :slug,
+                    barcode = :barcode,
+                    brand_id = :brand_id,
+                    is_active = :is_active,
+                    is_featured = :is_featured,
+                    is_bestseller = :is_bestseller,
+                    is_new = :is_new,
+                    stock_quantity = :stock_quantity,
+                    low_stock_threshold = :low_stock_threshold,
+                    stock_status = :stock_status,
+                    manage_stock = :manage_stock,
+                    allow_backorder = :allow_backorder,
+                    total_sales = :total_sales,
+                    rating_average = :rating_average,
+                    rating_count = :rating_count,
+                    views_count = :views_count,
+                    published_at = :published_at,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+            ");
         }
+        $stmt->execute($params);
+        return $id;
+    }
 
+    private function insertProduct(array $params, int $tenantId): int
+    {
         if ($tenantId < 0) {
             throw new InvalidArgumentException('tenant_id is required for product creation');
         }
-
         $params[':tenant_id'] = $tenantId > 0 ? $tenantId : null;
 
         $stmt = $this->pdo->prepare("
@@ -364,5 +386,33 @@ final class PdoProductsRepository extends BaseRepository
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = :tid");
         $stmt->execute([':tid' => $tenantId]);
         return (int)$stmt->fetchColumn();
+    }
+
+    // ================================
+    // Tenant-ID resolution helpers (used by safe_helpers)
+    // ================================
+
+    public function findTenantIdByProductId(int $productId): ?int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT tenant_id FROM products WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => $productId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return ($row && isset($row['tenant_id'])) ? (int)$row['tenant_id'] : null;
+    }
+
+    public function findTenantIdByVariantId(int $variantId): ?int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT p.tenant_id
+               FROM product_variants pv
+               JOIN products p ON p.id = pv.product_id
+              WHERE pv.id = :id
+              LIMIT 1'
+        );
+        $stmt->execute([':id' => $variantId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return ($row && isset($row['tenant_id'])) ? (int)$row['tenant_id'] : null;
     }
 }

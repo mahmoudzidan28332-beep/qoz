@@ -35,6 +35,7 @@ $filterNotificationTypeInput = static function (array $data): array {
         'name',
         'description',
         'is_active',
+        'owner_scope',
         'default_template',
     ]));
 };
@@ -60,10 +61,14 @@ try {
             exit;
         }
 
+        $allowedOwnerScopes = ['platform', 'tenant', 'shared'];
         $filters = [
-            'code'      => $_GET['code']      ?? null,
-            'name'      => $_GET['name']      ?? null,
-            'is_active' => isset($_GET['is_active']) && is_numeric($_GET['is_active']) ? (int)$_GET['is_active'] : null,
+            'code'        => $_GET['code']        ?? null,
+            'name'        => $_GET['name']        ?? null,
+            'is_active'   => isset($_GET['is_active']) && is_numeric($_GET['is_active']) ? (int)$_GET['is_active'] : null,
+            'owner_scope' => isset($_GET['owner_scope']) && in_array($_GET['owner_scope'], $allowedOwnerScopes, true)
+                             ? $_GET['owner_scope'] : null,
+            'search'      => isset($_GET['search']) ? trim((string)$_GET['search']) : null,
         ];
 
         $orderBy  = $_GET['order_by']  ?? 'id';
@@ -95,11 +100,19 @@ try {
 
     if ($method === 'POST') {
         // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
+        $ownerScope = in_array($data['owner_scope'] ?? '', ['platform', 'tenant', 'shared'], true)
+            ? $data['owner_scope'] : 'shared';
+        // Only platform admins may create types with owner_scope = 'platform'
+        if ($ownerScope === 'platform' && !is_platform_admin()) {
+            ResponseFormatter::error('Only platform admins may create platform-scoped notification types', 403);
+            exit;
+        }
         $newId = $controller->create([
             'code'             => $data['code']             ?? '',
             'name'             => $data['name']             ?? '',
             'description'      => $data['description']      ?? null,
             'is_active'        => $data['is_active']        ?? 0,
+            'owner_scope'      => $ownerScope,
             'default_template' => $data['default_template'] ?? null,
         ]);
         ResponseFormatter::success(['id' => $newId], 'Created successfully', 201);
@@ -112,14 +125,24 @@ try {
             exit;
         }
         // 🔒 SECURITY: Explicit whitelist before passing to controller/repository
-        $updatedId = $controller->update([
+        $ownerScope = isset($data['owner_scope']) && in_array($data['owner_scope'], ['platform', 'tenant', 'shared'], true)
+            ? $data['owner_scope'] : null;
+        if ($ownerScope === 'platform' && !is_platform_admin()) {
+            ResponseFormatter::error('Only platform admins may set platform-scoped notification types', 403);
+            exit;
+        }
+        $payload = [
             'id'               => (int)$data['id'],
             'code'             => $data['code']             ?? '',
             'name'             => $data['name']             ?? '',
             'description'      => $data['description']      ?? null,
             'is_active'        => $data['is_active']        ?? 0,
             'default_template' => $data['default_template'] ?? null,
-        ]);
+        ];
+        if ($ownerScope !== null) {
+            $payload['owner_scope'] = $ownerScope;
+        }
+        $updatedId = $controller->update($payload);
         ResponseFormatter::success(['id' => $updatedId], 'Updated successfully');
         exit;
     }

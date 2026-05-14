@@ -2,6 +2,23 @@
 declare(strict_types=1);
 
 // ============================================================
+// Bootstrap — full standalone entry (mirrors countries.php)
+// ============================================================
+$baseDir = dirname(__DIR__, 2);
+require_once $baseDir . '/bootstrap.php';
+require_once $baseDir . '/shared/core/ResponseFormatter.php';
+require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/config/db.php';
+
+$sharedPath = $baseDir . '/shared/core';
+require_once $sharedPath . '/BaseRepository.php';
+require_once $sharedPath . '/BaseService.php';
+require_once $sharedPath . '/BaseController.php';
+require_once $sharedPath . '/TenantContext.php';
+require_once $sharedPath . '/QueryGuard.php';
+require_once $sharedPath . '/BasePolicy.php';
+
+// ============================================================
 // Dependencies
 // ============================================================
 require_once API_VERSION_PATH . '/models/delivery_zones/Contracts/DeliveryOrderRepositoryInterface.php';
@@ -11,27 +28,49 @@ require_once API_VERSION_PATH . '/models/delivery_zones/services/DeliveryOrderSe
 require_once API_VERSION_PATH . '/models/delivery_zones/controllers/DeliveryOrderController.php';
 
 // ============================================================
-// Bootstrap
+// Session & Database
 // ============================================================
-if (!defined('API_VERSION_PATH')) {
-    http_response_code(403);
-    exit('Direct access not allowed.');
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+$pdo = $GLOBALS['ADMIN_DB'] ?? null;
+if (!$pdo instanceof PDO) {
+    ResponseFormatter::error('Database not initialized', 500);
+    exit;
 }
 
 // ============================================================
-// Database
+// Tenant resolution (platform-admin-aware)
 // ============================================================
-/** @var PDO $pdo */
- $pdo = $GLOBALS['ADMIN_DB'] ?? null;
-if (!$pdo instanceof PDO) {
-    ResponseFormatter::error('Service unavailable', 503);
+$isPlatformAdmin = function_exists('is_platform_admin') && is_platform_admin();
+$tenantId        = resolve_tenant_id();
+
+if ($tenantId === null) {
+    if (!$isPlatformAdmin) {
+        ResponseFormatter::error('Unauthorized', 401);
+        exit;
+    }
+    $tenantId = 0;
+}
+$tenantId = (int)$tenantId;
+
+if (!$isPlatformAdmin && $tenantId === 0) {
+    ResponseFormatter::error('Unauthorized', 401);
     exit;
+}
+
+// Platform Admin cross-tenant audit when acting on a specific tenant
+if ($isPlatformAdmin && $tenantId > 0 && class_exists('PlatformContext', false)) {
+    PlatformContext::logCrossTenantAction(
+        sourceTenant: null,
+        targetTenant: $tenantId,
+        reason: 'Platform Admin — delivery_orders management'
+    );
 }
 
 // ============================================================
 // Wiring
 // ============================================================
- $controller = new DeliveryOrderController(
+$controller = new DeliveryOrderController(
     new DeliveryOrderService(
         new PdoDeliveryOrderRepository($pdo),
         new DeliveryOrderValidator()
@@ -39,22 +78,16 @@ if (!$pdo instanceof PDO) {
 );
 
 // ============================================================
-// Tenant resolution
-// ============================================================
- $tenantId = (int) ($_SESSION['tenant_id'] ?? 0);
-if ($tenantId === 0) {
-    ResponseFormatter::error('Unauthorized', 401);
-    exit;
-}
-
-// ============================================================
 // Request parsing
 // ============================================================
- $method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'POST' && !empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+    $method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
+}
 
- $uriPath  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
- $segments = explode('/', trim($uriPath, '/'));
- $id       = null;
+$uriPath  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$segments = explode('/', trim($uriPath, '/'));
+$id       = null;
 foreach ($segments as $seg) {
     if (ctype_digit($seg) && (int)$seg > 0) {
         $id = (int)$seg;
@@ -62,7 +95,7 @@ foreach ($segments as $seg) {
     }
 }
 
- $lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
+$lang = in_array($_GET['lang'] ?? 'ar', ['ar', 'en'], true) ? ($_GET['lang'] ?? 'ar') : 'ar';
 
 // ============================================================
 // Route dispatch
@@ -174,10 +207,13 @@ try {
     ResponseFormatter::error($e->getMessage(), 422);
 
 } catch (DatabaseException|\PDOException $e) {
+    $sqlState = is_string($e->getCode()) ? $e->getCode() : sprintf('%05d', $e->getCode());
     safe_log('error', '[DeliveryOrders] Database error', [
         'tenant_id' => $tenantId,
+        'sqlstate'  => $sqlState,
         'code'      => $e->getCode(),
         'error'     => $e->getMessage(),
+        'file'      => $e->getFile() . ':' . $e->getLine(),
     ]);
     ResponseFormatter::error('A database error occurred.', 500);
 

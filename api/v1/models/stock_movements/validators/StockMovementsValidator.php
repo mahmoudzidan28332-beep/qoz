@@ -18,8 +18,9 @@ final class StockMovementsValidator
     {
         $errors = [];
 
-        if (empty($data['product_id']) || !is_numeric($data['product_id'])) {
-            $errors[] = "Field 'product_id' is required and must be numeric";
+        // One of these must be present
+        if (empty($data['product_id']) && empty($data['entity_product_id']) && empty($data['entity_product_variant_id'])) {
+            $errors[] = "One of 'product_id', 'entity_product_id', or 'entity_product_variant_id' is required";
         }
 
         if (!isset($data['change_quantity']) || !is_numeric($data['change_quantity']) || (int)$data['change_quantity'] === 0) {
@@ -30,12 +31,10 @@ final class StockMovementsValidator
             $errors[] = "Field 'type' is required and must be one of: " . implode(', ', self::ALLOWED_TYPES);
         }
 
-        if (isset($data['variant_id']) && $data['variant_id'] !== '' && !is_numeric($data['variant_id'])) {
-            $errors[] = "Field 'variant_id' must be numeric";
-        }
-
-        if (isset($data['reference_id']) && $data['reference_id'] !== '' && !is_numeric($data['reference_id'])) {
-            $errors[] = "Field 'reference_id' must be numeric";
+        foreach (['tenant_id', 'entity_id', 'variant_id', 'reference_id', 'entity_product_id', 'entity_product_variant_id'] as $field) {
+            if (isset($data[$field]) && $data[$field] !== '' && !is_numeric($data[$field])) {
+                $errors[] = "Field '$field' must be numeric";
+            }
         }
 
         if (isset($data['notes']) && !is_string($data['notes'])) {

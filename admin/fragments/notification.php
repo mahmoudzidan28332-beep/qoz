@@ -92,6 +92,50 @@ $apiBase = '/api';
         </div>
     </div>
 
+    <?php if ($isPlatformAdmin): ?>
+    <!-- ═══ PLATFORM ADMIN — TENANT SELECTOR ═══ -->
+    <div class="card platform-admin-panel" id="notifPlatformAdminPanel">
+        <div class="card-header" style="background:var(--color-warning,#ff9800);color:#fff;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-shield-alt"></i>
+            <strong><?= __t('platform_admin.panel_title', 'Platform Admin — Tenant Context') ?></strong>
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><?= __t('platform_admin.search_user', 'Search User (ID or name)') ?></label>
+                    <div style="display:flex;gap:6px">
+                        <input type="text" id="notifPaUserSearch" class="form-control"
+                               placeholder="<?= __t('platform_admin.search_placeholder', 'User ID or name...') ?>">
+                        <button type="button" id="notifPaUserSearchBtn" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div id="notifPaUserSearchResults" class="pa-search-results" style="display:none"></div>
+                </div>
+                <div class="form-group">
+                    <label><?= __t('platform_admin.select_tenant', 'Select Tenant') ?></label>
+                    <select id="notifPaTenantSelect" class="form-control">
+                        <option value=""><?= __t('platform_admin.select_tenant_placeholder', '-- Select tenant --') ?></option>
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end">
+                    <button type="button" id="notifPaApplyTenantBtn" class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-user-shield"></i>
+                        <?= __t('platform_admin.act_on_behalf', 'Act on Behalf') ?>
+                    </button>
+                </div>
+            </div>
+            <div id="notifPaActiveTenantBanner" class="pa-active-banner" style="display:none">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="notifPaActiveTenantLabel"></span>
+                <button type="button" id="notifPaClearTenantBtn" class="btn btn-sm btn-outline-danger" style="margin-left:auto">
+                    <i class="fas fa-times"></i> <?= __t('platform_admin.clear_context', 'Clear') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Tabs -->
     <div class="notif-tabs">
         <button class="notif-tab-btn active" data-tab="types">
@@ -117,6 +161,10 @@ $apiBase = '/api';
         <button class="notif-tab-btn" data-tab="devices">
             <i class="fas fa-mobile-alt"></i>
             <span data-i18n="notifications.tabs.devices"><?= __t('notifications.tabs.devices', 'Devices') ?></span>
+        </button>
+        <button class="notif-tab-btn" data-tab="recipients">
+            <i class="fas fa-inbox"></i>
+            <span data-i18n="notifications.tabs.recipients"><?= __t('notifications.tabs.recipients', 'Recipients') ?></span>
         </button>
         <?php if ($canCreate): ?>
         <button class="notif-tab-btn" data-tab="bulk_send">
@@ -162,6 +210,16 @@ $apiBase = '/api';
                                 <option value="0" data-i18n="form.fields.is_active.inactive"><?= __t('form.fields.is_active.inactive','Inactive') ?></option>
                             </select>
                         </div>
+                        <?php if ($isPlatformAdmin): ?>
+                        <div class="form-group">
+                            <label for="fOwnerScope" data-i18n="form.fields.owner_scope.label"><?= __t('form.fields.owner_scope.label','Owner Scope') ?></label>
+                            <select id="fOwnerScope" name="owner_scope" class="form-control">
+                                <option value="shared" data-i18n="form.fields.owner_scope.shared"><?= __t('form.fields.owner_scope.shared','Shared') ?></option>
+                                <option value="tenant" data-i18n="form.fields.owner_scope.tenant"><?= __t('form.fields.owner_scope.tenant','Tenant') ?></option>
+                                <option value="platform" data-i18n="form.fields.owner_scope.platform"><?= __t('form.fields.owner_scope.platform','Platform') ?></option>
+                            </select>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group">
                         <label for="fDescription" data-i18n="form.fields.description.label"><?= __t('form.fields.description.label','Description') ?></label>
@@ -643,6 +701,17 @@ $apiBase = '/api';
                            placeholder="<?= __t('filters.tenant_placeholder','Filter by tenant') ?>">
                 </div>
                 <?php endif; ?>
+                <?php if ($isPlatformAdmin): ?>
+                <div class="filter-group" id="filterOwnerScopeGroup" style="display:none">
+                    <label for="ownerScopeFilter" data-i18n="filters.owner_scope"><?= __t('filters.owner_scope','Owner Scope') ?></label>
+                    <select id="ownerScopeFilter" class="form-control">
+                        <option value=""><?= __t('filters.owner_scope_options.all','All Scopes') ?></option>
+                        <option value="platform"><?= __t('form.fields.owner_scope.platform','Platform') ?></option>
+                        <option value="tenant"><?= __t('form.fields.owner_scope.tenant','Tenant') ?></option>
+                        <option value="shared"><?= __t('form.fields.owner_scope.shared','Shared') ?></option>
+                    </select>
+                </div>
+                <?php endif; ?>
                 <!-- Device type filter (Devices) -->
                 <div class="filter-group" id="filterDeviceTypeGroup" style="display:none">
                     <label for="deviceTypeFilter"><?= __t('form.fields.device_type.label','Device Type') ?></label>
@@ -721,12 +790,13 @@ window.USER_LANGUAGE   = window.USER_LANGUAGE   || '<?= addslashes($lang) ?>';
 window.USER_DIRECTION  = window.USER_DIRECTION  || '<?= addslashes($dir) ?>';
 window.CSRF_TOKEN      = window.CSRF_TOKEN      || '<?= addslashes($csrf) ?>';
 window.PAGE_PERMISSIONS = <?= json_encode([
-    'canCreate'  => $canCreate,
-    'canEdit'    => $canEdit,
-    'canDelete'  => $canDelete,
-    'canViewAll' => $canViewAll,
-    'canEditAll' => $canEditAll,
-    'isSuperAdmin' => is_super_admin()
+    'canCreate'        => $canCreate,
+    'canEdit'          => $canEdit,
+    'canDelete'        => $canDelete,
+    'canViewAll'       => $canViewAll,
+    'canEditAll'       => $canEditAll,
+    'isSuperAdmin'     => is_super_admin(),
+    'isPlatformAdmin'  => $isPlatformAdmin,
 ], JSON_UNESCAPED_UNICODE) ?>;
 window.NOTIFICATIONS_CONFIG = {
     api: {
@@ -736,13 +806,15 @@ window.NOTIFICATIONS_CONFIG = {
         counters:  '<?= $apiBase ?>/notification_counters',
         deliveries:'<?= $apiBase ?>/notification_deliveries',
         devices:   '<?= $apiBase ?>/user_devices',
+        recipients:'<?= $apiBase ?>/notification_recipients',
         send:      '<?= $apiBase ?>/notifications/send',
         sendBulk:  '<?= $apiBase ?>/notifications/send-bulk'
     },
-    tenantId:  <?= $tenantId ?>,
-    csrfToken: '<?= addslashes($csrf) ?>',
-    lang:      '<?= addslashes($lang) ?>',
-    itemsPerPage: 25
+    tenantId:        <?= $tenantId ?>,
+    csrfToken:       '<?= addslashes($csrf) ?>',
+    lang:            '<?= addslashes($lang) ?>',
+    itemsPerPage:    25,
+    isPlatformAdmin: <?= $isPlatformAdmin ? 'true' : 'false' ?>,
 };
 </script>
 

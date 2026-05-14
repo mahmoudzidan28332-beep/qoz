@@ -47,13 +47,7 @@ if (!$pdo instanceof PDO) {
     exit;
 }
 
-$user     = $_SESSION['user'] ?? [];
 $tenantId = resolve_tenant_id();
-
-if ($tenantId === null) {
-    ResponseFormatter::error('Unauthorized: tenant not found', 401);
-    exit;
-}
 
 $repo       = new PdoTimezonesRepository($pdo);
 $validator  = new TimezonesValidator();
@@ -69,6 +63,11 @@ try {
     $raw  = file_get_contents('php://input');
     $data = $raw ? (json_decode($raw, true) ?? []) : [];
 
+    if ($method !== 'GET' && $tenantId === null && !is_platform_admin()) {
+        ResponseFormatter::error('Unauthorized: tenant not found', 401);
+        exit;
+    }
+
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])             : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
     $offset   = ($page - 1) * $limit;
@@ -79,7 +78,6 @@ try {
     $filters = [
         'id'        => isset($_GET['id']) ? (int)$_GET['id'] : null,
         'language'  => $language,
-        'tenant_id' => $tenantId,
     ];
 
     // Determine path segment after /api/timezones
@@ -147,14 +145,26 @@ try {
             break;
 
         case 'POST':
+            if (!is_platform_admin() && !is_super_admin()) {
+                ResponseFormatter::error('Forbidden', 403);
+                break;
+            }
             ResponseFormatter::success($controller->store($data));
             break;
 
         case 'PUT':
+            if (!is_platform_admin() && !is_super_admin()) {
+                ResponseFormatter::error('Forbidden', 403);
+                break;
+            }
             ResponseFormatter::success($controller->update($data));
             break;
 
         case 'DELETE':
+            if (!is_platform_admin() && !is_super_admin()) {
+                ResponseFormatter::error('Forbidden', 403);
+                break;
+            }
             ResponseFormatter::success($controller->delete($data));
             break;
 
@@ -168,10 +178,10 @@ try {
     $httpCode = in_array((int)$e->getCode(), [400, 403, 404, 422]) ? (int)$e->getCode() : 400;
     safe_log('error', 'timezones.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (ApplicationException|\RuntimeException $e) {
+} catch (\Throwable $e) {
     safe_log('critical', 'timezones.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error($e->getMessage(), 500);
+    ResponseFormatter::error('Internal Server Error', 500);
 }

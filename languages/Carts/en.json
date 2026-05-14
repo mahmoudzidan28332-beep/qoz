@@ -1,0 +1,121 @@
+{
+    "platform_admin": {
+        "panel_title": "Platform Admin — Tenant Context",
+        "search_tenant": "Search Tenant (ID or name)",
+        "search_tenant_placeholder": "Type tenant ID or name...",
+        "select_tenant": "Select Tenant",
+        "select_tenant_placeholder": "— Select tenant —",
+        "select_entity": "Select Entity (optional)",
+        "all_entities": "— All entities —",
+        "apply": "Apply",
+        "clear": "Clear"
+    },
+
+    "carts": {
+        "title": "Cart Management",
+        "subtitle": "Manage shopping carts, items, and activity",
+        "refresh": "Refresh",
+        "loading": "Loading...",
+        "yes": "Yes",
+        "no": "No",
+
+        "stats": {
+            "total": "Total Carts",
+            "active": "Active",
+            "abandoned": "Abandoned",
+            "converted": "Converted"
+        },
+
+        "tab_carts": "Carts",
+        "tab_items": "Cart Items",
+        "tab_events": "Events Log",
+
+        "filter": {
+            "search": "Search by user ID, session...",
+            "all_status": "All Status",
+            "active": "Active",
+            "abandoned": "Abandoned",
+            "converted": "Converted",
+            "expired": "Expired",
+            "entity_id": "Entity ID",
+            "apply": "Filter",
+            "clear": "Clear"
+        },
+
+        "table": {
+            "id": "ID",
+            "entity": "Entity",
+            "user": "User",
+            "items": "Items",
+            "total": "Total",
+            "currency": "Currency",
+            "status": "Status",
+            "coupon": "Coupon",
+            "last_activity": "Last Activity",
+            "actions": "Actions"
+        },
+
+        "status": {
+            "active": "Active",
+            "abandoned": "Abandoned",
+            "converted": "Converted",
+            "expired": "Expired"
+        },
+
+        "items": {
+            "filter_cart_id": "Cart ID",
+            "filter_sku": "SKU",
+            "filter_product_id": "Product ID",
+            "id": "ID",
+            "cart_id": "Cart",
+            "product": "Product",
+            "sku": "SKU",
+            "qty": "Qty",
+            "unit_price": "Unit Price",
+            "discount": "Discount",
+            "tax": "Tax",
+            "total": "Total",
+            "gift": "Gift",
+            "added_at": "Added",
+            "actions": "Actions",
+            "edit_title": "Edit Cart Item",
+            "special_instructions": "Special Instructions"
+        },
+
+        "events": {
+            "filter_cart_id": "Cart ID",
+            "all_types": "All Event Types",
+            "all_actors": "All Actors",
+            "user": "User",
+            "admin": "Admin",
+            "system": "System",
+            "id": "ID",
+            "cart_id": "Cart",
+            "event_type": "Event Type",
+            "actor": "Actor",
+            "actor_id": "Actor ID",
+            "item_id": "Item ID",
+            "old_value": "Old Value",
+            "new_value": "New Value",
+            "note": "Note",
+            "created_at": "Date"
+        },
+
+        "detail": {
+            "title": "Cart Details",
+            "info": "Cart Info",
+            "amounts": "Amounts",
+            "items_in_cart": "Items in Cart",
+            "events": "Recent Events"
+        },
+
+        "edit": {
+            "title": "Edit Cart",
+            "status": "Status",
+            "coupon_code": "Coupon Code",
+            "expires_at": "Expires At",
+            "cancel": "Cancel",
+            "save": "Save Changes"
+        }
+    }
+}

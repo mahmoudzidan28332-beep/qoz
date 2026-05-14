@@ -34,9 +34,9 @@ final class ReturnsController
         return $this->service->create($tenantId, $data);
     }
 
-    public function update(int $tenantId, array $data): int
+    public function update(int $tenantId, array $data, ?int $changedBy = null): int
     {
-        return $this->service->update($tenantId, $data);
+        return $this->service->update($tenantId, $data, $changedBy);
     }
 
     public function delete(int $tenantId, int $id): bool

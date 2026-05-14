@@ -117,40 +117,91 @@ final class PdoReturnsRepository implements ReturnsRepositoryInterface
     {
         $isUpdate = !empty($data['id']);
 
-        // Auto-generate return number if missing
+        if ($isUpdate) {
+            $id = (int)$data['id'];
+
+            // Verify the record exists and belongs to this tenant
+            try {
+                $existStmt = $this->pdo->prepare(
+                    "SELECT id FROM " . self::TABLE . " WHERE tenant_id = :tenant_id AND id = :id LIMIT 1"
+                );
+                $existStmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+                if (!$existStmt->fetchColumn()) {
+                    throw new \RuntimeException('Return not found or access denied', 404);
+                }
+            } catch (\PDOException $e) {
+                throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+            }
+
+            // Build a partial SET clause.
+            // FK-referencing columns (order_id, user_id, entity_id) are intentionally
+            // excluded from the UPDATE unless the caller explicitly provides them.
+            // MySQL re-validates FK constraints on every UPDATE row, so including an
+            // unchanged-but-orphaned FK value would raise SQLSTATE 23000.
+            $setClauses = [
+                'status       = :status',
+                'reason       = :reason',
+                'admin_notes  = :admin_notes',
+                'requested_at = :requested_at',
+                'processed_at = :processed_at',
+            ];
+            $params = [
+                ':tenant_id'    => $tenantId,
+                ':id'           => $id,
+                ':status'       => $data['status'] ?? 'pending',
+                ':reason'       => $data['reason'] ?? null,
+                ':admin_notes'  => $data['admin_notes'] ?? null,
+                ':requested_at' => $data['requested_at'] ?? date('Y-m-d H:i:s'),
+                ':processed_at' => $data['processed_at'] ?? null,
+            ];
+
+            // Only update return_number when explicitly supplied (avoid overwriting with an
+            // auto-generated value on every status edit)
+            if (isset($data['return_number']) && (string)$data['return_number'] !== '') {
+                $setClauses[]          = 'return_number = :return_number';
+                $params[':return_number'] = $data['return_number'];
+            }
+
+            // Only update FK columns when explicitly supplied
+            foreach (['order_id', 'user_id', 'entity_id'] as $col) {
+                if (isset($data[$col]) && $data[$col] !== '' && $data[$col] !== null) {
+                    $setClauses[]       = "{$col} = :{$col}";
+                    $params[":{$col}"] = (int)$data[$col];
+                }
+            }
+
+            try {
+                $sql  = "UPDATE " . self::TABLE . " SET " . implode(', ', $setClauses) .
+                        " WHERE tenant_id = :tenant_id AND id = :id";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($params);
+            } catch (\PDOException $e) {
+                throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+            }
+
+            return $id;
+        }
+
+        // INSERT case — auto-generate return number when not provided
         if (empty($data['return_number'])) {
             $data['return_number'] = 'RET-' . date('Ymd') . '-' . str_pad((string)mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
         }
 
-        if ($isUpdate) {
+        try {
             $stmt = $this->pdo->prepare("
-                UPDATE " . self::TABLE . " SET
-                    order_id            = :order_id,
-                    user_id             = :user_id,
-                    entity_id           = :entity_id,
-                    return_number       = :return_number,
-                    status              = :status,
-                    reason              = :reason,
-                    admin_notes         = :admin_notes,
-                    requested_at        = :requested_at,
-                    processed_at        = :processed_at
-                WHERE tenant_id = :tenant_id AND id = :id
+                INSERT INTO " . self::TABLE . " (
+                    tenant_id, order_id, user_id, entity_id, return_number,
+                    status, reason, admin_notes, requested_at, processed_at
+                ) VALUES (
+                    :tenant_id, :order_id, :user_id, :entity_id, :return_number,
+                    :status, :reason, :admin_notes, :requested_at, :processed_at
+                )
             ");
-            $stmt->execute($this->buildParams($tenantId, $data, true));
-            return (int)$data['id'];
+            $stmt->execute($this->buildParams($tenantId, $data, false));
+            return (int)$this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
         }
-
-        $stmt = $this->pdo->prepare("
-            INSERT INTO " . self::TABLE . " (
-                tenant_id, order_id, user_id, entity_id, return_number,
-                status, reason, admin_notes, requested_at, processed_at
-            ) VALUES (
-                :tenant_id, :order_id, :user_id, :entity_id, :return_number,
-                :status, :reason, :admin_notes, :requested_at, :processed_at
-            )
-        ");
-        $stmt->execute($this->buildParams($tenantId, $data, false));
-        return (int)$this->pdo->lastInsertId();
     }
 
     public function delete(int $tenantId, int $id): bool

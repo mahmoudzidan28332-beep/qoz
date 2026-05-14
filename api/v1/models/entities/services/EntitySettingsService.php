@@ -11,14 +11,15 @@ final class EntitySettingsService
     }
 
     public function list(
+        int $tenantId,
         ?int $limit = null,
         ?int $offset = null,
         array $filters = [],
         string $orderBy = 'entity_id',
         string $orderDir = 'DESC'
     ): array {
-        $items = $this->repo->all($limit, $offset, $filters, $orderBy, $orderDir);
-        $total = $this->repo->count($filters);
+        $items = $this->repo->all($tenantId, $limit, $offset, $filters, $orderBy, $orderDir);
+        $total = $this->repo->count($tenantId, $filters);
 
         return [
             'items' => $items,
@@ -31,53 +32,58 @@ final class EntitySettingsService
         ];
     }
 
-    public function count(array $filters = []): int
+    public function count(int $tenantId, array $filters = []): int
     {
-        return $this->repo->count($filters);
+        return $this->repo->count($tenantId, $filters);
     }
 
-    public function get(int $entityId): ?array
+    public function get(int $entityId, int $tenantId): ?array
     {
-        return $this->repo->find($entityId);
+        return $this->repo->find($entityId, $tenantId);
     }
 
-    public function create(int $entityId, array $data): bool
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        return $this->repo->getTenantIdByEntityId($entityId);
+    }
+
+    public function create(int $entityId, int $tenantId, array $data): bool
     {
         // التحقق من عدم وجود إعدادات مسبقة لنفس الكيان
-        if ($this->get($entityId)) {
+        if ($this->get($entityId, $tenantId)) {
             throw new ApplicationException("Entity settings already exist for entity ID: $entityId");
         }
         
         // Remove entity_id from data since save() handles it as a separate parameter
         unset($data['entity_id']);
-        return $this->repo->save($entityId, $data);
+        return $this->repo->save($entityId, $tenantId, $data);
     }
 
     /**
      * Create or update entity settings (upsert via repository save)
      */
-    public function update(int $entityId, array $data): bool
+    public function update(int $entityId, int $tenantId, array $data): bool
     {
         // Remove entity_id from data since save() handles it as a separate parameter
         unset($data['entity_id']);
         // save() handles both insert and update (upsert)
-        return $this->repo->save($entityId, $data);
+        return $this->repo->save($entityId, $tenantId, $data);
     }
 
-    public function delete(int $entityId): bool
+    public function delete(int $entityId, int $tenantId): bool
     {
         // التحقق من وجود الإعدادات قبل الحذف
-        if (!$this->get($entityId)) {
+        if (!$this->get($entityId, $tenantId)) {
             throw new ApplicationException("Entity settings not found for entity ID: $entityId");
         }
         
-        return $this->repo->delete($entityId);
+        return $this->repo->delete($entityId, $tenantId);
     }
 
     /**
      * تبديل حالة القيمة المنطقية (toggle)
      */
-    public function toggle(int $entityId, string $field): bool
+    public function toggle(int $entityId, int $tenantId, string $field): bool
     {
         $allowedToggleFields = [
             'auto_accept_orders', 'allow_cod', 'allow_online_booking',
@@ -90,12 +96,12 @@ final class EntitySettingsService
             throw new InvalidArgumentException("Field '$field' cannot be toggled");
         }
 
-        $currentSettings = $this->get($entityId);
+        $currentSettings = $this->get($entityId, $tenantId);
         if (!$currentSettings) {
             throw new ApplicationException("Entity settings not found for entity ID: $entityId");
         }
         
         $newValue = $currentSettings[$field] ? 0 : 1;
-        return $this->repo->save($entityId, [$field => $newValue]);
+        return $this->repo->save($entityId, $tenantId, [$field => $newValue]);
     }
 }

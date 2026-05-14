@@ -59,6 +59,110 @@
     let _messageListenerAdded = false; // prevent duplicate message listeners
 
     // ════════════════════════════════════════════════════════════
+    // PLATFORM ADMIN MODULE
+    // ════════════════════════════════════════════════════════════
+    const platformAdmin = {
+        activeTenantId: 0,
+
+        getTenantId: function () {
+            if (CONFIG.isPlatformAdmin) {
+                return this.activeTenantId || 0;
+            }
+            return this.activeTenantId !== 0 ? this.activeTenantId : state.tenantId;
+        },
+
+        tenantParam: function () {
+            if (!CONFIG.isPlatformAdmin) return '';
+            return 'tenant_id=' + this.getTenantId();
+        },
+
+        init: function () {
+            if (!CONFIG.isPlatformAdmin) return;
+
+            const self = this;
+            const paTenantSelect = document.getElementById('paTenantSelect');
+            const paTenantInput  = document.getElementById('paTenantIdInput');
+            const paLookupBtn    = document.getElementById('paLookupTenantBtn');
+            const paApplyBtn    = document.getElementById('paApplyTenantBtn');
+            const paClearBtn    = document.getElementById('paClearTenantBtn');
+            const paBanner      = document.getElementById('paActiveTenantBanner');
+            const paLabel       = document.getElementById('paActiveTenantLabel');
+
+            fetch(API.tenants + '?limit=500&order_by=id&order_dir=ASC')
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    const items = (res.data && res.data.items) ? res.data.items : (Array.isArray(res.data) ? res.data : []);
+                    items.forEach(function (t) {
+                        const opt = document.createElement('option');
+                        opt.value       = t.tenant_id || t.id;
+                        opt.textContent = (t.tenant_name || t.name || '') + ' (#' + (t.tenant_id || t.id) + ')';
+                        if (paTenantSelect) paTenantSelect.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+
+            if (paApplyBtn) {
+                paApplyBtn.onclick = function () {
+                    const inputTid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
+                    const selectTid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
+                    const tid = (!isNaN(inputTid) && inputTid > 0) ? inputTid : selectTid;
+                    self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
+                    if (paTenantInput && self.activeTenantId) paTenantInput.value = self.activeTenantId;
+                    if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
+                    if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
+                    if (paLabel && self.activeTenantId) {
+                        const opt = paTenantSelect && paTenantSelect.options[paTenantSelect.selectedIndex];
+                        paLabel.textContent = 'Active tenant: ' + (opt ? opt.textContent : '#' + self.activeTenantId);
+                    }
+                    const formTenantEl = document.getElementById('prodTenantId');
+                    if (formTenantEl && self.activeTenantId) formTenantEl.value = self.activeTenantId;
+                    
+                    state.tenantId = self.activeTenantId;
+                    loadDropdownData();
+                    loadProducts(1);
+                };
+            }
+
+            if (paLookupBtn) {
+                paLookupBtn.onclick = function () {
+                    const tid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
+                    if (!tid || tid <= 0) return;
+                    if (paTenantSelect) {
+                        let found = false;
+                        Array.prototype.forEach.call(paTenantSelect.options, function (opt) {
+                            if (parseInt(opt.value, 10) === tid) found = true;
+                        });
+                        if (!found) {
+                            const opt = document.createElement('option');
+                            opt.value = tid;
+                            opt.textContent = 'Tenant #' + tid;
+                            paTenantSelect.appendChild(opt);
+                        }
+                        paTenantSelect.value = String(tid);
+                    }
+                    if (paApplyBtn) paApplyBtn.click();
+                };
+            }
+
+            if (paClearBtn) {
+                paClearBtn.onclick = function () {
+                    self.activeTenantId = 0;
+                    if (paTenantSelect) paTenantSelect.value = '';
+                    if (paTenantInput) paTenantInput.value = '';
+                    paClearBtn.style.display = 'none';
+                    if (paBanner) paBanner.style.display = 'none';
+                    const formTenantEl = document.getElementById('prodTenantId');
+                    if (formTenantEl) formTenantEl.value = '';
+                    
+                    state.tenantId = 0;
+                    loadDropdownData();
+                    loadProducts(1);
+                };
+            }
+        }
+    };
+
+    // ════════════════════════════════════════════════════════════
     // TRANSLATIONS
     // ════════════════════════════════════════════════════════════
     async function loadTranslations(lang) {
@@ -399,13 +503,27 @@
             showLoading();
 
             state.page = page;
+            if (CONFIG.isPlatformAdmin && (!platformAdmin.getTenantId() || platformAdmin.getTenantId() <= 0)) {
+                state.products = [];
+                state.total = 0;
+                updatePagination({ page: 1, per_page: state.perPage, total: 0 });
+                updateResultsCount(0);
+                showEmpty();
+                return;
+            }
+
             const params = new URLSearchParams({
                 page: page,
                 limit: state.perPage,
-                tenant_id: state.tenantId,
                 lang: state.language,
                 format: 'json'
             });
+
+            if (CONFIG.isPlatformAdmin) {
+                params.set('tenant_id', platformAdmin.getTenantId());
+            } else {
+                params.set('tenant_id', state.tenantId);
+            }
 
             // Add filters (skip empty values)
             Object.entries(state.filters).forEach(([key, val]) => {
@@ -2756,6 +2874,8 @@
 
         // Load translations
         await loadTranslations(state.language);
+        
+        platformAdmin.init();
 
         // Theme CSS (colors, buttons, cards) comes from header.php via
         // AdminUiThemeLoader::generateCss() — no manual injection needed.

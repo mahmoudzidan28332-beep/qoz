@@ -10,18 +10,23 @@ final class EntityTranslationsService
         $this->repo = $repo;
     }
 
-    public function getByEntity(int $entityId): array
+    public function getByEntity(int $entityId, int $tenantId): array
     {
-        return $this->repo->getByEntity($entityId);
+        return $this->repo->getByEntity($entityId, $tenantId);
     }
 
-    public function save(array $data): int
+    public function save(array $data, int $tenantId): int
     {
-        return $this->repo->save($data);
+        return $this->repo->save($data, $tenantId);
     }
 
-    public function delete(int $id): bool
+    public function delete(int $id, int $tenantId): bool
     {
-        return $this->repo->delete($id);
+        return $this->repo->delete($id, $tenantId);
+    }
+
+    public function getTenantIdByEntityId(int $entityId): ?int
+    {
+        return $this->repo->getTenantIdByEntityId($entityId);
     }
 }

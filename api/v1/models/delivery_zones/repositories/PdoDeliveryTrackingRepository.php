@@ -50,9 +50,13 @@ final class PdoDeliveryTrackingRepository implements DeliveryTrackingRepositoryI
             $params[':offset'] = $offset;
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -70,9 +74,13 @@ final class PdoDeliveryTrackingRepository implements DeliveryTrackingRepositoryI
             $params[':delivery_order_id'] = $filters['delivery_order_id'];
         }
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
@@ -85,30 +93,37 @@ final class PdoDeliveryTrackingRepository implements DeliveryTrackingRepositoryI
             LIMIT 1
         ";
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): int
     {
         // Note: We assume data validation ensures the delivery_order_id belongs to this tenant
         // before calling this method, or we rely on DB foreign keys.
-        
-        $stmt = $this->pdo->prepare("
-            INSERT INTO delivery_tracking (delivery_order_id, provider_id, latitude, longitude, status_note)
-            VALUES (:delivery_order_id, :provider_id, :latitude, :longitude, :status_note)
-        ");
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO delivery_tracking (delivery_order_id, provider_id, latitude, longitude, status_note)
+                VALUES (:delivery_order_id, :provider_id, :latitude, :longitude, :status_note)
+            ");
 
-        $stmt->execute([
-            ':delivery_order_id' => $data['delivery_order_id'],
-            ':provider_id'       => $data['provider_id'] ?? null,
-            ':latitude'          => $data['latitude'],
-            ':longitude'         => $data['longitude'],
-            ':status_note'       => $data['status_note'] ?? null,
-        ]);
+            $stmt->execute([
+                ':delivery_order_id' => $data['delivery_order_id'],
+                ':provider_id'       => $data['provider_id'] ?? null,
+                ':latitude'          => $data['latitude'],
+                ':longitude'         => $data['longitude'],
+                ':status_note'       => $data['status_note'] ?? null,
+            ]);
 
-        return (int) $this->pdo->lastInsertId();
+            return (int) $this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
@@ -116,7 +131,11 @@ final class PdoDeliveryTrackingRepository implements DeliveryTrackingRepositoryI
         $existing = $this->find($tenantId, $id);
         if (!$existing) return false;
 
-        $stmt = $this->pdo->prepare("DELETE FROM delivery_tracking WHERE id = :id");
-        return $stmt->execute([':id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM delivery_tracking WHERE id = :id");
+            return $stmt->execute([':id' => $id]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 }

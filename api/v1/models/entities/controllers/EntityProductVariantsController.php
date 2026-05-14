@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class EntityProductVariantsController
 {
-    private EntityProductVariantsService $service;
+    private $service;
 
     public function __construct(EntityProductVariantsService $service)
     {

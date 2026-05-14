@@ -17,12 +17,188 @@
     // CONFIG & STATE
     // ═══════════════════════════════════════════
     const CFG = window.__PR_CONFIG || {};
-    const API = (CFG.apiBase || '/api') + '/platform_report';
+    const API_BASE = (CFG.apiBase || '/api');
+    const API = API_BASE + '/platform_report';
     const T   = CFG.strings || {};
     const CHARTJS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
     let mainChart = null;
     let currentReportData = null;
     let _chartJsPromise = null;
+
+    // ═══════════════════════════════════════════
+    // PLATFORM ADMIN MODULE
+    // ═══════════════════════════════════════════
+    const platformAdmin = {
+        activeTenantId: 0,
+
+        /** Returns the effective tenant_id for all API calls. */
+        getTenantId: function () {
+            if (CFG.isPlatformAdmin) {
+                return this.activeTenantId || 0;
+            }
+            return this.activeTenantId !== 0 ? this.activeTenantId : (CFG.tenantId ? parseInt(CFG.tenantId, 10) : 0);
+        },
+
+        /** Returns 'tenant_id=N' query string parameter. */
+        tenantParam: function () {
+            const tid = this.getTenantId();
+            return tid ? ('tenant_id=' + tid) : '';
+        },
+
+        init: function () {
+            if (!CFG.isPlatformAdmin) return;
+
+            var self = this;
+            var paTenantSelect = document.getElementById('paTenantSelect');
+            var paTenantInput  = document.getElementById('paTenantIdInput');
+            var paLookupBtn    = document.getElementById('paLookupTenantBtn');
+            var paApplyBtn     = document.getElementById('paApplyTenantBtn');
+            var paClearBtn     = document.getElementById('paClearTenantBtn');
+            var paBanner       = document.getElementById('paActiveTenantBanner');
+            var paLabel        = document.getElementById('paActiveTenantLabel');
+            var hiddenTenant   = document.getElementById('prTenantId');
+            var cfgTenantId    = CFG.tenantId ? parseInt(CFG.tenantId, 10) : 0;
+
+            function applyTenantContext(tid, labelText) {
+                self.activeTenantId = (!isNaN(tid) && tid > 0) ? tid : 0;
+                if (paTenantInput && self.activeTenantId) paTenantInput.value = self.activeTenantId;
+                if (hiddenTenant) hiddenTenant.value = self.activeTenantId || '';
+                if (paClearBtn) paClearBtn.style.display = self.activeTenantId ? '' : 'none';
+                if (paBanner)  paBanner.style.display   = self.activeTenantId ? '' : 'none';
+                if (paLabel && self.activeTenantId) {
+                    if (labelText) {
+                        paLabel.textContent = 'Active tenant: ' + labelText;
+                    } else {
+                        var opt = paTenantSelect && paTenantSelect.options[paTenantSelect.selectedIndex];
+                        paLabel.textContent = 'Active tenant: ' + (opt && opt.value ? opt.textContent : '#' + self.activeTenantId);
+                    }
+                }
+                loadEntities(self.activeTenantId || undefined);
+            }
+
+            function upsertTenantOption(tid, tenantName) {
+                if (!paTenantSelect || !tid) return null;
+                var existing = null;
+                Array.prototype.forEach.call(paTenantSelect.options, function (opt) {
+                    if (parseInt(opt.value, 10) === tid) existing = opt;
+                });
+                if (existing) {
+                    if (tenantName) existing.textContent = tenantName + ' (#' + tid + ')';
+                    return existing;
+                }
+                var opt = document.createElement('option');
+                opt.value = tid;
+                opt.textContent = tenantName ? (tenantName + ' (#' + tid + ')') : ('Tenant #' + tid);
+                paTenantSelect.appendChild(opt);
+                return opt;
+            }
+
+            function lookupTenantById(tid, autoApply) {
+                if (!tid || tid <= 0) return Promise.resolve();
+                return fetch(API_BASE + '/tenants?id=' + encodeURIComponent(tid), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        var tenant = null;
+                        if (res && res.data) {
+                            if (Array.isArray(res.data)) {
+                                tenant = res.data[0] || null;
+                            } else if (Array.isArray(res.data.items)) {
+                                tenant = res.data.items[0] || null;
+                            } else if (typeof res.data === 'object') {
+                                tenant = res.data;
+                            }
+                        }
+                        var resolvedTid = 0;
+                        if (tenant) {
+                            var rawTid = tenant.tenant_id || tenant.id || 0;
+                            resolvedTid = parseInt(rawTid, 10) || 0;
+                        }
+                        if (!resolvedTid) resolvedTid = tid;
+                        var tenantName = tenant ? (tenant.tenant_name || tenant.name || '') : '';
+                        var opt = upsertTenantOption(resolvedTid, tenantName);
+                        if (paTenantSelect) paTenantSelect.value = String(resolvedTid);
+                        if (autoApply) {
+                            var label = (opt && opt.textContent) ? opt.textContent : ('#' + resolvedTid);
+                            applyTenantContext(resolvedTid, label);
+                        }
+                    })
+                    .catch(function () {
+                        upsertTenantOption(tid, '');
+                        if (paTenantSelect) paTenantSelect.value = String(tid);
+                        if (autoApply) applyTenantContext(tid);
+                    });
+            }
+
+            // Load tenants into select
+            fetch(API_BASE + '/tenants?limit=500&order_by=id&order_dir=ASC', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    var items = (res.data && res.data.items) ? res.data.items : (Array.isArray(res.data) ? res.data : []);
+                    items.forEach(function (tn) {
+                        var opt = document.createElement('option');
+                        opt.value       = tn.tenant_id || tn.id;
+                        opt.textContent = (tn.tenant_name || tn.name || '') + ' (#' + (tn.tenant_id || tn.id) + ')';
+                        if (paTenantSelect) paTenantSelect.appendChild(opt);
+                    });
+                    if (cfgTenantId > 0 && !self.activeTenantId) {
+                        if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                        applyTenantContext(cfgTenantId);
+                    }
+                })
+                .catch(function () {
+                    if (cfgTenantId > 0) {
+                        upsertTenantOption(cfgTenantId, '');
+                        if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                        applyTenantContext(cfgTenantId);
+                    }
+                });
+
+            if (cfgTenantId > 0) {
+                if (paTenantInput) paTenantInput.value = cfgTenantId;
+                upsertTenantOption(cfgTenantId, '');
+                if (paTenantSelect) paTenantSelect.value = String(cfgTenantId);
+                applyTenantContext(cfgTenantId);
+            }
+
+            if (paApplyBtn) {
+                paApplyBtn.onclick = function () {
+                    var inputTid  = paTenantInput  ? parseInt(paTenantInput.value,  10) : 0;
+                    var selectTid = paTenantSelect ? parseInt(paTenantSelect.value, 10) : 0;
+                    var tid = (!isNaN(inputTid) && inputTid > 0) ? inputTid : selectTid;
+                    applyTenantContext(tid);
+                };
+            }
+
+            if (paLookupBtn) {
+                paLookupBtn.onclick = function () {
+                    var tid = paTenantInput ? parseInt(paTenantInput.value, 10) : 0;
+                    if (!tid || tid <= 0) return;
+                    if (paTenantSelect) {
+                        upsertTenantOption(tid, '');
+                        paTenantSelect.value = String(tid);
+                    }
+                    if (paApplyBtn) paApplyBtn.click();
+                    else applyTenantContext(tid);
+                };
+            }
+
+            if (paClearBtn) {
+                paClearBtn.onclick = function () {
+                    self.activeTenantId = 0;
+                    if (paTenantSelect) paTenantSelect.value = '';
+                    if (paTenantInput)  paTenantInput.value  = '';
+                    if (hiddenTenant)   hiddenTenant.value   = '';
+                    paClearBtn.style.display = 'none';
+                    if (paBanner) paBanner.style.display = 'none';
+                    loadEntities(undefined);
+                };
+            }
+        }
+    };
 
     function t(key, fallback) {
         return T[key] || fallback || key;
@@ -164,12 +340,10 @@
             });
         });
 
-        // Load tenants if super admin
-        if (CFG.isSuperAdmin) {
-            loadTenants();
-        }
+        // Init platform admin panel (must be before loadEntities)
+        platformAdmin.init();
 
-        // Load entities for filter
+        // Load entities for filter (tenant admin loads immediately; PA waits for tenant selection)
         loadEntities();
 
         // Debounced window resize handler for chart
@@ -201,10 +375,7 @@
     async function loadDashboardSummary() {
         try {
             const params = {};
-            const hiddenTenant = $('#prTenantId');
-            let tid = (hiddenTenant && hiddenTenant.value) || '';
-            // Non-super-admin falls back to their own tenant; super admin uses explicit selection only
-            if (!tid && !CFG.isSuperAdmin && CFG.tenantId) tid = CFG.tenantId;
+            const tid = platformAdmin.getTenantId();
             if (tid) params.tenant_id = tid;
             const resp = await apiGet('dashboard', params);
             if (resp.success && resp.data) {
@@ -231,111 +402,6 @@
     }
 
     // ═══════════════════════════════════════════
-    // LOAD TENANTS (super admin) – searchable autocomplete
-    // ═══════════════════════════════════════════
-    let tenantSearchTimer = null;
-
-    async function loadTenants() {
-        const searchInput = $('#prTenantSearch');
-        const hiddenInput = $('#prTenantId');
-        const dropdown = $('#prTenantDropdown');
-        if (!searchInput || !hiddenInput || !dropdown) return;
-
-        // Debounced search on input
-        searchInput.addEventListener('input', function () {
-            clearTimeout(tenantSearchTimer);
-            const query = this.value.trim();
-            // Clear previous tenant selection when user modifies search text
-            hiddenInput.value = '';
-            if (query.length < 1) {
-                dropdown.style.display = 'none';
-                loadEntities();
-                return;
-            }
-            tenantSearchTimer = setTimeout(function () {
-                searchTenants(query);
-            }, 300);
-        });
-
-        // Hide dropdown on click outside
-        document.addEventListener('click', function (e) {
-            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-
-        // Show dropdown on focus if has value
-        searchInput.addEventListener('focus', function () {
-            if (this.value.trim().length >= 1 && dropdown.children.length > 0) {
-                dropdown.style.display = 'block';
-            }
-        });
-    }
-
-    async function searchTenants(query) {
-        const dropdown = $('#prTenantDropdown');
-        const hiddenInput = $('#prTenantId');
-        const searchInput = $('#prTenantSearch');
-        if (!dropdown) return;
-
-        try {
-            const url = new URL((CFG.apiBase || '/api') + '/tenants', window.location.origin);
-            url.searchParams.set('per_page', '20');
-            url.searchParams.set('search', query);
-            const resp = await fetch(url.toString(), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            const data = await resp.json();
-            const items = data?.data?.items || data?.data || [];
-
-            dropdown.innerHTML = '';
-
-            // "All Tenants" clear option
-            const clearDiv = document.createElement('div');
-            clearDiv.className = 'pr-autocomplete-clear';
-            clearDiv.textContent = t('all_tenants', '✕ All Tenants (clear)');
-            clearDiv.addEventListener('click', function () {
-                hiddenInput.value = '';
-                searchInput.value = '';
-                dropdown.style.display = 'none';
-                loadEntities();
-            });
-            dropdown.appendChild(clearDiv);
-
-            if (items.length === 0) {
-                const noResult = document.createElement('div');
-                noResult.className = 'pr-autocomplete-item';
-                noResult.textContent = t('no_results', 'No tenants found');
-                noResult.style.opacity = '0.6';
-                noResult.style.cursor = 'default';
-                dropdown.appendChild(noResult);
-            } else {
-                items.forEach(function (tenant) {
-                    const item = document.createElement('div');
-                    item.className = 'pr-autocomplete-item';
-                    const nameText = document.createTextNode(tenant.name || ('Tenant #' + tenant.id));
-                    item.appendChild(nameText);
-                    const idSpan = document.createElement('span');
-                    idSpan.className = 'pr-ac-id';
-                    idSpan.textContent = '#' + tenant.id;
-                    item.appendChild(idSpan);
-                    item.addEventListener('click', function () {
-                        hiddenInput.value = tenant.id;
-                        searchInput.value = tenant.name || ('Tenant #' + tenant.id);
-                        dropdown.style.display = 'none';
-                        loadEntities(tenant.id);
-                    });
-                    dropdown.appendChild(item);
-                });
-            }
-
-            dropdown.style.display = 'block';
-        } catch (e) {
-            console.error('Failed to search tenants:', e);
-        }
-    }
-
-    // ═══════════════════════════════════════════
     // LOAD ENTITIES (for entity filter)
     // ═══════════════════════════════════════════
     async function loadEntities(tenantIdOverride) {
@@ -343,23 +409,16 @@
             const sel = $('#prEntityId');
             if (!sel) return;
 
-            // Determine tenant ID: override > hidden input > config (non-super-admin only)
-            let tid = tenantIdOverride;
-            if (tid === undefined) {
-                const hiddenTenant = $('#prTenantId');
-                tid = hiddenTenant ? hiddenTenant.value : '';
-            }
-            // Only non-super-admin uses CFG.tenantId as fallback;
-            // super admin must explicitly select a tenant
-            if (!tid && !CFG.isSuperAdmin && CFG.tenantId) tid = CFG.tenantId;
+            // Determine tenant ID: explicit override > platformAdmin active tenant > config fallback
+            let tid = tenantIdOverride !== undefined ? tenantIdOverride : platformAdmin.getTenantId();
 
             // Clear existing options
             sel.innerHTML = '<option value="">' + t('all_entities', 'All Entities') + '</option>';
 
-            // For super admin with no tenant selected, don't fetch entities
+            // Platform admin must explicitly select a tenant first
             if (!tid) return;
 
-            const url = new URL((CFG.apiBase || '/api') + '/entities', window.location.origin);
+            const url = new URL(API_BASE + '/entities', window.location.origin);
             url.searchParams.set('limit', '200');
             url.searchParams.set('tenant_id', tid);
 
@@ -388,10 +447,7 @@
         const startDate = $('#prStartDate')?.value;
         const endDate = $('#prEndDate')?.value;
         const groupBy = $('#prGroupBy')?.value || 'day';
-        const tenantIdEl = $('#prTenantId');
-        // Use hidden input value; non-super-admin falls back to CFG.tenantId
-        let tenantId = tenantIdEl ? tenantIdEl.value : '';
-        if (!tenantId && !CFG.isSuperAdmin && CFG.tenantId) tenantId = CFG.tenantId;
+        const tenantId = platformAdmin.getTenantId();
         const entityIdEl = $('#prEntityId');
         const entityId = entityIdEl ? entityIdEl.value : '';
 

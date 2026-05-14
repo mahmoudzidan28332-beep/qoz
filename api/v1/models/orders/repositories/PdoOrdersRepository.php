@@ -100,12 +100,23 @@ final class PdoOrdersRepository
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
         $stmt = $this->pdo->prepare("
-            SELECT o.* FROM orders o
+            SELECT o.*,
+                (SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                    'product_id',   oi.product_id,
+                    'product_name', oi.product_name,
+                    'quantity',     oi.quantity,
+                    'unit_price',   oi.unit_price,
+                    'total',        oi.total
+                )) FROM order_items oi WHERE oi.order_id = o.id) AS items
+            FROM orders o
             INNER JOIN entities e ON o.user_id = e.user_id
             WHERE e.tenant_id = :tenant_id AND o.id = :id LIMIT 1
         ");
         $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['items']) && is_string($row['items'])) {
+            $row['items'] = json_decode($row['items'], true) ?? [];
+        }
         return $row ?: null;
     }
 

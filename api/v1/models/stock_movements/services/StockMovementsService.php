@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 final class StockMovementsService
 {
-    private PdoStockMovementsRepository $movements;
+    private $movements;
 
     public function __construct(PDO $pdo)
     {

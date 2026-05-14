@@ -37,7 +37,9 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
         // Assuming a 'users' or 'tenant_users' table exists for names. 
         // Using LEFT JOIN for safety if table doesn't exist in schema provided.
         $sql = "
-            SELECT dp.* 
+            SELECT dp.id, dp.tenant_id, dp.tenant_user_id, dp.entity_id,
+                   dp.provider_type, dp.vehicle_type, dp.license_number,
+                   dp.is_online, dp.is_active, dp.rating, dp.total_deliveries, dp.created_at
             FROM delivery_providers dp
             WHERE dp.tenant_id = :tenant_id
         ";
@@ -59,7 +61,11 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
             $params[':offset'] = $offset;
         }
 
-        return $this->fetchAll($sql, $params);
+        try {
+            return $this->fetchAll($sql, $params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function count(int $tenantId, array $filters = []): int
@@ -69,15 +75,21 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
 
         [$sql, $params] = $this->applyFilters($sql, $params, $filters);
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function find(int $tenantId, int $id, string $lang = 'ar'): ?array
     {
         $sql = "
-            SELECT dp.*
+            SELECT dp.id, dp.tenant_id, dp.tenant_user_id, dp.entity_id,
+                   dp.provider_type, dp.vehicle_type, dp.license_number,
+                   dp.is_online, dp.is_active, dp.rating, dp.total_deliveries, dp.created_at
             FROM delivery_providers dp
             WHERE dp.tenant_id = :tenant_id
               AND dp.id = :id
@@ -89,38 +101,46 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
             ':id'        => $id,
         ];
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function create(int $tenantId, array $data): int
     {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO delivery_providers (
-                tenant_id, tenant_user_id, entity_id, provider_type, vehicle_type, 
-                license_number, is_online, is_active, rating, total_deliveries
-            ) VALUES (
-                :tenant_id, :tenant_user_id, :entity_id, :provider_type, :vehicle_type, 
-                :license_number, :is_online, :is_active, :rating, :total_deliveries
-            )
-        ");
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO delivery_providers (
+                    tenant_id, tenant_user_id, entity_id, provider_type, vehicle_type, 
+                    license_number, is_online, is_active, rating, total_deliveries
+                ) VALUES (
+                    :tenant_id, :tenant_user_id, :entity_id, :provider_type, :vehicle_type, 
+                    :license_number, :is_online, :is_active, :rating, :total_deliveries
+                )
+            ");
 
-        $stmt->execute([
-            ':tenant_id'        => $tenantId,
-            ':tenant_user_id'   => $data['tenant_user_id'],
-            ':entity_id'        => $data['entity_id'] ?? null,
-            ':provider_type'    => $data['provider_type'],
-            ':vehicle_type'     => $data['vehicle_type'] ?? 'bike',
-            ':license_number'   => $data['license_number'] ?? null,
-            ':is_online'        => $data['is_online'] ?? 0,
-            ':is_active'        => $data['is_active'] ?? 1,
-            ':rating'           => $data['rating'] ?? 0.00,
-            ':total_deliveries' => $data['total_deliveries'] ?? 0,
-        ]);
+            $stmt->execute([
+                ':tenant_id'        => $tenantId,
+                ':tenant_user_id'   => $data['tenant_user_id'],
+                ':entity_id'        => $data['entity_id'] ?? null,
+                ':provider_type'    => $data['provider_type'],
+                ':vehicle_type'     => $data['vehicle_type'] ?? 'bike',
+                ':license_number'   => $data['license_number'] ?? null,
+                ':is_online'        => $data['is_online'] ?? 0,
+                ':is_active'        => $data['is_active'] ?? 1,
+                ':rating'           => $data['rating'] ?? 0.00,
+                ':total_deliveries' => $data['total_deliveries'] ?? 0,
+            ]);
 
-        return (int) $this->pdo->lastInsertId();
+            return (int) $this->pdo->lastInsertId();
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function update(int $tenantId, array $data): bool
@@ -148,15 +168,23 @@ final class PdoDeliveryProviderRepository implements DeliveryProviderRepositoryI
             return true;
         }
 
-        $sql = 'UPDATE delivery_providers SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
+        try {
+            $sql = 'UPDATE delivery_providers SET ' . implode(', ', $fields) . ' WHERE id = :id AND tenant_id = :tenant_id';
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute($params);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     public function delete(int $tenantId, int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM delivery_providers WHERE id = :id AND tenant_id = :tenant_id");
-        return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM delivery_providers WHERE id = :id AND tenant_id = :tenant_id");
+            return $stmt->execute([':tenant_id' => $tenantId, ':id' => $id]);
+        } catch (\PDOException $e) {
+            throw new \DatabaseException($e->getMessage(), ['sqlstate' => $e->getCode()], $e);
+        }
     }
 
     // =========================================================================

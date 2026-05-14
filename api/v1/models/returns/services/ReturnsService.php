@@ -4,15 +4,19 @@ declare(strict_types=1);
 final class ReturnsService
 {
     private PdoReturnsRepository $repo;
+    private ?PdoReturnStatusHistoryRepository $historyRepo;
 
     public const WHITELISTED_COLUMNS = [
         'order_id', 'user_id', 'entity_id', 'return_number', 'status',
         'reason', 'admin_notes', 'requested_at', 'processed_at', 'id'
     ];
 
-    public function __construct(PdoReturnsRepository $repo)
-    {
-        $this->repo = $repo;
+    public function __construct(
+        PdoReturnsRepository $repo,
+        ?PdoReturnStatusHistoryRepository $historyRepo = null
+    ) {
+        $this->repo        = $repo;
+        $this->historyRepo = $historyRepo;
     }
 
     public function list(
@@ -50,7 +54,7 @@ final class ReturnsService
         return $this->repo->save($tenantId, $whitelisted);
     }
 
-    public function update(int $tenantId, array $data): int
+    public function update(int $tenantId, array $data, ?int $changedBy = null): int
     {
         if (empty($data['id'])) {
             throw new InvalidArgumentException('ID is required for update');
@@ -60,7 +64,29 @@ final class ReturnsService
         $whitelisted = array_intersect_key($data, array_flip(self::WHITELISTED_COLUMNS));
 
         $this->validate($whitelisted, true);
-        return $this->repo->save($tenantId, $whitelisted);
+        $result = $this->repo->save($tenantId, $whitelisted);
+
+        // Log status change to return_status_history
+        if ($this->historyRepo !== null && isset($whitelisted['status'])) {
+            try {
+                $this->historyRepo->save($tenantId, [
+                    'return_id'  => (int)$data['id'],
+                    'status'     => $whitelisted['status'],
+                    'changed_by' => $changedBy,
+                    'notes'      => $whitelisted['admin_notes'] ?? null,
+                ]);
+            } catch (\Throwable $e) {
+                // History logging must never break the main operation; log for diagnostics
+                if (function_exists('safe_log')) {
+                    safe_log('warning', 'return_status_history_failed', [
+                        'return_id' => $data['id'] ?? null,
+                        'error'     => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function delete(int $tenantId, int $id): bool

@@ -1,0 +1,163 @@
+{
+    "title": "حركات المخزون",
+    "subtitle": "تتبع وإدارة تغييرات المخزون",
+    "add_movement": "إضافة حركة",
+    "adjust_stock": "تعديل الكمية",
+    "retry": "إعادة المحاولة",
+    "yes": "نعم",
+    "no": "لا",
+
+    "platform_admin": {
+        "panel_title": "لوحة الأدمن",
+        "select_tenant": "المستأجر",
+        "select_tenant_placeholder": "اختر مستأجرًا...",
+        "select_entity": "الفرع",
+        "all_entities": "جميع الفروع",
+        "apply": "تطبيق",
+        "clear": "مسح"
+    },
+
+    "tab": {
+        "movements": "حركات المخزون",
+        "entity_products": "منتجات الفروع",
+        "product_variants": "المتغيرات",
+        "entity_variant_stock": "مخزون المتغيرات"
+    },
+
+    "scan": {
+        "barcode": "مسح الباركود",
+        "placeholder": "أدخل الباركود...",
+        "btn": "مسح",
+        "sku": "بحث بـ SKU",
+        "sku_placeholder": "أدخل الـ SKU...",
+        "open_camera": "فتح الكاميرا",
+        "stop_camera": "إيقاف الكاميرا"
+    },
+
+    "lookup": {
+        "search": "بحث",
+        "sku": "بحث بـ SKU",
+        "sku_placeholder": "أدخل الـ SKU...",
+        "open_camera": "فتح الكاميرا",
+        "stop_camera": "إيقاف الكاميرا"
+    },
+
+    "stats": {
+        "total": "إجمالي الحركات",
+        "restocked": "إعادة تخزين",
+        "sold": "مباع",
+        "returned": "مرتجع"
+    },
+
+    "filter": {
+        "search": "بحث",
+        "search_placeholder": "ابحث عن منتج...",
+        "type": "النوع",
+        "all_types": "جميع الأنواع",
+        "date_from": "من تاريخ",
+        "date_to": "إلى تاريخ",
+        "apply": "تصفية",
+        "clear": "مسح"
+    },
+
+    "types": {
+        "restock": "إعادة تخزين",
+        "sale": "بيع",
+        "return": "إرجاع",
+        "adjustment": "تسوية"
+    },
+
+    "table": {
+        "id": "م",
+        "product": "المنتج",
+        "variant": "المتغير",
+        "type": "النوع",
+        "quantity": "الكمية",
+        "reference": "مرجع",
+        "notes": "ملاحظات",
+        "date": "التاريخ",
+        "actions": "الإجراءات",
+        "loading": "جارٍ التحميل...",
+        "no_records": "لا توجد سجلات"
+    },
+
+    "ep": {
+        "add": "إضافة منتج فرع",
+        "id": "م",
+        "tenant_id": "المستأجر",
+        "entity_id": "الفرع",
+        "product_id": "المنتج",
+        "stock_quantity": "الكمية",
+        "low_threshold": "حد الإنذار",
+        "is_active": "نشط",
+        "is_featured": "مميز",
+        "created_at": "تاريخ الإنشاء",
+        "adjust_stock": "تعديل الكمية"
+    },
+
+    "pv": {
+        "id": "م",
+        "product_id": "المنتج",
+        "sku": "SKU",
+        "barcode": "باركود",
+        "stock_quantity": "الكمية",
+        "low_threshold": "حد الإنذار",
+        "is_active": "نشط",
+        "is_default": "افتراضي",
+        "created_at": "تاريخ الإنشاء",
+        "adjust_stock": "تعديل الكمية"
+    },
+
+    "epv": {
+        "id": "م",
+        "tenant_id": "المستأجر",
+        "entity_id": "الفرع",
+        "product_id": "المنتج",
+        "variant_id": "المتغير",
+        "variant_sku": "SKU المتغير",
+        "stock_quantity": "الكمية",
+        "stock_status": "الحالة",
+        "is_active": "نشط",
+        "created_at": "تاريخ الإنشاء",
+        "adjust_stock": "تعديل الكمية"
+    },
+
+    "form": {
+        "product_id": "رقم المنتج",
+        "variant_id": "رقم المتغير (اختياري)",
+        "type": "نوع الحركة",
+        "quantity": "الكمية",
+        "reference_id": "رقم المرجع",
+        "notes": "ملاحظات",
+        "edit": "تعديل",
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "saving": "جارٍ الحفظ...",
+        "delete": "حذف",
+        "adjust_stock_title": "تعديل كمية المخزون"
+    },
+
+    "messages": {
+        "saved": "تم الحفظ بنجاح",
+        "deleted": "تم الحذف بنجاح",
+        "error": "حدث خطأ",
+        "confirm_delete": "هل أنت متأكد من الحذف؟",
+        "product_found": "تم العثور على المنتج",
+        "product_not_found": "المنتج غير موجود",
+        "barcode_not_found": "الباركود غير موجود",
+        "sku_not_found": "الـ SKU غير موجود",
+        "camera_not_supported": "الكاميرا غير مدعومة في هذا المتصفح",
+        "camera_error": "تعذّر الوصول إلى الكاميرا"
+    },
+
+    "pagination": {
+        "showing": "عرض",
+        "of": "من",
+        "prev": "›",
+        "next": "‹"
+    },
+
+    "accessibility": {
+        "close": "إغلاق"
+    }
+}

@@ -5,6 +5,8 @@ $baseDir = dirname(__DIR__, 2);
 require_once $baseDir . '/bootstrap.php';
 require_once $baseDir . '/shared/core/ResponseFormatter.php';
 require_once $baseDir . '/shared/helpers/safe_helpers.php';
+require_once $baseDir . '/shared/helpers/AuditLogger.php';
+require_once $baseDir . '/shared/helpers/authorize.php';
 require_once $baseDir . '/shared/config/db.php';
 
 // ================================
@@ -72,6 +74,9 @@ $effectiveTenantId = resolve_tenant_id();
 // Platform Admin defaults to 0 (Global View) if no specific tenant is requested
 if ($isPlatformAdmin && ($effectiveTenantId === null || $effectiveTenantId === 0)) {
     $effectiveTenantId = 0;
+} elseif ($effectiveTenantId === null) {
+    ResponseFormatter::error('Unauthorized: tenant not found', 401);
+    exit;
 }
 
 // 🔒 SECURITY: Enforce TenantContext
@@ -84,6 +89,21 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $raw    = file_get_contents('php://input');
     $data   = $raw ? (json_decode($raw, true) ?? []) : [];
+
+    // Platform admins may provide tenant_id in the request body (POST/PUT).
+    // resolve_tenant_id() only reads $_GET, so update TenantContext here when needed.
+    if ($isPlatformAdmin && $effectiveTenantId === 0
+        && isset($data['tenant_id']) && is_numeric($data['tenant_id'])
+        && (int)$data['tenant_id'] > 0
+    ) {
+        $effectiveTenantId = (int)$data['tenant_id'];
+        TenantContext::set($effectiveTenantId);
+        safe_log('info', 'addresses.platform_admin_tenant_scope', [
+            'tenant_id' => $effectiveTenantId,
+            'user_id'   => get_user_id(),
+            'method'    => $method,
+        ]);
+    }
 
     $page     = isset($_GET['page'])  ? max(1, (int)$_GET['page'])            : 1;
     $limit    = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 25;
@@ -161,6 +181,11 @@ try {
             $data['owner_type'] = $data['owner_type'] ?? 'user';
             $data['owner_id']   = $data['owner_id']   ?? ($user['id'] ?? null);
 
+            // Tenant admins may only create addresses for entities that belong to their tenant.
+            if (($data['owner_type'] ?? '') === 'entity' && !$isPlatformAdmin && $effectiveTenantId > 0) {
+                verify_entity_ownership($pdo, $data['owner_id'] ?? null, $effectiveTenantId);
+            }
+
             $newId = $controller->create($data);
 
             AuditLogsService::log(
@@ -192,6 +217,11 @@ try {
                 $oldState = $controller->get($updateId, $language);
             } catch (ApplicationException|\RuntimeException $e) {
                 safe_log('warning', 'addresses.fetch_old_state', ['error' => $e->getMessage()]);
+            }
+
+            // Tenant admins may only update addresses for entities that belong to their tenant.
+            if ($oldState && ($oldState['owner_type'] ?? '') === 'entity' && !$isPlatformAdmin && $effectiveTenantId > 0) {
+                verify_entity_ownership($pdo, $oldState['owner_id'] ?? null, $effectiveTenantId);
             }
 
             $controller->update($updateId, $data);
@@ -253,14 +283,16 @@ try {
     safe_log('warning', 'addresses.validation', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), 422);
 } catch (ApplicationException|\RuntimeException $e) {
-    $code = $e->getCode();
-    $httpCode = in_array($code, [400, 403, 404, 422]) ? $code : 400;
+    $httpCode = ($e instanceof AppException) ? $e->getStatusCode() : (int)$e->getCode();
+    if (!in_array($httpCode, [400, 401, 403, 404, 422], true)) {
+        $httpCode = 400;
+    }
     safe_log('error', 'addresses.runtime', ['error' => $e->getMessage()]);
     ResponseFormatter::error($e->getMessage(), $httpCode);
-} catch (ApplicationException|\RuntimeException $e) {
+} catch (\Throwable $e) {
     safe_log('critical', 'addresses.fatal', [
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString()
     ]);
-    ResponseFormatter::error($e->getMessage(), 500);
+    ResponseFormatter::error('Internal Server Error', 500);
 }

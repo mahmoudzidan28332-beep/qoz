@@ -24,7 +24,7 @@
     // ─── State ───────────────────────────────────────────────────────
     const state = {
         lang:   CFG.lang || 'ar',
-        tenant: CFG.tenantId || 1,
+        tenant: CFG.tenantId || 0,
         csrf:   CFG.csrfToken || '',
         perms:  { canCreate: !!CFG.canCreate, canEdit: !!CFG.canEdit, canDelete: !!CFG.canDelete },
         initialized: false,
@@ -295,7 +295,7 @@
     // ─── Country → City Cascade ───────────────────────────────────────
     async function loadCountries() {
         try {
-            var r     = await api(CFG.urls.countries + '?limit=300&lang=' + state.lang);
+            var r     = await api(CFG.urls.countries + '?limit=300&lang=' + state.lang + '&tenant_id=' + state.tenant);
             var items = extractItems(r);
             var html  = '<option value="">–</option>' +
                 items.map(function (c) {
@@ -312,8 +312,8 @@
         el.innerHTML = '<option value="">Loading...</option>';
         try {
             var url = countryId
-                ? CFG.urls.cities + '?country_id=' + encodeURIComponent(countryId) + '&limit=500&language=' + state.lang
-                : CFG.urls.cities + '?limit=500&language=' + state.lang;
+                ? CFG.urls.cities + '?country_id=' + encodeURIComponent(countryId) + '&limit=500&language=' + state.lang + '&tenant_id=' + state.tenant
+                : CFG.urls.cities + '?limit=500&language=' + state.lang + '&tenant_id=' + state.tenant;
             var r     = await api(url);
             var items = extractItems(r);
             el.innerHTML = '<option value="">–</option>' +
@@ -498,8 +498,9 @@
                 var body = cfg.getFormData ? cfg.getFormData() : null;
                 if (!body) { s.saving = false; return; }
                 var id = cfg.getId ? cfg.getId() : null;
+                var tenantQs = state.tenant !== undefined && state.tenant !== '' ? '?tenant_id=' + encodeURIComponent(state.tenant) : '';
                 try {
-                    await api(id ? url + '/' + id : url, { method: id ? 'PUT' : 'POST', json: body });
+                    await api(id ? url + '/' + id + tenantQs : url + tenantQs, { method: id ? 'PUT' : 'POST', json: body });
                     notify('Saved successfully', 'success');
                     mod.hideForm();
                     mod.load(s.page);
@@ -919,13 +920,18 @@
                     $('providerEntityName').textContent = '';
                     $('providerEntityName').className   = 'provider-name-badge';
                 }
-                if ($('providerTenantUserId')) $('providerTenantUserId').value = p.tenant_user_id || '';
-                if ($('providerTenantUserName') && p.tenant_user_id) {
-                    $('providerTenantUserName').textContent = '#' + p.tenant_user_id;
-                    $('providerTenantUserName').className   = 'provider-name-badge found';
-                } else if ($('providerTenantUserName')) {
-                    $('providerTenantUserName').textContent = '';
-                    $('providerTenantUserName').className   = 'provider-name-badge';
+                if ($('providerTenantUserId')) {
+                    var isNewRecord = !p.id;
+                    var autoFillUserId = isNewRecord && !CFG.isPlatformAdmin ? CFG.userId : null;
+                    var tuId = p.tenant_user_id || autoFillUserId || '';
+                    $('providerTenantUserId').value = tuId;
+                    if (tuId && $('providerTenantUserName')) {
+                        $('providerTenantUserName').textContent = '#' + tuId;
+                        $('providerTenantUserName').className   = 'provider-name-badge found';
+                    } else if ($('providerTenantUserName')) {
+                        $('providerTenantUserName').textContent = '';
+                        $('providerTenantUserName').className   = 'provider-name-badge';
+                    }
                 }
             },
             getFormData: function () {
@@ -1218,7 +1224,7 @@
                 ps.saving = true;
                 var body = pzonesMod.cfg.getFormData();
                 try {
-                    await api(CFG.urls.provider_zones, { method: 'POST', json: body });
+                    await api(CFG.urls.provider_zones + (state.tenant !== undefined && state.tenant !== '' ? '?tenant_id=' + encodeURIComponent(state.tenant) : ''), { method: 'POST', json: body });
                     notify('Saved successfully', 'success');
                     pzonesMod.hideForm();
                     pzonesMod.load(ps.page);
@@ -1307,6 +1313,162 @@
     }
 
     // ─── Init ─────────────────────────────────────────────────────────
+    // ─── Platform Admin — Tenant Context ─────────────────────────────
+    var platformAdmin = {
+        activeTenantId: 0,
+
+        /**
+         * Returns the effective tenant_id to append to all API calls.
+         * Platform Admins can override to any selected tenant.
+         */
+        tenantParam: function () {
+            var tid = this.activeTenantId || state.tenant;
+            return tid ? 'tenant_id=' + encodeURIComponent(tid) : '';
+        },
+
+        /**
+         * Wire up the Platform Admin panel controls.
+         */
+        bind: function () {
+            if (!CFG.isPlatformAdmin) return;
+
+            var self = this;
+            var searchInput   = $('paUserSearch');
+            var searchBtn     = $('paUserSearchBtn');
+            var searchResults = $('paUserSearchResults');
+            var tenantSelect  = $('paTenantSelect');
+            var applyBtn      = $('paApplyTenantBtn');
+            var banner        = $('paActiveTenantBanner');
+            var bannerLabel   = $('paActiveTenantLabel');
+            var clearBtn      = $('paClearTenantBtn');
+
+            if (!searchBtn) return;
+
+            // Search users by ID or name
+            searchBtn.addEventListener('click', async function () {
+                var q = searchInput ? searchInput.value.trim() : '';
+                if (!q) return;
+
+                try {
+                    var isId = /^\d+$/.test(q);
+                    var url  = isId
+                        ? CFG.urls.users + '/' + encodeURIComponent(q)
+                        : CFG.urls.users + '?search=' + encodeURIComponent(q) + '&limit=20';
+
+                    var r = await api(url);
+                    var users = isId
+                        ? (r.data ? [r.data] : (r.id ? [r] : []))
+                        : (r.data && Array.isArray(r.data) ? r.data : (Array.isArray(r.items) ? r.items : []));
+
+                    if (!searchResults) return;
+                    searchResults.innerHTML = '';
+                    searchResults.style.display = users.length ? 'block' : 'none';
+
+                    users.forEach(function (u) {
+                        var item = document.createElement('div');
+                        item.className = 'pa-user-item';
+                        item.textContent = (u.name || u.username || '') + ' (#' + u.id + ')';
+                        item.dataset.userId = u.id;
+                        item.addEventListener('click', function () {
+                            searchResults.style.display = 'none';
+                            if (searchInput) searchInput.value = item.textContent;
+                            self.loadTenantsForUser(u.id, tenantSelect, applyBtn);
+                        });
+                        searchResults.appendChild(item);
+                    });
+                } catch (err) {
+                    console.error('[PlatformAdmin] user search error', err);
+                }
+            });
+
+            // Load tenant list when platform admin also wants to browse without user search
+            self.loadAllTenants(tenantSelect, applyBtn);
+
+            // Apply selected tenant
+            applyBtn.addEventListener('click', async function () {
+                var tid = parseInt(tenantSelect ? tenantSelect.value : '', 10) || 0;
+                if (!tid) return;
+
+                self.activeTenantId = tid;
+                state.tenant        = tid;
+
+                if (banner) banner.style.display = 'flex';
+                if (bannerLabel) {
+                    var opt = tenantSelect ? tenantSelect.options[tenantSelect.selectedIndex] : null;
+                    bannerLabel.textContent = 'Acting on behalf of: ' + (opt ? opt.text : 'Tenant #' + tid);
+                }
+
+                // Reload dropdowns first, then all modules with new tenant
+                await loadDrops();
+                [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
+                    .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
+            });
+
+            // Clear selected tenant
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    self.activeTenantId = 0;
+                    state.tenant        = CFG.tenantId || 0;
+                    if (banner) banner.style.display = 'none';
+                    if (tenantSelect) tenantSelect.value = '';
+                    if (applyBtn) applyBtn.disabled = true;
+
+                    [zonesMod, providersMod, ordersMod, locationsMod, trackingMod, pzonesMod]
+                        .forEach(function (m) { if (m && typeof m.load === 'function') m.load(1); });
+                });
+            }
+
+            // Enable apply button when a tenant is selected
+            if (tenantSelect) {
+                tenantSelect.addEventListener('change', function () {
+                    if (applyBtn) applyBtn.disabled = !tenantSelect.value;
+                });
+            }
+        },
+
+        /**
+         * Populate tenant dropdown with all tenants (for platform admin).
+         */
+        loadAllTenants: async function (selectEl, applyBtn) {
+            if (!selectEl) return;
+            try {
+                var r = await api(CFG.urls.tenants + '?limit=500&lang=' + state.lang);
+                var list = extractItems(r);
+                list.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value       = t.id;
+                    opt.textContent = (t.name || t.tenant_name || '') + ' (#' + t.id + ')';
+                    selectEl.appendChild(opt);
+                });
+                if (applyBtn) applyBtn.disabled = !selectEl.value;
+            } catch (err) {
+                console.error('[PlatformAdmin] load tenants error', err);
+            }
+        },
+
+        /**
+         * Populate tenant dropdown with tenants belonging to a specific user.
+         */
+        loadTenantsForUser: async function (userId, selectEl, applyBtn) {
+            if (!selectEl) return;
+            try {
+                var r = await api(CFG.urls.users + '/' + encodeURIComponent(userId) + '/tenants');
+                var list = r.data || r.items || [];
+                // Reset and re-populate
+                while (selectEl.options.length > 1) selectEl.remove(1);
+                list.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value       = t.tenant_id || t.id;
+                    opt.textContent = (t.tenant_name || t.name || '') + ' (#' + (t.tenant_id || t.id) + ')';
+                    selectEl.appendChild(opt);
+                });
+                if (applyBtn) applyBtn.disabled = !selectEl.value;
+            } catch (err) {
+                console.error('[PlatformAdmin] load user tenants error', err);
+            }
+        }
+    };
+
     async function init() {
         if (state.initialized) return;
         state.initialized = true;
@@ -1314,7 +1476,7 @@
         // Re-read config in case of fragment re-navigation
         var cfg = window.DELIVERY_CONFIG || {};
         state.lang   = cfg.lang || 'ar';
-        state.tenant = cfg.tenantId || 1;
+        state.tenant = cfg.tenantId || 0;
         state.csrf   = cfg.csrfToken || '';
         state.perms  = { canCreate: !!cfg.canCreate, canEdit: !!cfg.canEdit, canDelete: !!cfg.canDelete };
 
@@ -1322,6 +1484,7 @@
         bindZoneTypeChange();
         bindCascade();
         initCoordPicker();
+        platformAdmin.bind();
 
         // ESC key closes modal
         document.addEventListener('keydown', function (e) {

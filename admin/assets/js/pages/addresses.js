@@ -126,7 +126,7 @@
             const currentLang = state.language;
             console.log(`🌍 Loading countries in language: ${currentLang}`);
             
-            const url = `${COUNTRIES_API}?lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
+            const url = `${COUNTRIES_API}?lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}&tenant_id=${CFG.tenantId || 0}`;
             console.log('📡 Loading countries from:', url);
             
             const result = await apiFetch(url);
@@ -213,7 +213,7 @@
 
         try {
             const currentLang = state.language;
-            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}`;
+            const url = `${CITIES_API}?country_id=${encodeURIComponent(countryId)}&lang=${encodeURIComponent(currentLang)}&language=${encodeURIComponent(currentLang)}&tenant_id=${CFG.tenantId || 0}`;
             console.log(`📡 Loading cities for country ${countryId} in language: ${currentLang}`);
             
             const result = await apiFetch(url);
@@ -490,6 +490,8 @@
 
         if (CFG.canEditAllFields) {
             toggleOwnerFields('user');
+        } else if (CFG.isTenantAdmin) {
+            loadEntities();
         }
 
         // Load countries with current language
@@ -507,10 +509,16 @@
     
     async function editAddress(id) {
         try {
-            const result = await apiFetch(`${API}/${id}?language=${state.language}`);
+            const tenantId = CFG.isPlatformAdmin
+                ? (document.getElementById('globalTenantFilter')?.value || 0)
+                : CFG.tenantId;
+            const result = await apiFetch(`${API}/${id}?language=${state.language}&tenant_id=${tenantId}`);
             const addr = result.data || result;
 
-            if (el.formCard) el.formCard.style.display = 'block';
+            if (el.formCard) {
+                el.formCard.style.display = 'block';
+                el.formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             if (el.formTitle) el.formTitle.textContent = t('edit_address', 'Edit Address');
             if (el.btnDelete) el.btnDelete.style.display = 'block';
 
@@ -536,6 +544,8 @@
                     if ((addr.owner_type || 'user') === 'user' && el.ownerIdInput) {
                         el.ownerIdInput.value = addr.owner_id || '';
                     }
+                } else if (CFG.isTenantAdmin) {
+                    await loadEntities(addr.owner_id);
                 }
             }
 

@@ -86,6 +86,13 @@ final class AddressPolicy implements BasePolicy
 
         $roles = $_SESSION['user']['roles'] ?? $_SESSION['roles'] ?? [];
 
+        // Platform admin has full access — equivalent to super_admin.
+        if (!empty($_SESSION['platform_admin'])
+            || (!empty($GLOBALS['ADMIN_UI']) && !empty($GLOBALS['ADMIN_UI']['is_platform_admin']))
+        ) {
+            $roles = array_merge((array)$roles, ['super_admin']);
+        }
+
         return new self($userId, $tenantId, (array)$roles);
     }
 

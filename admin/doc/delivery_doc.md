@@ -1,7 +1,7 @@
 # Delivery System — Complete Technical Documentation
 
 > **Permanent reference** — kept up to date with every code review and change.
-> Last updated: 2026-03-03
+> Last updated: 2026-05-04
 
 ---
 
@@ -15,6 +15,7 @@
 6. [Frontend — Admin Delivery Fragment](#6-frontend--admin-delivery-fragment)
 7. [DB Migration — zone_value Column](#7-db-migration--zone_value-column)
 8. [Error Reference](#8-error-reference)
+9. [Platform Admin Support](#9-platform-admin-support)
 
 ---
 
@@ -473,3 +474,53 @@ ALTER TABLE delivery_zones
 | 401 | `Unauthorized` | Session expired or not logged in |
 | 403 | `Access denied` | Insufficient permissions |
 | 404 | `Zone not found` | ID does not exist in tenant scope |
+
+---
+
+## 9. Platform Admin Support
+
+Platform Admins (users with `super_admin` / `platform_admin` role) can manage delivery data **on behalf of any tenant** without breaking normal tenant isolation for regular users.
+
+### 9.1 Tenant Override Mechanism
+
+All six delivery route files (`delivery_zones.php`, `delivery_providers.php`, `delivery_orders.php`, `driver_locations.php`, `delivery_tracking.php`, `provider_zones.php`) resolve the effective `tenant_id` through the shared `resolve_tenant_id()` helper:
+
+- **Regular users** → always receive their session `tenant_id`; GET parameter is ignored.
+- **Platform Admins** → may pass `?tenant_id=X` to act on any tenant. Defaults to their own session tenant when omitted.
+
+Every cross-tenant access by a Platform Admin is automatically audited via `PlatformContext::logCrossTenantAction()`.
+
+### 9.2 Frontend Panel
+
+When the logged-in user is a Platform Admin, `admin/fragments/delivery.php` renders a **Platform Admin Tenant Selector** panel above the workspace tabs:
+
+| Control | Purpose |
+|---|---|
+| **Search User** | Search platform users by ID or name; populates tenant dropdown with that user's tenants |
+| **Select Tenant** | Direct dropdown of all tenants (for browsing without user lookup) |
+| **Act on Behalf** | Sets the active tenant context — all subsequent data loads use `?tenant_id=X` |
+| **Clear** | Resets to the platform admin's own context |
+
+An orange warning banner is shown while impersonating a tenant to prevent accidental cross-tenant mutations.
+
+### 9.3 Audit Log
+
+Every Platform Admin cross-tenant action in the delivery module is logged with:
+
+| Field | Value |
+|---|---|
+| `action` | `cross_tenant_access` |
+| `source_tenant` | `null` (platform level) |
+| `target_tenant` | The tenant being accessed |
+| `user_id` | Platform Admin's user ID (resolved from session) |
+| `reason` | `Platform Admin — <resource> management` |
+| `timestamp` | ISO 8601 |
+| `ip` | Request IP address |
+
+The log is written via `AuditContext::captureCrossTenantAccess()` (when loaded) or falls back to `audit_log()` or `error_log()`.
+
+### 9.4 Security Constraints
+
+- A regular (non-platform-admin) user who has no session `tenant_id` receives **401 Unauthorized** — unchanged from before.
+- A Platform Admin with `tenant_id = 0` (global view) and no `?tenant_id` override receives **tenant_id = 0**, which the repositories treat as a platform-level context (no data isolation).
+- The `resolve_tenant_id()` function is the **single, authoritative** source for tenant resolution — no route file reads `$_GET['tenant_id']` directly.
